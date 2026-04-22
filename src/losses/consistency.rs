@@ -21,7 +21,7 @@ impl Default for ConsistencyLoss {
 
 impl ConsistencyLoss {
     /// Compute a consistency penalty between topology logits and geometry-induced proximity.
-    pub fn compute(&self, example: &MolecularExample, forward: &ResearchForward) -> Tensor {
+    pub(crate) fn compute(&self, example: &MolecularExample, forward: &ResearchForward) -> Tensor {
         if forward.probes.topology_adjacency_logits.numel() == 0 {
             return Tensor::zeros(
                 [1],

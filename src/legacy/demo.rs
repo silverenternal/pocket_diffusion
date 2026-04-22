@@ -3,8 +3,9 @@
 use tch::{nn, Device};
 
 use crate::{
-    create_example_prrsv_pocket, legacy::PocketDiffusionPipeline, pocket::PocketFeatureExtractor,
-    types::AtomType, CandidateMolecule,
+    legacy::PocketDiffusionPipeline,
+    pocket::{create_example_prrsv_pocket, PocketFeatureExtractor},
+    types::{AtomType, CandidateMolecule},
 };
 
 /// Run the legacy pocket-conditioned generation demo and print a CLI report.

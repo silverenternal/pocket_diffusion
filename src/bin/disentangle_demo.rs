@@ -1,3 +1,5 @@
+#![allow(clippy::needless_borrows_for_generic_args)]
+
 //! 信息解耦Transformer训练演示
 //! Disentangled Transformer Training Demo
 

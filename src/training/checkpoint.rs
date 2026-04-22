@@ -16,6 +16,14 @@ pub struct CheckpointMetadata {
     pub step: usize,
     /// Optional metrics snapshot.
     pub metrics: Option<StepMetrics>,
+    /// Stable hash of the effective config JSON.
+    pub config_hash: Option<String>,
+    /// Stable fingerprint of the dataset validation report.
+    pub dataset_validation_fingerprint: Option<String>,
+    /// Metric schema version associated with summary artifacts.
+    pub metric_schema_version: u32,
+    /// Human-readable resume contract identifier.
+    pub resume_contract_version: String,
 }
 
 /// Result of restoring a checkpoint into a var store.
@@ -47,6 +55,10 @@ impl CheckpointManager {
         var_store: &nn::VarStore,
         step: usize,
         metrics: Option<&StepMetrics>,
+        config_hash: Option<String>,
+        dataset_validation_fingerprint: Option<String>,
+        metric_schema_version: u32,
+        resume_contract_version: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         fs::create_dir_all(&self.dir)?;
         let weights_path = self.dir.join(format!("step-{step}.ot"));
@@ -57,6 +69,10 @@ impl CheckpointManager {
         let metadata = CheckpointMetadata {
             step,
             metrics: metrics.cloned(),
+            config_hash,
+            dataset_validation_fingerprint,
+            metric_schema_version,
+            resume_contract_version: resume_contract_version.to_string(),
         };
         let metadata_json = serde_json::to_string_pretty(&metadata)?;
         fs::write(&metadata_path, &metadata_json)?;
@@ -151,7 +167,17 @@ mod tests {
         let root = &vs.root();
         let mut probe = root.var("probe", &[1], nn::Init::Const(0.0));
         no_grad(|| probe.copy_(&Tensor::from_slice(&[2.5f32]).to_kind(Kind::Float)));
-        manager.save(&vs, 3, None).unwrap();
+        manager
+            .save(
+                &vs,
+                3,
+                None,
+                Some("cfg-hash".to_string()),
+                Some("dataset-hash".to_string()),
+                2,
+                "weights+history+step",
+            )
+            .unwrap();
 
         let mut restored = nn::VarStore::new(Device::Cpu);
         let mut restored_probe = restored.root().var("probe", &[1], nn::Init::Const(0.0));
@@ -161,6 +187,16 @@ mod tests {
         let restored_tensor = restored.root().get("probe").unwrap();
 
         assert_eq!(loaded.metadata.step, 3);
+        assert_eq!(loaded.metadata.config_hash.as_deref(), Some("cfg-hash"));
+        assert_eq!(
+            loaded.metadata.dataset_validation_fingerprint.as_deref(),
+            Some("dataset-hash")
+        );
+        assert_eq!(loaded.metadata.metric_schema_version, 2);
+        assert_eq!(
+            loaded.metadata.resume_contract_version,
+            "weights+history+step"
+        );
         assert_eq!(restored_tensor.double_value(&[0]), 2.5);
         assert_eq!(
             loaded

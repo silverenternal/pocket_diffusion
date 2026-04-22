@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    env:
+      LIBTORCH_USE_PYTORCH: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyTorch CPU runtime for `tch`
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Validate research config
+        run: cargo run --bin pocket_diffusion -- validate --kind research --config configs/research_manifest.json
+
+      - name: Validate experiment config
+        run: cargo run --bin pocket_diffusion -- validate --kind experiment --config configs/unseen_pocket_manifest.json
+
+      - name: Research inspect smoke
+        run: cargo run --bin pocket_diffusion -- research inspect --config configs/research_manifest.json
+
+      - name: Research train smoke
+        run: cargo run --bin pocket_diffusion -- research train --config configs/research_manifest.json
+
+      - name: Research experiment smoke
+        run: cargo run --bin pocket_diffusion -- research experiment --config configs/unseen_pocket_manifest.json
+
+      - name: Report smoke
+        run: cargo run --bin pocket_diffusion -- report --artifact-dir checkpoints

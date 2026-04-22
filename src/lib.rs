@@ -1,4 +1,12 @@
-//! Pocket-conditioned molecular generation research crate.
+#![allow(clippy::derivable_impls)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::needless_borrows_for_generic_args)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::unused_enumerate_index)]
+
+//! Pocket-conditioned modular research crate.
 //!
 //! The primary actively extended surface is the modular research stack under
 //! `config`, `data`, `models`, `training`, and `experiments`.
@@ -24,30 +32,16 @@ pub mod se3_layers;
 pub mod training;
 pub mod types;
 
-// Root-level re-exports are kept for compatibility. New code should prefer
-// module-qualified imports, especially for the modular research stack and the
-// `legacy` namespace.
-pub use config::*;
-pub use data::*;
-pub use dataset::*;
-pub use egnn::*;
-pub use experiment::*;
-pub use experiments::*;
-pub use generator::*;
-pub use legacy::*;
-pub use losses::*;
-pub use models::*;
-pub use pocket::*;
-pub use representation::*;
-pub use runtime::*;
-pub use scorer::*;
-pub use training::*;
-pub use types::*;
-
 // se3_layers contains ndarray-based EGNN for comparison experiments
 // It intentionally has a different RBFEncoder (ndarray vs tch-based)
 pub use se3_layers::{CoordOnlyEGNN, SE3EquivariantLayer, TopologyAwareEGNN};
+pub use types::{CandidateMolecule, GenerationResult};
 
+use crate::egnn::EGNNConfig;
+use crate::generator::{GeneratorConfig, PocketLigandGenerator};
+use crate::pocket::PocketFeatureExtractor;
+use crate::scorer::AffinityScorer;
+use crate::types::Pocket;
 use tch::nn;
 
 /// 完整的生成-评分流水线
@@ -137,6 +131,7 @@ impl PocketDiffusionPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pocket::create_example_prrsv_pocket;
     use tch::Device;
 
     #[test]

@@ -27,9 +27,9 @@
       "learning_rate": 0.001,
       "max_steps": 4,
       "schedule": {
-        "stage1_steps": 2,
-        "stage2_steps": 4,
-        "stage3_steps": 6
+        "stage1_steps": 1,
+        "stage2_steps": 2,
+        "stage3_steps": 4
       },
       "loss_weights": {
         "alpha_task": 1.0,

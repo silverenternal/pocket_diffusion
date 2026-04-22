@@ -1,16 +1,22 @@
-//! Surrogate task objective for the Phase 3 training skeleton.
+//! Primary-objective implementations for the modular research stack.
 
 use tch::{Kind, Tensor};
 
-use crate::models::ResearchForward;
+use crate::{
+    config::PrimaryObjectiveConfig,
+    models::{ResearchForward, TaskDrivenObjective},
+};
 
-/// Task loss based on reconstructing each modality from its structured latent path.
+/// Reconstruction-style surrogate objective over modality-specific latent paths.
 #[derive(Debug, Default, Clone)]
-pub struct TaskLoss;
+pub struct SurrogateReconstructionObjective;
 
-impl TaskLoss {
-    /// Compute a reconstruction-style task loss over the modality-specific paths.
-    pub fn compute(&self, forward: &ResearchForward) -> Tensor {
+impl TaskDrivenObjective<ResearchForward> for SurrogateReconstructionObjective {
+    fn name(&self) -> &'static str {
+        "surrogate_reconstruction"
+    }
+
+    fn compute(&self, forward: &ResearchForward) -> Tensor {
         let topo = mse(
             &forward.slots.topology.reconstructed_tokens,
             &forward.encodings.topology.token_embeddings,
@@ -24,6 +30,17 @@ impl TaskLoss {
             &forward.encodings.pocket.token_embeddings,
         );
         topo + geo + pocket
+    }
+}
+
+/// Build the configured primary objective implementation.
+pub(crate) fn build_primary_objective(
+    config: PrimaryObjectiveConfig,
+) -> Box<dyn TaskDrivenObjective<ResearchForward>> {
+    match config {
+        PrimaryObjectiveConfig::SurrogateReconstruction => {
+            Box::new(SurrogateReconstructionObjective)
+        }
     }
 }
 

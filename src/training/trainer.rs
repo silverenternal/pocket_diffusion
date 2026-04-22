@@ -7,12 +7,17 @@ use tch::{nn, nn::OptimizerConfig, Kind, Tensor};
 use crate::{
     config::{AffinityWeighting, ResearchConfig},
     data::{ExampleBatchIter, MolecularExample},
-    losses::{ConsistencyLoss, GateLoss, IntraRedundancyLoss, LeakageLoss, ProbeLoss, TaskLoss},
-    models::{Phase1ResearchSystem, ResearchForward},
+    losses::{
+        build_primary_objective, ConsistencyLoss, GateLoss, IntraRedundancyLoss, LeakageLoss,
+        ProbeLoss,
+    },
+    models::{Phase1ResearchSystem, ResearchForward, TaskDrivenObjective},
+    training::{stable_json_hash, METRIC_SCHEMA_VERSION, RESUME_CONTRACT_VERSION},
 };
 
 use super::{
-    CheckpointManager, LoadedCheckpoint, LossBreakdown, StageScheduler, StepMetrics, TrainingStage,
+    AuxiliaryLossMetrics, CheckpointManager, LoadedCheckpoint, LossBreakdown,
+    PrimaryObjectiveMetrics, StageScheduler, StepMetrics, TrainingStage,
 };
 
 /// Trainer that applies staged auxiliary losses to the new modular system.
@@ -20,13 +25,14 @@ pub struct ResearchTrainer {
     optimizer: nn::Optimizer,
     scheduler: StageScheduler,
     checkpoints: CheckpointManager,
-    task_loss: TaskLoss,
+    primary_objective: Box<dyn TaskDrivenObjective<ResearchForward>>,
     redundancy_loss: IntraRedundancyLoss,
     probe_loss: ProbeLoss,
     leakage_loss: LeakageLoss,
     gate_loss: GateLoss,
     consistency_loss: ConsistencyLoss,
     config: ResearchConfig,
+    dataset_validation_fingerprint: Option<String>,
     affinity_measurement_weights: BTreeMap<String, f64>,
     step: usize,
     history: Vec<StepMetrics>,
@@ -50,13 +56,14 @@ impl ResearchTrainer {
             optimizer,
             scheduler,
             checkpoints,
-            task_loss: TaskLoss,
+            primary_objective: build_primary_objective(config.training.primary_objective),
             redundancy_loss: IntraRedundancyLoss::default(),
             probe_loss: ProbeLoss,
             leakage_loss: LeakageLoss::default(),
             gate_loss: GateLoss,
             consistency_loss: ConsistencyLoss::default(),
             config,
+            dataset_validation_fingerprint: None,
             affinity_measurement_weights: BTreeMap::new(),
             step: 0,
             history: Vec::new(),
@@ -95,10 +102,10 @@ impl ResearchTrainer {
         let stage = self.scheduler.stage_for_step(self.step);
         if self.last_stage != Some(stage) {
             log::info!(
-                "entering {:?} at step {} with weights task={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+                "entering {:?} at step {} with weights primary={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
                 stage,
                 self.step,
-                weights.task,
+                weights.primary,
                 weights.intra_red,
                 weights.probe,
                 weights.leak,
@@ -109,7 +116,7 @@ impl ResearchTrainer {
             self.last_stage = Some(stage);
         }
 
-        let mut task_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
+        let mut primary_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
         let mut intra_red_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
         let mut probe_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
         let mut leak_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
@@ -120,7 +127,7 @@ impl ResearchTrainer {
             measurement_weights(examples, self.config.training.affinity_weighting);
 
         for (example, forward) in examples.iter().zip(forwards.iter()) {
-            task_acc += self.task_loss.compute(forward);
+            primary_acc += self.primary_objective.compute(forward);
             intra_red_acc += self.redundancy_loss.compute(&forward.slots);
             probe_acc += self.probe_loss.compute_weighted(
                 example,
@@ -134,7 +141,7 @@ impl ResearchTrainer {
         }
 
         let denom = (examples.len().max(1)) as f64;
-        let task = task_acc / denom;
+        let primary = primary_acc / denom;
         let intra_red = intra_red_acc / denom;
         let probe = probe_acc / denom;
         let leak = leak_acc / denom;
@@ -142,7 +149,7 @@ impl ResearchTrainer {
         let slot = slot_acc / denom;
         let consistency = consistency_acc / denom;
 
-        let total = &task * weights.task
+        let total = &primary * weights.primary
             + &intra_red * weights.intra_red
             + &probe * weights.probe
             + &leak * weights.leak
@@ -158,13 +165,18 @@ impl ResearchTrainer {
             step: self.step,
             stage,
             losses: LossBreakdown {
-                task: task.double_value(&[]),
-                intra_red: intra_red.double_value(&[]),
-                probe: probe.double_value(&[]),
-                leak: leak.double_value(&[]),
-                gate: gate.double_value(&[]),
-                slot: slot.double_value(&[]),
-                consistency: consistency.double_value(&[]),
+                primary: PrimaryObjectiveMetrics {
+                    objective_name: self.primary_objective.name().to_string(),
+                    surrogate_reconstruction: primary.double_value(&[]),
+                },
+                auxiliaries: AuxiliaryLossMetrics {
+                    intra_red: intra_red.double_value(&[]),
+                    probe: probe.double_value(&[]),
+                    leak: leak.double_value(&[]),
+                    gate: gate.double_value(&[]),
+                    slot: slot.double_value(&[]),
+                    consistency: consistency.double_value(&[]),
+                },
                 total: total.double_value(&[]),
             },
         };
@@ -172,22 +184,30 @@ impl ResearchTrainer {
         if self.config.training.checkpoint_every > 0
             && self.step % self.config.training.checkpoint_every == 0
         {
-            self.checkpoints
-                .save(var_store, self.step, Some(&metrics))?;
+            self.checkpoints.save(
+                var_store,
+                self.step,
+                Some(&metrics),
+                Some(stable_json_hash(&self.config)),
+                self.dataset_validation_fingerprint.clone(),
+                METRIC_SCHEMA_VERSION,
+                RESUME_CONTRACT_VERSION,
+            )?;
         }
         if self.config.training.log_every > 0 && self.step % self.config.training.log_every == 0 {
             log::info!(
-                "step {} [{:?}] total={:.4} task={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+                "step {} [{:?}] total={:.4} primary:{}={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
                 metrics.step,
                 metrics.stage,
                 metrics.losses.total,
-                metrics.losses.task,
-                metrics.losses.intra_red,
-                metrics.losses.probe,
-                metrics.losses.leak,
-                metrics.losses.gate,
-                metrics.losses.slot,
-                metrics.losses.consistency,
+                metrics.losses.primary.objective_name,
+                metrics.losses.primary.surrogate_reconstruction,
+                metrics.losses.auxiliaries.intra_red,
+                metrics.losses.auxiliaries.probe,
+                metrics.losses.auxiliaries.leak,
+                metrics.losses.auxiliaries.gate,
+                metrics.losses.auxiliaries.slot,
+                metrics.losses.auxiliaries.consistency,
             );
         }
         self.history.push(metrics.clone());
@@ -257,6 +277,11 @@ impl ResearchTrainer {
     /// Checkpoint manager used by this trainer.
     pub fn checkpoints(&self) -> &CheckpointManager {
         &self.checkpoints
+    }
+
+    /// Attach the dataset validation fingerprint used by the current run.
+    pub fn set_dataset_validation_fingerprint(&mut self, fingerprint: String) {
+        self.dataset_validation_fingerprint = Some(fingerprint);
     }
 
     fn affinity_weight_for(&self, example: &MolecularExample) -> f64 {

@@ -6,7 +6,8 @@ use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 
 use super::{
     apply_affinity_labels, discover_pdbbind_like_entries, load_affinity_labels, load_manifest,
-    load_manifest_entry, synthetic_phase1_examples, DataParseError, MolecularExample,
+    load_manifest_entry, synthetic_phase1_examples, DataParseError, DatasetValidationReport,
+    MolecularExample,
 };
 use crate::config::{DataConfig, DatasetFormat};
 
@@ -33,6 +34,15 @@ pub struct InMemoryDataset {
     examples: Vec<MolecularExample>,
 }
 
+/// Dataset plus load-time validation metadata.
+#[derive(Debug, Clone)]
+pub struct LoadedDataset {
+    /// Parsed in-memory dataset used by the research stack.
+    pub dataset: InMemoryDataset,
+    /// Structured validation report for the load process.
+    pub validation: DatasetValidationReport,
+}
+
 impl InMemoryDataset {
     /// Create a dataset from pre-built examples.
     pub fn new(examples: Vec<MolecularExample>) -> Self {
@@ -56,9 +66,27 @@ impl InMemoryDataset {
 
     /// Load examples according to the runtime data configuration.
     pub fn from_data_config(config: &DataConfig) -> Result<Self, DataParseError> {
+        Ok(Self::load_from_config(config)?.dataset)
+    }
+
+    /// Load examples plus a structured validation report.
+    pub fn load_from_config(config: &DataConfig) -> Result<LoadedDataset, DataParseError> {
+        let mut validation = DatasetValidationReport::default();
+        validation.parsing_mode = match config.parsing_mode {
+            crate::config::ParsingMode::Lightweight => "lightweight".to_string(),
+            crate::config::ParsingMode::Strict => "strict".to_string(),
+        };
+
         let mut examples =
             match config.dataset_format {
-                DatasetFormat::Synthetic => synthetic_phase1_examples(),
+                DatasetFormat::Synthetic => {
+                    let examples = synthetic_phase1_examples();
+                    validation.discovered_complexes = examples.len();
+                    validation.parsed_examples = examples.len();
+                    validation.parsed_ligands = examples.len();
+                    validation.parsed_pockets = examples.len();
+                    examples
+                }
                 DatasetFormat::ManifestJson => {
                     let manifest_path = config.manifest_path.as_deref().ok_or_else(|| {
                         DataParseError::Discovery {
@@ -68,34 +96,94 @@ impl InMemoryDataset {
                         }
                     })?;
                     let mut manifest = load_manifest(manifest_path)?;
+                    validation.discovered_complexes = manifest.entries.len();
                     if let Some(label_table_path) = config.label_table_path.as_deref() {
                         let labels = load_affinity_labels(label_table_path)?;
-                        apply_affinity_labels(&mut manifest.entries, &labels);
+                        validation.loaded_label_rows = labels.len();
+                        validation.approximate_affinity_labels =
+                            labels.iter().filter(|label| label.is_approximate).count();
+                        validation.affinity_normalization_warnings = labels
+                            .iter()
+                            .filter(|label| label.normalization_warning.is_some())
+                            .count();
+                        validation.normalization_warning_messages = labels
+                            .iter()
+                            .filter_map(|label| label.normalization_warning.clone())
+                            .collect();
+                        let label_report = apply_affinity_labels(&mut manifest.entries, &labels);
+                        validation.example_id_label_matches = label_report.example_id_matches;
+                        validation.protein_id_label_matches = label_report.protein_id_matches;
                     }
-                    manifest
-                        .entries
-                        .iter()
-                        .map(|entry| load_manifest_entry(entry, config.pocket_cutoff_angstrom))
-                        .collect::<Result<Vec<_>, _>>()?
+                    let mut examples = Vec::with_capacity(manifest.entries.len());
+                    for entry in &manifest.entries {
+                        let (example, parsed) = load_manifest_entry(
+                            entry,
+                            config.pocket_cutoff_angstrom,
+                            config.parsing_mode,
+                        )?;
+                        validation.parsed_examples += 1;
+                        validation.parsed_ligands += usize::from(parsed.parsed_ligand);
+                        validation.parsed_pockets += usize::from(parsed.parsed_pocket);
+                        validation.fallback_pocket_extractions +=
+                            usize::from(parsed.used_pocket_fallback);
+                        examples.push(example);
+                    }
+                    examples
                 }
                 DatasetFormat::PdbbindLikeDir => {
-                    let mut entries = discover_pdbbind_like_entries(&config.root_dir)?;
+                    let mut entries =
+                        discover_pdbbind_like_entries(&config.root_dir, config.parsing_mode)?;
+                    validation.discovered_complexes = entries.len();
                     if let Some(label_table_path) = config.label_table_path.as_deref() {
                         let labels = load_affinity_labels(label_table_path)?;
-                        apply_affinity_labels(&mut entries, &labels);
+                        validation.loaded_label_rows = labels.len();
+                        validation.approximate_affinity_labels =
+                            labels.iter().filter(|label| label.is_approximate).count();
+                        validation.affinity_normalization_warnings = labels
+                            .iter()
+                            .filter(|label| label.normalization_warning.is_some())
+                            .count();
+                        validation.normalization_warning_messages = labels
+                            .iter()
+                            .filter_map(|label| label.normalization_warning.clone())
+                            .collect();
+                        let label_report = apply_affinity_labels(&mut entries, &labels);
+                        validation.example_id_label_matches = label_report.example_id_matches;
+                        validation.protein_id_label_matches = label_report.protein_id_matches;
                     }
-                    entries
-                        .iter()
-                        .map(|entry| load_manifest_entry(entry, config.pocket_cutoff_angstrom))
-                        .collect::<Result<Vec<_>, _>>()?
+                    let mut examples = Vec::with_capacity(entries.len());
+                    for entry in &entries {
+                        let (example, parsed) = load_manifest_entry(
+                            entry,
+                            config.pocket_cutoff_angstrom,
+                            config.parsing_mode,
+                        )?;
+                        validation.parsed_examples += 1;
+                        validation.parsed_ligands += usize::from(parsed.parsed_ligand);
+                        validation.parsed_pockets += usize::from(parsed.parsed_pocket);
+                        validation.fallback_pocket_extractions +=
+                            usize::from(parsed.used_pocket_fallback);
+                        examples.push(example);
+                    }
+                    examples
                 }
             };
 
         if let Some(limit) = config.max_examples {
+            let original_len = examples.len();
             examples.truncate(limit);
+            validation.truncated_examples = original_len.saturating_sub(examples.len());
         }
+        validation.attached_labels = examples
+            .iter()
+            .filter(|example| example.targets.affinity_kcal_mol.is_some())
+            .count();
+        validation.unlabeled_examples = examples.len().saturating_sub(validation.attached_labels);
 
-        Ok(Self::new(examples))
+        Ok(LoadedDataset {
+            dataset: Self::new(examples),
+            validation,
+        })
     }
 
     /// Split by protein id to simulate unseen-pocket evaluation.
@@ -281,4 +369,74 @@ pub struct DatasetSplits {
     pub val: InMemoryDataset,
     /// Test set.
     pub test: InMemoryDataset,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+    use crate::config::{DatasetFormat, ParsingMode};
+    use crate::data::load_affinity_labels;
+
+    #[test]
+    fn strict_mode_rejects_nearest_atom_pocket_fallback() {
+        let temp = tempfile::tempdir().unwrap();
+        let ligand_path = temp.path().join("ligand.sdf");
+        let pocket_path = temp.path().join("pocket.pdb");
+        let manifest_path = temp.path().join("manifest.json");
+
+        fs::write(
+            &ligand_path,
+            "ligand\n  codex\n\n  1  0  0  0  0  0            999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\nM  END\n$$$$\n",
+        )
+        .unwrap();
+        fs::write(
+            &pocket_path,
+            "ATOM      1  C   GLY A   1      50.000  50.000  50.000  1.00 20.00           C\n",
+        )
+        .unwrap();
+        fs::write(
+            &manifest_path,
+            serde_json::json!({
+                "entries": [{
+                    "example_id": "ex-1",
+                    "protein_id": "p-1",
+                    "pocket_path": "pocket.pdb",
+                    "ligand_path": "ligand.sdf"
+                }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let mut config = DataConfig::default();
+        config.dataset_format = DatasetFormat::ManifestJson;
+        config.root_dir = temp.path().to_path_buf();
+        config.manifest_path = Some(manifest_path);
+        config.parsing_mode = ParsingMode::Strict;
+        config.pocket_cutoff_angstrom = 2.0;
+
+        assert!(InMemoryDataset::load_from_config(&config).is_err());
+    }
+
+    #[test]
+    fn label_loading_tracks_approximate_normalization_warnings() {
+        let temp = tempfile::tempdir().unwrap();
+        let labels_path = temp.path().join("labels.csv");
+        fs::write(
+            &labels_path,
+            "example_id,measurement_type,raw_value,raw_unit\nex-1,IC50,1.2,uM\n",
+        )
+        .unwrap();
+
+        let labels = load_affinity_labels(&labels_path).unwrap();
+        assert_eq!(labels.len(), 1);
+        assert!(labels[0].is_approximate);
+        assert!(labels[0].normalization_warning.is_some());
+        assert_eq!(
+            labels[0].normalization_provenance.as_deref(),
+            Some("IC50_uM_to_delta_g_via_molar")
+        );
+    }
 }

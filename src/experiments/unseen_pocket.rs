@@ -13,7 +13,10 @@ use crate::{
     data::InMemoryDataset,
     models::{Phase1ResearchSystem, ResearchForward},
     runtime::parse_runtime_device,
-    training::{ResearchTrainer, StepMetrics},
+    training::{
+        reproducibility_metadata, stable_json_hash, ResearchTrainer, RunArtifactBundle,
+        RunArtifactPaths, RunKind, SplitReport, StepMetrics,
+    },
 };
 
 /// Toggles used to disable parts of the model or objective for ablation studies.
@@ -49,6 +52,14 @@ pub struct UnseenPocketExperimentConfig {
     pub ablation: AblationConfig,
 }
 
+impl UnseenPocketExperimentConfig {
+    /// Validate a config before allocating runtime state.
+    pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
+        self.research.validate()?;
+        Ok(())
+    }
+}
+
 impl Default for UnseenPocketExperimentConfig {
     fn default() -> Self {
         Self {
@@ -66,39 +77,101 @@ pub fn load_experiment_config(
     Ok(serde_json::from_str(&content)?)
 }
 
+/// Placeholder section reserved for chemistry-grade evaluation backends.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RealGenerationMetrics {
+    /// Chemistry validity backend slot.
+    pub chemistry_validity: ReservedBackendMetrics,
+    /// Docking or affinity rescoring backend slot.
+    pub docking_affinity: ReservedBackendMetrics,
+    /// Downstream pocket compatibility backend slot.
+    pub pocket_compatibility: ReservedBackendMetrics,
+}
+
+/// Reserved backend schema entry used before integrating external toolkits.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReservedBackendMetrics {
+    /// Whether this backend has been integrated for the current run.
+    pub available: bool,
+    /// Backend identifier when available.
+    pub backend_name: Option<String>,
+    /// Reserved metrics map emitted by the backend.
+    pub metrics: BTreeMap<String, f64>,
+    /// Explanation when the backend is not yet active.
+    pub status: String,
+}
+
 /// Aggregate evaluation metrics for one split.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EvaluationMetrics {
+pub struct RepresentationDiagnostics {
     /// Fraction of samples producing finite outputs.
-    pub validity: f64,
+    pub finite_forward_fraction: f64,
     /// Fraction of unique protein-ligand ids in the split.
-    pub uniqueness: f64,
+    pub unique_complex_fraction: f64,
     /// Fraction of proteins not seen in the training set.
-    pub novelty: f64,
-    /// RMSE between predicted and target pairwise distances.
-    pub distance_rmse: f64,
+    pub unseen_protein_fraction: f64,
+    /// RMSE between distance-probe predictions and target pairwise distances.
+    pub distance_probe_rmse: f64,
     /// Cross-modal cosine alignment between topology and pocket latents.
-    pub affinity_alignment: f64,
+    pub topology_pocket_cosine_alignment: f64,
+    /// Mean topology reconstruction error across the split.
+    pub topology_reconstruction_mse: f64,
+    /// Mean active slot fraction.
+    pub slot_activation_mean: f64,
+    /// Mean gate activation.
+    pub gate_activation_mean: f64,
+    /// Mean leakage proxy.
+    pub leakage_proxy_mean: f64,
+}
+
+/// Proxy task metrics derived from lightweight probe heads.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyTaskMetrics {
     /// MAE of affinity prediction on labeled examples.
-    pub affinity_mae: f64,
+    pub affinity_probe_mae: f64,
     /// RMSE of affinity prediction on labeled examples.
-    pub affinity_rmse: f64,
+    pub affinity_probe_rmse: f64,
     /// Fraction of examples in the split with affinity labels.
     pub labeled_fraction: f64,
     /// Affinity error summarized per measurement type.
     pub affinity_by_measurement: Vec<MeasurementMetrics>,
-    /// Average process memory in MB during evaluation.
+}
+
+/// Split-level counts needed to interpret evaluation outputs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SplitContextMetrics {
+    /// Number of examples evaluated.
+    pub example_count: usize,
+    /// Number of unique complex identifiers in the split.
+    pub unique_complex_count: usize,
+    /// Number of unique proteins in the split.
+    pub unique_protein_count: usize,
+    /// Number of training proteins used as the unseen-pocket reference set.
+    pub train_reference_protein_count: usize,
+}
+
+/// Runtime resource measurements for one evaluation pass.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceUsageMetrics {
+    /// Average process memory delta in MB during evaluation.
     pub memory_usage_mb: f64,
     /// Elapsed evaluation time in milliseconds.
     pub evaluation_time_ms: f64,
-    /// Mean topology reconstruction error across the split.
-    pub reconstruction_mse: f64,
-    /// Mean active slot fraction.
-    pub slot_usage_mean: f64,
-    /// Mean gate activation.
-    pub gate_usage_mean: f64,
-    /// Mean leakage proxy.
-    pub leakage_mean: f64,
+}
+
+/// Aggregate evaluation metrics for one split.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvaluationMetrics {
+    /// Representation-level diagnostics for the modular stack.
+    pub representation_diagnostics: RepresentationDiagnostics,
+    /// Proxy task metrics produced by lightweight probe heads.
+    pub proxy_task_metrics: ProxyTaskMetrics,
+    /// Split-level context counts.
+    pub split_context: SplitContextMetrics,
+    /// Runtime resource measurements.
+    pub resource_usage: ResourceUsageMetrics,
+    /// Reserved section for chemistry/docking/pocket compatibility backends.
+    pub real_generation_metrics: RealGenerationMetrics,
 }
 
 /// Train/validation/test experiment summary.
@@ -106,6 +179,12 @@ pub struct EvaluationMetrics {
 pub struct UnseenPocketExperimentSummary {
     /// Applied experiment configuration.
     pub config: UnseenPocketExperimentConfig,
+    /// Machine-readable dataset validation artifact for the run.
+    pub dataset_validation: crate::data::DatasetValidationReport,
+    /// Split-distribution and leakage audit.
+    pub split_report: SplitReport,
+    /// Reproducibility and schema metadata for this run.
+    pub reproducibility: crate::training::ReproducibilityMetadata,
     /// Training-step history collected during the run.
     pub training_history: Vec<StepMetrics>,
     /// Validation metrics on unseen-pocket split.
@@ -143,7 +222,10 @@ impl UnseenPocketExperiment {
         config: UnseenPocketExperimentConfig,
         resume_from_latest: bool,
     ) -> Result<UnseenPocketExperimentSummary, Box<dyn std::error::Error>> {
-        let dataset = InMemoryDataset::from_data_config(&config.research.data)?
+        config.validate()?;
+        let loaded = InMemoryDataset::load_from_config(&config.research.data)?;
+        let dataset = loaded
+            .dataset
             .with_pocket_feature_dim(config.research.model.pocket_feature_dim);
         let splits = dataset.split_by_protein_fraction_with_options(
             config.research.data.val_fraction,
@@ -162,8 +244,11 @@ impl UnseenPocketExperiment {
         let mut var_store = nn::VarStore::new(device);
         let system = Phase1ResearchSystem::new(&var_store.root(), &config.research);
         let mut trainer = ResearchTrainer::new(&var_store, config.research.clone())?;
+        trainer.set_dataset_validation_fingerprint(stable_json_hash(&loaded.validation));
+        let mut resumed_checkpoint_metadata = None;
         if resume_from_latest {
             if let Some(checkpoint) = trainer.resume_from_latest(&mut var_store)? {
+                resumed_checkpoint_metadata = Some(checkpoint.metadata.clone());
                 if let Some(history) = load_experiment_history(
                     &config.research.training.checkpoint_dir,
                     checkpoint.metadata.step,
@@ -207,8 +292,17 @@ impl UnseenPocketExperiment {
             device,
         );
 
+        let reproducibility = reproducibility_metadata(
+            &config.research,
+            &loaded.validation,
+            resumed_checkpoint_metadata.as_ref(),
+        );
+        let dataset_validation = loaded.validation;
         let summary = UnseenPocketExperimentSummary {
             config,
+            dataset_validation,
+            split_report: SplitReport::from_datasets(&splits.train, &splits.val, &splits.test),
+            reproducibility,
             training_history: trainer.history().to_vec(),
             validation,
             test,
@@ -222,13 +316,45 @@ fn persist_experiment_summary(
     summary: &UnseenPocketExperimentSummary,
 ) -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&summary.config.research.training.checkpoint_dir)?;
-    let path = summary
-        .config
-        .research
-        .training
-        .checkpoint_dir
-        .join("experiment_summary.json");
-    fs::write(path, serde_json::to_string_pretty(summary)?)?;
+    let artifact_dir = &summary.config.research.training.checkpoint_dir;
+    let config_snapshot = artifact_dir.join("config.snapshot.json");
+    let validation_path = artifact_dir.join("dataset_validation_report.json");
+    let split_report_path = artifact_dir.join("split_report.json");
+    let summary_path = artifact_dir.join("experiment_summary.json");
+    let bundle_path = artifact_dir.join("run_artifacts.json");
+    fs::write(
+        &config_snapshot,
+        serde_json::to_string_pretty(&summary.config)?,
+    )?;
+    fs::write(
+        &validation_path,
+        serde_json::to_string_pretty(&summary.dataset_validation)?,
+    )?;
+    fs::write(
+        &split_report_path,
+        serde_json::to_string_pretty(&summary.split_report)?,
+    )?;
+    fs::write(&summary_path, serde_json::to_string_pretty(summary)?)?;
+    let bundle = RunArtifactBundle {
+        schema_version: summary.reproducibility.artifact_bundle_schema_version,
+        run_kind: RunKind::Experiment,
+        artifact_dir: artifact_dir.clone(),
+        config_hash: summary.reproducibility.config_hash.clone(),
+        dataset_validation_fingerprint: summary
+            .reproducibility
+            .dataset_validation_fingerprint
+            .clone(),
+        metric_schema_version: summary.reproducibility.metric_schema_version,
+        paths: RunArtifactPaths {
+            config_snapshot,
+            dataset_validation_report: validation_path,
+            split_report: split_report_path,
+            run_summary: summary_path,
+            run_bundle: bundle_path.clone(),
+            latest_checkpoint: Some(artifact_dir.join("latest.ot")),
+        },
+    };
+    fs::write(bundle_path, serde_json::to_string_pretty(&bundle)?)?;
     Ok(())
 }
 
@@ -267,21 +393,34 @@ pub fn evaluate_split(
 
     if examples.is_empty() {
         return EvaluationMetrics {
-            validity: 0.0,
-            uniqueness: 0.0,
-            novelty: 0.0,
-            distance_rmse: 0.0,
-            affinity_alignment: 0.0,
-            affinity_mae: 0.0,
-            affinity_rmse: 0.0,
-            labeled_fraction: 0.0,
-            affinity_by_measurement: Vec::new(),
-            memory_usage_mb: memory_before,
-            evaluation_time_ms: 0.0,
-            reconstruction_mse: 0.0,
-            slot_usage_mean: 0.0,
-            gate_usage_mean: 0.0,
-            leakage_mean: 0.0,
+            representation_diagnostics: RepresentationDiagnostics {
+                finite_forward_fraction: 0.0,
+                unique_complex_fraction: 0.0,
+                unseen_protein_fraction: 0.0,
+                distance_probe_rmse: 0.0,
+                topology_pocket_cosine_alignment: 0.0,
+                topology_reconstruction_mse: 0.0,
+                slot_activation_mean: 0.0,
+                gate_activation_mean: 0.0,
+                leakage_proxy_mean: 0.0,
+            },
+            proxy_task_metrics: ProxyTaskMetrics {
+                affinity_probe_mae: 0.0,
+                affinity_probe_rmse: 0.0,
+                labeled_fraction: 0.0,
+                affinity_by_measurement: Vec::new(),
+            },
+            split_context: SplitContextMetrics {
+                example_count: 0,
+                unique_complex_count: 0,
+                unique_protein_count: 0,
+                train_reference_protein_count: train_proteins.len(),
+            },
+            resource_usage: ResourceUsageMetrics {
+                memory_usage_mb: memory_before,
+                evaluation_time_ms: 0.0,
+            },
+            real_generation_metrics: reserved_real_generation_metrics(),
         };
     }
 
@@ -293,7 +432,7 @@ pub fn evaluate_split(
     sys.refresh_memory();
     let memory_after = sys.used_memory() as f64 / (1024.0 * 1024.0);
 
-    let validity = forwards
+    let finite_forward_fraction = forwards
         .iter()
         .filter(|forward| {
             tensor_is_finite(&forward.encodings.topology.pooled_embedding)
@@ -308,15 +447,15 @@ pub fn evaluate_split(
         .map(|example| format!("{}::{}", example.protein_id, example.example_id))
         .collect::<std::collections::BTreeSet<_>>()
         .len() as f64;
-    let uniqueness = unique_ids / examples.len() as f64;
+    let unique_complex_fraction = unique_ids / examples.len() as f64;
 
-    let novelty = examples
+    let unseen_protein_fraction = examples
         .iter()
         .filter(|example| !train_proteins.contains(example.protein_id.as_str()))
         .count() as f64
         / examples.len() as f64;
 
-    let distance_rmse = (examples
+    let distance_probe_rmse = (examples
         .iter()
         .zip(forwards.iter())
         .map(|(example, forward)| {
@@ -337,7 +476,7 @@ pub fn evaluate_split(
         / examples.len() as f64)
         .sqrt();
 
-    let affinity_alignment = forwards
+    let topology_pocket_cosine_alignment = forwards
         .iter()
         .map(|forward| {
             let topo = &forward.encodings.topology.pooled_embedding;
@@ -354,7 +493,7 @@ pub fn evaluate_split(
         .filter(|(example, _)| example.targets.affinity_kcal_mol.is_some())
         .collect();
     let labeled_fraction = labeled_examples.len() as f64 / examples.len() as f64;
-    let affinity_mae = if labeled_examples.is_empty() {
+    let affinity_probe_mae = if labeled_examples.is_empty() {
         0.0
     } else {
         labeled_examples
@@ -367,7 +506,7 @@ pub fn evaluate_split(
             .sum::<f64>()
             / labeled_examples.len() as f64
     };
-    let affinity_rmse = if labeled_examples.is_empty() {
+    let affinity_probe_rmse = if labeled_examples.is_empty() {
         0.0
     } else {
         (labeled_examples
@@ -384,7 +523,7 @@ pub fn evaluate_split(
     };
     let affinity_by_measurement = measurement_breakdown(&labeled_examples);
 
-    let reconstruction_mse = forwards
+    let topology_reconstruction_mse = forwards
         .iter()
         .map(|forward| {
             (forward.slots.topology.reconstructed_tokens.shallow_clone()
@@ -396,7 +535,7 @@ pub fn evaluate_split(
         .sum::<f64>()
         / examples.len() as f64;
 
-    let slot_usage_mean = if ablation.disable_slots {
+    let slot_activation_mean = if ablation.disable_slots {
         0.0
     } else {
         forwards
@@ -413,7 +552,7 @@ pub fn evaluate_split(
             / examples.len() as f64
     };
 
-    let gate_usage_mean = if ablation.disable_cross_attention {
+    let gate_activation_mean = if ablation.disable_cross_attention {
         0.0
     } else {
         forwards
@@ -443,7 +582,7 @@ pub fn evaluate_split(
             / examples.len() as f64
     };
 
-    let leakage_mean = if ablation.disable_leakage {
+    let leakage_proxy_mean = if ablation.disable_leakage {
         0.0
     } else {
         forwards
@@ -460,22 +599,66 @@ pub fn evaluate_split(
             / (examples.len() as f64 * 3.0)
     };
 
+    let unique_protein_count = examples
+        .iter()
+        .map(|example| example.protein_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+
     EvaluationMetrics {
-        validity,
-        uniqueness,
-        novelty,
-        distance_rmse,
-        affinity_alignment,
-        affinity_mae,
-        affinity_rmse,
-        labeled_fraction,
-        affinity_by_measurement,
-        memory_usage_mb: (memory_after - memory_before).max(0.0),
-        evaluation_time_ms: start.elapsed().as_secs_f64() * 1000.0,
-        reconstruction_mse,
-        slot_usage_mean,
-        gate_usage_mean,
-        leakage_mean,
+        representation_diagnostics: RepresentationDiagnostics {
+            finite_forward_fraction,
+            unique_complex_fraction,
+            unseen_protein_fraction,
+            distance_probe_rmse,
+            topology_pocket_cosine_alignment,
+            topology_reconstruction_mse,
+            slot_activation_mean,
+            gate_activation_mean,
+            leakage_proxy_mean,
+        },
+        proxy_task_metrics: ProxyTaskMetrics {
+            affinity_probe_mae,
+            affinity_probe_rmse,
+            labeled_fraction,
+            affinity_by_measurement,
+        },
+        split_context: SplitContextMetrics {
+            example_count: examples.len(),
+            unique_complex_count: unique_ids as usize,
+            unique_protein_count,
+            train_reference_protein_count: train_proteins.len(),
+        },
+        resource_usage: ResourceUsageMetrics {
+            memory_usage_mb: (memory_after - memory_before).max(0.0),
+            evaluation_time_ms: start.elapsed().as_secs_f64() * 1000.0,
+        },
+        real_generation_metrics: reserved_real_generation_metrics(),
+    }
+}
+
+fn reserved_real_generation_metrics() -> RealGenerationMetrics {
+    RealGenerationMetrics {
+        chemistry_validity: ReservedBackendMetrics {
+            available: false,
+            backend_name: None,
+            metrics: BTreeMap::new(),
+            status: "reserved for a future chemistry-validity backend adapter".to_string(),
+        },
+        docking_affinity: ReservedBackendMetrics {
+            available: false,
+            backend_name: None,
+            metrics: BTreeMap::new(),
+            status: "reserved for a future docking or affinity rescoring backend adapter"
+                .to_string(),
+        },
+        pocket_compatibility: ReservedBackendMetrics {
+            available: false,
+            backend_name: None,
+            metrics: BTreeMap::new(),
+            status: "reserved for a future downstream pocket-compatibility backend adapter"
+                .to_string(),
+        },
     }
 }
 
@@ -567,6 +750,9 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let mut config = UnseenPocketExperimentConfig::default();
         config.research.training.max_steps = 2;
+        config.research.training.schedule.stage1_steps = 1;
+        config.research.training.schedule.stage2_steps = 1;
+        config.research.training.schedule.stage3_steps = 2;
         config.research.training.checkpoint_every = 100;
         config.research.training.log_every = 100;
         config.research.data.batch_size = 2;
@@ -575,8 +761,20 @@ mod tests {
 
         let summary = UnseenPocketExperiment::run(config).unwrap();
         assert_eq!(summary.training_history.len(), 2);
-        assert!(summary.validation.validity >= 0.0);
-        assert!(summary.test.validity >= 0.0);
+        assert!(
+            summary
+                .validation
+                .representation_diagnostics
+                .finite_forward_fraction
+                >= 0.0
+        );
+        assert!(
+            summary
+                .test
+                .representation_diagnostics
+                .finite_forward_fraction
+                >= 0.0
+        );
         assert!(summary
             .config
             .research
@@ -584,6 +782,14 @@ mod tests {
             .checkpoint_dir
             .join("experiment_summary.json")
             .exists());
+        assert!(summary
+            .config
+            .research
+            .training
+            .checkpoint_dir
+            .join("dataset_validation_report.json")
+            .exists());
+        assert_eq!(summary.dataset_validation.parsed_examples, 4);
     }
 
     #[test]
@@ -593,6 +799,9 @@ mod tests {
 
         let mut config = UnseenPocketExperimentConfig::default();
         config.research.training.max_steps = 2;
+        config.research.training.schedule.stage1_steps = 1;
+        config.research.training.schedule.stage2_steps = 1;
+        config.research.training.schedule.stage3_steps = 2;
         config.research.training.checkpoint_every = 1;
         config.research.training.log_every = 100;
         config.research.data.batch_size = 2;
@@ -602,6 +811,9 @@ mod tests {
         let _ = UnseenPocketExperiment::run(config.clone()).unwrap();
 
         config.research.training.max_steps = 4;
+        config.research.training.schedule.stage1_steps = 1;
+        config.research.training.schedule.stage2_steps = 2;
+        config.research.training.schedule.stage3_steps = 3;
         let summary = UnseenPocketExperiment::run_with_options(config, true).unwrap();
 
         assert_eq!(summary.training_history.len(), 4);
@@ -609,5 +821,6 @@ mod tests {
         assert_eq!(summary.training_history[1].step, 1);
         assert_eq!(summary.training_history[2].step, 2);
         assert_eq!(summary.training_history[3].step, 3);
+        assert!(!summary.split_report.leakage_checks.protein_overlap_detected);
     }
 }

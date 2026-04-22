@@ -19,7 +19,7 @@ impl Default for LeakageLoss {
 
 impl LeakageLoss {
     /// Compute a simple margin-based leakage penalty.
-    pub fn compute(&self, example: &MolecularExample, forward: &ResearchForward) -> Tensor {
+    pub(crate) fn compute(&self, example: &MolecularExample, forward: &ResearchForward) -> Tensor {
         let topo_slots = &forward.slots.topology.slots;
         let geo_slots = &forward.slots.geometry.slots;
         let pocket_slots = &forward.slots.pocket.slots;

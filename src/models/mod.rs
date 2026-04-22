@@ -9,11 +9,17 @@ pub mod system;
 pub mod topo_encoder;
 pub mod traits;
 
-pub use cross_attention::*;
-pub use geo_encoder::*;
-pub use pocket_encoder::*;
-pub use probe_heads::*;
-pub use slot_decomposition::*;
-pub use system::*;
-pub use topo_encoder::*;
-pub use traits::*;
+pub use cross_attention::GatedCrossAttention;
+pub use geo_encoder::GeometryEncoderImpl;
+pub use pocket_encoder::PocketEncoderImpl;
+pub use probe_heads::{ProbeOutputs, SemanticProbeHeads};
+pub use slot_decomposition::SoftSlotDecomposer;
+pub use system::Phase1ResearchSystem;
+pub(crate) use system::{CrossModalInteractions, DecomposedModalities, ResearchForward};
+pub use topo_encoder::TopologyEncoderImpl;
+pub use traits::{
+    ChemistryValidityEvaluator, CrossAttentionOutput, CrossModalInteractor, DockingEvaluator,
+    Encoder, ExternalEvaluationReport, ExternalMetricRecord, GeneratedCandidateRecord,
+    GeometryEncoder, LossTerm, ModalityEncoding, PocketCompatibilityEvaluator, PocketEncoder,
+    SlotDecomposer, SlotEncoding, TaskDrivenObjective, TopologyEncoder, TrainerHook,
+};

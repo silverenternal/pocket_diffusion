@@ -7,8 +7,8 @@ use super::TrainingStage;
 /// Effective weights after stage gating and warmup scaling.
 #[derive(Debug, Clone, Copy)]
 pub struct EffectiveLossWeights {
-    /// Main task objective.
-    pub task: f64,
+    /// Primary objective.
+    pub primary: f64,
     /// Intra-modality redundancy objective.
     pub intra_red: f64,
     /// Semantic probe objective.
@@ -55,7 +55,7 @@ impl StageScheduler {
         let ramp = self.stage_ramp(step, stage);
         let w = &self.weights;
         EffectiveLossWeights {
-            task: w.alpha_task,
+            primary: w.alpha_primary,
             intra_red: if matches!(stage, TrainingStage::Stage1) {
                 0.0
             } else {

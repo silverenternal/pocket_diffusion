@@ -10,12 +10,13 @@ pub struct ProbeLoss;
 
 impl ProbeLoss {
     /// Compute the semantic probe objective for one example.
-    pub fn compute(&self, example: &MolecularExample, forward: &ResearchForward) -> Tensor {
+    #[allow(dead_code)]
+    pub(crate) fn compute(&self, example: &MolecularExample, forward: &ResearchForward) -> Tensor {
         self.compute_weighted(example, forward, 1.0)
     }
 
     /// Compute the semantic probe objective with an optional affinity weight.
-    pub fn compute_weighted(
+    pub(crate) fn compute_weighted(
         &self,
         example: &MolecularExample,
         forward: &ResearchForward,

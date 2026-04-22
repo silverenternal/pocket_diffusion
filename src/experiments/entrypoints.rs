@@ -29,6 +29,9 @@ mod tests {
         config.research.runtime.device = "cpu".to_string();
         config.research.data.batch_size = 2;
         config.research.training.max_steps = 2;
+        config.research.training.schedule.stage1_steps = 1;
+        config.research.training.schedule.stage2_steps = 1;
+        config.research.training.schedule.stage3_steps = 2;
         config.research.training.log_every = 100;
         config.research.training.checkpoint_every = 100;
         config.research.training.checkpoint_dir = temp.path().join("checkpoints");
@@ -39,8 +42,20 @@ mod tests {
         let summary = run_experiment_from_config(&config_path, false).unwrap();
 
         assert_eq!(summary.training_history.len(), 2);
-        assert!(summary.validation.validity >= 0.0);
-        assert!(summary.test.validity >= 0.0);
+        assert!(
+            summary
+                .validation
+                .representation_diagnostics
+                .finite_forward_fraction
+                >= 0.0
+        );
+        assert!(
+            summary
+                .test
+                .representation_diagnostics
+                .finite_forward_fraction
+                >= 0.0
+        );
         assert!(summary
             .config
             .research

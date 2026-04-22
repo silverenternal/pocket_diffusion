@@ -2,7 +2,23 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use thiserror::Error;
+
+/// Validation error raised before launching a config-driven run.
+#[derive(Debug, Error)]
+#[error("invalid research config: {message}")]
+pub struct ConfigValidationError {
+    message: String,
+}
+
+impl ConfigValidationError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
 
 /// Top-level configuration for pocket-conditioned molecular generation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +44,36 @@ impl Default for ResearchConfig {
     }
 }
 
+impl ResearchConfig {
+    /// Validate that the config encodes a runnable research workflow.
+    pub fn validate(&self) -> Result<(), ConfigValidationError> {
+        self.data.validate()?;
+        self.model.validate()?;
+        self.training.validate()?;
+        self.runtime.validate()?;
+        self.validate_cross_section_invariants()?;
+        Ok(())
+    }
+
+    fn validate_cross_section_invariants(&self) -> Result<(), ConfigValidationError> {
+        if self.training.max_steps < self.training.schedule.stage3_steps {
+            return Err(ConfigValidationError::new(format!(
+                "training.max_steps={} must be >= schedule.stage3_steps={}",
+                self.training.max_steps, self.training.schedule.stage3_steps
+            )));
+        }
+        if self.data.dataset_format == DatasetFormat::Synthetic
+            && self.data.stratify_by_measurement
+            && self.data.max_examples == Some(0)
+        {
+            return Err(ConfigValidationError::new(
+                "synthetic runs cannot request stratified measurement splits with max_examples=0",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Dataset and split configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataConfig {
@@ -39,6 +85,9 @@ pub struct DataConfig {
     pub manifest_path: Option<PathBuf>,
     /// Optional CSV/TSV label table used to attach affinity targets.
     pub label_table_path: Option<PathBuf>,
+    /// Lightweight or strict parsing behavior for on-disk assets.
+    #[serde(default)]
+    pub parsing_mode: ParsingMode,
     /// Maximum ligand atoms retained in a batch.
     pub max_ligand_atoms: usize,
     /// Maximum pocket atoms retained in a batch.
@@ -66,6 +115,7 @@ impl Default for DataConfig {
             dataset_format: DatasetFormat::Synthetic,
             manifest_path: None,
             label_table_path: None,
+            parsing_mode: ParsingMode::Lightweight,
             max_ligand_atoms: 64,
             max_pocket_atoms: 256,
             pocket_cutoff_angstrom: 6.0,
@@ -76,6 +126,57 @@ impl Default for DataConfig {
             test_fraction: 0.1,
             stratify_by_measurement: false,
         }
+    }
+}
+
+impl DataConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.max_ligand_atoms == 0 {
+            return Err(ConfigValidationError::new(
+                "data.max_ligand_atoms must be greater than zero",
+            ));
+        }
+        if self.max_pocket_atoms == 0 {
+            return Err(ConfigValidationError::new(
+                "data.max_pocket_atoms must be greater than zero",
+            ));
+        }
+        if self.batch_size == 0 {
+            return Err(ConfigValidationError::new(
+                "data.batch_size must be greater than zero",
+            ));
+        }
+        if self.pocket_cutoff_angstrom <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.pocket_cutoff_angstrom must be positive",
+            ));
+        }
+        if let Some(limit) = self.max_examples {
+            if limit == 0 {
+                return Err(ConfigValidationError::new(
+                    "data.max_examples must be omitted or greater than zero",
+                ));
+            }
+        }
+        validate_split_fractions(self.val_fraction, self.test_fraction)?;
+        match self.dataset_format {
+            DatasetFormat::Synthetic => {}
+            DatasetFormat::ManifestJson => {
+                let manifest_path = self.manifest_path.as_deref().ok_or_else(|| {
+                    ConfigValidationError::new(
+                        "data.manifest_path is required when data.dataset_format=manifest_json",
+                    )
+                })?;
+                ensure_file_exists(manifest_path, "data.manifest_path")?;
+            }
+            DatasetFormat::PdbbindLikeDir => {
+                ensure_directory_exists(&self.root_dir, "data.root_dir")?;
+            }
+        }
+        if let Some(label_table_path) = self.label_table_path.as_deref() {
+            ensure_file_exists(label_table_path, "data.label_table_path")?;
+        }
+        Ok(())
     }
 }
 
@@ -109,6 +210,32 @@ impl Default for ModelConfig {
     }
 }
 
+impl ModelConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.hidden_dim <= 0 {
+            return Err(ConfigValidationError::new(
+                "model.hidden_dim must be greater than zero",
+            ));
+        }
+        if self.num_slots <= 0 {
+            return Err(ConfigValidationError::new(
+                "model.num_slots must be greater than zero",
+            ));
+        }
+        if self.atom_vocab_size <= 0 || self.bond_vocab_size <= 0 {
+            return Err(ConfigValidationError::new(
+                "model.atom_vocab_size and model.bond_vocab_size must be greater than zero",
+            ));
+        }
+        if self.pocket_feature_dim <= 0 || self.pair_feature_dim <= 0 {
+            return Err(ConfigValidationError::new(
+                "model.pocket_feature_dim and model.pair_feature_dim must be greater than zero",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Runtime preferences that affect execution but not model semantics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeConfig {
@@ -124,6 +251,17 @@ impl Default for RuntimeConfig {
             device: "cpu".to_string(),
             data_workers: 0,
         }
+    }
+}
+
+impl RuntimeConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.device.trim().is_empty() {
+            return Err(ConfigValidationError::new(
+                "runtime.device must not be empty",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -144,6 +282,9 @@ pub struct TrainingConfig {
     pub checkpoint_every: usize,
     /// Logging interval in steps.
     pub log_every: usize,
+    /// Configured primary objective implementation.
+    #[serde(default = "default_primary_objective")]
+    pub primary_objective: PrimaryObjectiveConfig,
     /// Weighting strategy for labeled affinity supervision.
     pub affinity_weighting: AffinityWeighting,
 }
@@ -158,9 +299,43 @@ impl Default for TrainingConfig {
             checkpoint_dir: PathBuf::from("./checkpoints"),
             checkpoint_every: 10,
             log_every: 1,
+            primary_objective: PrimaryObjectiveConfig::SurrogateReconstruction,
             affinity_weighting: AffinityWeighting::None,
         }
     }
+}
+
+impl TrainingConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if !self.learning_rate.is_finite() || self.learning_rate <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "training.learning_rate must be a finite positive value",
+            ));
+        }
+        if self.max_steps == 0 {
+            return Err(ConfigValidationError::new(
+                "training.max_steps must be greater than zero",
+            ));
+        }
+        self.schedule.validate(self.max_steps)?;
+        self.loss_weights.validate()?;
+        if self.checkpoint_dir.as_os_str().is_empty() {
+            return Err(ConfigValidationError::new(
+                "training.checkpoint_dir must not be empty",
+            ));
+        }
+        if self.checkpoint_dir.exists() && !self.checkpoint_dir.is_dir() {
+            return Err(ConfigValidationError::new(format!(
+                "training.checkpoint_dir={} must be a directory when it already exists",
+                self.checkpoint_dir.display()
+            )));
+        }
+        Ok(())
+    }
+}
+
+fn default_primary_objective() -> PrimaryObjectiveConfig {
+    PrimaryObjectiveConfig::SurrogateReconstruction
 }
 
 /// Stage boundaries for gradual regularizer activation.
@@ -184,11 +359,29 @@ impl Default for StageScheduleConfig {
     }
 }
 
+impl StageScheduleConfig {
+    fn validate(&self, max_steps: usize) -> Result<(), ConfigValidationError> {
+        if self.stage1_steps > self.stage2_steps || self.stage2_steps > self.stage3_steps {
+            return Err(ConfigValidationError::new(
+                "training.schedule must satisfy stage1_steps <= stage2_steps <= stage3_steps",
+            ));
+        }
+        if self.stage3_steps > max_steps {
+            return Err(ConfigValidationError::new(format!(
+                "training.schedule.stage3_steps={} must be <= training.max_steps={max_steps}",
+                self.stage3_steps
+            )));
+        }
+        Ok(())
+    }
+}
+
 /// Final loss weights before scheduler warmup scaling.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LossWeightConfig {
-    /// Main task objective.
-    pub alpha_task: f64,
+    /// Primary objective weight.
+    #[serde(alias = "alpha_task")]
+    pub alpha_primary: f64,
     /// Intra-modality redundancy objective.
     pub beta_intra_red: f64,
     /// Semantic probe supervision.
@@ -206,7 +399,7 @@ pub struct LossWeightConfig {
 impl Default for LossWeightConfig {
     fn default() -> Self {
         Self {
-            alpha_task: 1.0,
+            alpha_primary: 1.0,
             beta_intra_red: 0.1,
             gamma_probe: 0.2,
             delta_leak: 0.05,
@@ -215,6 +408,35 @@ impl Default for LossWeightConfig {
             nu_consistency: 0.1,
         }
     }
+}
+
+impl LossWeightConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        for (name, value) in [
+            ("training.loss_weights.alpha_primary", self.alpha_primary),
+            ("training.loss_weights.beta_intra_red", self.beta_intra_red),
+            ("training.loss_weights.gamma_probe", self.gamma_probe),
+            ("training.loss_weights.delta_leak", self.delta_leak),
+            ("training.loss_weights.eta_gate", self.eta_gate),
+            ("training.loss_weights.mu_slot", self.mu_slot),
+            ("training.loss_weights.nu_consistency", self.nu_consistency),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(ConfigValidationError::new(format!(
+                    "{name} must be finite and non-negative"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Active primary objective for the staged trainer.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PrimaryObjectiveConfig {
+    /// Reconstruction-style surrogate objective over modality token paths.
+    SurrogateReconstruction,
 }
 
 /// Backing format used by the dataset loader.
@@ -227,6 +449,17 @@ pub enum DatasetFormat {
     ManifestJson,
     /// Scan a PDBbind-like directory tree with per-complex subdirectories.
     PdbbindLikeDir,
+}
+
+/// Parsing strictness for lightweight real-data ingestion.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ParsingMode {
+    /// Convenience-oriented parsing with nearest-atom pocket fallback and permissive file picking.
+    #[default]
+    Lightweight,
+    /// Fail-fast parsing that rejects ambiguous discovery and fallback pocket extraction.
+    Strict,
 }
 
 /// Weighting mode for affinity supervision across mixed measurement families.
@@ -246,6 +479,61 @@ pub fn load_research_config(
     let path = path.into();
     let content = fs::read_to_string(&path)?;
     Ok(serde_json::from_str(&content)?)
+}
+
+fn validate_split_fractions(
+    val_fraction: f32,
+    test_fraction: f32,
+) -> Result<(), ConfigValidationError> {
+    if !val_fraction.is_finite() || !test_fraction.is_finite() {
+        return Err(ConfigValidationError::new(
+            "data.val_fraction and data.test_fraction must be finite",
+        ));
+    }
+    if val_fraction < 0.0 || test_fraction < 0.0 {
+        return Err(ConfigValidationError::new(
+            "data.val_fraction and data.test_fraction must be non-negative",
+        ));
+    }
+    if val_fraction + test_fraction >= 1.0 {
+        return Err(ConfigValidationError::new(format!(
+            "data.val_fraction + data.test_fraction must be < 1.0 (got {:.4})",
+            val_fraction + test_fraction
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_file_exists(path: &Path, field_name: &str) -> Result<(), ConfigValidationError> {
+    if !path.exists() {
+        return Err(ConfigValidationError::new(format!(
+            "{field_name}={} does not exist",
+            path.display()
+        )));
+    }
+    if !path.is_file() {
+        return Err(ConfigValidationError::new(format!(
+            "{field_name}={} must point to a file",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_directory_exists(path: &Path, field_name: &str) -> Result<(), ConfigValidationError> {
+    if !path.exists() {
+        return Err(ConfigValidationError::new(format!(
+            "{field_name}={} does not exist",
+            path.display()
+        )));
+    }
+    if !path.is_dir() {
+        return Err(ConfigValidationError::new(format!(
+            "{field_name}={} must point to a directory",
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -316,5 +604,29 @@ mod tests {
         assert_eq!(config.data.batch_size, 3);
         assert_eq!(config.model.pocket_feature_dim, 12);
         assert_eq!(config.runtime.device, "cpu");
+    }
+
+    #[test]
+    fn validate_rejects_invalid_split_fractions() {
+        let mut config = ResearchConfig::default();
+        config.data.val_fraction = 0.6;
+        config.data.test_fraction = 0.4;
+
+        let err = config.validate().unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("data.val_fraction + data.test_fraction must be < 1.0"));
+    }
+
+    #[test]
+    fn validate_rejects_manifest_mode_without_manifest_path() {
+        let mut config = ResearchConfig::default();
+        config.data.dataset_format = DatasetFormat::ManifestJson;
+        config.training.max_steps = 8;
+
+        let err = config.validate().unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("data.manifest_path is required when data.dataset_format=manifest_json"));
     }
 }

@@ -1,5 +1,18 @@
 # Repository Audit
 
+## Claim Matrix
+
+| Surface | Claim | Status | Boundary |
+| --- | --- | --- | --- |
+| Config-driven modular stack | Separate topology / geometry / pocket encoders | `implemented` | Active research path |
+| Config-driven modular stack | Slot decomposition and gated cross-modal interaction | `implemented` | Active research path |
+| Config-driven modular stack | Staged training with explicit primary + auxiliary objectives | `implemented` | Primary objective is surrogate reconstruction today |
+| Config-driven modular stack | Unseen-pocket evaluation | `implemented` | Outputs diagnostics and proxy metrics |
+| Config-driven modular stack | Chemistry-grade generation metrics | `planned` | No chemistry or docking backend integrated |
+| Config-driven modular stack | Diffusion objective | `planned` | Crate name is historical, not descriptive of the current objective |
+| Legacy surface | Candidate generation and ranking demo | `legacy` | Compatibility/demo surface only |
+| Lightweight data path | Affinity normalization across mixed measurement families | `prototype` | Simplified normalization contract, not a production assay harmonization stack |
+
 ## Current Architecture Summary
 
 The repository currently exposes two parallel surfaces:
@@ -14,6 +27,8 @@ The modular stack already reflects the intended research direction:
 - gated cross-modal interaction
 - staged training losses
 - config-driven data loading from synthetic, manifest, and PDBbind-like sources
+
+It should currently be described as a modular representation-learning framework. The repository does not yet expose a true pocket-conditioned diffusion training loop on the actively extended path.
 
 The repo is usable, but the execution path is still ambiguous because config-driven research flows share a monolithic CLI with legacy demo behavior and some config fields are defined but not faithfully consumed.
 
@@ -73,12 +88,41 @@ These files provide older demos or comparison utilities and should remain availa
 - Added an explicit `legacy` comparison wrapper so old benchmark utilities have a clearer namespace instead of relying on crate-root discovery.
 - Added namespace-stability coverage for modular and legacy entrypoints so the intended import surfaces remain explicit as the crate evolves.
 - Added runtime compatibility notices for legacy/demo CLI paths so the binary itself now reinforces the modular research interface boundary and points users at the canonical `research ... --config ...` replacements.
+- Renamed the primary modular training objective as `surrogate_reconstruction` and separated it structurally from auxiliary regularizers in logs and summaries.
+- Reworked evaluation summaries so generation-like names were replaced by explicit diagnostic/proxy namespaces.
+- Reduced root/module wildcard re-exports so the supported modular surface is explicitly namespaced.
+- Added persisted dataset validation and split-audit artifacts so config-driven inspection, training, and unseen-pocket experiments expose discovery counts, label attachment behavior, fallback pocket extraction counts, and explicit leakage checks.
 
 ### Remaining Low-Priority Follow-Up
 
 - Keep new experiment or evaluation flows behind module-level entrypoints instead of re-expanding `src/main.rs`.
 - Decide whether legacy comparison modules should eventually move physically under `src/legacy/*` instead of only being re-exported there.
 - Add optional full optimizer-state resume if reproducibility requirements expand beyond weight-and-step restoration.
+
+## Capability And Limitation Table
+
+| Area | Current status | Limitation |
+| --- | --- | --- |
+| Representation learning | Strong modular prototype | Primary task remains surrogate, not end-task generation |
+| Evaluation | Diagnostic/proxy reporting | No chemistry validity, conformer quality, or docking backend |
+| Data ingestion | Lightweight real-file path | Parsing remains convenience-oriented rather than assay-grade |
+| Legacy generation demo | Still runnable | Not the primary abstraction for new work |
+
+## Architecture Note: Gap To A True Diffusion Generator
+
+The modular stack has three pieces that are worth preserving for future generation work: modality-specific encoders, slot decomposition, and gated cross-modal interaction. What it does not yet have is the rest of a generation system:
+
+- no diffusion or denoising objective
+- no decoder or sampler that turns conditioned latents into ligand structures
+- no chemistry-aware validity layer
+- no downstream docking or pocket-compatibility evaluation backend
+
+The intended migration path is therefore:
+
+1. Keep the current modular encoders/slots/interactions as the conditioning backbone.
+2. Treat `surrogate_reconstruction` as one primary-objective implementation, not as the end state.
+3. Add future primary objectives behind the same objective interface instead of entangling them with auxiliary losses.
+4. Add chemistry/docking evaluation adapters once a real generator exists.
 
 ## Preserve vs Refactor
 

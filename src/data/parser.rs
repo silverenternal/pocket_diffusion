@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{ExampleTargets, MolecularExample};
+use crate::config::ParsingMode;
 use crate::types::{Atom, AtomType, Ligand, Pocket};
 
 /// Errors raised while converting on-disk assets into research examples.
@@ -48,13 +49,26 @@ pub struct ManifestEntry {
     /// Path to the ligand structure source SDF file.
     pub ligand_path: PathBuf,
     /// Optional affinity label in kcal/mol.
+    #[serde(default)]
     pub affinity_kcal_mol: Option<f32>,
     /// Optional original measurement type before normalization.
+    #[serde(default)]
     pub affinity_measurement_type: Option<String>,
     /// Optional original numeric value before normalization.
+    #[serde(default)]
     pub affinity_raw_value: Option<f32>,
     /// Optional original unit before normalization.
+    #[serde(default)]
     pub affinity_raw_unit: Option<String>,
+    /// Optional normalization provenance for the attached affinity target.
+    #[serde(default)]
+    pub affinity_normalization_provenance: Option<String>,
+    /// Whether the normalized target is only approximate.
+    #[serde(default)]
+    pub affinity_is_approximate: bool,
+    /// Optional warning emitted during normalization.
+    #[serde(default)]
+    pub affinity_normalization_warning: Option<String>,
 }
 
 /// One affinity label row loaded from an external index table.
@@ -72,6 +86,73 @@ pub struct AffinityLabel {
     pub raw_value: Option<f32>,
     /// Original unit before normalization.
     pub raw_unit: Option<String>,
+    /// Normalization provenance for the derived internal target.
+    pub normalization_provenance: Option<String>,
+    /// Whether the normalization path is only approximate.
+    pub is_approximate: bool,
+    /// Optional warning emitted during normalization.
+    pub normalization_warning: Option<String>,
+}
+
+/// Structured dataset validation artifact for one config-driven load.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DatasetValidationReport {
+    /// Number of entries discovered before parsing.
+    pub discovered_complexes: usize,
+    /// Number of examples successfully parsed into the research stack.
+    pub parsed_examples: usize,
+    /// Number of ligands successfully parsed.
+    pub parsed_ligands: usize,
+    /// Number of pockets successfully parsed.
+    pub parsed_pockets: usize,
+    /// Number of examples carrying an attached affinity label after loading.
+    pub attached_labels: usize,
+    /// Number of labels matched by `example_id`.
+    pub example_id_label_matches: usize,
+    /// Number of labels matched by `protein_id`.
+    pub protein_id_label_matches: usize,
+    /// Number of examples left without affinity labels.
+    pub unlabeled_examples: usize,
+    /// Number of pocket extraction fallback events.
+    pub fallback_pocket_extractions: usize,
+    /// Number of examples truncated away by `max_examples`.
+    pub truncated_examples: usize,
+    /// Number of external label rows loaded.
+    pub loaded_label_rows: usize,
+    /// Number of labels normalized through approximate families such as `IC50` or `EC50`.
+    pub approximate_affinity_labels: usize,
+    /// Number of normalization warnings emitted while loading labels.
+    pub affinity_normalization_warnings: usize,
+    /// Warnings emitted by the affinity normalization path.
+    pub normalization_warning_messages: Vec<String>,
+    /// Active parsing mode used for the dataset load.
+    pub parsing_mode: String,
+}
+
+/// Report for one parsed manifest entry.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ParsedEntryReport {
+    /// Whether ligand parsing succeeded for this entry.
+    pub parsed_ligand: bool,
+    /// Whether pocket parsing succeeded for this entry.
+    pub parsed_pocket: bool,
+    /// Whether pocket extraction used the nearest-atom fallback.
+    pub used_pocket_fallback: bool,
+}
+
+/// Metadata from attaching external affinity labels to manifest entries.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LabelAttachmentReport {
+    /// Number of labels matched by `example_id`.
+    pub example_id_matches: usize,
+    /// Number of labels matched by `protein_id`.
+    pub protein_id_matches: usize,
+}
+
+#[derive(Debug, Clone)]
+struct PocketLoadResult {
+    pocket: Pocket,
+    used_fallback: bool,
 }
 
 /// Build a small deterministic synthetic dataset.
@@ -225,6 +306,9 @@ fn load_delimited_affinity_labels(
                 measurement_type: Some("dG".to_string()),
                 raw_value: Some(affinity_kcal_mol),
                 raw_unit: Some("kcal/mol".to_string()),
+                normalization_provenance: Some("direct_delta_g".to_string()),
+                is_approximate: false,
+                normalization_warning: None,
             }
         } else if let Some(ix) = record_ix {
             let record = fields
@@ -284,6 +368,9 @@ fn load_delimited_affinity_labels(
             measurement_type: parsed.measurement_type,
             raw_value: parsed.raw_value,
             raw_unit: parsed.raw_unit,
+            normalization_provenance: parsed.normalization_provenance,
+            is_approximate: parsed.is_approximate,
+            normalization_warning: parsed.normalization_warning,
         });
     }
 
@@ -325,6 +412,9 @@ fn load_pdbbind_index_labels(
             measurement_type: parsed.measurement_type,
             raw_value: parsed.raw_value,
             raw_unit: parsed.raw_unit,
+            normalization_provenance: parsed.normalization_provenance,
+            is_approximate: parsed.is_approximate,
+            normalization_warning: parsed.normalization_warning,
         });
     }
 
@@ -344,6 +434,9 @@ struct ParsedAffinityRecord {
     measurement_type: Option<String>,
     raw_value: Option<f32>,
     raw_unit: Option<String>,
+    normalization_provenance: Option<String>,
+    is_approximate: bool,
+    normalization_warning: Option<String>,
 }
 
 fn parse_index_affinity_record(fields: &[&str]) -> Option<ParsedAffinityRecord> {
@@ -365,6 +458,9 @@ fn parse_index_affinity_record(fields: &[&str]) -> Option<ParsedAffinityRecord> 
             measurement_type: Some("dG".to_string()),
             raw_value: Some(value),
             raw_unit: Some("kcal/mol".to_string()),
+            normalization_provenance: Some("index_direct_delta_g_fallback".to_string()),
+            is_approximate: false,
+            normalization_warning: None,
         })
 }
 
@@ -398,6 +494,9 @@ fn parse_measurement_components(
             measurement_type: Some("dG".to_string()),
             raw_value: Some(raw_value),
             raw_unit: Some(raw_unit.to_string()),
+            normalization_provenance: Some("direct_delta_g".to_string()),
+            is_approximate: false,
+            normalization_warning: None,
         });
     }
     from_concentration_measurement(normalized, raw_value, raw_unit)
@@ -456,6 +555,9 @@ fn from_p_measurement(measurement: &str, value: f32) -> ParsedAffinityRecord {
         measurement_type: Some(measurement.to_string()),
         raw_value: Some(value),
         raw_unit: Some("p".to_string()),
+        normalization_provenance: Some(format!("{}_to_delta_g_via_molar", measurement)),
+        is_approximate: false,
+        normalization_warning: None,
     }
 }
 
@@ -465,11 +567,26 @@ fn from_concentration_measurement(
     unit: &str,
 ) -> Option<ParsedAffinityRecord> {
     let molar = concentration_to_molar(value, unit)?;
+    let is_approximate = matches!(measurement, "IC50" | "EC50");
+    let normalization_warning = if is_approximate {
+        Some(format!(
+            "{measurement} was normalized as a concentration-derived affinity proxy; comparability to thermodynamic binding measures is approximate"
+        ))
+    } else {
+        None
+    };
     Some(ParsedAffinityRecord {
         affinity_kcal_mol: molar_to_delta_g_kcal(molar),
         measurement_type: Some(measurement.to_string()),
         raw_value: Some(value),
         raw_unit: Some(unit.to_string()),
+        normalization_provenance: Some(format!(
+            "{}_{}_to_delta_g_via_molar",
+            measurement,
+            unit.trim()
+        )),
+        is_approximate,
+        normalization_warning,
     })
 }
 
@@ -494,45 +611,52 @@ fn molar_to_delta_g_kcal(molar: f32) -> f32 {
 }
 
 /// Attach external labels to manifest entries. `example_id` matches take precedence.
-pub fn apply_affinity_labels(entries: &mut [ManifestEntry], labels: &[AffinityLabel]) {
-    let mut by_example = BTreeMap::new();
-    let mut by_protein = BTreeMap::new();
+pub fn apply_affinity_labels(
+    entries: &mut [ManifestEntry],
+    labels: &[AffinityLabel],
+) -> LabelAttachmentReport {
+    let mut by_example: BTreeMap<&str, &AffinityLabel> = BTreeMap::new();
+    let mut by_protein: BTreeMap<&str, &AffinityLabel> = BTreeMap::new();
     for label in labels {
         if let Some(example_id) = &label.example_id {
-            by_example.insert(example_id.as_str(), label.affinity_kcal_mol);
+            by_example.insert(example_id.as_str(), label);
         }
         if let Some(protein_id) = &label.protein_id {
-            by_protein.insert(protein_id.as_str(), label.affinity_kcal_mol);
+            by_protein.insert(protein_id.as_str(), label);
         }
     }
 
+    let mut report = LabelAttachmentReport::default();
     for entry in entries {
-        if let Some(value) = by_example.get(entry.example_id.as_str()) {
-            entry.affinity_kcal_mol = Some(*value);
-            if let Some(label) = labels
-                .iter()
-                .find(|label| label.example_id.as_deref() == Some(entry.example_id.as_str()))
-            {
-                entry.affinity_measurement_type = label.measurement_type.clone();
-                entry.affinity_raw_value = label.raw_value;
-                entry.affinity_raw_unit = label.raw_unit.clone();
-            }
-        } else if let Some(value) = by_protein.get(entry.protein_id.as_str()) {
-            entry.affinity_kcal_mol = Some(*value);
-            if let Some(label) = labels
-                .iter()
-                .find(|label| label.protein_id.as_deref() == Some(entry.protein_id.as_str()))
-            {
-                entry.affinity_measurement_type = label.measurement_type.clone();
-                entry.affinity_raw_value = label.raw_value;
-                entry.affinity_raw_unit = label.raw_unit.clone();
-            }
+        if let Some(label) = by_example.get(entry.example_id.as_str()) {
+            entry.affinity_kcal_mol = Some(label.affinity_kcal_mol);
+            report.example_id_matches += 1;
+            entry.affinity_measurement_type = label.measurement_type.clone();
+            entry.affinity_raw_value = label.raw_value;
+            entry.affinity_raw_unit = label.raw_unit.clone();
+            entry.affinity_normalization_provenance = label.normalization_provenance.clone();
+            entry.affinity_is_approximate = label.is_approximate;
+            entry.affinity_normalization_warning = label.normalization_warning.clone();
+        } else if let Some(label) = by_protein.get(entry.protein_id.as_str()) {
+            entry.affinity_kcal_mol = Some(label.affinity_kcal_mol);
+            report.protein_id_matches += 1;
+            entry.affinity_measurement_type = label.measurement_type.clone();
+            entry.affinity_raw_value = label.raw_value;
+            entry.affinity_raw_unit = label.raw_unit.clone();
+            entry.affinity_normalization_provenance = label.normalization_provenance.clone();
+            entry.affinity_is_approximate = label.is_approximate;
+            entry.affinity_normalization_warning = label.normalization_warning.clone();
         }
     }
+
+    report
 }
 
 /// Discover a PDBbind-like dataset where each subdirectory contains one PDB and one SDF.
-pub fn discover_pdbbind_like_entries(root: &Path) -> Result<Vec<ManifestEntry>, DataParseError> {
+pub fn discover_pdbbind_like_entries(
+    root: &Path,
+    parsing_mode: ParsingMode,
+) -> Result<Vec<ManifestEntry>, DataParseError> {
     let mut entries = Vec::new();
 
     for dir_entry in fs::read_dir(root)? {
@@ -542,19 +666,35 @@ pub fn discover_pdbbind_like_entries(root: &Path) -> Result<Vec<ManifestEntry>, 
             continue;
         }
 
-        let mut pdb_path = None;
-        let mut sdf_path = None;
+        let mut pdb_paths = Vec::new();
+        let mut sdf_paths = Vec::new();
         for file_entry in fs::read_dir(&path)? {
             let file_entry = file_entry?;
             let file_path = file_entry.path();
             match file_path.extension().and_then(|value| value.to_str()) {
-                Some("pdb") if pdb_path.is_none() => pdb_path = Some(file_path),
-                Some("sdf") if sdf_path.is_none() => sdf_path = Some(file_path),
+                Some("pdb") => pdb_paths.push(file_path),
+                Some("sdf") => sdf_paths.push(file_path),
                 _ => {}
             }
         }
 
-        if let (Some(pocket_path), Some(ligand_path)) = (pdb_path, sdf_path) {
+        pdb_paths.sort();
+        sdf_paths.sort();
+        if parsing_mode == ParsingMode::Strict && (pdb_paths.len() != 1 || sdf_paths.len() != 1) {
+            return Err(DataParseError::Discovery {
+                root: root.to_path_buf(),
+                message: format!(
+                    "strict mode requires exactly one .pdb and one .sdf in {}; found pdb={} sdf={}",
+                    path.display(),
+                    pdb_paths.len(),
+                    sdf_paths.len()
+                ),
+            });
+        }
+
+        if let (Some(pocket_path), Some(ligand_path)) =
+            (pdb_paths.into_iter().next(), sdf_paths.into_iter().next())
+        {
             let protein_id = path
                 .file_name()
                 .and_then(|value| value.to_str())
@@ -572,6 +712,9 @@ pub fn discover_pdbbind_like_entries(root: &Path) -> Result<Vec<ManifestEntry>, 
                 affinity_measurement_type: None,
                 affinity_raw_value: None,
                 affinity_raw_unit: None,
+                affinity_normalization_provenance: None,
+                affinity_is_approximate: false,
+                affinity_normalization_warning: None,
             });
         }
     }
@@ -584,20 +727,36 @@ pub fn discover_pdbbind_like_entries(root: &Path) -> Result<Vec<ManifestEntry>, 
 pub fn load_manifest_entry(
     entry: &ManifestEntry,
     pocket_cutoff_angstrom: f32,
-) -> Result<MolecularExample, DataParseError> {
+    parsing_mode: ParsingMode,
+) -> Result<(MolecularExample, ParsedEntryReport), DataParseError> {
     let ligand = load_ligand_from_sdf(&entry.ligand_path)?;
     let center = ligand_center(&ligand);
-    let pocket = load_pocket_from_pdb(&entry.pocket_path, center, pocket_cutoff_angstrom)?;
-    Ok(MolecularExample::from_legacy_with_targets(
-        entry.example_id.clone(),
-        entry.protein_id.clone(),
-        &ligand,
-        &pocket,
-        ExampleTargets {
-            affinity_kcal_mol: entry.affinity_kcal_mol,
-            affinity_measurement_type: entry.affinity_measurement_type.clone(),
-            affinity_raw_value: entry.affinity_raw_value,
-            affinity_raw_unit: entry.affinity_raw_unit.clone(),
+    let pocket_result = load_pocket_from_pdb(
+        &entry.pocket_path,
+        center,
+        pocket_cutoff_angstrom,
+        parsing_mode,
+    )?;
+    Ok((
+        MolecularExample::from_legacy_with_targets(
+            entry.example_id.clone(),
+            entry.protein_id.clone(),
+            &ligand,
+            &pocket_result.pocket,
+            ExampleTargets {
+                affinity_kcal_mol: entry.affinity_kcal_mol,
+                affinity_measurement_type: entry.affinity_measurement_type.clone(),
+                affinity_raw_value: entry.affinity_raw_value,
+                affinity_raw_unit: entry.affinity_raw_unit.clone(),
+                affinity_normalization_provenance: entry.affinity_normalization_provenance.clone(),
+                affinity_is_approximate: entry.affinity_is_approximate,
+                affinity_normalization_warning: entry.affinity_normalization_warning.clone(),
+            },
+        ),
+        ParsedEntryReport {
+            parsed_ligand: true,
+            parsed_pocket: true,
+            used_pocket_fallback: pocket_result.used_fallback,
         },
     ))
 }
@@ -716,11 +875,12 @@ pub fn load_ligand_from_sdf(path: &Path) -> Result<Ligand, DataParseError> {
 }
 
 /// Extract a local pocket from a protein structure around the ligand center.
-pub fn load_pocket_from_pdb(
+fn load_pocket_from_pdb(
     path: &Path,
     ligand_center: [f64; 3],
     pocket_cutoff_angstrom: f32,
-) -> Result<Pocket, DataParseError> {
+    parsing_mode: ParsingMode,
+) -> Result<PocketLoadResult, DataParseError> {
     let content = fs::read_to_string(path)?;
     let mut all_atoms = Vec::new();
     let mut local_atoms = Vec::new();
@@ -730,6 +890,13 @@ pub fn load_pocket_from_pdb(
             continue;
         }
         if line.len() < 54 {
+            if parsing_mode == ParsingMode::Strict {
+                return Err(DataParseError::InvalidPdb {
+                    path: path.to_path_buf(),
+                    message: "strict mode rejects ATOM/HETATM lines shorter than 54 columns"
+                        .to_string(),
+                });
+            }
             continue;
         }
 
@@ -757,9 +924,17 @@ pub fn load_pocket_from_pdb(
         }
     }
 
+    let mut used_fallback = false;
     if local_atoms.is_empty() {
+        if parsing_mode == ParsingMode::Strict {
+            return Err(DataParseError::InvalidPdb {
+                path: path.to_path_buf(),
+                message: "strict mode rejects nearest-atom pocket fallback when no atoms fall within the cutoff".to_string(),
+            });
+        }
         all_atoms.sort_by(|left, right| left.0.total_cmp(&right.0));
         local_atoms.extend(all_atoms.into_iter().take(64).map(|(_, atom)| atom));
+        used_fallback = !local_atoms.is_empty();
     }
 
     if local_atoms.is_empty() {
@@ -778,9 +953,12 @@ pub fn load_pocket_from_pdb(
         .and_then(|value| value.to_str())
         .unwrap_or("pocket")
         .to_string();
-    Ok(Pocket {
-        atoms: local_atoms,
-        name: pocket_name,
+    Ok(PocketLoadResult {
+        pocket: Pocket {
+            atoms: local_atoms,
+            name: pocket_name,
+        },
+        used_fallback,
     })
 }
 
@@ -878,5 +1056,53 @@ fn toy_pocket(name: &str, offset: f64) -> Pocket {
                 index: 2,
             },
         ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn malformed_sdf_is_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let sdf_path = temp.path().join("bad.sdf");
+        fs::write(&sdf_path, "broken sdf\n").unwrap();
+
+        let err = load_ligand_from_sdf(&sdf_path).unwrap_err();
+        assert!(matches!(err, DataParseError::InvalidSdf { .. }));
+    }
+
+    #[test]
+    fn strict_mode_rejects_short_pdb_atom_records() {
+        let temp = tempfile::tempdir().unwrap();
+        let ligand_path = temp.path().join("ligand.sdf");
+        let pocket_path = temp.path().join("bad.pdb");
+
+        fs::write(
+            &ligand_path,
+            "ligand\n  codex\n\n  1  0  0  0  0  0            999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\nM  END\n$$$$\n",
+        )
+        .unwrap();
+        fs::write(&pocket_path, "ATOM      1  C\n").unwrap();
+
+        let entry = ManifestEntry {
+            example_id: "ex-1".to_string(),
+            protein_id: "prot-1".to_string(),
+            pocket_path,
+            ligand_path,
+            affinity_kcal_mol: None,
+            affinity_measurement_type: None,
+            affinity_raw_value: None,
+            affinity_raw_unit: None,
+            affinity_normalization_provenance: None,
+            affinity_is_approximate: false,
+            affinity_normalization_warning: None,
+        };
+
+        let err = load_manifest_entry(&entry, 6.0, ParsingMode::Strict).unwrap_err();
+        assert!(matches!(err, DataParseError::InvalidPdb { .. }));
     }
 }

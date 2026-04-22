@@ -1,8 +1,11 @@
 //! Main binary for the modular research stack and legacy compatibility demos.
 
-use std::env;
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use pocket_diffusion::{experiments, legacy, training};
+use pocket_diffusion::{
+    config, experiments, legacy,
+    training::{self, RunArtifactBundle, RunKind},
+};
 
 fn main() {
     env_logger::init();
@@ -13,144 +16,137 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    let command = parse_cli(&args)?;
-    maybe_print_compatibility_notice(&command);
-    match command {
-        CliCommand::ResearchInspect { config, .. } => inspect_dataset_from_config(&config),
-        CliCommand::ResearchTrain { config, resume, .. } => {
-            run_training_from_config(&config, resume)
-        }
-        CliCommand::ResearchExperiment { config, resume, .. } => {
-            run_experiment_from_config(&config, resume)
-        }
+    let cli = Cli::parse();
+    maybe_print_compatibility_notice(&cli.command);
+    match cli.command {
+        CliCommand::Research { command } => match command {
+            ResearchCommand::Inspect(args) => inspect_dataset_from_config(&args.config),
+            ResearchCommand::Train(args) => run_training_from_config(&args.config, args.resume),
+            ResearchCommand::Experiment(args) => {
+                run_experiment_from_config(&args.config, args.resume)
+            }
+        },
+        CliCommand::Validate(args) => validate_config(args.kind, &args.config),
+        CliCommand::Report(args) => report_run(&args.artifact_dir),
         CliCommand::Phase1Demo => {
             training::run_phase1_demo();
             Ok(())
         }
         CliCommand::Phase3Demo => training::run_phase3_training_demo(),
         CliCommand::Phase4Demo => training::run_phase4_experiment_demo(),
-        CliCommand::LegacyDemo {
-            num_candidates,
-            top_k,
-        } => {
-            legacy::run_legacy_demo(num_candidates, top_k);
+        CliCommand::LegacyDemo(args) => {
+            legacy::run_legacy_demo(args.num_candidates, args.top_k);
             Ok(())
         }
-        CliCommand::Help => {
-            print_usage();
-            Ok(())
-        }
+        CliCommand::CompatInspect(args) => inspect_dataset_from_config(&args.config),
+        CliCommand::CompatTrain(args) => run_training_from_config(&args.config, args.resume),
+        CliCommand::CompatExperiment(args) => run_experiment_from_config(&args.config, args.resume),
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CommandOrigin {
-    Canonical,
-    Compatibility,
+#[derive(Debug, Parser)]
+#[command(name = "pocket_diffusion")]
+#[command(about = "Rust-first modular research CLI with legacy compatibility paths")]
+struct Cli {
+    #[command(subcommand)]
+    command: CliCommand,
 }
 
+#[derive(Debug, Subcommand)]
 enum CliCommand {
-    ResearchInspect {
-        config: String,
-        origin: CommandOrigin,
+    /// Config-driven modular research workflows.
+    Research {
+        #[command(subcommand)]
+        command: ResearchCommand,
     },
-    ResearchTrain {
-        config: String,
-        resume: bool,
-        origin: CommandOrigin,
-    },
-    ResearchExperiment {
-        config: String,
-        resume: bool,
-        origin: CommandOrigin,
-    },
+    /// Validate a config without loading data or launching training.
+    Validate(ValidateArgs),
+    /// Read a shared run artifact bundle and print the stored summary.
+    Report(ReportArgs),
+    /// Compatibility demo flag for the early inspection surface.
+    #[command(hide = true, name = "--phase1")]
     Phase1Demo,
+    /// Compatibility demo flag for staged training.
+    #[command(hide = true, name = "--train-phase3")]
     Phase3Demo,
+    /// Compatibility demo flag for unseen-pocket experiments.
+    #[command(hide = true, name = "--phase4")]
     Phase4Demo,
-    LegacyDemo {
-        num_candidates: usize,
-        top_k: usize,
-    },
-    Help,
+    /// Legacy generation demo kept for compatibility.
+    LegacyDemo(LegacyDemoArgs),
+    /// Deprecated compatibility alias for `research inspect`.
+    #[command(hide = true, name = "--inspect-config")]
+    CompatInspect(CompatConfigArgs),
+    /// Deprecated compatibility alias for `research train`.
+    #[command(hide = true, name = "--train-config")]
+    CompatTrain(CompatRunArgs),
+    /// Deprecated compatibility alias for `research experiment`.
+    #[command(hide = true, name = "--experiment-config")]
+    CompatExperiment(CompatRunArgs),
 }
 
-fn parse_cli(args: &[String]) -> Result<CliCommand, Box<dyn std::error::Error>> {
-    if args.len() <= 1 {
-        return Ok(CliCommand::Help);
-    }
-
-    if let Some(path) = value_after_flag(args, "--experiment-config") {
-        return Ok(CliCommand::ResearchExperiment {
-            config: path.to_string(),
-            resume: has_flag(args, "--resume"),
-            origin: CommandOrigin::Compatibility,
-        });
-    }
-    if let Some(path) = value_after_flag(args, "--train-config") {
-        return Ok(CliCommand::ResearchTrain {
-            config: path.to_string(),
-            resume: has_flag(args, "--resume"),
-            origin: CommandOrigin::Compatibility,
-        });
-    }
-    if let Some(path) = value_after_flag(args, "--inspect-config") {
-        return Ok(CliCommand::ResearchInspect {
-            config: path.to_string(),
-            origin: CommandOrigin::Compatibility,
-        });
-    }
-    if has_flag(args, "--phase4") {
-        return Ok(CliCommand::Phase4Demo);
-    }
-    if has_flag(args, "--train-phase3") {
-        return Ok(CliCommand::Phase3Demo);
-    }
-    if has_flag(args, "--phase1") {
-        return Ok(CliCommand::Phase1Demo);
-    }
-
-    match args.get(1).map(String::as_str) {
-        Some("research") => parse_research_command(args),
-        Some("legacy-demo") => Ok(CliCommand::LegacyDemo {
-            num_candidates: args.get(2).and_then(|v| v.parse().ok()).unwrap_or(10),
-            top_k: args.get(3).and_then(|v| v.parse().ok()).unwrap_or(3),
-        }),
-        Some("--help") | Some("-h") | Some("help") => Ok(CliCommand::Help),
-        Some(first) if first.parse::<usize>().is_ok() => Ok(CliCommand::LegacyDemo {
-            num_candidates: first.parse().unwrap_or(10),
-            top_k: args.get(2).and_then(|v| v.parse().ok()).unwrap_or(3),
-        }),
-        Some(other) => Err(format!("unrecognized command `{other}`").into()),
-        None => Ok(CliCommand::Help),
-    }
+#[derive(Debug, Subcommand)]
+enum ResearchCommand {
+    /// Inspect a dataset from a research config.
+    Inspect(ConfigArgs),
+    /// Run staged training from a research config.
+    Train(RunArgs),
+    /// Run the unseen-pocket experiment from an experiment config.
+    Experiment(RunArgs),
 }
 
-fn parse_research_command(args: &[String]) -> Result<CliCommand, Box<dyn std::error::Error>> {
-    let Some(subcommand) = args.get(2).map(String::as_str) else {
-        return Err("missing research subcommand; use `inspect`, `train`, or `experiment`".into());
-    };
-    let Some(config) = value_after_flag(args, "--config") else {
-        return Err("missing `--config <path>` for research command".into());
-    };
+#[derive(Debug, Args)]
+struct ConfigArgs {
+    #[arg(long)]
+    config: String,
+}
 
-    Ok(match subcommand {
-        "inspect" => CliCommand::ResearchInspect {
-            config: config.to_string(),
-            origin: CommandOrigin::Canonical,
-        },
-        "train" => CliCommand::ResearchTrain {
-            config: config.to_string(),
-            resume: has_flag(args, "--resume"),
-            origin: CommandOrigin::Canonical,
-        },
-        "experiment" => CliCommand::ResearchExperiment {
-            config: config.to_string(),
-            resume: has_flag(args, "--resume"),
-            origin: CommandOrigin::Canonical,
-        },
-        other => return Err(format!("unsupported research subcommand `{other}`").into()),
-    })
+#[derive(Debug, Args)]
+struct RunArgs {
+    #[arg(long)]
+    config: String,
+    #[arg(long, default_value_t = false)]
+    resume: bool,
+}
+
+#[derive(Debug, Args)]
+struct ValidateArgs {
+    #[arg(long, value_enum)]
+    kind: ConfigKind,
+    #[arg(long)]
+    config: String,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ConfigKind {
+    Research,
+    Experiment,
+}
+
+#[derive(Debug, Args)]
+struct ReportArgs {
+    #[arg(long)]
+    artifact_dir: String,
+}
+
+#[derive(Debug, Args)]
+struct LegacyDemoArgs {
+    #[arg(default_value_t = 10)]
+    num_candidates: usize,
+    #[arg(default_value_t = 3)]
+    top_k: usize,
+}
+
+#[derive(Debug, Args)]
+struct CompatConfigArgs {
+    config: String,
+}
+
+#[derive(Debug, Args)]
+struct CompatRunArgs {
+    config: String,
+    #[arg(long, default_value_t = false)]
+    resume: bool,
 }
 
 fn maybe_print_compatibility_notice(command: &CliCommand) {
@@ -161,27 +157,19 @@ fn maybe_print_compatibility_notice(command: &CliCommand) {
 
 fn compatibility_notice(command: &CliCommand) -> Option<String> {
     match command {
-        CliCommand::ResearchInspect {
-            config,
-            origin: CommandOrigin::Compatibility,
-        } => Some(format!(
-            "compatibility flag detected; prefer `research inspect --config {config}` for the modular research stack"
+        CliCommand::CompatInspect(args) => Some(format!(
+            "compatibility flag detected; prefer `research inspect --config {}` for the modular research stack",
+            args.config
         )),
-        CliCommand::ResearchTrain {
-            config,
-            resume,
-            origin: CommandOrigin::Compatibility,
-        } => Some(format!(
-            "compatibility flag detected; prefer `research train --config {config}{}` for the modular research stack",
-            if *resume { " --resume" } else { "" }
+        CliCommand::CompatTrain(args) => Some(format!(
+            "compatibility flag detected; prefer `research train --config {}{}` for the modular research stack",
+            args.config,
+            if args.resume { " --resume" } else { "" }
         )),
-        CliCommand::ResearchExperiment {
-            config,
-            resume,
-            origin: CommandOrigin::Compatibility,
-        } => Some(format!(
-            "compatibility flag detected; prefer `research experiment --config {config}{}` for the modular research stack",
-            if *resume { " --resume" } else { "" }
+        CliCommand::CompatExperiment(args) => Some(format!(
+            "compatibility flag detected; prefer `research experiment --config {}{}` for the modular research stack",
+            args.config,
+            if args.resume { " --resume" } else { "" }
         )),
         CliCommand::Phase1Demo => Some(
             "demo compatibility flag detected; prefer `research inspect --config <path>` or `research train --config <path>` for config-driven modular runs".to_string(),
@@ -192,42 +180,17 @@ fn compatibility_notice(command: &CliCommand) -> Option<String> {
         CliCommand::Phase4Demo => Some(
             "demo compatibility flag detected; prefer `research experiment --config <path>` for config-driven unseen-pocket evaluation".to_string(),
         ),
-        CliCommand::LegacyDemo {
-            num_candidates,
-            top_k,
-        } => Some(format!(
-            "legacy demo path detected; this preserves compatibility but is not the primary modular research interface. Current equivalent compatibility command: `legacy-demo {num_candidates} {top_k}`"
+        CliCommand::LegacyDemo(args) => Some(format!(
+            "legacy demo path detected; this preserves compatibility but is not the primary modular research interface. Current equivalent compatibility command: `legacy-demo {} {}`",
+            args.num_candidates, args.top_k
         )),
-        CliCommand::ResearchInspect { .. }
-        | CliCommand::ResearchTrain { .. }
-        | CliCommand::ResearchExperiment { .. }
-        | CliCommand::Help => None,
+        CliCommand::Research { .. } | CliCommand::Validate(..) | CliCommand::Report(..) => None,
     }
 }
 
-fn print_usage() {
-    println!("pocket_diffusion");
-    println!();
-    println!("Modular research path:");
-    println!("  pocket_diffusion research inspect --config <path>");
-    println!("  pocket_diffusion research train --config <path> [--resume]");
-    println!("  pocket_diffusion research experiment --config <path> [--resume]");
-    println!();
-    println!("Legacy compatibility path:");
-    println!("  pocket_diffusion legacy-demo [num_candidates] [top_k]");
-    println!();
-    println!("Legacy flags kept for compatibility:");
-    println!("  --inspect-config <path>");
-    println!("  --train-config <path> [--resume]");
-    println!("  --experiment-config <path> [--resume]");
-    println!("  --phase1");
-    println!("  --train-phase3");
-    println!("  --phase4");
-}
-
 fn run_training_from_config(path: &str, resume: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let output = training::run_training_from_config(path, resume)?;
-    training::print_training_run(&output);
+    let summary = training::run_training_from_config(path, resume)?;
+    training::print_training_run(&summary);
     Ok(())
 }
 
@@ -243,46 +206,68 @@ fn inspect_dataset_from_config(path: &str) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
-fn value_after_flag<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
-    args.iter()
-        .position(|arg| arg == flag)
-        .and_then(|index| args.get(index + 1))
-        .map(String::as_str)
+fn validate_config(kind: ConfigKind, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    match kind {
+        ConfigKind::Research => {
+            let config = config::load_research_config(path)?;
+            config.validate()?;
+            println!("research config is valid: {path}");
+        }
+        ConfigKind::Experiment => {
+            let config = experiments::load_experiment_config(path)?;
+            config.validate()?;
+            println!("experiment config is valid: {path}");
+        }
+    }
+    Ok(())
 }
 
-fn has_flag(args: &[String], flag: &str) -> bool {
-    args.iter().any(|arg| arg == flag)
+fn report_run(artifact_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let bundle_path = std::path::Path::new(artifact_dir).join("run_artifacts.json");
+    let bundle: RunArtifactBundle = serde_json::from_str(&std::fs::read_to_string(&bundle_path)?)?;
+    match bundle.run_kind {
+        RunKind::Training => {
+            let summary: training::TrainingRunSummary =
+                serde_json::from_str(&std::fs::read_to_string(bundle.paths.run_summary)?)?;
+            training::print_training_run(&summary);
+        }
+        RunKind::Experiment => {
+            let summary: experiments::UnseenPocketExperimentSummary =
+                serde_json::from_str(&std::fs::read_to_string(bundle.paths.run_summary)?)?;
+            training::print_experiment_run(&summary);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
 
-    fn cli(args: &[&str]) -> Vec<String> {
-        args.iter().map(|arg| arg.to_string()).collect()
+    fn parse_cli(args: &[&str]) -> CliCommand {
+        Cli::try_parse_from(args)
+            .unwrap_or_else(|err| panic!("cli parse failed: {err}"))
+            .command
     }
 
     #[test]
     fn parse_research_train_command_with_resume() {
-        let command = parse_cli(&cli(&[
+        let command = parse_cli(&[
             "pocket_diffusion",
             "research",
             "train",
             "--config",
             "configs/research_manifest.json",
             "--resume",
-        ]))
-        .unwrap();
+        ]);
 
         match command {
-            CliCommand::ResearchTrain {
-                config,
-                resume,
-                origin,
+            CliCommand::Research {
+                command: ResearchCommand::Train(args),
             } => {
-                assert_eq!(config, "configs/research_manifest.json");
-                assert!(resume);
-                assert_eq!(origin, CommandOrigin::Canonical);
+                assert_eq!(args.config, "configs/research_manifest.json");
+                assert!(args.resume);
             }
             _ => panic!("expected research train command"),
         }
@@ -290,15 +275,12 @@ mod tests {
 
     #[test]
     fn parse_legacy_demo_command() {
-        let command = parse_cli(&cli(&["pocket_diffusion", "legacy-demo", "12", "4"])).unwrap();
+        let command = parse_cli(&["pocket_diffusion", "legacy-demo", "12", "4"]);
 
         match command {
-            CliCommand::LegacyDemo {
-                num_candidates,
-                top_k,
-            } => {
-                assert_eq!(num_candidates, 12);
-                assert_eq!(top_k, 4);
+            CliCommand::LegacyDemo(args) => {
+                assert_eq!(args.num_candidates, 12);
+                assert_eq!(args.top_k, 4);
             }
             _ => panic!("expected legacy demo command"),
         }
@@ -306,22 +288,16 @@ mod tests {
 
     #[test]
     fn parse_compatibility_train_flag() {
-        let command = parse_cli(&cli(&[
+        let command = parse_cli(&[
             "pocket_diffusion",
             "--train-config",
             "configs/research_manifest.json",
-        ]))
-        .unwrap();
+        ]);
 
         match command {
-            CliCommand::ResearchTrain {
-                config,
-                resume,
-                origin,
-            } => {
-                assert_eq!(config, "configs/research_manifest.json");
-                assert!(!resume);
-                assert_eq!(origin, CommandOrigin::Compatibility);
+            CliCommand::CompatTrain(args) => {
+                assert_eq!(args.config, "configs/research_manifest.json");
+                assert!(!args.resume);
             }
             _ => panic!("expected compatibility research train command"),
         }
@@ -329,24 +305,20 @@ mod tests {
 
     #[test]
     fn parse_research_experiment_command() {
-        let command = parse_cli(&cli(&[
+        let command = parse_cli(&[
             "pocket_diffusion",
             "research",
             "experiment",
             "--config",
             "configs/unseen_pocket_manifest.json",
-        ]))
-        .unwrap();
+        ]);
 
         match command {
-            CliCommand::ResearchExperiment {
-                config,
-                resume,
-                origin,
+            CliCommand::Research {
+                command: ResearchCommand::Experiment(args),
             } => {
-                assert_eq!(config, "configs/unseen_pocket_manifest.json");
-                assert!(!resume);
-                assert_eq!(origin, CommandOrigin::Canonical);
+                assert_eq!(args.config, "configs/unseen_pocket_manifest.json");
+                assert!(!args.resume);
             }
             _ => panic!("expected research experiment command"),
         }
@@ -357,46 +329,49 @@ mod tests {
         let command = CliCommand::Phase3Demo;
         assert!(compatibility_notice(&command).is_some());
 
-        let command = CliCommand::LegacyDemo {
+        let command = CliCommand::LegacyDemo(LegacyDemoArgs {
             num_candidates: 10,
             top_k: 3,
-        };
+        });
         assert!(compatibility_notice(&command).is_some());
     }
 
     #[test]
     fn compatibility_notice_tracks_command_origin() {
-        let compatibility = parse_cli(&cli(&[
+        let compatibility = parse_cli(&[
             "pocket_diffusion",
             "--inspect-config",
             "configs/research_manifest.json",
-        ]))
-        .unwrap();
+        ]);
         let notice = compatibility_notice(&compatibility).unwrap();
         assert!(notice.contains("research inspect --config configs/research_manifest.json"));
 
-        let canonical = parse_cli(&cli(&[
+        let canonical = parse_cli(&[
             "pocket_diffusion",
             "research",
             "inspect",
             "--config",
             "configs/research_manifest.json",
-        ]))
-        .unwrap();
+        ]);
         assert!(compatibility_notice(&canonical).is_none());
     }
 
     #[test]
     fn compatibility_notice_preserves_resume_suffix() {
-        let compatibility = parse_cli(&cli(&[
+        let compatibility = parse_cli(&[
             "pocket_diffusion",
             "--train-config",
             "configs/research_manifest.json",
             "--resume",
-        ]))
-        .unwrap();
+        ]);
         let notice = compatibility_notice(&compatibility).unwrap();
 
         assert!(notice.contains("research train --config configs/research_manifest.json --resume"));
+    }
+
+    #[test]
+    fn clap_command_factory_builds() {
+        let command = Cli::command();
+        assert_eq!(command.get_name(), "pocket_diffusion");
     }
 }

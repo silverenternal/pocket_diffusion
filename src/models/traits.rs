@@ -55,10 +55,82 @@ pub trait LossTerm<State> {
     fn compute(&self, state: &State) -> Tensor;
 }
 
+/// Pluggable primary objective interface for the modular training stack.
+pub trait TaskDrivenObjective<State> {
+    /// Stable schema-facing objective name.
+    fn name(&self) -> &'static str;
+
+    /// Compute the primary scalar optimization target.
+    fn compute(&self, state: &State) -> Tensor;
+}
+
 /// Hooks that observe trainer lifecycle events.
 pub trait TrainerHook<State> {
     /// Called after a training step completes.
     fn on_step_end(&mut self, _state: &State) {}
+}
+
+/// Candidate payload reserved for future chemistry and docking evaluation backends.
+#[derive(Debug, Clone)]
+pub struct GeneratedCandidateRecord {
+    /// Stable example identifier that produced the candidate.
+    pub example_id: String,
+    /// Protein identifier for pocket-conditioned evaluation.
+    pub protein_id: String,
+    /// Optional backend-specific molecular representation.
+    pub molecular_representation: Option<String>,
+}
+
+/// Named metrics emitted by an external chemistry or docking backend.
+#[derive(Debug, Clone)]
+pub struct ExternalMetricRecord {
+    /// Stable metric name, such as `valid_fraction` or `best_docking_score`.
+    pub metric_name: String,
+    /// Numeric metric value.
+    pub value: f64,
+}
+
+/// Backend response for future chemistry-grade evaluation.
+#[derive(Debug, Clone)]
+pub struct ExternalEvaluationReport {
+    /// Backend identifier.
+    pub backend_name: String,
+    /// Metrics emitted by the backend.
+    pub metrics: Vec<ExternalMetricRecord>,
+}
+
+/// Extension point for future chemistry validity evaluation.
+pub trait ChemistryValidityEvaluator {
+    /// Stable backend identifier.
+    fn backend_name(&self) -> &'static str;
+
+    /// Evaluate generated candidates for chemistry validity.
+    fn evaluate_chemistry(
+        &self,
+        candidates: &[GeneratedCandidateRecord],
+    ) -> ExternalEvaluationReport;
+}
+
+/// Extension point for future docking or affinity rescoring.
+pub trait DockingEvaluator {
+    /// Stable backend identifier.
+    fn backend_name(&self) -> &'static str;
+
+    /// Evaluate generated candidates against pockets with a docking backend.
+    fn evaluate_docking(&self, candidates: &[GeneratedCandidateRecord])
+        -> ExternalEvaluationReport;
+}
+
+/// Extension point for future pocket-compatibility validation.
+pub trait PocketCompatibilityEvaluator {
+    /// Stable backend identifier.
+    fn backend_name(&self) -> &'static str;
+
+    /// Evaluate whether generated candidates are pocket-compatible downstream.
+    fn evaluate_pocket_compatibility(
+        &self,
+        candidates: &[GeneratedCandidateRecord],
+    ) -> ExternalEvaluationReport;
 }
 
 /// Slot decomposition output for one modality.

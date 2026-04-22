@@ -98,6 +98,12 @@ pub struct ExampleTargets {
     pub affinity_raw_value: Option<f32>,
     /// Original unit before normalization, such as `nM` or `uM`.
     pub affinity_raw_unit: Option<String>,
+    /// Normalization path used to derive `affinity_kcal_mol`.
+    pub affinity_normalization_provenance: Option<String>,
+    /// Whether the normalization path is only an approximation.
+    pub affinity_is_approximate: bool,
+    /// Optional warning describing approximation or suspicious normalization assumptions.
+    pub affinity_normalization_warning: Option<String>,
 }
 
 impl MolecularExample {

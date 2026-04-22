@@ -4,7 +4,7 @@
 //! under `crate::legacy` without making it look like part of the primary
 //! config-driven research stack.
 
-use crate::{ComparisonExperiment, ComparisonResult, ExperimentConfig};
+use crate::experiment::{ComparisonExperiment, ComparisonResult, ExperimentConfig};
 
 /// Run the legacy representation comparison experiment.
 pub fn run_comparison_experiment(

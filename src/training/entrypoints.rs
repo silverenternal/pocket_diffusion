@@ -8,16 +8,19 @@ use tch::nn;
 
 use crate::{
     config::{load_research_config, DatasetFormat},
-    data::{Dataset, InMemoryDataset},
-    experiments::{evaluate_split, AblationConfig, EvaluationMetrics},
+    data::{Dataset, DatasetValidationReport, InMemoryDataset},
+    experiments::{evaluate_split, AblationConfig},
     models::Phase1ResearchSystem,
+    training::{
+        reproducibility_metadata, stable_json_hash, RunArtifactBundle, RunArtifactPaths, RunKind,
+    },
 };
 
-use super::{DatasetSplitSizes, ResearchTrainer, StepMetrics, TrainingRunSummary};
+use super::{DatasetSplitSizes, ResearchTrainer, SplitReport, StepMetrics, TrainingRunSummary};
 
 /// One sample row emitted by dataset inspection.
 #[derive(Debug, Clone)]
-pub struct InspectionExample {
+pub(crate) struct InspectionExample {
     /// Example identifier.
     pub example_id: String,
     /// Protein split key used for unseen-pocket splitting.
@@ -36,6 +39,12 @@ pub struct InspectionExample {
     pub affinity_raw_value: Option<f32>,
     /// Optional raw affinity unit.
     pub affinity_raw_unit: Option<String>,
+    /// Optional normalization provenance.
+    pub affinity_normalization_provenance: Option<String>,
+    /// Whether the affinity target is approximate.
+    pub affinity_is_approximate: bool,
+    /// Optional normalization warning.
+    pub affinity_normalization_warning: Option<String>,
 }
 
 /// Compact inspection summary for a config-driven dataset.
@@ -54,28 +63,25 @@ pub struct DatasetInspection {
     /// Configured pocket feature width used to normalize examples.
     pub pocket_feature_dim: i64,
     /// Example previews for CLI inspection.
-    pub examples: Vec<InspectionExample>,
+    pub(crate) examples: Vec<InspectionExample>,
+    /// Machine-readable dataset validation artifact.
+    pub validation: DatasetValidationReport,
+    /// Persisted path for the dataset validation report.
+    pub validation_report_path: PathBuf,
+    /// Split-distribution and leakage audit.
+    pub split_report: SplitReport,
 }
 
 /// Outputs produced by a config-driven training run.
-#[derive(Debug, Clone)]
-pub struct TrainingRunOutput {
-    /// Persisted training summary.
-    pub summary: TrainingRunSummary,
-    /// Validation metrics evaluated after training.
-    pub validation: EvaluationMetrics,
-    /// Test metrics evaluated after training.
-    pub test: EvaluationMetrics,
-    /// Rolling latest checkpoint path for resume.
-    pub latest_checkpoint_path: PathBuf,
-}
-
 /// Inspect a dataset using the modular research config path.
 pub fn inspect_dataset_from_config(
     path: impl AsRef<Path>,
 ) -> Result<DatasetInspection, Box<dyn std::error::Error>> {
     let config = load_research_config(path.as_ref())?;
-    let dataset = InMemoryDataset::from_data_config(&config.data)?
+    config.validate()?;
+    let loaded = InMemoryDataset::load_from_config(&config.data)?;
+    let dataset = loaded
+        .dataset
         .with_pocket_feature_dim(config.model.pocket_feature_dim);
     let splits = dataset.split_by_protein_fraction_with_options(
         config.data.val_fraction,
@@ -106,8 +112,26 @@ pub fn inspect_dataset_from_config(
                 .affinity_raw_unit
                 .as_ref()
                 .map(ToOwned::to_owned),
+            affinity_normalization_provenance: example
+                .targets
+                .affinity_normalization_provenance
+                .as_ref()
+                .map(ToOwned::to_owned),
+            affinity_is_approximate: example.targets.affinity_is_approximate,
+            affinity_normalization_warning: example
+                .targets
+                .affinity_normalization_warning
+                .as_ref()
+                .map(ToOwned::to_owned),
         })
         .collect();
+
+    let split_report = SplitReport::from_datasets(&splits.train, &splits.val, &splits.test);
+    let validation_report_path = write_dataset_validation_report(
+        &config.training.checkpoint_dir,
+        "dataset_validation_report.json",
+        &loaded.validation,
+    )?;
 
     Ok(DatasetInspection {
         dataset_format: config.data.dataset_format,
@@ -117,6 +141,9 @@ pub fn inspect_dataset_from_config(
         test_examples: splits.test.len(),
         pocket_feature_dim: config.model.pocket_feature_dim,
         examples,
+        validation: loaded.validation,
+        validation_report_path,
+        split_report,
     })
 }
 
@@ -124,9 +151,12 @@ pub fn inspect_dataset_from_config(
 pub fn run_training_from_config(
     path: impl AsRef<Path>,
     resume: bool,
-) -> Result<TrainingRunOutput, Box<dyn std::error::Error>> {
+) -> Result<TrainingRunSummary, Box<dyn std::error::Error>> {
     let config = load_research_config(path.as_ref())?;
-    let dataset = InMemoryDataset::from_data_config(&config.data)?
+    config.validate()?;
+    let loaded = InMemoryDataset::load_from_config(&config.data)?;
+    let dataset = loaded
+        .dataset
         .with_pocket_feature_dim(config.model.pocket_feature_dim);
     let splits = dataset.split_by_protein_fraction_with_options(
         config.data.val_fraction,
@@ -139,10 +169,13 @@ pub fn run_training_from_config(
     let mut var_store = nn::VarStore::new(device);
     let system = Phase1ResearchSystem::new(&var_store.root(), &config);
     let mut trainer = ResearchTrainer::new(&var_store, config.clone())?;
+    trainer.set_dataset_validation_fingerprint(stable_json_hash(&loaded.validation));
     let mut resumed_from_step = None;
+    let mut resumed_checkpoint_metadata = None;
     if resume {
         if let Some(checkpoint) = trainer.resume_from_latest(&mut var_store)? {
             resumed_from_step = Some(checkpoint.metadata.step);
+            resumed_checkpoint_metadata = Some(checkpoint.metadata.clone());
             if let Some(history) =
                 load_training_history(&config.training.checkpoint_dir, checkpoint.metadata.step)?
             {
@@ -192,37 +225,86 @@ pub fn run_training_from_config(
 
     let summary = TrainingRunSummary {
         config: config.clone(),
+        dataset_validation: loaded.validation.clone(),
         splits: DatasetSplitSizes {
             total: dataset.len(),
             train: splits.train.len(),
             val: splits.val.len(),
             test: splits.test.len(),
         },
+        split_report: SplitReport::from_datasets(&splits.train, &splits.val, &splits.test),
         resumed_from_step,
-        summary_path: config.training.checkpoint_dir.join("training_summary.json"),
+        reproducibility: reproducibility_metadata(
+            &config,
+            &loaded.validation,
+            resumed_checkpoint_metadata.as_ref(),
+        ),
         training_history: trainer.history().to_vec(),
         validation: validation.clone(),
         test: test.clone(),
     };
-    write_training_summary(&summary)?;
+    persist_training_artifacts(&summary)?;
 
-    Ok(TrainingRunOutput {
-        latest_checkpoint_path: config.training.checkpoint_dir.join("latest.ot"),
-        summary,
-        validation,
-        test,
-    })
+    Ok(summary)
 }
 
-fn write_training_summary(
+fn persist_training_artifacts(
     summary: &TrainingRunSummary,
-) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    fs::create_dir_all(&summary.config.training.checkpoint_dir)?;
+) -> Result<RunArtifactBundle, Box<dyn std::error::Error>> {
+    let artifact_dir = &summary.config.training.checkpoint_dir;
+    fs::create_dir_all(artifact_dir)?;
+    let config_snapshot = artifact_dir.join("config.snapshot.json");
+    let dataset_validation_report = artifact_dir.join("dataset_validation_report.json");
+    let split_report = artifact_dir.join("split_report.json");
+    let run_summary = artifact_dir.join("training_summary.json");
+    let run_bundle = artifact_dir.join("run_artifacts.json");
+
     fs::write(
-        &summary.summary_path,
-        serde_json::to_string_pretty(summary)?,
+        &config_snapshot,
+        serde_json::to_string_pretty(&summary.config)?,
     )?;
-    Ok(summary.summary_path.clone())
+    fs::write(
+        &dataset_validation_report,
+        serde_json::to_string_pretty(&summary.dataset_validation)?,
+    )?;
+    fs::write(
+        &split_report,
+        serde_json::to_string_pretty(&summary.split_report)?,
+    )?;
+    fs::write(&run_summary, serde_json::to_string_pretty(summary)?)?;
+
+    let bundle = RunArtifactBundle {
+        schema_version: summary.reproducibility.artifact_bundle_schema_version,
+        run_kind: RunKind::Training,
+        artifact_dir: artifact_dir.clone(),
+        config_hash: summary.reproducibility.config_hash.clone(),
+        dataset_validation_fingerprint: summary
+            .reproducibility
+            .dataset_validation_fingerprint
+            .clone(),
+        metric_schema_version: summary.reproducibility.metric_schema_version,
+        paths: RunArtifactPaths {
+            config_snapshot,
+            dataset_validation_report,
+            split_report,
+            run_summary,
+            run_bundle: run_bundle.clone(),
+            latest_checkpoint: Some(artifact_dir.join("latest.ot")),
+        },
+    };
+    fs::write(&run_bundle, serde_json::to_string_pretty(&bundle)?)?;
+    Ok(bundle)
+}
+
+fn write_dataset_validation_report(
+    checkpoint_dir: &Path,
+    file_name: &str,
+    report: &DatasetValidationReport,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    fs::create_dir_all(checkpoint_dir)?;
+    let path = checkpoint_dir.join(file_name);
+    fs::write(&path, serde_json::to_string_pretty(report)?)?;
+    Ok(path)
 }
 
 fn load_training_history(
@@ -264,6 +346,14 @@ mod tests {
         assert_eq!(inspection.pocket_feature_dim, 11);
         assert!(!inspection.examples.is_empty());
         assert_eq!(inspection.examples[0].pocket_feature_dim, 11);
+        assert_eq!(inspection.validation.discovered_complexes, 4);
+        assert!(inspection.validation_report_path.exists());
+        assert!(
+            !inspection
+                .split_report
+                .leakage_checks
+                .protein_overlap_detected
+        );
     }
 
     #[test]
@@ -276,6 +366,9 @@ mod tests {
         config.data.val_fraction = 0.25;
         config.data.test_fraction = 0.25;
         config.training.max_steps = 2;
+        config.training.schedule.stage1_steps = 1;
+        config.training.schedule.stage2_steps = 1;
+        config.training.schedule.stage3_steps = 2;
         config.training.log_every = 100;
         config.training.checkpoint_every = 100;
         config.training.checkpoint_dir = temp.path().join("checkpoints");
@@ -283,22 +376,53 @@ mod tests {
         let config_path = temp.path().join("research_config.json");
         fs::write(&config_path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
 
-        let output = run_training_from_config(&config_path, false).unwrap();
+        let summary = run_training_from_config(&config_path, false).unwrap();
 
-        let summary: TrainingRunSummary =
-            serde_json::from_str(&fs::read_to_string(&output.summary.summary_path).unwrap())
-                .unwrap();
+        let summary: TrainingRunSummary = serde_json::from_str(
+            &fs::read_to_string(
+                summary
+                    .config
+                    .training
+                    .checkpoint_dir
+                    .join("training_summary.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
 
         assert_eq!(summary.training_history.len(), 2);
         assert_eq!(summary.splits.total, 4);
         assert_eq!(summary.splits.val, 1);
         assert_eq!(summary.splits.test, 1);
-        assert!(summary.validation.validity >= 0.0);
-        assert!(summary.test.validity >= 0.0);
-        assert_eq!(
-            output.latest_checkpoint_path,
-            config.training.checkpoint_dir.join("latest.ot")
+        assert_eq!(summary.dataset_validation.parsed_examples, 4);
+        assert!(summary
+            .config
+            .training
+            .checkpoint_dir
+            .join("dataset_validation_report.json")
+            .exists());
+        assert_eq!(summary.reproducibility.metric_schema_version, 2);
+        assert!(summary
+            .config
+            .training
+            .checkpoint_dir
+            .join("run_artifacts.json")
+            .exists());
+        assert!(
+            summary
+                .validation
+                .representation_diagnostics
+                .finite_forward_fraction
+                >= 0.0
         );
+        assert!(
+            summary
+                .test
+                .representation_diagnostics
+                .finite_forward_fraction
+                >= 0.0
+        );
+        assert!(config.training.checkpoint_dir.join("latest.ot").exists());
     }
 
     #[test]
@@ -313,6 +437,9 @@ mod tests {
         config.data.val_fraction = 0.25;
         config.data.test_fraction = 0.25;
         config.training.max_steps = 2;
+        config.training.schedule.stage1_steps = 1;
+        config.training.schedule.stage2_steps = 1;
+        config.training.schedule.stage3_steps = 2;
         config.training.log_every = 100;
         config.training.checkpoint_every = 1;
         config.training.checkpoint_dir = checkpoint_dir.clone();
@@ -326,6 +453,9 @@ mod tests {
         let _ = run_training_from_config(&first_config_path, false).unwrap();
 
         config.training.max_steps = 4;
+        config.training.schedule.stage1_steps = 1;
+        config.training.schedule.stage2_steps = 2;
+        config.training.schedule.stage3_steps = 3;
         let resumed_config_path = temp.path().join("research_config_resumed.json");
         fs::write(
             &resumed_config_path,
@@ -334,9 +464,17 @@ mod tests {
         .unwrap();
 
         let output = run_training_from_config(&resumed_config_path, true).unwrap();
-        let summary: TrainingRunSummary =
-            serde_json::from_str(&fs::read_to_string(&output.summary.summary_path).unwrap())
-                .unwrap();
+        let summary: TrainingRunSummary = serde_json::from_str(
+            &fs::read_to_string(
+                output
+                    .config
+                    .training
+                    .checkpoint_dir
+                    .join("training_summary.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
 
         assert_eq!(summary.resumed_from_step, Some(1));
         assert_eq!(summary.training_history.len(), 4);
@@ -344,5 +482,12 @@ mod tests {
         assert_eq!(summary.training_history[1].step, 1);
         assert_eq!(summary.training_history[2].step, 2);
         assert_eq!(summary.training_history[3].step, 3);
+        assert!(summary
+            .config
+            .training
+            .checkpoint_dir
+            .join("dataset_validation_report.json")
+            .exists());
+        assert!(summary.reproducibility.resume_provenance.resumed);
     }
 }

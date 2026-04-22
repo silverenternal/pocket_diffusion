@@ -10,7 +10,7 @@ pub struct GateLoss;
 
 impl GateLoss {
     /// Compute the average gate magnitude across all directed interactions.
-    pub fn compute(&self, interactions: &CrossModalInteractions) -> Tensor {
+    pub(crate) fn compute(&self, interactions: &CrossModalInteractions) -> Tensor {
         let gates = Tensor::stack(
             &[
                 interactions.topo_from_geo.gate.shallow_clone(),

@@ -5,8 +5,7 @@
 //! code should prefer `crate::config`, `crate::data`, `crate::models`,
 //! `crate::training`, and `crate::experiments`.
 //!
-//! The crate continues to re-export many of these items at the root for
-//! compatibility, but `crate::legacy::*` is the clearer namespace for old flows.
+//! Legacy items stay discoverable here, rather than through the crate root.
 
 pub mod comparison;
 pub mod demo;
@@ -18,6 +17,7 @@ pub use crate::experiment::{
     ComparisonExperiment, ComparisonResult, ExperimentConfig, MethodResult,
 };
 pub use crate::pocket::create_example_prrsv_pocket;
-pub use crate::{CandidateMolecule, GenerationResult, PocketDiffusionPipeline};
-pub use comparison::*;
-pub use demo::*;
+pub use crate::types::{CandidateMolecule, GenerationResult};
+pub use crate::PocketDiffusionPipeline;
+pub use comparison::run_comparison_experiment;
+pub use demo::run_legacy_demo;

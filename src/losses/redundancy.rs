@@ -19,7 +19,7 @@ impl Default for IntraRedundancyLoss {
 
 impl IntraRedundancyLoss {
     /// Compute the aggregate intra-modality redundancy penalty.
-    pub fn compute(&self, slots: &DecomposedModalities) -> Tensor {
+    pub(crate) fn compute(&self, slots: &DecomposedModalities) -> Tensor {
         let topo = self.modality_loss(&slots.topology.slots);
         let geo = self.modality_loss(&slots.geometry.slots);
         let pocket = self.modality_loss(&slots.pocket.slots);

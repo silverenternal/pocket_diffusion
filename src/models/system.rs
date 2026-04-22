@@ -14,7 +14,7 @@ use crate::{
 
 /// Output bundle for the separate modality encoders.
 #[derive(Debug, Clone)]
-pub struct EncodedModalities {
+pub(crate) struct EncodedModalities {
     /// Topology encoding.
     pub topology: ModalityEncoding,
     /// Geometry encoding.
@@ -25,7 +25,7 @@ pub struct EncodedModalities {
 
 /// Slot-decomposed outputs for each modality.
 #[derive(Debug, Clone)]
-pub struct DecomposedModalities {
+pub(crate) struct DecomposedModalities {
     /// Topology slots.
     pub topology: SlotEncoding,
     /// Geometry slots.
@@ -36,7 +36,7 @@ pub struct DecomposedModalities {
 
 /// Directed gated cross-modality interactions.
 #[derive(Debug, Clone)]
-pub struct CrossModalInteractions {
+pub(crate) struct CrossModalInteractions {
     /// Topology receiving information from geometry.
     pub topo_from_geo: CrossAttentionOutput,
     /// Topology receiving information from pocket context.
@@ -53,7 +53,7 @@ pub struct CrossModalInteractions {
 
 /// Full Phase 2 forward-pass bundle.
 #[derive(Debug, Clone)]
-pub struct ResearchForward {
+pub(crate) struct ResearchForward {
     /// Pre-decomposition modality encodings.
     pub encodings: EncodedModalities,
     /// Slot-decomposed modality encodings.
@@ -157,7 +157,7 @@ impl Phase1ResearchSystem {
     }
 
     /// Run the three modality encoders for one example.
-    pub fn encode_example(&self, example: &MolecularExample) -> EncodedModalities {
+    pub(crate) fn encode_example(&self, example: &MolecularExample) -> EncodedModalities {
         EncodedModalities {
             topology: self.topo_encoder.encode(&example.topology),
             geometry: self.geo_encoder.encode(&example.geometry),
@@ -166,7 +166,10 @@ impl Phase1ResearchSystem {
     }
 
     /// Decompose the three modality encodings into learned slots.
-    pub fn decompose_modalities(&self, encodings: &EncodedModalities) -> DecomposedModalities {
+    pub(crate) fn decompose_modalities(
+        &self,
+        encodings: &EncodedModalities,
+    ) -> DecomposedModalities {
         DecomposedModalities {
             topology: self.topo_slots.decompose(&encodings.topology),
             geometry: self.geo_slots.decompose(&encodings.geometry),
@@ -175,7 +178,10 @@ impl Phase1ResearchSystem {
     }
 
     /// Apply all directed cross-modality interactions.
-    pub fn interact_modalities(&self, slots: &DecomposedModalities) -> CrossModalInteractions {
+    pub(crate) fn interact_modalities(
+        &self,
+        slots: &DecomposedModalities,
+    ) -> CrossModalInteractions {
         CrossModalInteractions {
             topo_from_geo: self.topo_from_geo.forward(&slots.topology, &slots.geometry),
             topo_from_pocket: self
@@ -191,7 +197,7 @@ impl Phase1ResearchSystem {
     }
 
     /// Run the full Phase 2 forward pass for one example.
-    pub fn forward_example(&self, example: &MolecularExample) -> ResearchForward {
+    pub(crate) fn forward_example(&self, example: &MolecularExample) -> ResearchForward {
         let encodings = self.encode_example(example);
         let slots = self.decompose_modalities(&encodings);
         let interactions = self.interact_modalities(&slots);
@@ -213,7 +219,8 @@ impl Phase1ResearchSystem {
     }
 
     /// Collate and encode a small batch.
-    pub fn encode_batch(
+    #[allow(dead_code)]
+    pub(crate) fn encode_batch(
         &self,
         examples: &[MolecularExample],
     ) -> (MolecularBatch, Vec<EncodedModalities>) {
@@ -226,7 +233,7 @@ impl Phase1ResearchSystem {
     }
 
     /// Collate and run the full Phase 2 forward pass on a small batch.
-    pub fn forward_batch(
+    pub(crate) fn forward_batch(
         &self,
         examples: &[MolecularExample],
     ) -> (MolecularBatch, Vec<ResearchForward>) {
