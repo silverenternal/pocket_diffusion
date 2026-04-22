@@ -1,6 +1,6 @@
 //! Batch collation with explicit masks and minimal padding.
 
-use tch::{Kind, Tensor};
+use tch::{Device, Kind, Tensor};
 
 use super::MolecularExample;
 
@@ -46,6 +46,10 @@ impl Clone for MolecularBatch {
 impl MolecularBatch {
     /// Collate examples into a batch using zero padding and explicit masks.
     pub fn collate(examples: &[MolecularExample]) -> Self {
+        let device = examples
+            .first()
+            .map(|example| example.topology.atom_types.device())
+            .unwrap_or(Device::Cpu);
         let batch_size = examples.len() as i64;
         let max_ligand_atoms = examples
             .iter()
@@ -62,34 +66,19 @@ impl MolecularBatch {
             .find_map(|example| example.pocket.atom_features.size().get(1).copied())
             .unwrap_or(6);
 
-        let atom_types = Tensor::zeros(
-            [batch_size, max_ligand_atoms],
-            (Kind::Int64, tch::Device::Cpu),
-        );
-        let ligand_mask = Tensor::zeros(
-            [batch_size, max_ligand_atoms],
-            (Kind::Float, tch::Device::Cpu),
-        );
-        let ligand_coords = Tensor::zeros(
-            [batch_size, max_ligand_atoms, 3],
-            (Kind::Float, tch::Device::Cpu),
-        );
+        let atom_types = Tensor::zeros([batch_size, max_ligand_atoms], (Kind::Int64, device));
+        let ligand_mask = Tensor::zeros([batch_size, max_ligand_atoms], (Kind::Float, device));
+        let ligand_coords = Tensor::zeros([batch_size, max_ligand_atoms, 3], (Kind::Float, device));
         let pairwise_distances = Tensor::zeros(
             [batch_size, max_ligand_atoms, max_ligand_atoms],
-            (Kind::Float, tch::Device::Cpu),
+            (Kind::Float, device),
         );
         let pocket_atom_features = Tensor::zeros(
             [batch_size, max_pocket_atoms, pocket_feature_dim],
-            (Kind::Float, tch::Device::Cpu),
+            (Kind::Float, device),
         );
-        let pocket_coords = Tensor::zeros(
-            [batch_size, max_pocket_atoms, 3],
-            (Kind::Float, tch::Device::Cpu),
-        );
-        let pocket_mask = Tensor::zeros(
-            [batch_size, max_pocket_atoms],
-            (Kind::Float, tch::Device::Cpu),
-        );
+        let pocket_coords = Tensor::zeros([batch_size, max_pocket_atoms, 3], (Kind::Float, device));
+        let pocket_mask = Tensor::zeros([batch_size, max_pocket_atoms], (Kind::Float, device));
 
         let mut example_ids = Vec::with_capacity(examples.len());
         let mut protein_ids = Vec::with_capacity(examples.len());
@@ -148,5 +137,52 @@ impl MolecularBatch {
             pocket_coords,
             pocket_mask,
         }
+    }
+}
+
+/// Deterministic sequential mini-batch iterator over borrowed examples.
+pub struct ExampleBatchIter<'a> {
+    examples: &'a [MolecularExample],
+    batch_size: usize,
+    cursor: usize,
+}
+
+impl<'a> ExampleBatchIter<'a> {
+    /// Create a new iterator that yields contiguous mini-batches.
+    pub fn new(examples: &'a [MolecularExample], batch_size: usize) -> Self {
+        Self {
+            examples,
+            batch_size: batch_size.max(1),
+            cursor: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for ExampleBatchIter<'a> {
+    type Item = &'a [MolecularExample];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cursor >= self.examples.len() {
+            return None;
+        }
+        let start = self.cursor;
+        let end = (start + self.batch_size).min(self.examples.len());
+        self.cursor = end;
+        Some(&self.examples[start..end])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::synthetic_phase1_examples;
+
+    #[test]
+    fn batch_iter_respects_batch_size() {
+        let examples = synthetic_phase1_examples();
+        let batches: Vec<&[MolecularExample]> = ExampleBatchIter::new(&examples, 3).collect();
+        assert_eq!(batches.len(), 2);
+        assert_eq!(batches[0].len(), 3);
+        assert_eq!(batches[1].len(), 1);
     }
 }

@@ -12,6 +12,7 @@ use crate::{
     config::ResearchConfig,
     data::InMemoryDataset,
     models::{Phase1ResearchSystem, ResearchForward},
+    runtime::parse_runtime_device,
     training::{ResearchTrainer, StepMetrics},
 };
 
@@ -134,7 +135,16 @@ impl UnseenPocketExperiment {
     pub fn run(
         config: UnseenPocketExperimentConfig,
     ) -> Result<UnseenPocketExperimentSummary, Box<dyn std::error::Error>> {
-        let dataset = InMemoryDataset::from_data_config(&config.research.data)?;
+        Self::run_with_options(config, false)
+    }
+
+    /// Execute the experiment with optional checkpoint resume.
+    pub fn run_with_options(
+        config: UnseenPocketExperimentConfig,
+        resume_from_latest: bool,
+    ) -> Result<UnseenPocketExperimentSummary, Box<dyn std::error::Error>> {
+        let dataset = InMemoryDataset::from_data_config(&config.research.data)?
+            .with_pocket_feature_dim(config.research.model.pocket_feature_dim);
         let splits = dataset.split_by_protein_fraction_with_options(
             config.research.data.val_fraction,
             config.research.data.test_fraction,
@@ -148,15 +158,32 @@ impl UnseenPocketExperiment {
             );
         }
 
-        let device = tch::Device::Cpu;
-        let var_store = nn::VarStore::new(device);
+        let device = parse_runtime_device(&config.research.runtime.device)?;
+        let mut var_store = nn::VarStore::new(device);
         let system = Phase1ResearchSystem::new(&var_store.root(), &config.research);
         let mut trainer = ResearchTrainer::new(&var_store, config.research.clone())?;
-
-        let train_examples = splits.train.examples().to_vec();
-        for _ in 0..config.research.training.max_steps {
-            let _ = trainer.train_step(&var_store, &system, &train_examples)?;
+        if resume_from_latest {
+            if let Some(checkpoint) = trainer.resume_from_latest(&mut var_store)? {
+                if let Some(history) = load_experiment_history(
+                    &config.research.training.checkpoint_dir,
+                    checkpoint.metadata.step,
+                )? {
+                    trainer.replace_history(history);
+                }
+                log::info!(
+                    "resumed experiment training from step {} at {}",
+                    checkpoint.metadata.step,
+                    checkpoint.weights_path.display()
+                );
+            }
         }
+        let train_examples: Vec<_> = splits
+            .train
+            .examples()
+            .iter()
+            .map(|example| example.to_device(device))
+            .collect();
+        trainer.fit(&var_store, &system, &train_examples)?;
 
         let train_proteins: std::collections::BTreeSet<&str> = splits
             .train
@@ -170,28 +197,67 @@ impl UnseenPocketExperiment {
             splits.val.examples(),
             &train_proteins,
             config.ablation,
+            device,
         );
         let test = evaluate_split(
             &system,
             splits.test.examples(),
             &train_proteins,
             config.ablation,
+            device,
         );
 
-        Ok(UnseenPocketExperimentSummary {
+        let summary = UnseenPocketExperimentSummary {
             config,
             training_history: trainer.history().to_vec(),
             validation,
             test,
-        })
+        };
+        persist_experiment_summary(&summary)?;
+        Ok(summary)
     }
 }
 
-fn evaluate_split(
+fn persist_experiment_summary(
+    summary: &UnseenPocketExperimentSummary,
+) -> Result<(), Box<dyn std::error::Error>> {
+    fs::create_dir_all(&summary.config.research.training.checkpoint_dir)?;
+    let path = summary
+        .config
+        .research
+        .training
+        .checkpoint_dir
+        .join("experiment_summary.json");
+    fs::write(path, serde_json::to_string_pretty(summary)?)?;
+    Ok(())
+}
+
+fn load_experiment_history(
+    checkpoint_dir: &std::path::Path,
+    resumed_step: usize,
+) -> Result<Option<Vec<StepMetrics>>, Box<dyn std::error::Error>> {
+    let path = checkpoint_dir.join("experiment_summary.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let summary: UnseenPocketExperimentSummary = serde_json::from_str(&fs::read_to_string(path)?)?;
+    Ok(Some(
+        summary
+            .training_history
+            .into_iter()
+            .filter(|metrics| metrics.step <= resumed_step)
+            .collect(),
+    ))
+}
+
+/// Evaluate a dataset split using the trained modular research system.
+pub fn evaluate_split(
     system: &Phase1ResearchSystem,
     examples: &[crate::data::MolecularExample],
     train_proteins: &std::collections::BTreeSet<&str>,
     ablation: AblationConfig,
+    device: tch::Device,
 ) -> EvaluationMetrics {
     let start = Instant::now();
     let mut sys =
@@ -221,7 +287,7 @@ fn evaluate_split(
 
     let forwards: Vec<ResearchForward> = examples
         .iter()
-        .map(|example| system.forward_example(example))
+        .map(|example| system.forward_example(&example.to_device(device)))
         .collect();
 
     sys.refresh_memory();
@@ -490,4 +556,58 @@ fn cosine_similarity(a: &tch::Tensor, b: &tch::Tensor) -> f64 {
     let a_norm = a.norm().double_value(&[]);
     let b_norm = b.norm().double_value(&[]);
     dot / (a_norm * b_norm).max(1e-6)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unseen_pocket_experiment_smoke_test() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut config = UnseenPocketExperimentConfig::default();
+        config.research.training.max_steps = 2;
+        config.research.training.checkpoint_every = 100;
+        config.research.training.log_every = 100;
+        config.research.data.batch_size = 2;
+        config.research.runtime.device = "cpu".to_string();
+        config.research.training.checkpoint_dir = temp.path().join("checkpoints");
+
+        let summary = UnseenPocketExperiment::run(config).unwrap();
+        assert_eq!(summary.training_history.len(), 2);
+        assert!(summary.validation.validity >= 0.0);
+        assert!(summary.test.validity >= 0.0);
+        assert!(summary
+            .config
+            .research
+            .training
+            .checkpoint_dir
+            .join("experiment_summary.json")
+            .exists());
+    }
+
+    #[test]
+    fn resumed_experiment_preserves_prior_history() {
+        let temp = tempfile::tempdir().unwrap();
+        let checkpoint_dir = temp.path().join("checkpoints");
+
+        let mut config = UnseenPocketExperimentConfig::default();
+        config.research.training.max_steps = 2;
+        config.research.training.checkpoint_every = 1;
+        config.research.training.log_every = 100;
+        config.research.data.batch_size = 2;
+        config.research.runtime.device = "cpu".to_string();
+        config.research.training.checkpoint_dir = checkpoint_dir;
+
+        let _ = UnseenPocketExperiment::run(config.clone()).unwrap();
+
+        config.research.training.max_steps = 4;
+        let summary = UnseenPocketExperiment::run_with_options(config, true).unwrap();
+
+        assert_eq!(summary.training_history.len(), 4);
+        assert_eq!(summary.training_history[0].step, 0);
+        assert_eq!(summary.training_history[1].step, 1);
+        assert_eq!(summary.training_history[2].step, 2);
+        assert_eq!(summary.training_history[3].step, 3);
+    }
 }

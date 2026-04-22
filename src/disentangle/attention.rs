@@ -39,7 +39,7 @@ pub struct DisentangledMultiHeadAttention {
     /// 隐藏层维度
     hidden_dim: usize,
     /// 设备
-    device: Device,
+    _device: Device,
 }
 
 impl DisentangledMultiHeadAttention {
@@ -147,7 +147,7 @@ impl DisentangledMultiHeadAttention {
             pocket_out_proj,
             num_heads,
             hidden_dim,
-            device,
+            _device: device,
         }
     }
 
@@ -391,8 +391,6 @@ impl BranchContrastiveLoss {
     /// 正样本对：同一分子的不同分支视图
     /// 负样本对：不同分子的分支视图
     pub fn compute_loss(&self, z1: &Tensor, z2: &Tensor) -> Tensor {
-        let batch_size = z1.size()[0];
-
         // 归一化表示（沿最后一个维度计算L2范数）
         let z1_sq_sum = z1
             .pow_tensor_scalar(2.0)

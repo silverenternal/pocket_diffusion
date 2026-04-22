@@ -1,430 +1,246 @@
-//! 基于口袋条件扩散的结构感知小分子生成 - 主程序示例
+//! Main binary for the modular research stack and legacy compatibility demos.
 
-use pocket_diffusion::*;
 use std::env;
-use std::path::Path;
-use tch::{nn, Device};
+
+use pocket_diffusion::{experiments, legacy, training};
 
 fn main() {
     env_logger::init();
+    if let Err(err) = run() {
+        eprintln!("error: {err}");
+        std::process::exit(1);
+    }
+}
 
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    if let Some(path) = value_after_flag(&args, "--experiment-config") {
-        run_experiment_from_config(path);
-        return;
-    }
-    if let Some(path) = value_after_flag(&args, "--train-config") {
-        run_training_from_config(path);
-        return;
-    }
-    if let Some(path) = value_after_flag(&args, "--inspect-config") {
-        inspect_dataset_from_config(path);
-        return;
-    }
-    if args.iter().any(|arg| arg == "--phase4") {
-        run_phase4_experiment_demo();
-        return;
-    }
-    if args.iter().any(|arg| arg == "--train-phase3") {
-        run_phase3_training_demo();
-        return;
-    }
-    if args.iter().any(|arg| arg == "--phase1") {
-        run_phase1_demo();
-        return;
-    }
-
-    println!("================================================");
-    println!("  基于口袋条件扩散的结构感知小分子生成系统");
-    println!("  Pocket-Conditioned Diffusion Molecule Gen");
-    println!("================================================");
-
-    // 解析命令行参数
-    let num_candidates = if args.len() > 1 {
-        args[1].parse().unwrap_or(10)
-    } else {
-        10
-    };
-    let top_k = if args.len() > 2 {
-        args[2].parse().unwrap_or(3)
-    } else {
-        3
-    };
-
-    println!("\n配置:");
-    println!("  - 候选分子数量: {}", num_candidates);
-    println!("  - Top-K筛选: {}", top_k);
-
-    // 初始化模型
-    println!("\n[1/4] 初始化神经网络模型...");
-    let device = Device::Cpu;
-    let vs = nn::VarStore::new(device);
-    let pipeline = PocketDiffusionPipeline::new(&vs.root());
-
-    // 创建示例蛋白口袋 (PRRSV核衣壳蛋白)
-    println!("\n[2/4] 加载目标蛋白口袋 (PRRSV核衣壳蛋白)...");
-    let pocket = create_example_prrsv_pocket();
-    let embedding = PocketFeatureExtractor::extract(&pocket);
-
-    println!("  口袋原子数: {}", embedding.total_atoms);
-    println!("  重原子数: {}", embedding.heavy_atoms);
-    println!("  碳原子数: {}", embedding.carbon_count);
-    println!("  氮原子数: {}", embedding.nitrogen_count);
-    println!("  氧原子数: {}", embedding.oxygen_count);
-    println!("  硫原子数: {}", embedding.sulfur_count);
-    println!("  口袋半径: {:.2} Å", embedding.pocket_radius);
-    println!("  坐标标准差: {:.2} Å", embedding.coord_std);
-
-    // 生成候选分子
-    println!("\n[3/4] 生成候选分子集...");
-    let result = pipeline.generate_and_rank(&pocket, num_candidates, top_k);
-
-    println!("  生成候选分子: {} 个", result.candidates.len());
-    println!(
-        "  平均原子数: {:.1}",
-        result
-            .candidates
-            .iter()
-            .map(|c| c.ligand.atoms.len() as f64)
-            .sum::<f64>()
-            / result.candidates.len() as f64
-    );
-
-    // 显示Top-K结果
-    println!("\n[4/4] Top-{} 亲和力最高的分子:", top_k);
-    println!("--------------------------------");
-
-    for (i, candidate) in result.top_candidates.iter().enumerate() {
-        let affinity = candidate.affinity_score.unwrap_or(0.0);
-        let num_atoms = candidate.ligand.atoms.len();
-        let num_bonds = candidate.ligand.bonds.len();
-
-        println!("\n排名 #{}:", i + 1);
-        println!("  结合亲和力: {:.2} kcal/mol", affinity);
-        println!("  原子数量: {}", num_atoms);
-        println!("  化学键数量: {}", num_bonds);
-
-        // 统计原子类型
-        let mut c_count = 0;
-        let mut n_count = 0;
-        let mut o_count = 0;
-        let mut s_count = 0;
-        let mut h_count = 0;
-
-        for atom in &candidate.ligand.atoms {
-            match atom.atom_type {
-                AtomType::Carbon => c_count += 1,
-                AtomType::Nitrogen => n_count += 1,
-                AtomType::Oxygen => o_count += 1,
-                AtomType::Sulfur => s_count += 1,
-                AtomType::Hydrogen => h_count += 1,
-                _ => {}
-            }
+    let command = parse_cli(&args)?;
+    maybe_print_compatibility_notice(&command);
+    match command {
+        CliCommand::ResearchInspect { config, .. } => inspect_dataset_from_config(&config),
+        CliCommand::ResearchTrain { config, resume, .. } => {
+            run_training_from_config(&config, resume)
         }
-
-        println!(
-            "  原子组成: C({}) N({}) O({}) S({}) H({})",
-            c_count, n_count, o_count, s_count, h_count
-        );
-
-        // 显示前5个原子坐标
-        println!("  前5个原子坐标:");
-        for (j, atom) in candidate.ligand.atoms.iter().take(5).enumerate() {
-            println!(
-                "    [{}] ({:?}) [{:7.3}, {:7.3}, {:7.3}]",
-                j, atom.atom_type, atom.coords[0], atom.coords[1], atom.coords[2]
-            );
+        CliCommand::ResearchExperiment { config, resume, .. } => {
+            run_experiment_from_config(&config, resume)
+        }
+        CliCommand::Phase1Demo => {
+            training::run_phase1_demo();
+            Ok(())
+        }
+        CliCommand::Phase3Demo => training::run_phase3_training_demo(),
+        CliCommand::Phase4Demo => training::run_phase4_experiment_demo(),
+        CliCommand::LegacyDemo {
+            num_candidates,
+            top_k,
+        } => {
+            legacy::run_legacy_demo(num_candidates, top_k);
+            Ok(())
+        }
+        CliCommand::Help => {
+            print_usage();
+            Ok(())
         }
     }
-
-    println!("\n================================================");
-    println!("  生成完成!");
-    println!("================================================");
 }
 
-fn run_phase1_demo() {
-    println!("================================================");
-    println!("  Phase 1 Research Architecture Demo");
-    println!("================================================");
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommandOrigin {
+    Canonical,
+    Compatibility,
+}
 
-    let config = ResearchConfig::default();
-    let dataset = InMemoryDataset::new(synthetic_phase1_examples());
-    let splits = dataset.split_by_protein(3, 5);
-    let device = Device::Cpu;
-    let vs = nn::VarStore::new(device);
-    let system = Phase1ResearchSystem::new(&vs.root(), &config);
+enum CliCommand {
+    ResearchInspect {
+        config: String,
+        origin: CommandOrigin,
+    },
+    ResearchTrain {
+        config: String,
+        resume: bool,
+        origin: CommandOrigin,
+    },
+    ResearchExperiment {
+        config: String,
+        resume: bool,
+        origin: CommandOrigin,
+    },
+    Phase1Demo,
+    Phase3Demo,
+    Phase4Demo,
+    LegacyDemo {
+        num_candidates: usize,
+        top_k: usize,
+    },
+    Help,
+}
 
-    let train_examples = splits.train.examples();
-    let (batch, outputs) = system.forward_batch(train_examples);
+fn parse_cli(args: &[String]) -> Result<CliCommand, Box<dyn std::error::Error>> {
+    if args.len() <= 1 {
+        return Ok(CliCommand::Help);
+    }
 
-    println!("dataset:");
-    println!("  train examples: {}", splits.train.len());
-    println!("  val examples: {}", splits.val.len());
-    println!("  test examples: {}", splits.test.len());
+    if let Some(path) = value_after_flag(args, "--experiment-config") {
+        return Ok(CliCommand::ResearchExperiment {
+            config: path.to_string(),
+            resume: has_flag(args, "--resume"),
+            origin: CommandOrigin::Compatibility,
+        });
+    }
+    if let Some(path) = value_after_flag(args, "--train-config") {
+        return Ok(CliCommand::ResearchTrain {
+            config: path.to_string(),
+            resume: has_flag(args, "--resume"),
+            origin: CommandOrigin::Compatibility,
+        });
+    }
+    if let Some(path) = value_after_flag(args, "--inspect-config") {
+        return Ok(CliCommand::ResearchInspect {
+            config: path.to_string(),
+            origin: CommandOrigin::Compatibility,
+        });
+    }
+    if has_flag(args, "--phase4") {
+        return Ok(CliCommand::Phase4Demo);
+    }
+    if has_flag(args, "--train-phase3") {
+        return Ok(CliCommand::Phase3Demo);
+    }
+    if has_flag(args, "--phase1") {
+        return Ok(CliCommand::Phase1Demo);
+    }
 
-    println!("batch:");
-    println!("  ligand atom tensor: {:?}", batch.atom_types.size());
-    println!("  ligand coord tensor: {:?}", batch.ligand_coords.size());
-    println!(
-        "  pocket feature tensor: {:?}",
-        batch.pocket_atom_features.size()
-    );
-
-    if let Some(first) = outputs.first() {
-        println!("encodings:");
-        println!(
-            "  topology pooled: {:?}, tokens: {:?}",
-            first.encodings.topology.pooled_embedding.size(),
-            first.encodings.topology.token_embeddings.size()
-        );
-        println!(
-            "  geometry pooled: {:?}, tokens: {:?}",
-            first.encodings.geometry.pooled_embedding.size(),
-            first.encodings.geometry.token_embeddings.size()
-        );
-        println!(
-            "  pocket pooled: {:?}, tokens: {:?}",
-            first.encodings.pocket.pooled_embedding.size(),
-            first.encodings.pocket.token_embeddings.size()
-        );
-
-        println!("slots:");
-        println!(
-            "  topology slots: {:?}, weights: {:?}",
-            first.slots.topology.slots.size(),
-            first.slots.topology.slot_weights.size()
-        );
-        println!(
-            "  geometry slots: {:?}, weights: {:?}",
-            first.slots.geometry.slots.size(),
-            first.slots.geometry.slot_weights.size()
-        );
-        println!(
-            "  pocket slots: {:?}, weights: {:?}",
-            first.slots.pocket.slots.size(),
-            first.slots.pocket.slot_weights.size()
-        );
-
-        println!("gates:");
-        println!(
-            "  topo<-geo: {:.4}, topo<-pocket: {:.4}",
-            first.interactions.topo_from_geo.gate.double_value(&[0]),
-            first.interactions.topo_from_pocket.gate.double_value(&[0])
-        );
-        println!(
-            "  geo<-topo: {:.4}, geo<-pocket: {:.4}",
-            first.interactions.geo_from_topo.gate.double_value(&[0]),
-            first.interactions.geo_from_pocket.gate.double_value(&[0])
-        );
-        println!(
-            "  pocket<-topo: {:.4}, pocket<-geo: {:.4}",
-            first.interactions.pocket_from_topo.gate.double_value(&[0]),
-            first.interactions.pocket_from_geo.gate.double_value(&[0])
-        );
-
-        println!("probes:");
-        println!(
-            "  topology adjacency logits: {:?}",
-            first.probes.topology_adjacency_logits.size()
-        );
-        println!(
-            "  geometry distance predictions: {:?}",
-            first.probes.geometry_distance_predictions.size()
-        );
-        println!(
-            "  pocket feature predictions: {:?}",
-            first.probes.pocket_feature_predictions.size()
-        );
+    match args.get(1).map(String::as_str) {
+        Some("research") => parse_research_command(args),
+        Some("legacy-demo") => Ok(CliCommand::LegacyDemo {
+            num_candidates: args.get(2).and_then(|v| v.parse().ok()).unwrap_or(10),
+            top_k: args.get(3).and_then(|v| v.parse().ok()).unwrap_or(3),
+        }),
+        Some("--help") | Some("-h") | Some("help") => Ok(CliCommand::Help),
+        Some(first) if first.parse::<usize>().is_ok() => Ok(CliCommand::LegacyDemo {
+            num_candidates: first.parse().unwrap_or(10),
+            top_k: args.get(2).and_then(|v| v.parse().ok()).unwrap_or(3),
+        }),
+        Some(other) => Err(format!("unrecognized command `{other}`").into()),
+        None => Ok(CliCommand::Help),
     }
 }
 
-fn run_phase3_training_demo() {
-    println!("================================================");
-    println!("  Phase 3 Staged Training Demo");
-    println!("================================================");
+fn parse_research_command(args: &[String]) -> Result<CliCommand, Box<dyn std::error::Error>> {
+    let Some(subcommand) = args.get(2).map(String::as_str) else {
+        return Err("missing research subcommand; use `inspect`, `train`, or `experiment`".into());
+    };
+    let Some(config) = value_after_flag(args, "--config") else {
+        return Err("missing `--config <path>` for research command".into());
+    };
 
-    let mut config = ResearchConfig::default();
-    config.training.max_steps = 4;
-    config.training.checkpoint_every = 100;
-    config.training.log_every = 1;
+    Ok(match subcommand {
+        "inspect" => CliCommand::ResearchInspect {
+            config: config.to_string(),
+            origin: CommandOrigin::Canonical,
+        },
+        "train" => CliCommand::ResearchTrain {
+            config: config.to_string(),
+            resume: has_flag(args, "--resume"),
+            origin: CommandOrigin::Canonical,
+        },
+        "experiment" => CliCommand::ResearchExperiment {
+            config: config.to_string(),
+            resume: has_flag(args, "--resume"),
+            origin: CommandOrigin::Canonical,
+        },
+        other => return Err(format!("unsupported research subcommand `{other}`").into()),
+    })
+}
 
-    let dataset = InMemoryDataset::new(synthetic_phase1_examples());
-    let train_examples = dataset.examples().to_vec();
-
-    let device = Device::Cpu;
-    let vs = nn::VarStore::new(device);
-    let system = Phase1ResearchSystem::new(&vs.root(), &config);
-    let mut trainer =
-        ResearchTrainer::new(&vs, config.clone()).expect("trainer init should succeed");
-
-    for _ in 0..config.training.max_steps {
-        let metrics = trainer
-            .train_step(&vs, &system, &train_examples)
-            .expect("train step should succeed");
-        println!(
-            "step {} [{:?}] total={:.4} task={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
-            metrics.step,
-            metrics.stage,
-            metrics.losses.total,
-            metrics.losses.task,
-            metrics.losses.intra_red,
-            metrics.losses.probe,
-            metrics.losses.leak,
-            metrics.losses.gate,
-            metrics.losses.slot,
-            metrics.losses.consistency,
-        );
+fn maybe_print_compatibility_notice(command: &CliCommand) {
+    if let Some(message) = compatibility_notice(command) {
+        eprintln!("note: {message}");
     }
 }
 
-fn run_phase4_experiment_demo() {
-    println!("================================================");
-    println!("  Phase 4 Unseen-Pocket Experiment Demo");
-    println!("================================================");
-
-    let mut config = UnseenPocketExperimentConfig::default();
-    config.research.training.max_steps = 4;
-    config.research.training.checkpoint_every = 100;
-
-    let summary = UnseenPocketExperiment::run(config).expect("phase4 experiment should succeed");
-
-    println!("training:");
-    println!("  steps: {}", summary.training_history.len());
-    if let Some(last) = summary.training_history.last() {
-        println!(
-            "  last stage: {:?}, last total loss: {:.4}",
-            last.stage, last.losses.total
-        );
-    }
-
-    println!("validation:");
-    print_eval_metrics(&summary.validation);
-
-    println!("test:");
-    print_eval_metrics(&summary.test);
-}
-
-fn print_eval_metrics(metrics: &EvaluationMetrics) {
-    println!("  validity: {:.4}", metrics.validity);
-    println!("  uniqueness: {:.4}", metrics.uniqueness);
-    println!("  novelty: {:.4}", metrics.novelty);
-    println!("  distance rmse: {:.4}", metrics.distance_rmse);
-    println!("  affinity alignment: {:.4}", metrics.affinity_alignment);
-    println!("  affinity mae: {:.4}", metrics.affinity_mae);
-    println!("  affinity rmse: {:.4}", metrics.affinity_rmse);
-    println!("  labeled fraction: {:.4}", metrics.labeled_fraction);
-    for group in &metrics.affinity_by_measurement {
-        println!(
-            "  affinity [{}]: count={} mae={:.4} rmse={:.4}",
-            group.measurement_type, group.count, group.mae, group.rmse
-        );
-    }
-    println!("  memory usage mb: {:.4}", metrics.memory_usage_mb);
-    println!("  eval time ms: {:.4}", metrics.evaluation_time_ms);
-    println!("  reconstruction mse: {:.4}", metrics.reconstruction_mse);
-    println!("  slot usage mean: {:.4}", metrics.slot_usage_mean);
-    println!("  gate usage mean: {:.4}", metrics.gate_usage_mean);
-    println!("  leakage mean: {:.4}", metrics.leakage_mean);
-}
-
-fn run_training_from_config(path: impl AsRef<Path>) {
-    let config = load_research_config(path.as_ref()).expect("config should load");
-    let dataset = InMemoryDataset::from_data_config(&config.data).expect("dataset should load");
-    let splits = dataset.split_by_protein_fraction_with_options(
-        config.data.val_fraction,
-        config.data.test_fraction,
-        config.data.split_seed,
-        config.data.stratify_by_measurement,
-    );
-
-    println!("================================================");
-    println!("  Config-Driven Training Run");
-    println!("================================================");
-    println!("dataset:");
-    println!("  total examples: {}", dataset.len());
-    println!("  train: {}", splits.train.len());
-    println!("  val: {}", splits.val.len());
-    println!("  test: {}", splits.test.len());
-
-    let device = Device::Cpu;
-    let vs = nn::VarStore::new(device);
-    let system = Phase1ResearchSystem::new(&vs.root(), &config);
-    let mut trainer = ResearchTrainer::new(&vs, config.clone()).expect("trainer init should work");
-    let train_examples = splits.train.examples().to_vec();
-
-    for _ in 0..config.training.max_steps {
-        let metrics = trainer
-            .train_step(&vs, &system, &train_examples)
-            .expect("train step should succeed");
-        println!(
-            "step {} [{:?}] total={:.4} task={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
-            metrics.step,
-            metrics.stage,
-            metrics.losses.total,
-            metrics.losses.task,
-            metrics.losses.intra_red,
-            metrics.losses.probe,
-            metrics.losses.leak,
-            metrics.losses.gate,
-            metrics.losses.slot,
-            metrics.losses.consistency,
-        );
+fn compatibility_notice(command: &CliCommand) -> Option<String> {
+    match command {
+        CliCommand::ResearchInspect {
+            config,
+            origin: CommandOrigin::Compatibility,
+        } => Some(format!(
+            "compatibility flag detected; prefer `research inspect --config {config}` for the modular research stack"
+        )),
+        CliCommand::ResearchTrain {
+            config,
+            resume,
+            origin: CommandOrigin::Compatibility,
+        } => Some(format!(
+            "compatibility flag detected; prefer `research train --config {config}{}` for the modular research stack",
+            if *resume { " --resume" } else { "" }
+        )),
+        CliCommand::ResearchExperiment {
+            config,
+            resume,
+            origin: CommandOrigin::Compatibility,
+        } => Some(format!(
+            "compatibility flag detected; prefer `research experiment --config {config}{}` for the modular research stack",
+            if *resume { " --resume" } else { "" }
+        )),
+        CliCommand::Phase1Demo => Some(
+            "demo compatibility flag detected; prefer `research inspect --config <path>` or `research train --config <path>` for config-driven modular runs".to_string(),
+        ),
+        CliCommand::Phase3Demo => Some(
+            "demo compatibility flag detected; prefer `research train --config <path>` for config-driven staged training".to_string(),
+        ),
+        CliCommand::Phase4Demo => Some(
+            "demo compatibility flag detected; prefer `research experiment --config <path>` for config-driven unseen-pocket evaluation".to_string(),
+        ),
+        CliCommand::LegacyDemo {
+            num_candidates,
+            top_k,
+        } => Some(format!(
+            "legacy demo path detected; this preserves compatibility but is not the primary modular research interface. Current equivalent compatibility command: `legacy-demo {num_candidates} {top_k}`"
+        )),
+        CliCommand::ResearchInspect { .. }
+        | CliCommand::ResearchTrain { .. }
+        | CliCommand::ResearchExperiment { .. }
+        | CliCommand::Help => None,
     }
 }
 
-fn run_experiment_from_config(path: impl AsRef<Path>) {
-    let summary =
-        UnseenPocketExperiment::run(load_experiment_config(path).expect("config should load"))
-            .expect("experiment should succeed");
-
-    println!("================================================");
-    println!("  Config-Driven Unseen-Pocket Experiment");
-    println!("================================================");
-    println!("training:");
-    println!("  steps: {}", summary.training_history.len());
-    if let Some(last) = summary.training_history.last() {
-        println!(
-            "  last stage: {:?}, last total loss: {:.4}",
-            last.stage, last.losses.total
-        );
-    }
-    println!("validation:");
-    print_eval_metrics(&summary.validation);
-    println!("test:");
-    print_eval_metrics(&summary.test);
+fn print_usage() {
+    println!("pocket_diffusion");
+    println!();
+    println!("Modular research path:");
+    println!("  pocket_diffusion research inspect --config <path>");
+    println!("  pocket_diffusion research train --config <path> [--resume]");
+    println!("  pocket_diffusion research experiment --config <path> [--resume]");
+    println!();
+    println!("Legacy compatibility path:");
+    println!("  pocket_diffusion legacy-demo [num_candidates] [top_k]");
+    println!();
+    println!("Legacy flags kept for compatibility:");
+    println!("  --inspect-config <path>");
+    println!("  --train-config <path> [--resume]");
+    println!("  --experiment-config <path> [--resume]");
+    println!("  --phase1");
+    println!("  --train-phase3");
+    println!("  --phase4");
 }
 
-fn inspect_dataset_from_config(path: impl AsRef<Path>) {
-    let config = load_research_config(path.as_ref().to_path_buf()).expect("config should load");
-    let dataset = InMemoryDataset::from_data_config(&config.data).expect("dataset should load");
-    let splits = dataset.split_by_protein_fraction_with_options(
-        config.data.val_fraction,
-        config.data.test_fraction,
-        config.data.split_seed,
-        config.data.stratify_by_measurement,
-    );
+fn run_training_from_config(path: &str, resume: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let output = training::run_training_from_config(path, resume)?;
+    training::print_training_run(&output);
+    Ok(())
+}
 
-    println!("================================================");
-    println!("  Dataset Inspection");
-    println!("================================================");
-    println!("total examples: {}", dataset.len());
-    println!("train examples: {}", splits.train.len());
-    println!("val examples: {}", splits.val.len());
-    println!("test examples: {}", splits.test.len());
+fn run_experiment_from_config(path: &str, resume: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let summary = experiments::run_experiment_from_config(path, resume)?;
+    training::print_experiment_run(&summary);
+    Ok(())
+}
 
-    for example in dataset.examples().iter().take(3) {
-        println!(
-            "  {} | protein={} | ligand_atoms={} | pocket_atoms={} | affinity={:?} | measurement={:?} {:?} {:?}",
-            example.example_id,
-            example.protein_id,
-            example.geometry.coords.size()[0],
-            example.pocket.coords.size()[0],
-            example.targets.affinity_kcal_mol,
-            example.targets.affinity_measurement_type,
-            example.targets.affinity_raw_value,
-            example.targets.affinity_raw_unit,
-        );
-    }
+fn inspect_dataset_from_config(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let inspection = training::inspect_dataset_from_config(path)?;
+    training::print_dataset_inspection(&inspection);
+    Ok(())
 }
 
 fn value_after_flag<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
@@ -432,4 +248,155 @@ fn value_after_flag<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
         .position(|arg| arg == flag)
         .and_then(|index| args.get(index + 1))
         .map(String::as_str)
+}
+
+fn has_flag(args: &[String], flag: &str) -> bool {
+    args.iter().any(|arg| arg == flag)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cli(args: &[&str]) -> Vec<String> {
+        args.iter().map(|arg| arg.to_string()).collect()
+    }
+
+    #[test]
+    fn parse_research_train_command_with_resume() {
+        let command = parse_cli(&cli(&[
+            "pocket_diffusion",
+            "research",
+            "train",
+            "--config",
+            "configs/research_manifest.json",
+            "--resume",
+        ]))
+        .unwrap();
+
+        match command {
+            CliCommand::ResearchTrain {
+                config,
+                resume,
+                origin,
+            } => {
+                assert_eq!(config, "configs/research_manifest.json");
+                assert!(resume);
+                assert_eq!(origin, CommandOrigin::Canonical);
+            }
+            _ => panic!("expected research train command"),
+        }
+    }
+
+    #[test]
+    fn parse_legacy_demo_command() {
+        let command = parse_cli(&cli(&["pocket_diffusion", "legacy-demo", "12", "4"])).unwrap();
+
+        match command {
+            CliCommand::LegacyDemo {
+                num_candidates,
+                top_k,
+            } => {
+                assert_eq!(num_candidates, 12);
+                assert_eq!(top_k, 4);
+            }
+            _ => panic!("expected legacy demo command"),
+        }
+    }
+
+    #[test]
+    fn parse_compatibility_train_flag() {
+        let command = parse_cli(&cli(&[
+            "pocket_diffusion",
+            "--train-config",
+            "configs/research_manifest.json",
+        ]))
+        .unwrap();
+
+        match command {
+            CliCommand::ResearchTrain {
+                config,
+                resume,
+                origin,
+            } => {
+                assert_eq!(config, "configs/research_manifest.json");
+                assert!(!resume);
+                assert_eq!(origin, CommandOrigin::Compatibility);
+            }
+            _ => panic!("expected compatibility research train command"),
+        }
+    }
+
+    #[test]
+    fn parse_research_experiment_command() {
+        let command = parse_cli(&cli(&[
+            "pocket_diffusion",
+            "research",
+            "experiment",
+            "--config",
+            "configs/unseen_pocket_manifest.json",
+        ]))
+        .unwrap();
+
+        match command {
+            CliCommand::ResearchExperiment {
+                config,
+                resume,
+                origin,
+            } => {
+                assert_eq!(config, "configs/unseen_pocket_manifest.json");
+                assert!(!resume);
+                assert_eq!(origin, CommandOrigin::Canonical);
+            }
+            _ => panic!("expected research experiment command"),
+        }
+    }
+
+    #[test]
+    fn compatibility_notice_is_emitted_for_legacy_paths() {
+        let command = CliCommand::Phase3Demo;
+        assert!(compatibility_notice(&command).is_some());
+
+        let command = CliCommand::LegacyDemo {
+            num_candidates: 10,
+            top_k: 3,
+        };
+        assert!(compatibility_notice(&command).is_some());
+    }
+
+    #[test]
+    fn compatibility_notice_tracks_command_origin() {
+        let compatibility = parse_cli(&cli(&[
+            "pocket_diffusion",
+            "--inspect-config",
+            "configs/research_manifest.json",
+        ]))
+        .unwrap();
+        let notice = compatibility_notice(&compatibility).unwrap();
+        assert!(notice.contains("research inspect --config configs/research_manifest.json"));
+
+        let canonical = parse_cli(&cli(&[
+            "pocket_diffusion",
+            "research",
+            "inspect",
+            "--config",
+            "configs/research_manifest.json",
+        ]))
+        .unwrap();
+        assert!(compatibility_notice(&canonical).is_none());
+    }
+
+    #[test]
+    fn compatibility_notice_preserves_resume_suffix() {
+        let compatibility = parse_cli(&cli(&[
+            "pocket_diffusion",
+            "--train-config",
+            "configs/research_manifest.json",
+            "--resume",
+        ]))
+        .unwrap();
+        let notice = compatibility_notice(&compatibility).unwrap();
+
+        assert!(notice.contains("research train --config configs/research_manifest.json --resume"));
+    }
 }

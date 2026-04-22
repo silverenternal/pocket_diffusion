@@ -1,6 +1,6 @@
 //! Feature structures used by the modular research pipeline.
 
-use tch::{Kind, Tensor};
+use tch::{Device, Kind, Tensor};
 
 use crate::types::{tensor_from_slice, AtomType, Ligand, Pocket};
 
@@ -56,6 +56,9 @@ pub struct PocketFeatures {
     /// Global pooled pocket summary with shape `[feature_dim]`.
     pub pooled_features: Tensor,
 }
+
+/// Default legacy pocket atom feature width before config-driven resizing.
+pub const LEGACY_POCKET_FEATURE_DIM: i64 = 6;
 
 impl Clone for PocketFeatures {
     fn clone(&self) -> Self {
@@ -132,6 +135,72 @@ impl MolecularExample {
             geometry,
             pocket: pocket_features,
             targets,
+        }
+    }
+
+    /// Move all modality tensors onto a specific device.
+    pub fn to_device(&self, device: Device) -> Self {
+        Self {
+            example_id: self.example_id.clone(),
+            protein_id: self.protein_id.clone(),
+            topology: self.topology.to_device(device),
+            geometry: self.geometry.to_device(device),
+            pocket: self.pocket.to_device(device),
+            targets: self.targets.clone(),
+        }
+    }
+
+    /// Resize pocket features to the configured model width by zero-padding or truncation.
+    pub fn with_pocket_feature_dim(&self, pocket_feature_dim: i64) -> Self {
+        Self {
+            example_id: self.example_id.clone(),
+            protein_id: self.protein_id.clone(),
+            topology: self.topology.clone(),
+            geometry: self.geometry.clone(),
+            pocket: self.pocket.with_feature_dim(pocket_feature_dim),
+            targets: self.targets.clone(),
+        }
+    }
+}
+
+impl TopologyFeatures {
+    /// Move topology tensors onto a specific device.
+    pub fn to_device(&self, device: Device) -> Self {
+        Self {
+            atom_types: self.atom_types.to_device(device),
+            edge_index: self.edge_index.to_device(device),
+            bond_types: self.bond_types.to_device(device),
+            adjacency: self.adjacency.to_device(device),
+        }
+    }
+}
+
+impl GeometryFeatures {
+    /// Move geometry tensors onto a specific device.
+    pub fn to_device(&self, device: Device) -> Self {
+        Self {
+            coords: self.coords.to_device(device),
+            pairwise_distances: self.pairwise_distances.to_device(device),
+        }
+    }
+}
+
+impl PocketFeatures {
+    /// Move pocket tensors onto a specific device.
+    pub fn to_device(&self, device: Device) -> Self {
+        Self {
+            coords: self.coords.to_device(device),
+            atom_features: self.atom_features.to_device(device),
+            pooled_features: self.pooled_features.to_device(device),
+        }
+    }
+
+    /// Resize the per-atom and pooled pocket features to match the configured model width.
+    pub fn with_feature_dim(&self, target_dim: i64) -> Self {
+        Self {
+            coords: self.coords.shallow_clone(),
+            atom_features: resize_feature_matrix(&self.atom_features, target_dim),
+            pooled_features: resize_feature_vector(&self.pooled_features, target_dim),
         }
     }
 }
@@ -227,13 +296,16 @@ pub fn pocket_features_from_pocket(pocket: &Pocket) -> PocketFeatures {
     };
 
     let atom_features = if feature_flat.is_empty() {
-        Tensor::zeros([0, 6], (Kind::Float, tch::Device::Cpu))
+        Tensor::zeros(
+            [0, LEGACY_POCKET_FEATURE_DIM],
+            (Kind::Float, tch::Device::Cpu),
+        )
     } else {
-        tensor_from_slice(&feature_flat).reshape([num_atoms, 6])
+        tensor_from_slice(&feature_flat).reshape([num_atoms, LEGACY_POCKET_FEATURE_DIM])
     };
 
     let pooled_features = if num_atoms == 0 {
-        Tensor::zeros([6], (Kind::Float, tch::Device::Cpu))
+        Tensor::zeros([LEGACY_POCKET_FEATURE_DIM], (Kind::Float, tch::Device::Cpu))
     } else {
         atom_features.mean_dim([0].as_slice(), false, Kind::Float)
     };
@@ -252,4 +324,36 @@ fn atom_feature_vector(atom_type: AtomType) -> [f32; 6] {
         features[index] = 1.0;
     }
     features
+}
+
+fn resize_feature_matrix(tensor: &Tensor, target_dim: i64) -> Tensor {
+    let current_dim = tensor.size().get(1).copied().unwrap_or(0);
+    if current_dim == target_dim {
+        return tensor.shallow_clone();
+    }
+
+    let rows = tensor.size().first().copied().unwrap_or(0);
+    if current_dim > target_dim {
+        return tensor.narrow(1, 0, target_dim);
+    }
+
+    let padding = Tensor::zeros(
+        [rows, target_dim - current_dim],
+        (tensor.kind(), tensor.device()),
+    );
+    Tensor::cat(&[tensor.shallow_clone(), padding], 1)
+}
+
+fn resize_feature_vector(tensor: &Tensor, target_dim: i64) -> Tensor {
+    let current_dim = tensor.size().first().copied().unwrap_or(0);
+    if current_dim == target_dim {
+        return tensor.shallow_clone();
+    }
+
+    if current_dim > target_dim {
+        return tensor.narrow(0, 0, target_dim);
+    }
+
+    let padding = Tensor::zeros([target_dim - current_dim], (tensor.kind(), tensor.device()));
+    Tensor::cat(&[tensor.shallow_clone(), padding], 0)
 }

@@ -1,5 +1,8 @@
-//! 对比实验框架
-//! 实现两种分子表示方法的性能、精度、冗余度对比
+//! Legacy comparison experiment framework.
+//!
+//! This module contains the older ndarray-based representation comparison path.
+//! It is kept for compatibility and exploratory benchmarks. New config-driven
+//! research workflows should prefer `crate::experiments` and `crate::training`.
 
 use crate::dataset::{DatasetDownloader, PDBbindConfig};
 use crate::representation::{Molecule2D3D, Molecule3D, MoleculeRepresentation};
@@ -134,7 +137,9 @@ impl ComparisonResult {
 
 // ==================== 实验运行器 ====================
 
-/// 对比实验运行器
+/// 对比实验运行器.
+///
+/// This is a legacy compatibility surface for representation benchmarks.
 pub struct ComparisonExperiment {
     config: ExperimentConfig,
 }
@@ -230,7 +235,7 @@ impl ComparisonExperiment {
         let mut forward_times = Vec::new();
 
         for entry_path in entries.iter().take(5) {
-            let pdb_code = entry_path
+            let _pdb_code = entry_path
                 .file_name()
                 .unwrap()
                 .to_string_lossy()
@@ -248,7 +253,7 @@ impl ComparisonExperiment {
                 continue;
             }
 
-            let pdb_path = pdb_files[0].as_ref().unwrap();
+            let _pdb_path = pdb_files[0].as_ref().unwrap();
             let sdf_path = sdf_files[0].as_ref().unwrap();
 
             // 读取配体获取两种表示

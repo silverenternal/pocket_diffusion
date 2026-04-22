@@ -6,12 +6,14 @@ use tch::{nn, nn::OptimizerConfig, Kind, Tensor};
 
 use crate::{
     config::{AffinityWeighting, ResearchConfig},
-    data::MolecularExample,
+    data::{ExampleBatchIter, MolecularExample},
     losses::{ConsistencyLoss, GateLoss, IntraRedundancyLoss, LeakageLoss, ProbeLoss, TaskLoss},
     models::{Phase1ResearchSystem, ResearchForward},
 };
 
-use super::{CheckpointManager, LossBreakdown, StageScheduler, StepMetrics, TrainingStage};
+use super::{
+    CheckpointManager, LoadedCheckpoint, LossBreakdown, StageScheduler, StepMetrics, TrainingStage,
+};
 
 /// Trainer that applies staged auxiliary losses to the new modular system.
 pub struct ResearchTrainer {
@@ -28,6 +30,7 @@ pub struct ResearchTrainer {
     affinity_measurement_weights: BTreeMap<String, f64>,
     step: usize,
     history: Vec<StepMetrics>,
+    last_stage: Option<TrainingStage>,
 }
 
 impl ResearchTrainer {
@@ -57,19 +60,54 @@ impl ResearchTrainer {
             affinity_measurement_weights: BTreeMap::new(),
             step: 0,
             history: Vec::new(),
+            last_stage: None,
         })
     }
 
-    /// Run one optimization step over a small batch of examples.
-    pub fn train_step(
+    /// Resume from the latest checkpoint in the configured directory.
+    pub fn resume_from_latest(
+        &mut self,
+        var_store: &mut nn::VarStore,
+    ) -> Result<Option<LoadedCheckpoint>, Box<dyn std::error::Error>> {
+        let checkpoint = self.checkpoints.load_latest(var_store)?;
+        if let Some(loaded) = &checkpoint {
+            if let Some(metrics) = loaded.metadata.metrics.clone() {
+                self.history.push(metrics);
+            }
+            self.step = loaded.metadata.step.saturating_add(1);
+            self.last_stage = Some(self.scheduler.stage_for_step(loaded.metadata.step));
+        }
+        Ok(checkpoint)
+    }
+
+    /// Run one optimization step over a mini-batch of examples.
+    pub fn train_batch_step(
         &mut self,
         var_store: &nn::VarStore,
         system: &Phase1ResearchSystem,
         examples: &[MolecularExample],
     ) -> Result<StepMetrics, Box<dyn std::error::Error>> {
+        if examples.is_empty() {
+            return Err("cannot train on an empty mini-batch".into());
+        }
         let (_, forwards) = system.forward_batch(examples);
         let weights = self.scheduler.weights_for_step(self.step);
         let stage = self.scheduler.stage_for_step(self.step);
+        if self.last_stage != Some(stage) {
+            log::info!(
+                "entering {:?} at step {} with weights task={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+                stage,
+                self.step,
+                weights.task,
+                weights.intra_red,
+                weights.probe,
+                weights.leak,
+                weights.gate,
+                weights.slot,
+                weights.consistency,
+            );
+            self.last_stage = Some(stage);
+        }
 
         let mut task_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
         let mut intra_red_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
@@ -131,13 +169,69 @@ impl ResearchTrainer {
             },
         };
 
-        if self.step % self.config.training.checkpoint_every == 0 {
+        if self.config.training.checkpoint_every > 0
+            && self.step % self.config.training.checkpoint_every == 0
+        {
             self.checkpoints
                 .save(var_store, self.step, Some(&metrics))?;
+        }
+        if self.config.training.log_every > 0 && self.step % self.config.training.log_every == 0 {
+            log::info!(
+                "step {} [{:?}] total={:.4} task={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+                metrics.step,
+                metrics.stage,
+                metrics.losses.total,
+                metrics.losses.task,
+                metrics.losses.intra_red,
+                metrics.losses.probe,
+                metrics.losses.leak,
+                metrics.losses.gate,
+                metrics.losses.slot,
+                metrics.losses.consistency,
+            );
         }
         self.history.push(metrics.clone());
         self.step += 1;
         Ok(metrics)
+    }
+
+    /// Compatibility wrapper for older call sites.
+    pub fn train_step(
+        &mut self,
+        var_store: &nn::VarStore,
+        system: &Phase1ResearchSystem,
+        examples: &[MolecularExample],
+    ) -> Result<StepMetrics, Box<dyn std::error::Error>> {
+        self.train_batch_step(var_store, system, examples)
+    }
+
+    /// Train over deterministic mini-batches until `max_steps` is reached.
+    pub fn fit(
+        &mut self,
+        var_store: &nn::VarStore,
+        system: &Phase1ResearchSystem,
+        examples: &[MolecularExample],
+    ) -> Result<Vec<StepMetrics>, Box<dyn std::error::Error>> {
+        if examples.is_empty() {
+            return Err("training examples are empty".into());
+        }
+
+        let mut steps = Vec::new();
+        while self.step < self.config.training.max_steps {
+            let mut progressed = false;
+            for batch in ExampleBatchIter::new(examples, self.config.data.batch_size) {
+                if self.step >= self.config.training.max_steps {
+                    break;
+                }
+                let metrics = self.train_batch_step(var_store, system, batch)?;
+                steps.push(metrics);
+                progressed = true;
+            }
+            if !progressed {
+                break;
+            }
+        }
+        Ok(steps)
     }
 
     /// Borrow trainer history.
@@ -145,9 +239,24 @@ impl ResearchTrainer {
         &self.history
     }
 
+    /// Replace the in-memory history, typically after restoring a prior run summary.
+    pub fn replace_history(&mut self, history: Vec<StepMetrics>) {
+        self.history = history;
+    }
+
     /// Current training stage.
     pub fn stage(&self) -> TrainingStage {
         self.scheduler.stage_for_step(self.step)
+    }
+
+    /// Next global step index.
+    pub fn step(&self) -> usize {
+        self.step
+    }
+
+    /// Checkpoint manager used by this trainer.
+    pub fn checkpoints(&self) -> &CheckpointManager {
+        &self.checkpoints
     }
 
     fn affinity_weight_for(&self, example: &MolecularExample) -> f64 {
@@ -214,4 +323,66 @@ fn slot_penalty(weights: &Tensor) -> Tensor {
     );
     let balance = (weights - uniform).pow_tensor_scalar(2.0).mean(Kind::Float);
     sparsity + balance
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tch::{nn, Device};
+
+    use crate::{config::ResearchConfig, data::InMemoryDataset, models::Phase1ResearchSystem};
+
+    #[test]
+    fn fit_respects_batch_size_and_max_steps() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 3;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();
+
+        let metrics = trainer
+            .fit(&var_store, &system, dataset.examples())
+            .unwrap();
+        assert_eq!(metrics.len(), 3);
+        assert_eq!(trainer.step(), 3);
+    }
+
+    #[test]
+    fn resume_restores_step_from_latest_checkpoint() {
+        let temp = tempfile::tempdir().unwrap();
+
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 2;
+        config.training.checkpoint_every = 1;
+        config.training.log_every = 100;
+        config.training.checkpoint_dir = temp.path().join("checkpoints");
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = ResearchTrainer::new(&var_store, config.clone()).unwrap();
+        trainer
+            .fit(&var_store, &system, dataset.examples())
+            .unwrap();
+
+        let mut resumed_store = nn::VarStore::new(Device::Cpu);
+        let _resumed_system = Phase1ResearchSystem::new(&resumed_store.root(), &config);
+        let mut resumed_trainer = ResearchTrainer::new(&resumed_store, config).unwrap();
+        let checkpoint = resumed_trainer
+            .resume_from_latest(&mut resumed_store)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(checkpoint.metadata.step, 1);
+        assert_eq!(resumed_trainer.step(), 2);
+    }
 }

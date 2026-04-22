@@ -256,7 +256,7 @@ impl DisentangleTrainer {
         // 计算指标
         let step_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
         let disentanglement_degree = self.statistics.disentanglement_score();
-        let avg_redundancy = (redundancy_topo + redundancy_geo + redundancy_pocket) / 3.0;
+        let _avg_redundancy = (redundancy_topo + redundancy_geo + redundancy_pocket) / 3.0;
 
         let metrics = TrainingMetrics {
             step,

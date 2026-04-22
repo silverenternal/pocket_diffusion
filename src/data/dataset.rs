@@ -44,6 +44,16 @@ impl InMemoryDataset {
         &self.examples
     }
 
+    /// Return a copy of the dataset with pocket features resized to the configured width.
+    pub fn with_pocket_feature_dim(&self, pocket_feature_dim: i64) -> Self {
+        Self::new(
+            self.examples
+                .iter()
+                .map(|example| example.with_pocket_feature_dim(pocket_feature_dim))
+                .collect(),
+        )
+    }
+
     /// Load examples according to the runtime data configuration.
     pub fn from_data_config(config: &DataConfig) -> Result<Self, DataParseError> {
         let mut examples =

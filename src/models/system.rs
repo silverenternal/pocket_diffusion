@@ -101,7 +101,11 @@ impl Phase1ResearchSystem {
             config.model.hidden_dim,
         );
         let geo_encoder = GeometryEncoderImpl::new(&(vs / "geometry"), config.model.hidden_dim);
-        let pocket_encoder = PocketEncoderImpl::new(&(vs / "pocket"), 6, config.model.hidden_dim);
+        let pocket_encoder = PocketEncoderImpl::new(
+            &(vs / "pocket"),
+            config.model.pocket_feature_dim,
+            config.model.hidden_dim,
+        );
         let topo_slots = SoftSlotDecomposer::new(
             &(vs / "slot_topology"),
             config.model.hidden_dim,
@@ -129,7 +133,11 @@ impl Phase1ResearchSystem {
             GatedCrossAttention::new(&(vs / "pocket_from_topo"), config.model.hidden_dim);
         let pocket_from_geo =
             GatedCrossAttention::new(&(vs / "pocket_from_geo"), config.model.hidden_dim);
-        let probes = SemanticProbeHeads::new(&(vs / "probes"), config.model.hidden_dim, 6);
+        let probes = SemanticProbeHeads::new(
+            &(vs / "probes"),
+            config.model.hidden_dim,
+            config.model.pocket_feature_dim,
+        );
 
         Self {
             topo_encoder,

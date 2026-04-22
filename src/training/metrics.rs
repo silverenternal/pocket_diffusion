@@ -1,6 +1,10 @@
-//! Training metrics and loss breakdowns.
+//! Training metrics and persisted run summaries.
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+use crate::config::ResearchConfig;
+use crate::experiments::EvaluationMetrics;
 
 /// Named loss values emitted by each training step.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -45,4 +49,36 @@ pub enum TrainingStage {
     Stage3,
     /// Stage 4: add gate and slot control.
     Stage4,
+}
+
+/// Dataset split sizes used by a training or experiment run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetSplitSizes {
+    /// Number of examples before splitting.
+    pub total: usize,
+    /// Number of training examples.
+    pub train: usize,
+    /// Number of validation examples.
+    pub val: usize,
+    /// Number of test examples.
+    pub test: usize,
+}
+
+/// Persisted summary of a config-driven modular training run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrainingRunSummary {
+    /// Research configuration used for the run.
+    pub config: ResearchConfig,
+    /// Dataset sizes observed by the run.
+    pub splits: DatasetSplitSizes,
+    /// Optional step that the run resumed from.
+    pub resumed_from_step: Option<usize>,
+    /// Output path where the summary was written.
+    pub summary_path: PathBuf,
+    /// All collected training metrics.
+    pub training_history: Vec<StepMetrics>,
+    /// Validation metrics evaluated after training.
+    pub validation: EvaluationMetrics,
+    /// Test metrics evaluated after training.
+    pub test: EvaluationMetrics,
 }

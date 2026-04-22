@@ -30,40 +30,71 @@ This repository currently contains two parallel surfaces:
 
 The modular research path is the actively extended surface and is the one documented below.
 
+For library consumers, the same boundary now exists in code:
+
+- modular research APIs live under `pocket_diffusion::{config,data,models,training,experiments}`
+- legacy demo/comparison APIs are grouped under `pocket_diffusion::legacy`
+
+The crate still keeps many root-level re-exports for compatibility, but new integrations should prefer module-qualified imports instead of depending on the crate root as a flat namespace.
+
+### Library import pattern
+
+For new integrations, prefer explicit module-qualified imports:
+
+```rust
+use pocket_diffusion::{
+    experiments,
+    runtime,
+    training,
+};
+```
+
+For older demo or comparison utilities, prefer the `legacy` namespace explicitly:
+
+```rust
+use pocket_diffusion::legacy;
+```
+
 ## Quick start
 
 Inspect the sample dataset:
 
 ```bash
-cargo run --bin pocket_diffusion -- --inspect-config configs/research_manifest.json
+cargo run --bin pocket_diffusion -- research inspect --config configs/research_manifest.json
 ```
 
 Run a short staged training job from config:
 
 ```bash
-cargo run --bin pocket_diffusion -- --train-config configs/research_manifest.json
+cargo run --bin pocket_diffusion -- research train --config configs/research_manifest.json
+```
+
+Resume that training run from the latest checkpoint in `training.checkpoint_dir`:
+
+```bash
+cargo run --bin pocket_diffusion -- research train --config configs/research_manifest.json --resume
 ```
 
 Run the unseen-pocket experiment from config:
 
 ```bash
-cargo run --bin pocket_diffusion -- --experiment-config configs/unseen_pocket_manifest.json
+cargo run --bin pocket_diffusion -- research experiment --config configs/unseen_pocket_manifest.json
 ```
 
 Inspect a PDBbind-like directory using an `INDEX`-style label file:
 
 ```bash
-cargo run --bin pocket_diffusion -- --inspect-config configs/research_pdbbind_index.json
+cargo run --bin pocket_diffusion -- research inspect --config configs/research_pdbbind_index.json
 ```
 
 ## Config files
 
-Example configs live under [configs](/home/hugo/codes/patent_rw/configs).
+Example configs live under [`configs/`](configs).
 
-- [configs/research_manifest.json](/home/hugo/codes/patent_rw/configs/research_manifest.json) loads a dataset from an explicit manifest
-- [configs/research_pdbbind_dir.json](/home/hugo/codes/patent_rw/configs/research_pdbbind_dir.json) scans a PDBbind-like directory tree
-- [configs/research_pdbbind_index.json](/home/hugo/codes/patent_rw/configs/research_pdbbind_index.json) scans a PDBbind-like directory tree and attaches labels from an `INDEX`-style file
-- [configs/unseen_pocket_manifest.json](/home/hugo/codes/patent_rw/configs/unseen_pocket_manifest.json) runs the full unseen-pocket experiment
+- [`configs/research_manifest.json`](configs/research_manifest.json) loads a dataset from an explicit manifest
+- [`configs/research_pdbbind_dir.json`](configs/research_pdbbind_dir.json) scans a PDBbind-like directory tree
+- [`configs/research_pdbbind_index.json`](configs/research_pdbbind_index.json) scans a PDBbind-like directory tree and attaches labels from an `INDEX`-style file
+- [`configs/unseen_pocket_manifest.json`](configs/unseen_pocket_manifest.json) runs the full unseen-pocket experiment
 
 ### `DataConfig` fields
 
@@ -162,7 +193,7 @@ The sample configs now enable measurement-stratified protein splits and inverse-
 
 ## Included sample dataset
 
-The repository ships a tiny dataset under [examples/datasets/mini_pdbbind](/home/hugo/codes/patent_rw/examples/datasets/mini_pdbbind). It is suitable for smoke tests and for validating the file-format ingestion path.
+The repository ships a tiny dataset under [`examples/datasets/mini_pdbbind`](examples/datasets/mini_pdbbind). It is suitable for smoke tests and for validating the file-format ingestion path.
 
 ## Binaries
 
@@ -170,6 +201,57 @@ The repository ships a tiny dataset under [examples/datasets/mini_pdbbind](/home
 - `disentangle_demo`: older standalone demo binary kept for local experimentation
 
 Because the crate defines multiple binaries, use `cargo run --bin pocket_diffusion -- ...` for the commands in this README.
+
+## Research CLI
+
+The modular research stack is the primary path for this repository:
+
+```bash
+cargo run --bin pocket_diffusion -- research inspect --config configs/research_manifest.json
+cargo run --bin pocket_diffusion -- research train --config configs/research_manifest.json
+cargo run --bin pocket_diffusion -- research experiment --config configs/unseen_pocket_manifest.json
+```
+
+To resume from the latest checkpoint in the configured checkpoint directory:
+
+```bash
+cargo run --bin pocket_diffusion -- research train --config configs/research_manifest.json --resume
+```
+
+Legacy demo behavior is still available, but it is now an explicit compatibility path:
+
+```bash
+cargo run --bin pocket_diffusion -- legacy-demo 10 3
+```
+
+For legacy library-side comparison utilities, prefer the explicit namespace:
+
+- `pocket_diffusion::legacy::run_legacy_demo(...)`
+- `pocket_diffusion::legacy::run_comparison_experiment(...)`
+
+For config-driven library entrypoints, prefer:
+
+- `pocket_diffusion::training::inspect_dataset_from_config(...)`
+- `pocket_diffusion::training::run_training_from_config(...)`
+- `pocket_diffusion::experiments::run_experiment_from_config(...)`
+
+Older one-flag demo shortcuts are still accepted for compatibility, but they are not the primary research interface:
+
+- `--phase1`
+- `--train-phase3`
+- `--phase4`
+- `--inspect-config <path>`
+- `--train-config <path> [--resume]`
+- `--experiment-config <path> [--resume]`
+
+When these compatibility paths are used through the main binary, the CLI now prints an explicit notice with the corresponding `research ... --config ...` replacement so modular research runs are steered back toward the canonical interface.
+
+Config-driven training writes reproducibility artifacts into `training.checkpoint_dir`:
+
+- step-indexed checkpoints such as `step-10.ot` and `step-10.json`
+- rolling `latest.ot` and `latest.json` pointers for resume
+- `training_summary.json` for config-driven training runs, including cumulative `training_history`, dataset split sizes, resume step, and post-train validation/test metrics
+- `experiment_summary.json` for unseen-pocket experiment runs, also preserving cumulative `training_history` across resume
 
 ## Notes
 

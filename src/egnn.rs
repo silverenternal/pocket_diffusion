@@ -38,7 +38,7 @@ pub struct RBFEncoder {
     /// 宽度
     sigma: f64,
     /// 截断距离
-    cutoff: f64,
+    _cutoff: f64,
 }
 
 impl RBFEncoder {
@@ -54,7 +54,7 @@ impl RBFEncoder {
         Self {
             centers,
             sigma,
-            cutoff,
+            _cutoff: cutoff,
         }
     }
 
@@ -255,7 +255,7 @@ pub struct EGNN {
     /// 输出头
     output_head: nn::Sequential,
     /// 层数
-    num_layers: usize,
+    _num_layers: usize,
 }
 
 impl EGNN {
@@ -308,7 +308,7 @@ impl EGNN {
             rbf_encoder,
             input_proj,
             output_head,
-            num_layers,
+            _num_layers: num_layers,
         }
     }
 

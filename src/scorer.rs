@@ -58,7 +58,8 @@ impl AffinityScorer {
         let node_types = tensor_from_slice(&node_types).reshape([total_atoms as i64, 6]);
 
         // 构建边索引和距离
-        let (edge_index, distances) = self.build_edges(&pocket.atoms, &ligand.atoms, &ligand.bonds);
+        let (edge_index, _distances) =
+            self.build_edges(&pocket.atoms, &ligand.atoms, &ligand.bonds);
 
         ProteinLigandGraph {
             node_coords: coords.to_device(device),

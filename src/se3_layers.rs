@@ -180,7 +180,7 @@ impl SE3EquivariantLayer for CoordOnlyEGNN {
 
         // 坐标更新（等变）
         let mut new_coords = coords.clone();
-        for (k, &[i, j]) in edge_index.iter().enumerate() {
+        for (_k, &[i, j]) in edge_index.iter().enumerate() {
             let msg_norm: f32 = messages.row(i).sum();
             let coord_update: f32 = msg_norm * 0.01;
 

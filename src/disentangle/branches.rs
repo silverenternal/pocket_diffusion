@@ -156,7 +156,7 @@ pub struct TopoBranch {
     /// 隐藏层维度
     hidden_dim: usize,
     /// 设备
-    device: Device,
+    _device: Device,
 }
 
 impl TopoBranch {
@@ -226,7 +226,7 @@ impl TopoBranch {
             output_proj,
             adjacency_head,
             hidden_dim,
-            device,
+            _device: device,
         }
     }
 
@@ -286,9 +286,9 @@ pub struct GeoBranch {
     /// 输出投影
     output_proj: nn::Linear,
     /// 隐藏层维度
-    hidden_dim: usize,
+    _hidden_dim: usize,
     /// 设备
-    device: Device,
+    _device: Device,
 }
 
 impl GeoBranch {
@@ -341,8 +341,8 @@ impl GeoBranch {
             coord_encoder,
             conv_layers,
             output_proj,
-            hidden_dim,
-            device,
+            _hidden_dim: hidden_dim,
+            _device: device,
         }
     }
 
@@ -375,7 +375,7 @@ impl GeoBranch {
         let global_embedding = node_features_out.mean_dim(0, false, Kind::Float);
 
         // 预测坐标更新（残差连接）
-        let coord_update = Tensor::zeros(coords.size(), (Kind::Float, self.device));
+        let coord_update = Tensor::zeros(coords.size(), (Kind::Float, self._device));
 
         let coords_out = coords + coord_update;
 
@@ -401,7 +401,7 @@ pub struct PocketBranch {
     /// 隐藏层维度
     hidden_dim: usize,
     /// 设备
-    device: Device,
+    _device: Device,
 }
 
 impl PocketBranch {
@@ -473,7 +473,7 @@ impl PocketBranch {
             value_proj,
             output_proj,
             hidden_dim,
-            device,
+            _device: device,
         }
     }
 
@@ -492,8 +492,6 @@ impl PocketBranch {
         pocket_features: &Tensor,
         ligand_features: &Tensor,
     ) -> (Tensor, Tensor, Tensor) {
-        let num_atoms = ligand_features.size()[0];
-
         // 编码口袋特征
         let pocket_emb = self.pocket_encoder.forward(pocket_features);
 

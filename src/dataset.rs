@@ -1,5 +1,5 @@
-//! 数据集读取与处理模块
-//! 实现 PDBbind 数据集的示例数据生成
+//! Legacy dataset and demo utilities kept for compatibility.
+//! The modular research stack uses `crate::data::*` instead.
 
 use crate::representation::{Molecule2D3D, Molecule3D, MoleculeRepresentation, ProteinPocket};
 use log::info;
@@ -64,7 +64,11 @@ impl Default for PDBbindConfig {
 
 // ==================== 数据集下载器 ====================
 
-/// PDBbind 数据集自动下载器
+/// PDBbind 数据集自动下载器.
+///
+/// This helper belongs to the legacy compatibility surface. The modular
+/// research stack should use `crate::data::InMemoryDataset::from_data_config`
+/// and related config-driven loaders instead.
 pub struct DatasetDownloader {
     config: PDBbindConfig,
 }
@@ -197,7 +201,9 @@ $$$$
 
 // ==================== PDB 文件读取器 ====================
 
-/// 蛋白口袋读取器
+/// 蛋白口袋读取器.
+///
+/// Kept for legacy demos and comparison utilities.
 pub struct PocketReader {
     cutoff_distance: f32,
 }
@@ -331,6 +337,7 @@ impl PocketReader {
 // ==================== SDF 文件读取器 ====================
 
 /// 配体分子读取器
+/// Legacy SDF reader used by demo and comparison flows.
 pub struct LigandReader;
 
 impl LigandReader {

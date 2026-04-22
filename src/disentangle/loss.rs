@@ -14,12 +14,12 @@ use crate::disentangle::types::{DisentangledBranchesOutput, LossComponents, Trai
 ///
 /// 支持交叉熵、均方误差、L1损失等多种任务损失
 pub struct TaskLoss {
-    device: Device,
+    _device: Device,
 }
 
 impl TaskLoss {
     pub fn new(device: Device) -> Self {
-        Self { device }
+        Self { _device: device }
     }
 
     /// 计算原子类型预测的交叉熵损失
@@ -64,7 +64,7 @@ impl TaskLoss {
             self.bond_type_loss(pl, tl)
         } else {
             Tensor::from(0.0)
-                .to_device(self.device)
+                .to_device(self._device)
                 .to_kind(Kind::Float)
         };
 
@@ -78,14 +78,17 @@ impl TaskLoss {
 /// L_disentangle = MI(Topo; Geo) + MI(Topo; Pocket) + MI(Geo; Pocket)
 pub struct DisentanglementLoss {
     branch_mi: BranchMutualInformation,
-    device: Device,
+    _device: Device,
 }
 
 impl DisentanglementLoss {
     pub fn new(vs: &nn::Path, hidden_dim: usize, mine_hidden_dim: usize) -> Self {
         let device = vs.device();
         let branch_mi = BranchMutualInformation::new(vs, hidden_dim, mine_hidden_dim);
-        Self { branch_mi, device }
+        Self {
+            branch_mi,
+            _device: device,
+        }
     }
 
     /// 计算解耦损失
@@ -130,13 +133,16 @@ impl DisentanglementLoss {
 /// L_redundancy = mean(R_topo, R_geo, R_pocket)
 pub struct RedundancyLoss {
     calculator: RedundancyCalculator,
-    device: Device,
+    _device: Device,
 }
 
 impl RedundancyLoss {
     pub fn new(device: Device, use_entropy_based: bool) -> Self {
         let calculator = RedundancyCalculator::new(device, use_entropy_based, 50);
-        Self { calculator, device }
+        Self {
+            calculator,
+            _device: device,
+        }
     }
 
     /// 计算冗余损失
@@ -151,7 +157,7 @@ impl RedundancyLoss {
         let avg_redundancy = (r_topo + r_geo + r_pocket) / 3.0;
 
         Tensor::from(avg_redundancy)
-            .to_device(self.device)
+            .to_device(self._device)
             .to_kind(Kind::Float)
     }
 
@@ -172,14 +178,14 @@ impl RedundancyLoss {
 /// L_consistency = InfoNCE(branch1, branch2) + InfoNCE(branch1, branch3) + InfoNCE(branch2, branch3)
 pub struct ConsistencyLoss {
     temperature: f64,
-    device: Device,
+    _device: Device,
 }
 
 impl ConsistencyLoss {
     pub fn new(device: Device, temperature: f64) -> Self {
         Self {
             temperature,
-            device,
+            _device: device,
         }
     }
 
@@ -188,8 +194,6 @@ impl ConsistencyLoss {
     /// 正样本对：同一分子的不同分支视图
     /// 负样本对：同一批次中不同分子的分支视图
     fn info_nce_loss(&self, z1: &Tensor, z2: &Tensor) -> Tensor {
-        let batch_size = z1.size()[0];
-
         // L2归一化
         let z1_sq_sum = z1
             .pow_tensor_scalar(2.0)
@@ -236,7 +240,7 @@ pub struct TotalLoss {
     disentangle_loss: DisentanglementLoss,
     redundancy_loss: RedundancyLoss,
     consistency_loss: ConsistencyLoss,
-    device: Device,
+    _device: Device,
 }
 
 impl TotalLoss {
@@ -258,7 +262,7 @@ impl TotalLoss {
             disentangle_loss,
             redundancy_loss,
             consistency_loss,
-            device,
+            _device: device,
         }
     }
 
@@ -320,7 +324,7 @@ impl TotalLoss {
             .compute_consistency_loss(topo_emb, geo_emb, pocket_emb);
 
         // 总损失
-        let total_loss = task_loss.shallow_clone() * alpha
+        let _total_loss = task_loss.shallow_clone() * alpha
             + disentangle_loss.shallow_clone() * beta
             + redundancy_loss.shallow_clone() * gamma
             + consistency_loss.shallow_clone() * delta;
@@ -405,17 +409,17 @@ mod tests {
         let total_loss = TotalLoss::new(&vs_root, 64, 32, device, 0.1, true);
 
         // 验证不同阶段的权重
-        let (a1, b1, g1, d1) = total_loss.get_loss_weights(TrainingPhase::Warmup);
+        let (_a1, b1, g1, d1) = total_loss.get_loss_weights(TrainingPhase::Warmup);
         assert_eq!(b1, 0.0);
         assert_eq!(g1, 0.0);
         assert_eq!(d1, 0.0);
 
-        let (a2, b2, g2, d2) = total_loss.get_loss_weights(TrainingPhase::Disentanglement);
+        let (_a2, b2, g2, d2) = total_loss.get_loss_weights(TrainingPhase::Disentanglement);
         assert!(b2 > 0.0);
         assert!(g2 > 0.0);
         assert!(d2 > 0.0);
 
-        let (a3, b3, g3, d3) = total_loss.get_loss_weights(TrainingPhase::Refinement);
+        let (a3, _b3, _g3, _d3) = total_loss.get_loss_weights(TrainingPhase::Refinement);
         assert!(a3 > 0.0);
     }
 }

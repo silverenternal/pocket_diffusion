@@ -85,8 +85,8 @@ impl InformationRouter {
     pub fn forward(
         &self,
         node_features: &Tensor,
-        coords: &Tensor,
-        pocket_features: &Tensor,
+        _coords: &Tensor,
+        _pocket_features: &Tensor,
     ) -> ([f32; 3], Tensor) {
         // 聚合节点级信息到图级表示
         // 平均节点维度以获得图级表示 [batch_size, feature_dim] 或 [feature_dim]
@@ -211,7 +211,7 @@ mod tests {
         let coords = Tensor::randn(&[8, 10, 3], (Kind::Float, device));
         let pocket_features = Tensor::randn(&[8, 12], (Kind::Float, device));
 
-        let (probs, gates) = router.forward(&node_features, &coords, &pocket_features);
+        let (probs, _gates) = router.forward(&node_features, &coords, &pocket_features);
 
         // 验证概率总和约为1
         let sum = probs[0] + probs[1] + probs[2];

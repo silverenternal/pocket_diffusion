@@ -16,9 +16,9 @@ pub struct MineEstimator {
     /// 统计网络 (Critic Network) - 计算T(x,z)
     network: nn::Sequential,
     /// 输入维度
-    input_dim: usize,
+    _input_dim: usize,
     /// 隐藏层维度
-    hidden_dim: usize,
+    _hidden_dim: usize,
     /// 设备
     device: Device,
 }
@@ -54,8 +54,8 @@ impl MineEstimator {
 
         Self {
             network,
-            input_dim,
-            hidden_dim,
+            _input_dim: input_dim,
+            _hidden_dim: hidden_dim,
             device,
         }
     }

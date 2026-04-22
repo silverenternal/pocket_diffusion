@@ -1,12 +1,9 @@
-//! 基于口袋条件扩散的结构感知小分子生成
+//! Pocket-conditioned molecular generation research crate.
 //!
-//! 本库实现了专利中的核心算法：
-//! - 蛋白口袋12维特征提取
-//! - 基于跨注意力的口袋-配体生成器
-//! - SE(3)等变图神经网络的亲和力评分器
-
-#![allow(dead_code)]
-#![allow(unused_variables)]
+//! The primary actively extended surface is the modular research stack under
+//! `config`, `data`, `models`, `training`, and `experiments`.
+//! Legacy dataset/demo/comparison APIs remain available for compatibility, and
+//! are grouped more explicitly under `legacy`.
 
 pub mod config;
 pub mod data;
@@ -16,15 +13,20 @@ pub mod egnn;
 pub mod experiment;
 pub mod experiments;
 pub mod generator;
+pub mod legacy;
 pub mod losses;
 pub mod models;
 pub mod pocket;
 pub mod representation;
+pub mod runtime;
 pub mod scorer;
 pub mod se3_layers;
 pub mod training;
 pub mod types;
 
+// Root-level re-exports are kept for compatibility. New code should prefer
+// module-qualified imports, especially for the modular research stack and the
+// `legacy` namespace.
 pub use config::*;
 pub use data::*;
 pub use dataset::*;
@@ -32,10 +34,12 @@ pub use egnn::*;
 pub use experiment::*;
 pub use experiments::*;
 pub use generator::*;
+pub use legacy::*;
 pub use losses::*;
 pub use models::*;
 pub use pocket::*;
 pub use representation::*;
+pub use runtime::*;
 pub use scorer::*;
 pub use training::*;
 pub use types::*;
@@ -44,7 +48,7 @@ pub use types::*;
 // It intentionally has a different RBFEncoder (ndarray vs tch-based)
 pub use se3_layers::{CoordOnlyEGNN, SE3EquivariantLayer, TopologyAwareEGNN};
 
-use tch::{nn, Device};
+use tch::nn;
 
 /// 完整的生成-评分流水线
 pub struct PocketDiffusionPipeline {
@@ -52,15 +56,11 @@ pub struct PocketDiffusionPipeline {
     generator: PocketLigandGenerator,
     /// 评分器
     scorer: AffinityScorer,
-    /// 设备
-    device: Device,
 }
 
 impl PocketDiffusionPipeline {
     /// 创建流水线
     pub fn new(vs: &nn::Path) -> Self {
-        let device = vs.device();
-
         // 生成器配置
         let gen_config = GeneratorConfig::default();
         let generator = PocketLigandGenerator::new(vs, &gen_config);
@@ -75,11 +75,7 @@ impl PocketDiffusionPipeline {
         };
         let scorer = AffinityScorer::new(vs, &scorer_config, 3);
 
-        Self {
-            generator,
-            scorer,
-            device,
-        }
+        Self { generator, scorer }
     }
 
     /// 执行完整的生成-筛选流程
@@ -141,6 +137,23 @@ impl PocketDiffusionPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tch::Device;
+
+    #[test]
+    fn modular_namespace_entrypoints_are_available() {
+        let _inspect = |path: &str| training::inspect_dataset_from_config(path);
+        let _train = |path: &str, resume: bool| training::run_training_from_config(path, resume);
+        let _experiment =
+            |path: &str, resume: bool| experiments::run_experiment_from_config(path, resume);
+        let _device_parser = |device: &str| runtime::parse_runtime_device(device);
+    }
+
+    #[test]
+    fn legacy_namespace_entrypoints_are_available() {
+        let _demo = legacy::run_legacy_demo;
+        let _comparison = legacy::run_comparison_experiment;
+        let _pipeline_ctor = legacy::PocketDiffusionPipeline::new;
+    }
 
     #[test]
     fn test_pipeline_creation() {
