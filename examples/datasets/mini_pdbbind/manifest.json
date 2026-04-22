@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "example_id": "prot_a_complex_0",
+      "protein_id": "prot_a",
+      "pocket_path": "prot_a/protein.pdb",
+      "ligand_path": "prot_a/ligand.sdf"
+    },
+    {
+      "example_id": "prot_b_complex_0",
+      "protein_id": "prot_b",
+      "pocket_path": "prot_b/protein.pdb",
+      "ligand_path": "prot_b/ligand.sdf"
+    },
+    {
+      "example_id": "prot_c_complex_0",
+      "protein_id": "prot_c",
+      "pocket_path": "prot_c/protein.pdb",
+      "ligand_path": "prot_c/ligand.sdf"
+    },
+    {
+      "example_id": "prot_d_complex_0",
+      "protein_id": "prot_d",
+      "pocket_path": "prot_d/protein.pdb",
+      "ligand_path": "prot_d/ligand.sdf"
+    }
+  ]
+}

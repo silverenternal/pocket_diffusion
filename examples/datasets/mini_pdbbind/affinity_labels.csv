@@ -1,0 +1,5 @@
+example_id,protein_id,measurement_type,raw_value,raw_unit
+prot_a_complex_0,prot_a,Kd,35,nM
+prot_b_complex_0,prot_b,Ki,120,nM
+prot_c_complex_0,prot_c,IC50,1.2,uM
+prot_d_complex_0,prot_d,pKd,7.30,p

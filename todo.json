@@ -1,0 +1,64 @@
+{
+  "project": "基于口袋条件扩散的结构感知小分子生成",
+  "tech_stack": ["Rust", "tch-rs 0.23", "PyTorch bindings"],
+  "total_tasks": 8,
+  "completed": 7,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "项目初始化与依赖配置",
+      "description": "创建Cargo.toml，配置tch 0.23依赖和项目结构",
+      "status": "completed",
+      "files": ["Cargo.toml"]
+    },
+    {
+      "id": 2,
+      "name": "蛋白口袋特征提取模块",
+      "description": "实现12维口袋特征向量提取：原子计数、元素占比、坐标统计、口袋半径",
+      "status": "completed",
+      "files": ["src/pocket.rs"]
+    },
+    {
+      "id": 3,
+      "name": "数据结构定义",
+      "description": "定义原子、分子、联合图等核心数据结构，支持3D坐标和原子类型",
+      "status": "completed",
+      "files": ["src/types.rs"]
+    },
+    {
+      "id": 4,
+      "name": "口袋-配体生成器 (Transformer CrossAttention)",
+      "description": "实现条件编码层、多层跨注意力模块、自回归生成架构",
+      "status": "completed",
+      "files": ["src/generator.rs"]
+    },
+    {
+      "id": 5,
+      "name": "SE(3)等变图神经网络 (EGNN)",
+      "description": "实现等变消息传递层、注意力权重计算、节点坐标更新机制",
+      "status": "completed",
+      "files": ["src/egnn.rs"]
+    },
+    {
+      "id": 6,
+      "name": "亲和力评分器模型",
+      "description": "实现联合图构建（三类边连接）、RBF距离编码、EGNN集成",
+      "status": "completed",
+      "files": ["src/scorer.rs"]
+    },
+    {
+      "id": 7,
+      "name": "主流程与Pipeline集成",
+      "description": "实现生成-评分筛选闭环流程，集成所有模块",
+      "status": "completed",
+      "files": ["src/lib.rs", "src/main.rs"]
+    },
+    {
+      "id": 8,
+      "name": "测试与示例",
+      "description": "编写单元测试和PRRSV N蛋白靶点示例",
+      "status": "completed",
+      "files": ["各模块内置单元测试"]
+    }
+  ]
+}

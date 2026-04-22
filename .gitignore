@@ -1,0 +1,7 @@
+/target/
+/checkpoints/
+*.ot
+*.log
+.DS_Store
+.codex/
+.claude/

@@ -1,0 +1,6 @@
+# Minimal PDBbind-like affinity index for smoke tests
+# pdb_id  resolution  year  affinity_record
+prot_a   1.80  2020  Kd=35nM
+prot_b   2.10  2020  Ki 120 nM
+prot_c   1.95  2020  IC50=1.2uM
+prot_d   2.30  2020  pKd 7.30

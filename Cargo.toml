@@ -1,0 +1,27 @@
+[package]
+name = "pocket_diffusion"
+version = "0.1.0"
+edition = "2021"
+description = "基于口袋条件扩散的结构感知小分子生成"
+license = "MIT"
+
+[dependencies]
+tch = "0.23"
+ndarray = "0.15"
+pdb = "0.8"
+rand = "0.8"
+rand_distr = "0.4"
+reqwest = { version = "0.11", features = ["blocking"] }
+flate2 = "1.0"
+tar = "0.4"
+glob = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+log = "0.4"
+env_logger = "0.11"
+sysinfo = "0.30"
+
+[dev-dependencies]
+approx = "0.5"
+tempfile = "3"

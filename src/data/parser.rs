@@ -1,0 +1,882 @@
+//! Parsers for synthetic samples and lightweight real-data ingestion.
+
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
+
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+use super::{ExampleTargets, MolecularExample};
+use crate::types::{Atom, AtomType, Ligand, Pocket};
+
+/// Errors raised while converting on-disk assets into research examples.
+#[derive(Debug, Error)]
+pub enum DataParseError {
+    #[error("I/O error while reading dataset assets: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("JSON parse error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("invalid PDB record in {path}: {message}")]
+    InvalidPdb { path: PathBuf, message: String },
+    #[error("invalid SDF record in {path}: {message}")]
+    InvalidSdf { path: PathBuf, message: String },
+    #[error("dataset discovery error under {root}: {message}")]
+    Discovery { root: PathBuf, message: String },
+    #[error("invalid label table at {path}: {message}")]
+    InvalidLabelTable { path: PathBuf, message: String },
+}
+
+/// Manifest describing a dataset split-agnostic collection of complexes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetManifest {
+    /// Entries loaded into the research stack.
+    pub entries: Vec<ManifestEntry>,
+}
+
+/// One protein-ligand complex entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManifestEntry {
+    /// Stable example identifier.
+    pub example_id: String,
+    /// Protein identifier used for unseen-pocket splits.
+    pub protein_id: String,
+    /// Path to the protein pocket source PDB file.
+    pub pocket_path: PathBuf,
+    /// Path to the ligand structure source SDF file.
+    pub ligand_path: PathBuf,
+    /// Optional affinity label in kcal/mol.
+    pub affinity_kcal_mol: Option<f32>,
+    /// Optional original measurement type before normalization.
+    pub affinity_measurement_type: Option<String>,
+    /// Optional original numeric value before normalization.
+    pub affinity_raw_value: Option<f32>,
+    /// Optional original unit before normalization.
+    pub affinity_raw_unit: Option<String>,
+}
+
+/// One affinity label row loaded from an external index table.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AffinityLabel {
+    /// Optional example identifier key.
+    pub example_id: Option<String>,
+    /// Optional protein identifier key.
+    pub protein_id: Option<String>,
+    /// Affinity value in kcal/mol.
+    pub affinity_kcal_mol: f32,
+    /// Original measurement type before normalization.
+    pub measurement_type: Option<String>,
+    /// Original numeric value before normalization.
+    pub raw_value: Option<f32>,
+    /// Original unit before normalization.
+    pub raw_unit: Option<String>,
+}
+
+/// Build a small deterministic synthetic dataset.
+pub fn synthetic_phase1_examples() -> Vec<MolecularExample> {
+    vec![
+        MolecularExample::from_legacy(
+            "ex-0",
+            "protein-a",
+            &toy_ligand(0.0),
+            &toy_pocket("protein-a", 0.0),
+        ),
+        MolecularExample::from_legacy(
+            "ex-1",
+            "protein-b",
+            &toy_ligand(0.4),
+            &toy_pocket("protein-b", 0.8),
+        ),
+        MolecularExample::from_legacy(
+            "ex-2",
+            "protein-c",
+            &toy_ligand(-0.5),
+            &toy_pocket("protein-c", -0.2),
+        ),
+        MolecularExample::from_legacy(
+            "ex-3",
+            "protein-a",
+            &toy_ligand(1.1),
+            &toy_pocket("protein-a", 0.6),
+        ),
+    ]
+}
+
+/// Load a manifest from disk and resolve all relative file paths from its directory.
+pub fn load_manifest(path: &Path) -> Result<DatasetManifest, DataParseError> {
+    let content = fs::read_to_string(path)?;
+    let mut manifest: DatasetManifest = serde_json::from_str(&content)?;
+    let manifest_dir = path.parent().unwrap_or_else(|| Path::new("."));
+
+    for entry in &mut manifest.entries {
+        if entry.pocket_path.is_relative() {
+            entry.pocket_path = manifest_dir.join(&entry.pocket_path);
+        }
+        if entry.ligand_path.is_relative() {
+            entry.ligand_path = manifest_dir.join(&entry.ligand_path);
+        }
+    }
+
+    Ok(manifest)
+}
+
+/// Load an external affinity table from CSV or TSV.
+pub fn load_affinity_labels(path: &Path) -> Result<Vec<AffinityLabel>, DataParseError> {
+    let content = fs::read_to_string(path)?;
+    match path.extension().and_then(|value| value.to_str()) {
+        Some("csv") => load_delimited_affinity_labels(path, &content, ','),
+        Some("tsv") => load_delimited_affinity_labels(path, &content, '\t'),
+        _ => {
+            if content
+                .lines()
+                .next()
+                .map(|line| line.contains("affinity_kcal_mol") || line.contains(','))
+                .unwrap_or(false)
+            {
+                load_delimited_affinity_labels(path, &content, ',')
+            } else {
+                load_pdbbind_index_labels(path, &content)
+            }
+        }
+    }
+}
+
+fn load_delimited_affinity_labels(
+    path: &Path,
+    content: &str,
+    delimiter: char,
+) -> Result<Vec<AffinityLabel>, DataParseError> {
+    let mut lines = content.lines().filter(|line| !line.trim().is_empty());
+    let header = lines
+        .next()
+        .ok_or_else(|| DataParseError::InvalidLabelTable {
+            path: path.to_path_buf(),
+            message: "label table is empty".to_string(),
+        })?;
+    let columns: Vec<String> = header
+        .split(delimiter)
+        .map(|field| field.trim().to_ascii_lowercase())
+        .collect();
+
+    let example_ix = columns.iter().position(|field| field == "example_id");
+    let protein_ix = columns.iter().position(|field| field == "protein_id");
+    let affinity_ix = columns
+        .iter()
+        .position(|field| matches!(field.as_str(), "affinity_kcal_mol" | "affinity" | "label"));
+    let measurement_ix = columns
+        .iter()
+        .position(|field| matches!(field.as_str(), "measurement_type" | "affinity_type"));
+    let raw_value_ix = columns
+        .iter()
+        .position(|field| matches!(field.as_str(), "raw_value" | "affinity_value"));
+    let raw_unit_ix = columns
+        .iter()
+        .position(|field| matches!(field.as_str(), "raw_unit" | "affinity_unit"));
+    let record_ix = columns
+        .iter()
+        .position(|field| matches!(field.as_str(), "affinity_record" | "measurement"));
+
+    if affinity_ix.is_none()
+        && record_ix.is_none()
+        && !(measurement_ix.is_some() && raw_value_ix.is_some())
+    {
+        return Err(DataParseError::InvalidLabelTable {
+            path: path.to_path_buf(),
+            message: "missing affinity columns; provide affinity_kcal_mol, affinity_record, or measurement_type/raw_value[/raw_unit]".to_string(),
+        });
+    }
+
+    let mut labels = Vec::new();
+    for (line_ix, line) in lines.enumerate() {
+        let fields: Vec<&str> = line.split(delimiter).map(str::trim).collect();
+        let example_id = example_ix
+            .and_then(|ix| fields.get(ix))
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_string());
+        let protein_id = protein_ix
+            .and_then(|ix| fields.get(ix))
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_string());
+        if example_id.is_none() && protein_id.is_none() {
+            return Err(DataParseError::InvalidLabelTable {
+                path: path.to_path_buf(),
+                message: format!("line {} has neither example_id nor protein_id", line_ix + 2),
+            });
+        }
+
+        let parsed = if let Some(ix) = affinity_ix {
+            let affinity_str = fields
+                .get(ix)
+                .ok_or_else(|| DataParseError::InvalidLabelTable {
+                    path: path.to_path_buf(),
+                    message: format!("missing affinity value on data line {}", line_ix + 2),
+                })?;
+            let affinity_kcal_mol =
+                affinity_str
+                    .parse::<f32>()
+                    .map_err(|_| DataParseError::InvalidLabelTable {
+                        path: path.to_path_buf(),
+                        message: format!("invalid affinity value on data line {}", line_ix + 2),
+                    })?;
+            ParsedAffinityRecord {
+                affinity_kcal_mol,
+                measurement_type: Some("dG".to_string()),
+                raw_value: Some(affinity_kcal_mol),
+                raw_unit: Some("kcal/mol".to_string()),
+            }
+        } else if let Some(ix) = record_ix {
+            let record = fields
+                .get(ix)
+                .ok_or_else(|| DataParseError::InvalidLabelTable {
+                    path: path.to_path_buf(),
+                    message: format!("missing affinity record on data line {}", line_ix + 2),
+                })?;
+            parse_compact_affinity_field(record).ok_or_else(|| {
+                DataParseError::InvalidLabelTable {
+                    path: path.to_path_buf(),
+                    message: format!("invalid affinity record on data line {}", line_ix + 2),
+                }
+            })?
+        } else {
+            let measurement = measurement_ix
+                .and_then(|ix| fields.get(ix))
+                .copied()
+                .ok_or_else(|| DataParseError::InvalidLabelTable {
+                    path: path.to_path_buf(),
+                    message: format!("missing measurement type on data line {}", line_ix + 2),
+                })?;
+            let raw_value_str = raw_value_ix
+                .and_then(|ix| fields.get(ix))
+                .copied()
+                .ok_or_else(|| DataParseError::InvalidLabelTable {
+                    path: path.to_path_buf(),
+                    message: format!("missing raw value on data line {}", line_ix + 2),
+                })?;
+            let raw_value =
+                raw_value_str
+                    .parse::<f32>()
+                    .map_err(|_| DataParseError::InvalidLabelTable {
+                        path: path.to_path_buf(),
+                        message: format!("invalid raw value on data line {}", line_ix + 2),
+                    })?;
+            let raw_unit = raw_unit_ix
+                .and_then(|ix| fields.get(ix))
+                .copied()
+                .filter(|value| !value.is_empty())
+                .unwrap_or("M");
+            parse_measurement_components(measurement, raw_value, raw_unit).ok_or_else(|| {
+                DataParseError::InvalidLabelTable {
+                    path: path.to_path_buf(),
+                    message: format!(
+                        "unsupported measurement components on data line {}",
+                        line_ix + 2
+                    ),
+                }
+            })?
+        };
+
+        labels.push(AffinityLabel {
+            example_id,
+            protein_id,
+            affinity_kcal_mol: parsed.affinity_kcal_mol,
+            measurement_type: parsed.measurement_type,
+            raw_value: parsed.raw_value,
+            raw_unit: parsed.raw_unit,
+        });
+    }
+
+    Ok(labels)
+}
+
+fn load_pdbbind_index_labels(
+    path: &Path,
+    content: &str,
+) -> Result<Vec<AffinityLabel>, DataParseError> {
+    let mut labels = Vec::new();
+
+    for (line_ix, raw_line) in content.lines().enumerate() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        if fields.len() < 2 {
+            continue;
+        }
+
+        let protein_id = fields[0].to_string();
+        let parsed = parse_index_affinity_record(&fields).ok_or_else(|| {
+            DataParseError::InvalidLabelTable {
+                path: path.to_path_buf(),
+                message: format!(
+                    "could not parse affinity record on index line {}",
+                    line_ix + 1
+                ),
+            }
+        })?;
+
+        labels.push(AffinityLabel {
+            example_id: None,
+            protein_id: Some(protein_id),
+            affinity_kcal_mol: parsed.affinity_kcal_mol,
+            measurement_type: parsed.measurement_type,
+            raw_value: parsed.raw_value,
+            raw_unit: parsed.raw_unit,
+        });
+    }
+
+    if labels.is_empty() {
+        return Err(DataParseError::InvalidLabelTable {
+            path: path.to_path_buf(),
+            message: "no valid labels found in index file".to_string(),
+        });
+    }
+
+    Ok(labels)
+}
+
+#[derive(Debug, Clone)]
+struct ParsedAffinityRecord {
+    affinity_kcal_mol: f32,
+    measurement_type: Option<String>,
+    raw_value: Option<f32>,
+    raw_unit: Option<String>,
+}
+
+fn parse_index_affinity_record(fields: &[&str]) -> Option<ParsedAffinityRecord> {
+    for (index, field) in fields.iter().enumerate() {
+        if let Some(record) = parse_compact_affinity_field(field) {
+            return Some(record);
+        }
+        if let Some(record) = parse_split_affinity_tokens(fields, index) {
+            return Some(record);
+        }
+    }
+
+    fields
+        .iter()
+        .rev()
+        .find_map(|field| field.parse::<f32>().ok())
+        .map(|value| ParsedAffinityRecord {
+            affinity_kcal_mol: value,
+            measurement_type: Some("dG".to_string()),
+            raw_value: Some(value),
+            raw_unit: Some("kcal/mol".to_string()),
+        })
+}
+
+fn parse_compact_affinity_field(field: &str) -> Option<ParsedAffinityRecord> {
+    let compact = field.trim().trim_end_matches(';').replace(' ', "");
+    for prefix in ["Kd=", "Ki=", "IC50=", "EC50=", "pKd=", "pKi="] {
+        if let Some(rest) = compact.strip_prefix(prefix) {
+            if prefix.starts_with('p') {
+                let value = rest.parse::<f32>().ok()?;
+                return Some(from_p_measurement(prefix.trim_end_matches('='), value));
+            }
+            let (value, unit) = split_numeric_and_unit(rest)?;
+            return from_concentration_measurement(prefix.trim_end_matches('='), value, unit);
+        }
+    }
+    None
+}
+
+fn parse_measurement_components(
+    measurement: &str,
+    raw_value: f32,
+    raw_unit: &str,
+) -> Option<ParsedAffinityRecord> {
+    let normalized = normalize_measurement_name(measurement);
+    if normalized.starts_with('p') {
+        return Some(from_p_measurement(normalized, raw_value));
+    }
+    if normalized == "dG" || normalized == "dg" {
+        return Some(ParsedAffinityRecord {
+            affinity_kcal_mol: raw_value,
+            measurement_type: Some("dG".to_string()),
+            raw_value: Some(raw_value),
+            raw_unit: Some(raw_unit.to_string()),
+        });
+    }
+    from_concentration_measurement(normalized, raw_value, raw_unit)
+}
+
+fn parse_split_affinity_tokens(fields: &[&str], index: usize) -> Option<ParsedAffinityRecord> {
+    let measurement = normalize_measurement_name(fields.get(index)?);
+    if !matches!(measurement, "Kd" | "Ki" | "IC50" | "EC50" | "pKd" | "pKi") {
+        return None;
+    }
+
+    let next = fields.get(index + 1)?;
+    if measurement.starts_with('p') {
+        let value = next.trim_end_matches(';').parse::<f32>().ok()?;
+        return Some(from_p_measurement(measurement, value));
+    }
+
+    if let Some((value, unit)) = split_numeric_and_unit(next) {
+        return from_concentration_measurement(measurement, value, unit);
+    }
+
+    let value = next.trim_end_matches(';').parse::<f32>().ok()?;
+    let unit = fields.get(index + 2).copied().unwrap_or("M");
+    from_concentration_measurement(measurement, value, unit)
+}
+
+fn normalize_measurement_name(token: &str) -> &str {
+    match token.trim_end_matches(':').trim_end_matches('=') {
+        "Kd" | "KD" => "Kd",
+        "Ki" | "KI" => "Ki",
+        "IC50" | "ic50" => "IC50",
+        "EC50" | "ec50" => "EC50",
+        "pKd" | "PKD" => "pKd",
+        "pKi" | "PKI" => "pKi",
+        "dG" | "DG" | "dg" => "dG",
+        other => other,
+    }
+}
+
+fn split_numeric_and_unit(token: &str) -> Option<(f32, &str)> {
+    let trimmed = token.trim().trim_end_matches(';');
+    let cut = trimmed
+        .find(|ch: char| !(ch.is_ascii_digit() || matches!(ch, '.' | '-' | '+' | 'e' | 'E')))
+        .unwrap_or(trimmed.len());
+    if cut == 0 || cut == trimmed.len() {
+        return None;
+    }
+    let value = trimmed[..cut].parse::<f32>().ok()?;
+    Some((value, &trimmed[cut..]))
+}
+
+fn from_p_measurement(measurement: &str, value: f32) -> ParsedAffinityRecord {
+    let molar = 10_f32.powf(-value);
+    ParsedAffinityRecord {
+        affinity_kcal_mol: molar_to_delta_g_kcal(molar),
+        measurement_type: Some(measurement.to_string()),
+        raw_value: Some(value),
+        raw_unit: Some("p".to_string()),
+    }
+}
+
+fn from_concentration_measurement(
+    measurement: &str,
+    value: f32,
+    unit: &str,
+) -> Option<ParsedAffinityRecord> {
+    let molar = concentration_to_molar(value, unit)?;
+    Some(ParsedAffinityRecord {
+        affinity_kcal_mol: molar_to_delta_g_kcal(molar),
+        measurement_type: Some(measurement.to_string()),
+        raw_value: Some(value),
+        raw_unit: Some(unit.to_string()),
+    })
+}
+
+fn concentration_to_molar(value: f32, unit: &str) -> Option<f32> {
+    let normalized = unit.trim().trim_end_matches(';').to_ascii_lowercase();
+    let scale = match normalized.as_str() {
+        "m" => 1.0,
+        "mm" => 1e-3,
+        "um" | "μm" => 1e-6,
+        "nm" => 1e-9,
+        "pm" => 1e-12,
+        "fm" => 1e-15,
+        _ => return None,
+    };
+    Some((value * scale).max(1e-15))
+}
+
+fn molar_to_delta_g_kcal(molar: f32) -> f32 {
+    const R_KCAL_PER_MOL_K: f32 = 0.001_987_204_1;
+    const TEMPERATURE_K: f32 = 298.15;
+    R_KCAL_PER_MOL_K * TEMPERATURE_K * molar.ln()
+}
+
+/// Attach external labels to manifest entries. `example_id` matches take precedence.
+pub fn apply_affinity_labels(entries: &mut [ManifestEntry], labels: &[AffinityLabel]) {
+    let mut by_example = BTreeMap::new();
+    let mut by_protein = BTreeMap::new();
+    for label in labels {
+        if let Some(example_id) = &label.example_id {
+            by_example.insert(example_id.as_str(), label.affinity_kcal_mol);
+        }
+        if let Some(protein_id) = &label.protein_id {
+            by_protein.insert(protein_id.as_str(), label.affinity_kcal_mol);
+        }
+    }
+
+    for entry in entries {
+        if let Some(value) = by_example.get(entry.example_id.as_str()) {
+            entry.affinity_kcal_mol = Some(*value);
+            if let Some(label) = labels
+                .iter()
+                .find(|label| label.example_id.as_deref() == Some(entry.example_id.as_str()))
+            {
+                entry.affinity_measurement_type = label.measurement_type.clone();
+                entry.affinity_raw_value = label.raw_value;
+                entry.affinity_raw_unit = label.raw_unit.clone();
+            }
+        } else if let Some(value) = by_protein.get(entry.protein_id.as_str()) {
+            entry.affinity_kcal_mol = Some(*value);
+            if let Some(label) = labels
+                .iter()
+                .find(|label| label.protein_id.as_deref() == Some(entry.protein_id.as_str()))
+            {
+                entry.affinity_measurement_type = label.measurement_type.clone();
+                entry.affinity_raw_value = label.raw_value;
+                entry.affinity_raw_unit = label.raw_unit.clone();
+            }
+        }
+    }
+}
+
+/// Discover a PDBbind-like dataset where each subdirectory contains one PDB and one SDF.
+pub fn discover_pdbbind_like_entries(root: &Path) -> Result<Vec<ManifestEntry>, DataParseError> {
+    let mut entries = Vec::new();
+
+    for dir_entry in fs::read_dir(root)? {
+        let dir_entry = dir_entry?;
+        let path = dir_entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let mut pdb_path = None;
+        let mut sdf_path = None;
+        for file_entry in fs::read_dir(&path)? {
+            let file_entry = file_entry?;
+            let file_path = file_entry.path();
+            match file_path.extension().and_then(|value| value.to_str()) {
+                Some("pdb") if pdb_path.is_none() => pdb_path = Some(file_path),
+                Some("sdf") if sdf_path.is_none() => sdf_path = Some(file_path),
+                _ => {}
+            }
+        }
+
+        if let (Some(pocket_path), Some(ligand_path)) = (pdb_path, sdf_path) {
+            let protein_id = path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .ok_or_else(|| DataParseError::Discovery {
+                    root: root.to_path_buf(),
+                    message: "non-utf8 complex directory name".to_string(),
+                })?
+                .to_string();
+            entries.push(ManifestEntry {
+                example_id: protein_id.clone(),
+                protein_id,
+                pocket_path,
+                ligand_path,
+                affinity_kcal_mol: None,
+                affinity_measurement_type: None,
+                affinity_raw_value: None,
+                affinity_raw_unit: None,
+            });
+        }
+    }
+
+    entries.sort_by(|left, right| left.example_id.cmp(&right.example_id));
+    Ok(entries)
+}
+
+/// Load one manifest entry into a `MolecularExample`.
+pub fn load_manifest_entry(
+    entry: &ManifestEntry,
+    pocket_cutoff_angstrom: f32,
+) -> Result<MolecularExample, DataParseError> {
+    let ligand = load_ligand_from_sdf(&entry.ligand_path)?;
+    let center = ligand_center(&ligand);
+    let pocket = load_pocket_from_pdb(&entry.pocket_path, center, pocket_cutoff_angstrom)?;
+    Ok(MolecularExample::from_legacy_with_targets(
+        entry.example_id.clone(),
+        entry.protein_id.clone(),
+        &ligand,
+        &pocket,
+        ExampleTargets {
+            affinity_kcal_mol: entry.affinity_kcal_mol,
+            affinity_measurement_type: entry.affinity_measurement_type.clone(),
+            affinity_raw_value: entry.affinity_raw_value,
+            affinity_raw_unit: entry.affinity_raw_unit.clone(),
+        },
+    ))
+}
+
+/// Load a ligand from a minimal V2000 SDF file.
+pub fn load_ligand_from_sdf(path: &Path) -> Result<Ligand, DataParseError> {
+    let content = fs::read_to_string(path)?;
+    let lines: Vec<&str> = content.lines().collect();
+    let counts_index = lines
+        .iter()
+        .position(|line| line.contains("V2000"))
+        .ok_or_else(|| DataParseError::InvalidSdf {
+            path: path.to_path_buf(),
+            message: "missing V2000 counts line".to_string(),
+        })?;
+
+    let counts = lines[counts_index];
+    if counts.len() < 6 {
+        return Err(DataParseError::InvalidSdf {
+            path: path.to_path_buf(),
+            message: "counts line too short".to_string(),
+        });
+    }
+    let num_atoms =
+        counts[0..3]
+            .trim()
+            .parse::<usize>()
+            .map_err(|_| DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: "invalid atom count".to_string(),
+            })?;
+    let num_bonds =
+        counts[3..6]
+            .trim()
+            .parse::<usize>()
+            .map_err(|_| DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: "invalid bond count".to_string(),
+            })?;
+
+    let atom_start = counts_index + 1;
+    let bond_start = atom_start + num_atoms;
+    if lines.len() < bond_start + num_bonds {
+        return Err(DataParseError::InvalidSdf {
+            path: path.to_path_buf(),
+            message: "file shorter than declared atom/bond counts".to_string(),
+        });
+    }
+
+    let mut atoms = Vec::with_capacity(num_atoms);
+    for (index, line) in lines[atom_start..bond_start].iter().enumerate() {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        if fields.len() < 4 {
+            return Err(DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: format!("atom line {} too short", index),
+            });
+        }
+
+        let x = fields[0]
+            .parse::<f64>()
+            .map_err(|_| DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: format!("invalid x coordinate for atom {}", index),
+            })?;
+        let y = fields[1]
+            .parse::<f64>()
+            .map_err(|_| DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: format!("invalid y coordinate for atom {}", index),
+            })?;
+        let z = fields[2]
+            .parse::<f64>()
+            .map_err(|_| DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: format!("invalid z coordinate for atom {}", index),
+            })?;
+        let element = fields[3];
+
+        atoms.push(Atom {
+            coords: [x, y, z],
+            atom_type: parse_atom_type(element),
+            index,
+        });
+    }
+
+    let mut bonds = Vec::with_capacity(num_bonds);
+    for line in &lines[bond_start..bond_start + num_bonds] {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        if fields.len() < 2 {
+            continue;
+        }
+        let src = fields[0]
+            .parse::<usize>()
+            .map_err(|_| DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: "invalid source atom index".to_string(),
+            })?;
+        let dst = fields[1]
+            .parse::<usize>()
+            .map_err(|_| DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: "invalid destination atom index".to_string(),
+            })?;
+        if src == 0 || dst == 0 {
+            continue;
+        }
+        bonds.push((src - 1, dst - 1));
+    }
+
+    Ok(Ligand {
+        atoms,
+        bonds,
+        fingerprint: None,
+    })
+}
+
+/// Extract a local pocket from a protein structure around the ligand center.
+pub fn load_pocket_from_pdb(
+    path: &Path,
+    ligand_center: [f64; 3],
+    pocket_cutoff_angstrom: f32,
+) -> Result<Pocket, DataParseError> {
+    let content = fs::read_to_string(path)?;
+    let mut all_atoms = Vec::new();
+    let mut local_atoms = Vec::new();
+
+    for line in content.lines() {
+        if !line.starts_with("ATOM") && !line.starts_with("HETATM") {
+            continue;
+        }
+        if line.len() < 54 {
+            continue;
+        }
+
+        let x = parse_pdb_float(line, 30, 38, path)?;
+        let y = parse_pdb_float(line, 38, 46, path)?;
+        let z = parse_pdb_float(line, 46, 54, path)?;
+        let element = if line.len() >= 78 {
+            line[76..78].trim()
+        } else if line.len() >= 16 {
+            line[12..16].trim()
+        } else {
+            "C"
+        };
+
+        let atom = Atom {
+            coords: [x, y, z],
+            atom_type: parse_atom_type(element),
+            index: all_atoms.len(),
+        };
+        let distance = euclidean_distance(atom.coords, ligand_center);
+        all_atoms.push((distance, atom.clone()));
+
+        if distance <= pocket_cutoff_angstrom as f64 {
+            local_atoms.push(atom);
+        }
+    }
+
+    if local_atoms.is_empty() {
+        all_atoms.sort_by(|left, right| left.0.total_cmp(&right.0));
+        local_atoms.extend(all_atoms.into_iter().take(64).map(|(_, atom)| atom));
+    }
+
+    if local_atoms.is_empty() {
+        return Err(DataParseError::InvalidPdb {
+            path: path.to_path_buf(),
+            message: "no atoms were parsed from the structure".to_string(),
+        });
+    }
+
+    for (index, atom) in local_atoms.iter_mut().enumerate() {
+        atom.index = index;
+    }
+
+    let pocket_name = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("pocket")
+        .to_string();
+    Ok(Pocket {
+        atoms: local_atoms,
+        name: pocket_name,
+    })
+}
+
+/// Compute the ligand center used for pocket extraction.
+pub fn ligand_center(ligand: &Ligand) -> [f64; 3] {
+    if ligand.atoms.is_empty() {
+        return [0.0, 0.0, 0.0];
+    }
+
+    let (x_sum, y_sum, z_sum) = ligand.atoms.iter().fold((0.0, 0.0, 0.0), |acc, atom| {
+        (
+            acc.0 + atom.coords[0],
+            acc.1 + atom.coords[1],
+            acc.2 + atom.coords[2],
+        )
+    });
+    let denom = ligand.atoms.len() as f64;
+    [x_sum / denom, y_sum / denom, z_sum / denom]
+}
+
+fn parse_pdb_float(
+    line: &str,
+    start: usize,
+    end: usize,
+    path: &Path,
+) -> Result<f64, DataParseError> {
+    line[start..end]
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| DataParseError::InvalidPdb {
+            path: path.to_path_buf(),
+            message: format!("invalid float slice {}..{}", start, end),
+        })
+}
+
+fn parse_atom_type(element: &str) -> AtomType {
+    match element.trim().to_ascii_uppercase().as_str() {
+        "C" => AtomType::Carbon,
+        "N" => AtomType::Nitrogen,
+        "O" => AtomType::Oxygen,
+        "S" => AtomType::Sulfur,
+        "H" => AtomType::Hydrogen,
+        _ => AtomType::Other,
+    }
+}
+
+fn euclidean_distance(lhs: [f64; 3], rhs: [f64; 3]) -> f64 {
+    let dx = lhs[0] - rhs[0];
+    let dy = lhs[1] - rhs[1];
+    let dz = lhs[2] - rhs[2];
+    (dx * dx + dy * dy + dz * dz).sqrt()
+}
+
+fn toy_ligand(offset: f64) -> Ligand {
+    Ligand {
+        atoms: vec![
+            Atom {
+                coords: [0.0 + offset, 0.0, 0.0],
+                atom_type: AtomType::Carbon,
+                index: 0,
+            },
+            Atom {
+                coords: [1.3 + offset, 0.1, 0.0],
+                atom_type: AtomType::Nitrogen,
+                index: 1,
+            },
+            Atom {
+                coords: [2.1 + offset, 1.0, 0.2],
+                atom_type: AtomType::Oxygen,
+                index: 2,
+            },
+        ],
+        bonds: vec![(0, 1), (1, 2)],
+        fingerprint: None,
+    }
+}
+
+fn toy_pocket(name: &str, offset: f64) -> Pocket {
+    Pocket {
+        name: name.to_string(),
+        atoms: vec![
+            Atom {
+                coords: [offset, 0.0, 0.0],
+                atom_type: AtomType::Carbon,
+                index: 0,
+            },
+            Atom {
+                coords: [0.7 + offset, 1.0, 0.4],
+                atom_type: AtomType::Oxygen,
+                index: 1,
+            },
+            Atom {
+                coords: [1.5 + offset, -0.8, 0.2],
+                atom_type: AtomType::Nitrogen,
+                index: 2,
+            },
+        ],
+    }
+}
