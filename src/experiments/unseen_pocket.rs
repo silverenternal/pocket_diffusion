@@ -11,7 +11,12 @@ use tch::nn;
 use crate::{
     config::ResearchConfig,
     data::InMemoryDataset,
-    models::{Phase1ResearchSystem, ResearchForward},
+    models::{
+        generate_candidates_from_forward, report_to_metrics, ChemistryValidityEvaluator,
+        DockingEvaluator, HeuristicChemistryValidityEvaluator, HeuristicDockingEvaluator,
+        HeuristicPocketCompatibilityEvaluator, Phase1ResearchSystem, PocketCompatibilityEvaluator,
+        ResearchForward,
+    },
     runtime::parse_runtime_device,
     training::{
         reproducibility_metadata, stable_json_hash, ResearchTrainer, RunArtifactBundle,
@@ -420,7 +425,7 @@ pub fn evaluate_split(
                 memory_usage_mb: memory_before,
                 evaluation_time_ms: 0.0,
             },
-            real_generation_metrics: reserved_real_generation_metrics(),
+            real_generation_metrics: disabled_real_generation_metrics(),
         };
     }
 
@@ -633,11 +638,11 @@ pub fn evaluate_split(
             memory_usage_mb: (memory_after - memory_before).max(0.0),
             evaluation_time_ms: start.elapsed().as_secs_f64() * 1000.0,
         },
-        real_generation_metrics: reserved_real_generation_metrics(),
+        real_generation_metrics: evaluate_real_generation_metrics(examples, &forwards),
     }
 }
 
-fn reserved_real_generation_metrics() -> RealGenerationMetrics {
+fn disabled_real_generation_metrics() -> RealGenerationMetrics {
     RealGenerationMetrics {
         chemistry_validity: ReservedBackendMetrics {
             available: false,
@@ -659,6 +664,40 @@ fn reserved_real_generation_metrics() -> RealGenerationMetrics {
             status: "reserved for a future downstream pocket-compatibility backend adapter"
                 .to_string(),
         },
+    }
+}
+
+fn evaluate_real_generation_metrics(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+) -> RealGenerationMetrics {
+    let candidates = examples
+        .iter()
+        .zip(forwards.iter())
+        .flat_map(|(example, forward)| generate_candidates_from_forward(example, forward, 3))
+        .collect::<Vec<_>>();
+
+    if candidates.is_empty() {
+        return disabled_real_generation_metrics();
+    }
+
+    let chemistry = HeuristicChemistryValidityEvaluator.evaluate_chemistry(&candidates);
+    let docking = HeuristicDockingEvaluator.evaluate_docking(&candidates);
+    let pocket = HeuristicPocketCompatibilityEvaluator.evaluate_pocket_compatibility(&candidates);
+
+    RealGenerationMetrics {
+        chemistry_validity: report_to_metrics(
+            chemistry,
+            "active heuristic chemistry-validity backend on modular decoder candidates",
+        ),
+        docking_affinity: report_to_metrics(
+            docking,
+            "active heuristic docking-oriented hook on modular decoder candidates",
+        ),
+        pocket_compatibility: report_to_metrics(
+            pocket,
+            "active heuristic pocket-compatibility hook on modular decoder candidates",
+        ),
     }
 }
 

@@ -25,6 +25,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ResearchCommand::Experiment(args) => {
                 run_experiment_from_config(&args.config, args.resume)
             }
+            ResearchCommand::Generate(args) => run_generation_demo_from_config(
+                &args.config,
+                args.resume,
+                args.example_id.as_deref(),
+                args.num_candidates,
+            ),
         },
         CliCommand::Validate(args) => validate_config(args.kind, &args.config),
         CliCommand::Report(args) => report_run(&args.artifact_dir),
@@ -35,7 +41,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         CliCommand::Phase3Demo => training::run_phase3_training_demo(),
         CliCommand::Phase4Demo => training::run_phase4_experiment_demo(),
         CliCommand::LegacyDemo(args) => {
-            legacy::run_legacy_demo(args.num_candidates, args.top_k);
+            legacy::run_legacy_demo(args.num_candidates, args.top_k, args.modular_bridge);
             Ok(())
         }
         CliCommand::CompatInspect(args) => inspect_dataset_from_config(&args.config),
@@ -93,6 +99,8 @@ enum ResearchCommand {
     Train(RunArgs),
     /// Run the unseen-pocket experiment from an experiment config.
     Experiment(RunArgs),
+    /// Emit conditioned ligand candidates from the modular research path.
+    Generate(GenerateArgs),
 }
 
 #[derive(Debug, Args)]
@@ -135,6 +143,20 @@ struct LegacyDemoArgs {
     num_candidates: usize,
     #[arg(default_value_t = 3)]
     top_k: usize,
+    #[arg(long, default_value_t = false)]
+    modular_bridge: bool,
+}
+
+#[derive(Debug, Args)]
+struct GenerateArgs {
+    #[arg(long)]
+    config: String,
+    #[arg(long, default_value_t = false)]
+    resume: bool,
+    #[arg(long)]
+    example_id: Option<String>,
+    #[arg(long, default_value_t = 4)]
+    num_candidates: usize,
 }
 
 #[derive(Debug, Args)]
@@ -197,6 +219,56 @@ fn run_training_from_config(path: &str, resume: bool) -> Result<(), Box<dyn std:
 fn run_experiment_from_config(path: &str, resume: bool) -> Result<(), Box<dyn std::error::Error>> {
     let summary = experiments::run_experiment_from_config(path, resume)?;
     training::print_experiment_run(&summary);
+    Ok(())
+}
+
+fn run_generation_demo_from_config(
+    path: &str,
+    resume: bool,
+    example_id: Option<&str>,
+    num_candidates: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let summary =
+        experiments::run_generation_demo_from_config(path, resume, example_id, num_candidates)?;
+    println!("================================================");
+    println!("  Config-Driven Modular Generation Demo");
+    println!("================================================");
+    println!(
+        "example: {} | protein: {}",
+        summary.example_id, summary.protein_id
+    );
+    println!("candidates: {}", summary.candidate_count);
+    println!("loaded checkpoint: {}", summary.loaded_checkpoint);
+    training::print_eval_metrics(&experiments::EvaluationMetrics {
+        representation_diagnostics: experiments::RepresentationDiagnostics {
+            finite_forward_fraction: 0.0,
+            unique_complex_fraction: 0.0,
+            unseen_protein_fraction: 0.0,
+            distance_probe_rmse: 0.0,
+            topology_pocket_cosine_alignment: 0.0,
+            topology_reconstruction_mse: 0.0,
+            slot_activation_mean: 0.0,
+            gate_activation_mean: 0.0,
+            leakage_proxy_mean: 0.0,
+        },
+        proxy_task_metrics: experiments::ProxyTaskMetrics {
+            affinity_probe_mae: 0.0,
+            affinity_probe_rmse: 0.0,
+            labeled_fraction: 0.0,
+            affinity_by_measurement: Vec::new(),
+        },
+        split_context: experiments::SplitContextMetrics {
+            example_count: 0,
+            unique_complex_count: 0,
+            unique_protein_count: 0,
+            train_reference_protein_count: 0,
+        },
+        resource_usage: experiments::ResourceUsageMetrics {
+            memory_usage_mb: 0.0,
+            evaluation_time_ms: 0.0,
+        },
+        real_generation_metrics: summary.real_generation_metrics,
+    });
     Ok(())
 }
 
@@ -281,8 +353,34 @@ mod tests {
             CliCommand::LegacyDemo(args) => {
                 assert_eq!(args.num_candidates, 12);
                 assert_eq!(args.top_k, 4);
+                assert!(!args.modular_bridge);
             }
             _ => panic!("expected legacy demo command"),
+        }
+    }
+
+    #[test]
+    fn parse_research_generate_command() {
+        let command = parse_cli(&[
+            "pocket_diffusion",
+            "research",
+            "generate",
+            "--config",
+            "configs/research_manifest.json",
+            "--resume",
+            "--num-candidates",
+            "5",
+        ]);
+
+        match command {
+            CliCommand::Research {
+                command: ResearchCommand::Generate(args),
+            } => {
+                assert_eq!(args.config, "configs/research_manifest.json");
+                assert!(args.resume);
+                assert_eq!(args.num_candidates, 5);
+            }
+            _ => panic!("expected research generate command"),
         }
     }
 
@@ -332,6 +430,7 @@ mod tests {
         let command = CliCommand::LegacyDemo(LegacyDemoArgs {
             num_candidates: 10,
             top_k: 3,
+            modular_bridge: false,
         });
         assert!(compatibility_notice(&command).is_some());
     }

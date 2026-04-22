@@ -4,6 +4,6 @@ pub mod types;
 
 pub use types::{
     load_research_config, AffinityWeighting, ConfigValidationError, DataConfig, DatasetFormat,
-    LossWeightConfig, ModelConfig, ParsingMode, PrimaryObjectiveConfig, ResearchConfig,
-    RuntimeConfig, StageScheduleConfig, TrainingConfig,
+    GenerationTargetConfig, LossWeightConfig, ModelConfig, ParsingMode, PrimaryObjectiveConfig,
+    ResearchConfig, RuntimeConfig, StageScheduleConfig, TrainingConfig,
 };

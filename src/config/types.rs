@@ -106,6 +106,9 @@ pub struct DataConfig {
     pub test_fraction: f32,
     /// Whether to stratify protein-level splits by dominant affinity measurement type.
     pub stratify_by_measurement: bool,
+    /// Decoder-side corruption and denoising target generation.
+    #[serde(default)]
+    pub generation_target: GenerationTargetConfig,
 }
 
 impl Default for DataConfig {
@@ -125,6 +128,7 @@ impl Default for DataConfig {
             val_fraction: 0.1,
             test_fraction: 0.1,
             stratify_by_measurement: false,
+            generation_target: GenerationTargetConfig::default(),
         }
     }
 }
@@ -159,6 +163,7 @@ impl DataConfig {
             }
         }
         validate_split_fractions(self.val_fraction, self.test_fraction)?;
+        self.generation_target.validate()?;
         match self.dataset_format {
             DatasetFormat::Synthetic => {}
             DatasetFormat::ManifestJson => {
@@ -175,6 +180,43 @@ impl DataConfig {
         }
         if let Some(label_table_path) = self.label_table_path.as_deref() {
             ensure_file_exists(label_table_path, "data.label_table_path")?;
+        }
+        Ok(())
+    }
+}
+
+/// Configurable corruption process used to derive decoder-side supervision.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationTargetConfig {
+    /// Fraction of ligand atoms masked for corruption recovery.
+    pub atom_mask_ratio: f32,
+    /// Deterministic coordinate noise scale applied to ligand atoms.
+    pub coordinate_noise_std: f32,
+    /// Seed used for deterministic corruption and denoising target construction.
+    pub corruption_seed: u64,
+}
+
+impl Default for GenerationTargetConfig {
+    fn default() -> Self {
+        Self {
+            atom_mask_ratio: 0.15,
+            coordinate_noise_std: 0.08,
+            corruption_seed: 1337,
+        }
+    }
+}
+
+impl GenerationTargetConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if !self.atom_mask_ratio.is_finite() || !(0.0..=1.0).contains(&self.atom_mask_ratio) {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.atom_mask_ratio must be finite and in [0, 1]",
+            ));
+        }
+        if !self.coordinate_noise_std.is_finite() || self.coordinate_noise_std < 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.coordinate_noise_std must be finite and non-negative",
+            ));
         }
         Ok(())
     }
@@ -437,6 +479,8 @@ impl LossWeightConfig {
 pub enum PrimaryObjectiveConfig {
     /// Reconstruction-style surrogate objective over modality token paths.
     SurrogateReconstruction,
+    /// Decoder-side corruption recovery over ligand atom identities and coordinates.
+    ConditionedDenoising,
 }
 
 /// Backing format used by the dataset loader.

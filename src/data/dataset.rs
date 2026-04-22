@@ -169,6 +169,11 @@ impl InMemoryDataset {
                 }
             };
 
+        examples = examples
+            .into_iter()
+            .map(|example| example.with_generation_config(&config.generation_target))
+            .collect();
+
         if let Some(limit) = config.max_examples {
             let original_len = examples.len();
             examples.truncate(limit);

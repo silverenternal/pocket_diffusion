@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Version tag for the persisted metric schema.
-pub const METRIC_SCHEMA_VERSION: u32 = 2;
+pub const METRIC_SCHEMA_VERSION: u32 = 3;
 /// Version tag for the shared run artifact bundle schema.
 pub const ARTIFACT_BUNDLE_SCHEMA_VERSION: u32 = 1;
 /// Human-readable resume contract identifier for the current research path.
@@ -24,8 +24,10 @@ pub const RESUME_CONTRACT_VERSION: &str = "weights+history+step";
 pub struct PrimaryObjectiveMetrics {
     /// Name of the active primary objective.
     pub objective_name: String,
-    /// Reconstruction-style surrogate objective value.
-    pub surrogate_reconstruction: f64,
+    /// Weighted scalar value used as the primary optimization anchor.
+    pub primary_value: f64,
+    /// Whether the primary objective is decoder-anchored.
+    pub decoder_anchored: bool,
 }
 
 /// Auxiliary losses emitted by each training step.

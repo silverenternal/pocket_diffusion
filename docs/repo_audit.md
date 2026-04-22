@@ -6,11 +6,11 @@
 | --- | --- | --- | --- |
 | Config-driven modular stack | Separate topology / geometry / pocket encoders | `implemented` | Active research path |
 | Config-driven modular stack | Slot decomposition and gated cross-modal interaction | `implemented` | Active research path |
-| Config-driven modular stack | Staged training with explicit primary + auxiliary objectives | `implemented` | Primary objective is surrogate reconstruction today |
-| Config-driven modular stack | Unseen-pocket evaluation | `implemented` | Outputs diagnostics and proxy metrics |
-| Config-driven modular stack | Chemistry-grade generation metrics | `planned` | No chemistry or docking backend integrated |
+| Config-driven modular stack | Staged training with explicit primary + auxiliary objectives | `implemented` | Supports surrogate ablations and decoder-anchored conditioned denoising |
+| Config-driven modular stack | Unseen-pocket evaluation | `implemented` | Outputs diagnostics, proxy metrics, and active heuristic candidate metrics |
+| Config-driven modular stack | Chemistry-grade generation metrics | `prototype` | Heuristic validity / docking-hook / pocket-compatibility adapters are integrated |
 | Config-driven modular stack | Diffusion objective | `planned` | Crate name is historical, not descriptive of the current objective |
-| Legacy surface | Candidate generation and ranking demo | `legacy` | Compatibility/demo surface only |
+| Legacy surface | Candidate generation and ranking demo | `legacy` | Compatibility/demo surface, with optional routing through the modular decoder bridge |
 | Lightweight data path | Affinity normalization across mixed measurement families | `prototype` | Simplified normalization contract, not a production assay harmonization stack |
 
 ## Current Architecture Summary
@@ -28,7 +28,7 @@ The modular stack already reflects the intended research direction:
 - staged training losses
 - config-driven data loading from synthetic, manifest, and PDBbind-like sources
 
-It should currently be described as a modular representation-learning framework. The repository does not yet expose a true pocket-conditioned diffusion training loop on the actively extended path.
+It should currently be described as a modular generation-research framework with deterministic decoder supervision, conditioned-denoising training support, and heuristic candidate evaluation. The repository still does not expose a true pocket-conditioned diffusion training loop on the actively extended path.
 
 The repo is usable, but the execution path is still ambiguous because config-driven research flows share a monolithic CLI with legacy demo behavior and some config fields are defined but not faithfully consumed.
 
@@ -103,26 +103,26 @@ These files provide older demos or comparison utilities and should remain availa
 
 | Area | Current status | Limitation |
 | --- | --- | --- |
-| Representation learning | Strong modular prototype | Primary task remains surrogate, not end-task generation |
-| Evaluation | Diagnostic/proxy reporting | No chemistry validity, conformer quality, or docking backend |
-| Data ingestion | Lightweight real-file path | Parsing remains convenience-oriented rather than assay-grade |
-| Legacy generation demo | Still runnable | Not the primary abstraction for new work |
+| Representation learning and generation | Strong modular prototype | Decoder path is research-grade, not a production sampler |
+| Evaluation | Diagnostic/proxy plus heuristic candidate reporting | No external chemistry toolkit or production docking backend |
+| Data ingestion | Lightweight real-file path with deterministic generation targets | Parsing remains convenience-oriented rather than assay-grade |
+| Legacy generation demo | Still runnable | Compatibility surface, not the primary abstraction for new work |
 
 ## Architecture Note: Gap To A True Diffusion Generator
 
-The modular stack has three pieces that are worth preserving for future generation work: modality-specific encoders, slot decomposition, and gated cross-modal interaction. What it does not yet have is the rest of a generation system:
+The modular stack has three pieces that are worth preserving for future generation work: modality-specific encoders, slot decomposition, and gated cross-modal interaction. It now also has a decoder-facing corruption/denoising contract plus a minimal candidate emitter. What it still does not have is the rest of a production-grade generation system:
 
-- no diffusion or denoising objective
-- no decoder or sampler that turns conditioned latents into ligand structures
-- no chemistry-aware validity layer
-- no downstream docking or pocket-compatibility evaluation backend
+- no diffusion objective
+- no iterative sampler with learned rollout policy
+- no external chemistry-aware validity layer
+- no downstream production docking backend
 
 The intended migration path is therefore:
 
 1. Keep the current modular encoders/slots/interactions as the conditioning backbone.
 2. Treat `surrogate_reconstruction` as one primary-objective implementation, not as the end state.
-3. Add future primary objectives behind the same objective interface instead of entangling them with auxiliary losses.
-4. Add chemistry/docking evaluation adapters once a real generator exists.
+3. Extend `conditioned_denoising` and the decoder path into a stronger iterative generator instead of entangling primary-task logic with auxiliary losses.
+4. Replace heuristic chemistry/docking adapters with external backends once the generator matures.
 
 ## Preserve vs Refactor
 
@@ -151,4 +151,4 @@ The intended migration path is therefore:
 
 ## Expected Outcome
 
-The repository now keeps its legacy demos intact while making the modular research stack the clean, config-faithful default path for inspection, training, and unseen-pocket experiments. The remaining work is incremental framework hardening rather than architectural correction.
+The repository now keeps its legacy demos intact while making the modular research stack the clean, config-faithful default path for inspection, training, experiments, and compact conditioned-generation demos. The remaining work is incremental model/evaluation hardening rather than architectural correction.

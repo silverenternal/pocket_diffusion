@@ -39,11 +39,17 @@ pub fn run_phase1_demo() {
     println!("  device: {}", config.runtime.device);
 
     println!("batch:");
-    println!("  ligand atom tensor: {:?}", batch.atom_types.size());
-    println!("  ligand coord tensor: {:?}", batch.ligand_coords.size());
+    println!(
+        "  ligand atom tensor: {:?}",
+        batch.encoder_inputs.atom_types.size()
+    );
+    println!(
+        "  ligand coord tensor: {:?}",
+        batch.encoder_inputs.ligand_coords.size()
+    );
     println!(
         "  pocket feature tensor: {:?}",
-        batch.pocket_atom_features.size()
+        batch.encoder_inputs.pocket_atom_features.size()
     );
 
     if let Some(first) = outputs.first() {

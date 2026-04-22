@@ -4,13 +4,9 @@ use tch::{Device, Kind, Tensor};
 
 use super::MolecularExample;
 
-/// A padded mini-batch across all three modalities.
+/// Padded encoder conditioning inputs across all three modalities.
 #[derive(Debug)]
-pub struct MolecularBatch {
-    /// Example identifiers in batch order.
-    pub example_ids: Vec<String>,
-    /// Protein identifiers in batch order.
-    pub protein_ids: Vec<String>,
+pub struct EncoderBatchInputs {
     /// Padded atom types `[batch, max_ligand_atoms]`.
     pub atom_types: Tensor,
     /// Ligand atom mask `[batch, max_ligand_atoms]`.
@@ -27,11 +23,9 @@ pub struct MolecularBatch {
     pub pocket_mask: Tensor,
 }
 
-impl Clone for MolecularBatch {
+impl Clone for EncoderBatchInputs {
     fn clone(&self) -> Self {
         Self {
-            example_ids: self.example_ids.clone(),
-            protein_ids: self.protein_ids.clone(),
             atom_types: self.atom_types.shallow_clone(),
             ligand_mask: self.ligand_mask.shallow_clone(),
             ligand_coords: self.ligand_coords.shallow_clone(),
@@ -39,6 +33,63 @@ impl Clone for MolecularBatch {
             pocket_atom_features: self.pocket_atom_features.shallow_clone(),
             pocket_coords: self.pocket_coords.shallow_clone(),
             pocket_mask: self.pocket_mask.shallow_clone(),
+        }
+    }
+}
+
+/// Padded decoder-side supervision separated from encoder conditioning.
+#[derive(Debug)]
+pub struct DecoderBatchTargets {
+    /// Clean target atom types `[batch, max_ligand_atoms]`.
+    pub target_atom_types: Tensor,
+    /// Corrupted decoder input atom types `[batch, max_ligand_atoms]`.
+    pub corrupted_atom_types: Tensor,
+    /// Corruption mask `[batch, max_ligand_atoms]`.
+    pub atom_corruption_mask: Tensor,
+    /// Clean target coordinates `[batch, max_ligand_atoms, 3]`.
+    pub target_coords: Tensor,
+    /// Noisy decoder input coordinates `[batch, max_ligand_atoms, 3]`.
+    pub noisy_coords: Tensor,
+    /// Coordinate noise delta `[batch, max_ligand_atoms, 3]`.
+    pub coordinate_noise: Tensor,
+    /// Target pairwise distances `[batch, max_ligand_atoms, max_ligand_atoms]`.
+    pub target_pairwise_distances: Tensor,
+}
+
+impl Clone for DecoderBatchTargets {
+    fn clone(&self) -> Self {
+        Self {
+            target_atom_types: self.target_atom_types.shallow_clone(),
+            corrupted_atom_types: self.corrupted_atom_types.shallow_clone(),
+            atom_corruption_mask: self.atom_corruption_mask.shallow_clone(),
+            target_coords: self.target_coords.shallow_clone(),
+            noisy_coords: self.noisy_coords.shallow_clone(),
+            coordinate_noise: self.coordinate_noise.shallow_clone(),
+            target_pairwise_distances: self.target_pairwise_distances.shallow_clone(),
+        }
+    }
+}
+
+/// A padded mini-batch across all three modalities.
+#[derive(Debug)]
+pub struct MolecularBatch {
+    /// Example identifiers in batch order.
+    pub example_ids: Vec<String>,
+    /// Protein identifiers in batch order.
+    pub protein_ids: Vec<String>,
+    /// Encoder conditioning inputs.
+    pub encoder_inputs: EncoderBatchInputs,
+    /// Decoder-side generation targets.
+    pub decoder_targets: DecoderBatchTargets,
+}
+
+impl Clone for MolecularBatch {
+    fn clone(&self) -> Self {
+        Self {
+            example_ids: self.example_ids.clone(),
+            protein_ids: self.protein_ids.clone(),
+            encoder_inputs: self.encoder_inputs.clone(),
+            decoder_targets: self.decoder_targets.clone(),
         }
     }
 }
@@ -79,6 +130,20 @@ impl MolecularBatch {
         );
         let pocket_coords = Tensor::zeros([batch_size, max_pocket_atoms, 3], (Kind::Float, device));
         let pocket_mask = Tensor::zeros([batch_size, max_pocket_atoms], (Kind::Float, device));
+        let target_atom_types =
+            Tensor::zeros([batch_size, max_ligand_atoms], (Kind::Int64, device));
+        let corrupted_atom_types =
+            Tensor::zeros([batch_size, max_ligand_atoms], (Kind::Int64, device));
+        let atom_corruption_mask =
+            Tensor::zeros([batch_size, max_ligand_atoms], (Kind::Float, device));
+        let target_coords = Tensor::zeros([batch_size, max_ligand_atoms, 3], (Kind::Float, device));
+        let noisy_coords = Tensor::zeros([batch_size, max_ligand_atoms, 3], (Kind::Float, device));
+        let coordinate_noise =
+            Tensor::zeros([batch_size, max_ligand_atoms, 3], (Kind::Float, device));
+        let target_pairwise_distances = Tensor::zeros(
+            [batch_size, max_ligand_atoms, max_ligand_atoms],
+            (Kind::Float, device),
+        );
 
         let mut example_ids = Vec::with_capacity(examples.len());
         let mut protein_ids = Vec::with_capacity(examples.len());
@@ -108,6 +173,35 @@ impl MolecularBatch {
                     .narrow(0, 0, ligand_atoms)
                     .narrow(1, 0, ligand_atoms)
                     .copy_(&example.geometry.pairwise_distances);
+                target_atom_types
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .copy_(&example.decoder_supervision.target_atom_types);
+                corrupted_atom_types
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .copy_(&example.decoder_supervision.corrupted_atom_types);
+                atom_corruption_mask
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .copy_(&example.decoder_supervision.atom_corruption_mask);
+                target_coords
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .copy_(&example.decoder_supervision.target_coords);
+                noisy_coords
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .copy_(&example.decoder_supervision.noisy_coords);
+                coordinate_noise
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .copy_(&example.decoder_supervision.coordinate_noise);
+                target_pairwise_distances
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .narrow(1, 0, ligand_atoms)
+                    .copy_(&example.decoder_supervision.target_pairwise_distances);
             }
 
             if pocket_atoms > 0 {
@@ -129,13 +223,24 @@ impl MolecularBatch {
         Self {
             example_ids,
             protein_ids,
-            atom_types,
-            ligand_mask,
-            ligand_coords,
-            pairwise_distances,
-            pocket_atom_features,
-            pocket_coords,
-            pocket_mask,
+            encoder_inputs: EncoderBatchInputs {
+                atom_types,
+                ligand_mask,
+                ligand_coords,
+                pairwise_distances,
+                pocket_atom_features,
+                pocket_coords,
+                pocket_mask,
+            },
+            decoder_targets: DecoderBatchTargets {
+                target_atom_types,
+                corrupted_atom_types,
+                atom_corruption_mask,
+                target_coords,
+                noisy_coords,
+                coordinate_noise,
+                target_pairwise_distances,
+            },
         }
     }
 }

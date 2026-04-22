@@ -37,12 +37,17 @@ pub mod types;
 pub use se3_layers::{CoordOnlyEGNN, SE3EquivariantLayer, TopologyAwareEGNN};
 pub use types::{CandidateMolecule, GenerationResult};
 
+use crate::config::ResearchConfig;
+use crate::data::MolecularExample;
 use crate::egnn::EGNNConfig;
 use crate::generator::{GeneratorConfig, PocketLigandGenerator};
+use crate::models::{
+    candidate_records_to_legacy, generate_candidates_from_forward, Phase1ResearchSystem,
+};
 use crate::pocket::PocketFeatureExtractor;
 use crate::scorer::AffinityScorer;
-use crate::types::Pocket;
-use tch::nn;
+use crate::types::{Atom, AtomType, Ligand, Pocket};
+use tch::{nn, Device};
 
 /// 完整的生成-评分流水线
 pub struct PocketDiffusionPipeline {
@@ -117,6 +122,40 @@ impl PocketDiffusionPipeline {
         }
     }
 
+    /// Route generation through the modular decoder while preserving legacy ranking.
+    pub fn generate_and_rank_with_modular_bridge(
+        &self,
+        pocket: &Pocket,
+        num_candidates: usize,
+        top_k: usize,
+    ) -> GenerationResult {
+        let config = ResearchConfig::default();
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let example = bridge_example_from_pocket(pocket, &config);
+        let forward = system.forward_example(&example);
+        let records = generate_candidates_from_forward(&example, &forward, num_candidates.max(1));
+        let candidates = candidate_records_to_legacy(&records);
+        let ligands: Vec<Ligand> = candidates
+            .iter()
+            .map(|candidate| candidate.ligand.clone())
+            .collect();
+        let ranked = self.scorer.rank_candidates(pocket, &ligands, top_k);
+        let top_candidates = ranked
+            .iter()
+            .map(|&(idx, score)| {
+                let mut candidate = candidates[idx].clone();
+                candidate.affinity_score = Some(score);
+                candidate
+            })
+            .collect();
+
+        GenerationResult {
+            candidates,
+            top_candidates,
+        }
+    }
+
     /// 获取生成器引用
     pub fn generator(&self) -> &PocketLigandGenerator {
         &self.generator
@@ -125,6 +164,68 @@ impl PocketDiffusionPipeline {
     /// 获取评分器引用
     pub fn scorer(&self) -> &AffinityScorer {
         &self.scorer
+    }
+}
+
+fn bridge_example_from_pocket(pocket: &Pocket, config: &ResearchConfig) -> MolecularExample {
+    let ligand = seed_ligand_from_pocket(pocket);
+    MolecularExample::from_legacy_with_targets_and_generation(
+        "legacy-bridge-example",
+        pocket.name.clone(),
+        &ligand,
+        pocket,
+        Default::default(),
+        &config.data.generation_target,
+    )
+    .with_pocket_feature_dim(config.model.pocket_feature_dim)
+}
+
+fn seed_ligand_from_pocket(pocket: &Pocket) -> Ligand {
+    let centroid = if pocket.atoms.is_empty() {
+        [0.0_f64, 0.0, 0.0]
+    } else {
+        let mut center = [0.0_f64; 3];
+        for atom in &pocket.atoms {
+            center[0] += atom.coords[0];
+            center[1] += atom.coords[1];
+            center[2] += atom.coords[2];
+        }
+        let denom = pocket.atoms.len() as f64;
+        [center[0] / denom, center[1] / denom, center[2] / denom]
+    };
+    let atom_types = [
+        AtomType::Carbon,
+        AtomType::Carbon,
+        AtomType::Nitrogen,
+        AtomType::Oxygen,
+        AtomType::Carbon,
+    ];
+    let offsets = [
+        [-0.8, 0.0, 0.0],
+        [0.0, 0.9, 0.0],
+        [0.8, 0.0, 0.2],
+        [0.0, -0.9, -0.2],
+        [0.0, 0.0, 1.0],
+    ];
+    let atoms = atom_types
+        .iter()
+        .zip(offsets.iter())
+        .enumerate()
+        .map(|(index, (atom_type, offset))| Atom {
+            coords: [
+                centroid[0] + offset[0],
+                centroid[1] + offset[1],
+                centroid[2] + offset[2],
+            ],
+            atom_type: *atom_type,
+            index,
+        })
+        .collect();
+
+    Ligand {
+        atoms,
+        bonds: vec![(0, 1), (1, 2), (1, 3), (1, 4)],
+        fingerprint: None,
     }
 }
 

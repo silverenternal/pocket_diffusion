@@ -138,6 +138,17 @@ pub struct GenerationResult {
     pub top_candidates: Vec<CandidateMolecule>,
 }
 
+/// Deterministic corruption metadata attached to decoder-side supervision.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GenerationCorruptionMetadata {
+    /// Fraction of atoms masked for topology corruption recovery.
+    pub atom_mask_ratio: f32,
+    /// Coordinate noise scale used to build denoising targets.
+    pub coordinate_noise_std: f32,
+    /// Seed used to derive deterministic corruption patterns.
+    pub corruption_seed: u64,
+}
+
 impl PocketEmbedding {
     /// 转换为张量
     pub fn to_tensor(&self) -> Tensor {

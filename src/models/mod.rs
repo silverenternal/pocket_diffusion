@@ -1,6 +1,8 @@
 //! Model interfaces and Phase 1 encoder skeletons.
 
 pub mod cross_attention;
+pub mod decoder;
+pub mod evaluation;
 pub mod geo_encoder;
 pub mod pocket_encoder;
 pub mod probe_heads;
@@ -10,6 +12,14 @@ pub mod topo_encoder;
 pub mod traits;
 
 pub use cross_attention::GatedCrossAttention;
+pub use decoder::ModularLigandDecoder;
+pub(crate) use evaluation::{
+    candidate_records_to_legacy, generate_candidates_from_forward, report_to_metrics,
+};
+pub use evaluation::{
+    HeuristicChemistryValidityEvaluator, HeuristicDockingEvaluator,
+    HeuristicPocketCompatibilityEvaluator,
+};
 pub use geo_encoder::GeometryEncoderImpl;
 pub use pocket_encoder::PocketEncoderImpl;
 pub use probe_heads::{ProbeOutputs, SemanticProbeHeads};
@@ -18,8 +28,9 @@ pub use system::Phase1ResearchSystem;
 pub(crate) use system::{CrossModalInteractions, DecomposedModalities, ResearchForward};
 pub use topo_encoder::TopologyEncoderImpl;
 pub use traits::{
-    ChemistryValidityEvaluator, CrossAttentionOutput, CrossModalInteractor, DockingEvaluator,
-    Encoder, ExternalEvaluationReport, ExternalMetricRecord, GeneratedCandidateRecord,
-    GeometryEncoder, LossTerm, ModalityEncoding, PocketCompatibilityEvaluator, PocketEncoder,
+    ChemistryValidityEvaluator, ConditionedGenerationState, ConditionedLigandDecoder,
+    CrossAttentionOutput, CrossModalInteractor, DecoderOutput, DockingEvaluator, Encoder,
+    ExternalEvaluationReport, ExternalMetricRecord, GeneratedCandidateRecord, GeometryEncoder,
+    LossTerm, ModalityEncoding, PartialLigandState, PocketCompatibilityEvaluator, PocketEncoder,
     SlotDecomposer, SlotEncoding, TaskDrivenObjective, TopologyEncoder, TrainerHook,
 };

@@ -16,13 +16,13 @@ The actively extended path provides:
 | --- | --- | --- |
 | Modular topology / geometry / pocket encoders | `implemented` | Separate encoder path used by config-driven training and experiments |
 | Slot decomposition and gated cross-modal interaction | `implemented` | Used by the modular research stack |
-| Staged training with auxiliary regularizers | `implemented` | Primary objective is still a surrogate reconstruction objective |
-| Unseen-pocket split experiments | `implemented` | Reported metrics are diagnostics and proxy metrics, not chemistry-grade generation metrics |
+| Staged training with auxiliary regularizers | `implemented` | Supports both `surrogate_reconstruction` and decoder-anchored `conditioned_denoising` primary objectives |
+| Unseen-pocket split experiments | `implemented` | Now reports active heuristic chemistry-validity, docking-hook, and pocket-compatibility metrics on modular decoder candidates |
 | Affinity supervision from lightweight parsing | `prototype` | Uses simplified normalization and lightweight parsing/reporting |
 | Distance / affinity probe evaluation | `proxy` | Computed from probe heads on held-out examples |
-| Direct candidate generation and ranking | `legacy` | Available through `legacy-demo` and `pocket_diffusion::legacy` |
+| Direct candidate generation and ranking | `implemented` | Available through `research generate`, plus `legacy-demo --modular-bridge` for compatibility migration |
 | Diffusion training objective | `planned` | Crate name is historical; the modular stack does not train a diffusion objective today |
-| Chemistry validity / docking / pocket-compatibility backend | `planned` | No RDKit/docking backend is integrated in the modular path yet |
+| Chemistry validity / docking / pocket-compatibility backend | `prototype` | Active heuristic backend integrated on the modular path; external chemistry toolkits can replace it later |
 
 ## Current focus
 
@@ -42,7 +42,7 @@ The included sample dataset is intentionally small, but it uses actual on-disk `
 This repository currently contains two parallel surfaces:
 
 - a legacy `PocketDiffusionPipeline` demo path for direct candidate generation and ranking
-- a newer modular research stack for multi-modal representation learning, staged surrogate training, and unseen-pocket diagnostics
+- a newer modular research stack for multi-modal representation learning, staged training, conditioned denoising, and unseen-pocket evaluation
 
 The modular research path is the actively extended surface and is the one documented below.
 
@@ -97,6 +97,12 @@ Run the unseen-pocket experiment from config:
 cargo run --bin pocket_diffusion -- research experiment --config configs/unseen_pocket_manifest.json
 ```
 
+Run the modular generation demo and emit conditioned candidates plus evaluation artifacts:
+
+```bash
+cargo run --bin pocket_diffusion -- research generate --config configs/research_manifest.json --resume --num-candidates 4
+```
+
 Inspect a PDBbind-like directory using an `INDEX`-style label file:
 
 ```bash
@@ -136,12 +142,14 @@ Example configs live under [`configs/`](configs).
 - `max_examples`: optional truncation for quick debugging
 - `val_fraction`, `test_fraction`, `split_seed`: protein-level split controls
 - `stratify_by_measurement`: preserve measurement-family balance when assigning protein groups to train/val/test
+- `generation_target`: deterministic decoder supervision config with `atom_mask_ratio`, `coordinate_noise_std`, and `corruption_seed`
 
 `lightweight` mode keeps the convenience-oriented behavior used by the sample configs: first discovered `.pdb`/`.sdf` files are accepted and empty-cutoff pocket extraction falls back to nearest atoms. `strict` mode rejects ambiguous discovery and rejects nearest-atom pocket fallback.
 
 ### `TrainingConfig` fields
 
 - `affinity_weighting`: `none` or `inverse_frequency` for labeled affinity supervision across mixed measurement families
+- `primary_objective`: `surrogate_reconstruction` or `conditioned_denoising`
 
 Config validation is fail-fast for the config-driven research path. Invalid split fractions, missing manifest paths, impossible stage boundaries, empty device strings, and incompatible checkpoint directory settings are rejected before data loading or training starts.
 
@@ -227,15 +235,15 @@ Representative fields include:
 - per-measurement affinity `MAE/RMSE` breakdown
 - slot / gate / leakage diagnostic means
 
-These are diagnostics and proxy metrics over held-out examples. They are not chemistry validity, docking quality, or generation quality metrics.
+The first four sections are diagnostics and proxy metrics over held-out examples. `real_generation_metrics` is now active on the modular path through heuristic backend adapters that operate on decoder-emitted ligand candidates.
 
-`real_generation_metrics` is a reserved schema section for future backend adapters. The current implementation keeps placeholder entries for:
+The current modular experiment path reports separate entries for:
 
 - chemistry validity
 - docking / affinity rescoring
 - downstream pocket compatibility
 
-The extension points live in trait form under `pocket_diffusion::models` so an RDKit-like validator or docking backend can be attached later without renaming the persisted artifact schema again.
+The extension points still live in trait form under `pocket_diffusion::models`, so an RDKit-like validator or a real docking backend can replace the heuristic adapters without renaming the persisted artifact schema.
 
 ## Reproducibility artifacts
 
@@ -281,6 +289,7 @@ The modular research stack is the primary path for this repository:
 cargo run --bin pocket_diffusion -- research inspect --config configs/research_manifest.json
 cargo run --bin pocket_diffusion -- research train --config configs/research_manifest.json
 cargo run --bin pocket_diffusion -- research experiment --config configs/unseen_pocket_manifest.json
+cargo run --bin pocket_diffusion -- research generate --config configs/research_manifest.json --resume
 cargo run --bin pocket_diffusion -- validate --kind research --config configs/research_manifest.json
 cargo run --bin pocket_diffusion -- report --artifact-dir checkpoints
 ```
@@ -295,6 +304,7 @@ Legacy demo behavior is still available, but it is now an explicit compatibility
 
 ```bash
 cargo run --bin pocket_diffusion -- legacy-demo 10 3
+cargo run --bin pocket_diffusion -- legacy-demo 10 3 --modular-bridge
 ```
 
 For legacy library-side comparison utilities, prefer the explicit namespace:
@@ -331,14 +341,14 @@ The split audit records per-split unique protein counts, labeled fraction, measu
 
 ## Capability boundaries
 
-The modular stack currently optimizes a configurable primary objective, with the default implementation set to `surrogate_reconstruction`. Auxiliary losses for consistency, redundancy reduction, probes, leakage control, gate sparsity, and slot control are activated in stages around that primary objective.
+The modular stack currently optimizes a configurable primary objective, with `surrogate_reconstruction` preserved for ablations and `conditioned_denoising` available as a decoder-anchored task objective. Auxiliary losses for consistency, redundancy reduction, probes, leakage control, gate sparsity, and slot control are activated in stages around that primary objective.
 
-What is not present in the modular path today:
+What is still not present in the modular path today:
 
 - no active diffusion loss
-- no generation-time decoder loop
-- no chemistry-validity backend
-- no docking-based pocket compatibility scoring
+- no iterative sampler beyond the current research demo candidate emitter
+- no external chemistry toolkit backend
+- no production docking backend
 
 The word `diffusion` remains in the crate/package name for compatibility. In technical terms, the config-driven path is a modular representation-learning framework, while the direct generation surface is legacy/demo code.
 
@@ -346,5 +356,5 @@ The word `diffusion` remains in the crate/package name for compatibility. In tec
 
 - The current loader supports minimal V2000 SDF parsing and ligand-centered PDB pocket extraction.
 - If no atoms fall within the pocket cutoff, the loader falls back to the nearest atoms instead of producing an empty pocket.
-- The formal metrics are still constrained by the current model outputs. Affinity labels, cheminformatics validity checks, and docking-quality scores would need additional domain tooling beyond the current crate.
+- The formal chemistry and pocket metrics now run on an active heuristic backend. Replacing those heuristics with domain tooling remains the next quality step.
 - The bundled dataset is intentionally tiny, so split behavior and per-measurement metrics are useful for plumbing validation, not for claiming model quality.

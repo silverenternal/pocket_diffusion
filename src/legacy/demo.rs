@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Run the legacy pocket-conditioned generation demo and print a CLI report.
-pub fn run_legacy_demo(num_candidates: usize, top_k: usize) {
+pub fn run_legacy_demo(num_candidates: usize, top_k: usize, modular_bridge: bool) {
     println!("================================================");
     println!("  基于口袋条件扩散的结构感知小分子生成系统");
     println!("  Pocket-Conditioned Diffusion Molecule Gen");
@@ -18,6 +18,14 @@ pub fn run_legacy_demo(num_candidates: usize, top_k: usize) {
     println!("\n配置:");
     println!("  - 候选分子数量: {}", num_candidates);
     println!("  - Top-K筛选: {}", top_k);
+    println!(
+        "  - 生成后端: {}",
+        if modular_bridge {
+            "modular research bridge"
+        } else {
+            "legacy generator"
+        }
+    );
 
     println!("\n[1/4] 初始化神经网络模型...");
     let vs = nn::VarStore::new(Device::Cpu);
@@ -37,7 +45,11 @@ pub fn run_legacy_demo(num_candidates: usize, top_k: usize) {
     println!("  坐标标准差: {:.2} Å", embedding.coord_std);
 
     println!("\n[3/4] 生成候选分子集...");
-    let result = pipeline.generate_and_rank(&pocket, num_candidates, top_k);
+    let result = if modular_bridge {
+        pipeline.generate_and_rank_with_modular_bridge(&pocket, num_candidates, top_k)
+    } else {
+        pipeline.generate_and_rank(&pocket, num_candidates, top_k)
+    };
 
     println!("  生成候选分子: {} 个", result.candidates.len());
     println!(

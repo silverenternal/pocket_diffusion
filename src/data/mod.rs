@@ -5,10 +5,11 @@ pub mod dataset;
 pub mod features;
 pub mod parser;
 
-pub use batch::{ExampleBatchIter, MolecularBatch};
+pub use batch::{DecoderBatchTargets, EncoderBatchInputs, ExampleBatchIter, MolecularBatch};
 pub use dataset::{Dataset, DatasetSplits, InMemoryDataset, LoadedDataset};
 pub use features::{
-    ExampleTargets, GeometryFeatures, MolecularExample, PocketFeatures, TopologyFeatures,
+    DecoderSupervision, ExampleTargets, GeometryFeatures, MolecularExample, PocketFeatures,
+    TopologyFeatures,
 };
 pub use parser::{
     apply_affinity_labels, discover_pdbbind_like_entries, load_affinity_labels, load_manifest,

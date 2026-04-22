@@ -190,12 +190,13 @@ pub fn print_experiment_run(summary: &UnseenPocketExperimentSummary) {
 /// Print one training step record.
 pub fn print_step_metrics(metrics: &StepMetrics) {
     println!(
-        "step {} [{:?}] total={:.4} primary:{}={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+        "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
         metrics.step,
         metrics.stage,
         metrics.losses.total,
         metrics.losses.primary.objective_name,
-        metrics.losses.primary.surrogate_reconstruction,
+        metrics.losses.primary.primary_value,
+        metrics.losses.primary.decoder_anchored,
         metrics.losses.auxiliaries.intra_red,
         metrics.losses.auxiliaries.probe,
         metrics.losses.auxiliaries.leak,
@@ -286,7 +287,7 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
         "    eval time ms: {:.4}",
         metrics.resource_usage.evaluation_time_ms
     );
-    println!("  reserved real-generation metrics:");
+    println!("  real-generation metrics:");
     print_reserved_backend(
         "chemistry",
         &metrics.real_generation_metrics.chemistry_validity,
@@ -355,6 +356,9 @@ fn print_reserved_backend(label: &str, backend: &crate::experiments::ReservedBac
         "    {}: available={} backend={:?} status={}",
         label, backend.available, backend.backend_name, backend.status
     );
+    if !backend.metrics.is_empty() {
+        println!("      metrics: {:?}", backend.metrics);
+    }
 }
 
 fn print_split_stats(name: &str, stats: &crate::training::SplitStats) {

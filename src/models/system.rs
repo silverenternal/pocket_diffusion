@@ -1,11 +1,12 @@
 //! Phase 2 system wiring for separate encoders, slots, controlled interaction, and probes.
 
-use tch::nn;
+use tch::{nn, Kind, Tensor};
 
 use super::{
-    CrossAttentionOutput, Encoder, GatedCrossAttention, GeometryEncoderImpl, ModalityEncoding,
-    PocketEncoderImpl, ProbeOutputs, SemanticProbeHeads, SlotDecomposer, SlotEncoding,
-    SoftSlotDecomposer, TopologyEncoderImpl,
+    ConditionedGenerationState, ConditionedLigandDecoder, CrossAttentionOutput, DecoderOutput,
+    Encoder, GatedCrossAttention, GeometryEncoderImpl, ModalityEncoding, ModularLigandDecoder,
+    PartialLigandState, PocketEncoderImpl, ProbeOutputs, SemanticProbeHeads, SlotDecomposer,
+    SlotEncoding, SoftSlotDecomposer, TopologyEncoderImpl,
 };
 use crate::{
     config::ResearchConfig,
@@ -51,6 +52,15 @@ pub(crate) struct CrossModalInteractions {
     pub pocket_from_geo: CrossAttentionOutput,
 }
 
+/// Decoder-facing generation bundle produced by the modular backbone.
+#[derive(Debug, Clone)]
+pub(crate) struct GenerationForward {
+    /// Explicit decoder input state with separated modality conditioning.
+    pub state: ConditionedGenerationState,
+    /// Decoder output for the current ligand draft.
+    pub decoded: DecoderOutput,
+}
+
 /// Full Phase 2 forward-pass bundle.
 #[derive(Debug, Clone)]
 pub(crate) struct ResearchForward {
@@ -62,6 +72,8 @@ pub(crate) struct ResearchForward {
     pub interactions: CrossModalInteractions,
     /// Semantic probe predictions.
     pub probes: ProbeOutputs,
+    /// Decoder-facing conditioned generation path.
+    pub generation: GenerationForward,
 }
 
 /// Research system that keeps encoders separate and adds structured interactions on top.
@@ -88,6 +100,8 @@ pub struct Phase1ResearchSystem {
     /// Directed interactions into pocket.
     pub pocket_from_topo: GatedCrossAttention,
     pub pocket_from_geo: GatedCrossAttention,
+    /// Minimal modular ligand decoder.
+    pub ligand_decoder: ModularLigandDecoder,
     /// Semantic probe heads.
     pub probes: SemanticProbeHeads,
 }
@@ -133,6 +147,11 @@ impl Phase1ResearchSystem {
             GatedCrossAttention::new(&(vs / "pocket_from_topo"), config.model.hidden_dim);
         let pocket_from_geo =
             GatedCrossAttention::new(&(vs / "pocket_from_geo"), config.model.hidden_dim);
+        let ligand_decoder = ModularLigandDecoder::new(
+            &(vs / "ligand_decoder"),
+            config.model.atom_vocab_size,
+            config.model.hidden_dim,
+        );
         let probes = SemanticProbeHeads::new(
             &(vs / "probes"),
             config.model.hidden_dim,
@@ -152,6 +171,7 @@ impl Phase1ResearchSystem {
             geo_from_pocket,
             pocket_from_topo,
             pocket_from_geo,
+            ligand_decoder,
             probes,
         }
     }
@@ -209,12 +229,18 @@ impl Phase1ResearchSystem {
             &slots.geometry,
             &slots.pocket,
         );
+        let generation_state = self.build_generation_state(example, &slots, &interactions);
+        let decoded = self.ligand_decoder.decode(&generation_state);
 
         ResearchForward {
             encodings,
             slots,
             interactions,
             probes,
+            generation: GenerationForward {
+                state: generation_state,
+                decoded,
+            },
         }
     }
 
@@ -244,4 +270,51 @@ impl Phase1ResearchSystem {
             .collect();
         (batch, outputs)
     }
+
+    fn build_generation_state(
+        &self,
+        example: &MolecularExample,
+        slots: &DecomposedModalities,
+        interactions: &CrossModalInteractions,
+    ) -> ConditionedGenerationState {
+        let num_atoms = example.decoder_supervision.corrupted_atom_types.size()[0];
+        let device = example.decoder_supervision.corrupted_atom_types.device();
+
+        ConditionedGenerationState {
+            example_id: example.example_id.clone(),
+            protein_id: example.protein_id.clone(),
+            partial_ligand: PartialLigandState {
+                atom_types: example
+                    .decoder_supervision
+                    .corrupted_atom_types
+                    .shallow_clone(),
+                coords: example.decoder_supervision.noisy_coords.shallow_clone(),
+                atom_mask: Tensor::ones([num_atoms], (Kind::Float, device)),
+                step_index: 0,
+            },
+            topology_context: merge_slot_contexts(
+                &slots.topology.slots,
+                &[&interactions.topo_from_geo, &interactions.topo_from_pocket],
+            ),
+            geometry_context: merge_slot_contexts(
+                &slots.geometry.slots,
+                &[&interactions.geo_from_topo, &interactions.geo_from_pocket],
+            ),
+            pocket_context: merge_slot_contexts(
+                &slots.pocket.slots,
+                &[
+                    &interactions.pocket_from_topo,
+                    &interactions.pocket_from_geo,
+                ],
+            ),
+        }
+    }
+}
+
+fn merge_slot_contexts(base_slots: &Tensor, updates: &[&CrossAttentionOutput]) -> Tensor {
+    let mut merged = base_slots.shallow_clone();
+    for update in updates {
+        merged = &merged + &update.attended_tokens;
+    }
+    merged
 }

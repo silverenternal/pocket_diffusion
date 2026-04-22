@@ -401,7 +401,7 @@ mod tests {
             .checkpoint_dir
             .join("dataset_validation_report.json")
             .exists());
-        assert_eq!(summary.reproducibility.metric_schema_version, 2);
+        assert_eq!(summary.reproducibility.metric_schema_version, 3);
         assert!(summary
             .config
             .training

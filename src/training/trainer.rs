@@ -127,7 +127,7 @@ impl ResearchTrainer {
             measurement_weights(examples, self.config.training.affinity_weighting);
 
         for (example, forward) in examples.iter().zip(forwards.iter()) {
-            primary_acc += self.primary_objective.compute(forward);
+            primary_acc += self.primary_objective.compute(example, forward);
             intra_red_acc += self.redundancy_loss.compute(&forward.slots);
             probe_acc += self.probe_loss.compute_weighted(
                 example,
@@ -167,7 +167,8 @@ impl ResearchTrainer {
             losses: LossBreakdown {
                 primary: PrimaryObjectiveMetrics {
                     objective_name: self.primary_objective.name().to_string(),
-                    surrogate_reconstruction: primary.double_value(&[]),
+                    primary_value: primary.double_value(&[]),
+                    decoder_anchored: self.primary_objective.name() != "surrogate_reconstruction",
                 },
                 auxiliaries: AuxiliaryLossMetrics {
                     intra_red: intra_red.double_value(&[]),
@@ -196,12 +197,13 @@ impl ResearchTrainer {
         }
         if self.config.training.log_every > 0 && self.step % self.config.training.log_every == 0 {
             log::info!(
-                "step {} [{:?}] total={:.4} primary:{}={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+                "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
                 metrics.step,
                 metrics.stage,
                 metrics.losses.total,
                 metrics.losses.primary.objective_name,
-                metrics.losses.primary.surrogate_reconstruction,
+                metrics.losses.primary.primary_value,
+                metrics.losses.primary.decoder_anchored,
                 metrics.losses.auxiliaries.intra_red,
                 metrics.losses.auxiliaries.probe,
                 metrics.losses.auxiliaries.leak,

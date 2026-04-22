@@ -2,7 +2,10 @@
 
 use tch::{Device, Kind, Tensor};
 
-use crate::types::{tensor_from_slice, AtomType, Ligand, Pocket};
+use crate::{
+    config::GenerationTargetConfig,
+    types::{tensor_from_slice, AtomType, GenerationCorruptionMetadata, Ligand, Pocket},
+};
 
 /// Per-atom categorical and scalar features for ligand topology.
 #[derive(Debug)]
@@ -83,8 +86,46 @@ pub struct MolecularExample {
     pub geometry: GeometryFeatures,
     /// Pocket/context modality input.
     pub pocket: PocketFeatures,
+    /// Explicit decoder-side supervision for corruption recovery and denoising.
+    pub decoder_supervision: DecoderSupervision,
     /// Optional supervised targets attached to the complex.
     pub targets: ExampleTargets,
+}
+
+/// Decoder-side supervision separated from encoder conditioning inputs.
+#[derive(Debug)]
+pub struct DecoderSupervision {
+    /// Clean target atom types for corruption recovery.
+    pub target_atom_types: Tensor,
+    /// Corrupted atom types provided to the decoder.
+    pub corrupted_atom_types: Tensor,
+    /// Binary mask indicating which atom identities were corrupted.
+    pub atom_corruption_mask: Tensor,
+    /// Clean Cartesian coordinates used as geometry targets.
+    pub target_coords: Tensor,
+    /// Noisy decoder input coordinates.
+    pub noisy_coords: Tensor,
+    /// Deterministic coordinate perturbation added to the clean coordinates.
+    pub coordinate_noise: Tensor,
+    /// Pairwise target distances derived from clean coordinates.
+    pub target_pairwise_distances: Tensor,
+    /// Reproducibility metadata for the corruption transform.
+    pub corruption_metadata: GenerationCorruptionMetadata,
+}
+
+impl Clone for DecoderSupervision {
+    fn clone(&self) -> Self {
+        Self {
+            target_atom_types: self.target_atom_types.shallow_clone(),
+            corrupted_atom_types: self.corrupted_atom_types.shallow_clone(),
+            atom_corruption_mask: self.atom_corruption_mask.shallow_clone(),
+            target_coords: self.target_coords.shallow_clone(),
+            noisy_coords: self.noisy_coords.shallow_clone(),
+            coordinate_noise: self.coordinate_noise.shallow_clone(),
+            target_pairwise_distances: self.target_pairwise_distances.shallow_clone(),
+            corruption_metadata: self.corruption_metadata.clone(),
+        }
+    }
 }
 
 /// Optional labels attached to one protein-ligand complex.
@@ -131,15 +172,39 @@ impl MolecularExample {
         pocket: &Pocket,
         targets: ExampleTargets,
     ) -> Self {
+        Self::from_legacy_with_targets_and_generation(
+            example_id,
+            protein_id,
+            ligand,
+            pocket,
+            targets,
+            &GenerationTargetConfig::default(),
+        )
+    }
+
+    /// Build an example from legacy structs plus explicit decoder-supervision config.
+    pub fn from_legacy_with_targets_and_generation(
+        example_id: impl Into<String>,
+        protein_id: impl Into<String>,
+        ligand: &Ligand,
+        pocket: &Pocket,
+        targets: ExampleTargets,
+        generation_target: &GenerationTargetConfig,
+    ) -> Self {
         let topology = topology_from_ligand(ligand);
         let geometry = geometry_from_ligand(ligand);
         let pocket_features = pocket_features_from_pocket(pocket);
+        let example_id = example_id.into();
+        let protein_id = protein_id.into();
+        let decoder_supervision =
+            build_decoder_supervision(&example_id, &topology, &geometry, generation_target);
         Self {
-            example_id: example_id.into(),
-            protein_id: protein_id.into(),
+            example_id,
+            protein_id,
             topology,
             geometry,
             pocket: pocket_features,
+            decoder_supervision,
             targets,
         }
     }
@@ -152,6 +217,7 @@ impl MolecularExample {
             topology: self.topology.to_device(device),
             geometry: self.geometry.to_device(device),
             pocket: self.pocket.to_device(device),
+            decoder_supervision: self.decoder_supervision.to_device(device),
             targets: self.targets.clone(),
         }
     }
@@ -164,6 +230,25 @@ impl MolecularExample {
             topology: self.topology.clone(),
             geometry: self.geometry.clone(),
             pocket: self.pocket.with_feature_dim(pocket_feature_dim),
+            decoder_supervision: self.decoder_supervision.clone(),
+            targets: self.targets.clone(),
+        }
+    }
+
+    /// Rebuild decoder-side supervision using the configured corruption process.
+    pub fn with_generation_config(&self, generation_target: &GenerationTargetConfig) -> Self {
+        Self {
+            example_id: self.example_id.clone(),
+            protein_id: self.protein_id.clone(),
+            topology: self.topology.clone(),
+            geometry: self.geometry.clone(),
+            pocket: self.pocket.clone(),
+            decoder_supervision: build_decoder_supervision(
+                &self.example_id,
+                &self.topology,
+                &self.geometry,
+                generation_target,
+            ),
             targets: self.targets.clone(),
         }
     }
@@ -207,6 +292,22 @@ impl PocketFeatures {
             coords: self.coords.shallow_clone(),
             atom_features: resize_feature_matrix(&self.atom_features, target_dim),
             pooled_features: resize_feature_vector(&self.pooled_features, target_dim),
+        }
+    }
+}
+
+impl DecoderSupervision {
+    /// Move decoder supervision tensors onto a specific device.
+    pub fn to_device(&self, device: Device) -> Self {
+        Self {
+            target_atom_types: self.target_atom_types.to_device(device),
+            corrupted_atom_types: self.corrupted_atom_types.to_device(device),
+            atom_corruption_mask: self.atom_corruption_mask.to_device(device),
+            target_coords: self.target_coords.to_device(device),
+            noisy_coords: self.noisy_coords.to_device(device),
+            coordinate_noise: self.coordinate_noise.to_device(device),
+            target_pairwise_distances: self.target_pairwise_distances.to_device(device),
+            corruption_metadata: self.corruption_metadata.clone(),
         }
     }
 }
@@ -362,4 +463,133 @@ fn resize_feature_vector(tensor: &Tensor, target_dim: i64) -> Tensor {
 
     let padding = Tensor::zeros([target_dim - current_dim], (tensor.kind(), tensor.device()));
     Tensor::cat(&[tensor.shallow_clone(), padding], 0)
+}
+
+fn build_decoder_supervision(
+    example_id: &str,
+    topology: &TopologyFeatures,
+    geometry: &GeometryFeatures,
+    generation_target: &GenerationTargetConfig,
+) -> DecoderSupervision {
+    let device = topology.atom_types.device();
+    let num_atoms = topology.atom_types.size()[0];
+    let target_atom_types = topology.atom_types.shallow_clone();
+    let target_coords = geometry.coords.shallow_clone();
+    let target_pairwise_distances = geometry.pairwise_distances.shallow_clone();
+    let metadata = GenerationCorruptionMetadata {
+        atom_mask_ratio: generation_target.atom_mask_ratio,
+        coordinate_noise_std: generation_target.coordinate_noise_std,
+        corruption_seed: generation_target.corruption_seed,
+    };
+
+    if num_atoms == 0 {
+        let empty_long = Tensor::zeros([0], (Kind::Int64, device));
+        let empty_float = Tensor::zeros([0], (Kind::Float, device));
+        return DecoderSupervision {
+            target_atom_types,
+            corrupted_atom_types: empty_long,
+            atom_corruption_mask: empty_float.shallow_clone(),
+            target_coords,
+            noisy_coords: Tensor::zeros([0, 3], (Kind::Float, device)),
+            coordinate_noise: Tensor::zeros([0, 3], (Kind::Float, device)),
+            target_pairwise_distances,
+            corruption_metadata: metadata,
+        };
+    }
+
+    let mask_values: Vec<f32> = (0..num_atoms)
+        .map(|atom_ix| {
+            if should_mask_atom(example_id, atom_ix as usize, generation_target) {
+                1.0
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    let atom_corruption_mask = tensor_from_slice(&mask_values)
+        .to_kind(Kind::Float)
+        .to_device(device);
+    let corrupted_atom_types =
+        apply_atom_corruption(&target_atom_types, &atom_corruption_mask, generation_target);
+
+    let noise_flat: Vec<f32> = (0..num_atoms)
+        .flat_map(|atom_ix| {
+            (0..3).map(move |coord_ix| {
+                deterministic_noise(
+                    example_id,
+                    atom_ix as usize,
+                    coord_ix as usize,
+                    generation_target,
+                )
+            })
+        })
+        .collect();
+    let coordinate_noise = tensor_from_slice(&noise_flat)
+        .reshape([num_atoms, 3])
+        .to_device(device);
+    let noisy_coords = &target_coords + &coordinate_noise;
+
+    DecoderSupervision {
+        target_atom_types,
+        corrupted_atom_types,
+        atom_corruption_mask,
+        target_coords,
+        noisy_coords,
+        coordinate_noise,
+        target_pairwise_distances,
+        corruption_metadata: metadata,
+    }
+}
+
+fn should_mask_atom(
+    example_id: &str,
+    atom_ix: usize,
+    generation_target: &GenerationTargetConfig,
+) -> bool {
+    if generation_target.atom_mask_ratio <= 0.0 {
+        return false;
+    }
+    let hash = stable_atom_hash(example_id, atom_ix, generation_target.corruption_seed);
+    let normalized = (hash % 10_000) as f32 / 10_000.0;
+    normalized < generation_target.atom_mask_ratio
+}
+
+fn apply_atom_corruption(
+    atom_types: &Tensor,
+    mask: &Tensor,
+    generation_target: &GenerationTargetConfig,
+) -> Tensor {
+    let mask_long = mask.to_kind(Kind::Int64);
+    let replacement = Tensor::full_like(
+        atom_types,
+        ((generation_target.corruption_seed % 5) + 1) as i64,
+    );
+    atom_types * (1 - &mask_long) + replacement * mask_long
+}
+
+fn deterministic_noise(
+    example_id: &str,
+    atom_ix: usize,
+    coord_ix: usize,
+    generation_target: &GenerationTargetConfig,
+) -> f32 {
+    if generation_target.coordinate_noise_std == 0.0 {
+        return 0.0;
+    }
+    let hash = stable_atom_hash(
+        example_id,
+        atom_ix * 17 + coord_ix,
+        generation_target.corruption_seed,
+    );
+    let phase = (hash % 65_521) as f32 / 65_521.0;
+    ((phase * std::f32::consts::TAU).sin() * generation_target.coordinate_noise_std) as f32
+}
+
+fn stable_atom_hash(example_id: &str, atom_ix: usize, seed: u64) -> u64 {
+    let mut hash = seed ^ 0x9e37_79b9_7f4a_7c15_u64;
+    for byte in example_id.as_bytes() {
+        hash = hash.rotate_left(7) ^ u64::from(*byte);
+        hash = hash.wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
+    hash ^ (atom_ix as u64).wrapping_mul(0x94d0_49bb_1331_11eb)
 }
