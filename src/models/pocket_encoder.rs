@@ -2,7 +2,7 @@
 
 use tch::{nn, Kind, Tensor};
 
-use super::{Encoder, ModalityEncoding, PocketEncoder};
+use super::{BatchedModalityEncoding, Encoder, ModalityEncoding, PocketEncoder};
 use crate::data::PocketFeatures;
 
 /// Minimal pocket encoder that combines per-atom and pooled context features.
@@ -30,6 +30,28 @@ impl PocketEncoderImpl {
         Self {
             atom_projection,
             pooled_projection,
+        }
+    }
+
+    /// Encode padded pocket tensors without iterating over examples.
+    pub(crate) fn encode_batch(
+        &self,
+        atom_features: &Tensor,
+        coords: &Tensor,
+        pooled_features: &Tensor,
+        mask: &Tensor,
+    ) -> BatchedModalityEncoding {
+        let local_context =
+            Tensor::cat(&[atom_features.shallow_clone(), coords.shallow_clone()], -1)
+                .apply(&self.atom_projection)
+                .relu()
+                * mask.unsqueeze(-1);
+        let pooled_embedding = pooled_features.apply(&self.pooled_projection).relu();
+
+        BatchedModalityEncoding {
+            token_embeddings: local_context,
+            token_mask: mask.shallow_clone(),
+            pooled_embedding,
         }
     }
 }

@@ -29,6 +29,27 @@ impl Clone for ModalityEncoding {
     }
 }
 
+/// Padded latent representation emitted by a batched modality encoder.
+#[derive(Debug)]
+pub(crate) struct BatchedModalityEncoding {
+    /// Per-token hidden states with shape `[batch, max_tokens, hidden_dim]`.
+    pub token_embeddings: Tensor,
+    /// Mask for active tokens with shape `[batch, max_tokens]`.
+    pub token_mask: Tensor,
+    /// Pooled summary representation with shape `[batch, hidden_dim]`.
+    pub pooled_embedding: Tensor,
+}
+
+impl Clone for BatchedModalityEncoding {
+    fn clone(&self) -> Self {
+        Self {
+            token_embeddings: self.token_embeddings.shallow_clone(),
+            token_mask: self.token_mask.shallow_clone(),
+            pooled_embedding: self.pooled_embedding.shallow_clone(),
+        }
+    }
+}
+
 /// Trait alias style abstraction for topology encoders.
 pub trait TopologyEncoder: Encoder<TopologyFeatures, ModalityEncoding> {}
 
@@ -155,6 +176,44 @@ pub trait ConditionedLigandDecoder {
     fn decode(&self, state: &ConditionedGenerationState) -> DecoderOutput;
 }
 
+/// One iterative refinement step emitted by the modular decoder rollout.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationStepRecord {
+    /// Zero-based refinement index.
+    pub step_index: usize,
+    /// Mean stop probability at this refinement step.
+    pub stop_probability: f64,
+    /// Whether rollout terminated immediately after this step.
+    pub stopped: bool,
+    /// Atom types after applying this step.
+    pub atom_types: Vec<i64>,
+    /// Coordinates after applying this step.
+    pub coords: Vec<[f32; 3]>,
+    /// Mean per-atom displacement applied at this step.
+    pub mean_displacement: f64,
+    /// Fraction of atoms whose committed identity changed at this step.
+    pub atom_change_fraction: f64,
+    /// Effective coordinate step scale applied by the rollout controller.
+    pub coordinate_step_scale: f64,
+}
+
+/// Full iterative rollout trace for one conditioned ligand generation example.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationRolloutRecord {
+    /// Stable example identifier.
+    pub example_id: String,
+    /// Stable protein identifier.
+    pub protein_id: String,
+    /// Configured step budget for this rollout.
+    pub configured_steps: usize,
+    /// Actual number of executed refinement steps.
+    pub executed_steps: usize,
+    /// Whether rollout terminated due to the learned stop head.
+    pub stopped_early: bool,
+    /// Per-step state trace.
+    pub steps: Vec<GenerationStepRecord>,
+}
+
 /// Candidate payload reserved for future chemistry and docking evaluation backends.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneratedCandidateRecord {
@@ -174,8 +233,14 @@ pub struct GeneratedCandidateRecord {
     pub pocket_centroid: [f32; 3],
     /// Pocket radius summary used for downstream compatibility heuristics.
     pub pocket_radius: f32,
+    /// Translation from ligand-centered model coordinates back to source structure coordinates.
+    pub coordinate_frame_origin: [f32; 3],
     /// Generator path that produced this candidate.
     pub source: String,
+    /// Optional source protein structure path used for downstream scoring workflows.
+    pub source_pocket_path: Option<String>,
+    /// Optional source ligand path associated with the conditioning example.
+    pub source_ligand_path: Option<String>,
 }
 
 /// Named metrics emitted by an external chemistry or docking backend.
@@ -251,6 +316,30 @@ impl Clone for SlotEncoding {
     }
 }
 
+/// Batched slot decomposition output for one modality.
+#[derive(Debug)]
+pub(crate) struct BatchedSlotEncoding {
+    /// Slot tensors with shape `[batch, num_slots, hidden_dim]`.
+    pub slots: Tensor,
+    /// Soft activation weights with shape `[batch, num_slots]`.
+    pub slot_weights: Tensor,
+    /// Reconstruction of token features with shape `[batch, max_tokens, hidden_dim]`.
+    pub reconstructed_tokens: Tensor,
+    /// Active token mask with shape `[batch, max_tokens]`.
+    pub token_mask: Tensor,
+}
+
+impl Clone for BatchedSlotEncoding {
+    fn clone(&self) -> Self {
+        Self {
+            slots: self.slots.shallow_clone(),
+            slot_weights: self.slot_weights.shallow_clone(),
+            reconstructed_tokens: self.reconstructed_tokens.shallow_clone(),
+            token_mask: self.token_mask.shallow_clone(),
+        }
+    }
+}
+
 /// Output for one directed gated cross-modal attention path.
 #[derive(Debug)]
 pub struct CrossAttentionOutput {
@@ -263,6 +352,27 @@ pub struct CrossAttentionOutput {
 }
 
 impl Clone for CrossAttentionOutput {
+    fn clone(&self) -> Self {
+        Self {
+            gate: self.gate.shallow_clone(),
+            attended_tokens: self.attended_tokens.shallow_clone(),
+            attention_weights: self.attention_weights.shallow_clone(),
+        }
+    }
+}
+
+/// Batched output for one directed gated cross-modal attention path.
+#[derive(Debug)]
+pub(crate) struct BatchedCrossAttentionOutput {
+    /// Gate scalar per batch item with shape `[batch, 1]`.
+    pub gate: Tensor,
+    /// Attention-weighted update with shape `[batch, query_len, hidden_dim]`.
+    pub attended_tokens: Tensor,
+    /// Attention weights with shape `[batch, query_len, key_len]`.
+    pub attention_weights: Tensor,
+}
+
+impl Clone for BatchedCrossAttentionOutput {
     fn clone(&self) -> Self {
         Self {
             gate: self.gate.shallow_clone(),

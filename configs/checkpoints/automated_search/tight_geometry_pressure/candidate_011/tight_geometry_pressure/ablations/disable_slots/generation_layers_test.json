@@ -1,0 +1,964 @@
+{
+  "schema_version": 2,
+  "split_label": "test",
+  "layered_metrics": {
+    "raw_rollout": {
+      "candidate_count": 3,
+      "valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "mean_centroid_offset": 1.4794315833681193,
+      "clash_fraction": 0.0,
+      "mean_displacement": 0.4021774232387543,
+      "atom_change_fraction": 0.0,
+      "uniqueness_proxy_fraction": 0.3333333333333333,
+      "atom_type_sequence_diversity": 0.3333333333333333,
+      "bond_topology_diversity": 0.3333333333333333,
+      "coordinate_shape_diversity": 0.3333333333333333,
+      "novel_atom_type_sequence_fraction": 1.0,
+      "novel_bond_topology_fraction": 1.0,
+      "novel_coordinate_shape_fraction": 1.0
+    },
+    "repaired_candidates": {
+      "candidate_count": 3,
+      "valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "mean_centroid_offset": 0.5367077011487763,
+      "clash_fraction": 0.0,
+      "mean_displacement": 0.0,
+      "atom_change_fraction": 0.0,
+      "uniqueness_proxy_fraction": 1.0,
+      "atom_type_sequence_diversity": 0.3333333333333333,
+      "bond_topology_diversity": 0.3333333333333333,
+      "coordinate_shape_diversity": 1.0,
+      "novel_atom_type_sequence_fraction": 1.0,
+      "novel_bond_topology_fraction": 1.0,
+      "novel_coordinate_shape_fraction": 1.0
+    },
+    "inferred_bond_candidates": {
+      "candidate_count": 3,
+      "valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "mean_centroid_offset": 0.5367077011487763,
+      "clash_fraction": 0.0,
+      "mean_displacement": 0.0,
+      "atom_change_fraction": 0.0,
+      "uniqueness_proxy_fraction": 1.0,
+      "atom_type_sequence_diversity": 0.3333333333333333,
+      "bond_topology_diversity": 0.6666666666666666,
+      "coordinate_shape_diversity": 1.0,
+      "novel_atom_type_sequence_fraction": 1.0,
+      "novel_bond_topology_fraction": 1.0,
+      "novel_coordinate_shape_fraction": 1.0
+    },
+    "reranked_candidates": {
+      "candidate_count": 1,
+      "valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "mean_centroid_offset": 0.5177090580569007,
+      "clash_fraction": 0.0,
+      "mean_displacement": 0.0,
+      "atom_change_fraction": 0.0,
+      "uniqueness_proxy_fraction": 1.0,
+      "atom_type_sequence_diversity": 1.0,
+      "bond_topology_diversity": 1.0,
+      "coordinate_shape_diversity": 1.0,
+      "novel_atom_type_sequence_fraction": 1.0,
+      "novel_bond_topology_fraction": 1.0,
+      "novel_coordinate_shape_fraction": 1.0
+    },
+    "deterministic_proxy_candidates": {
+      "candidate_count": 1,
+      "valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "mean_centroid_offset": 0.5177090580569007,
+      "clash_fraction": 0.0,
+      "mean_displacement": 0.0,
+      "atom_change_fraction": 0.0,
+      "uniqueness_proxy_fraction": 1.0,
+      "atom_type_sequence_diversity": 1.0,
+      "bond_topology_diversity": 1.0,
+      "coordinate_shape_diversity": 1.0,
+      "novel_atom_type_sequence_fraction": 1.0,
+      "novel_bond_topology_fraction": 1.0,
+      "novel_coordinate_shape_fraction": 1.0
+    },
+    "reranker_calibration": {
+      "method": "bounded_nonnegative_feature_target_covariance_v1",
+      "coefficients": {
+        "bond_density_fit": 0.9975129442217192,
+        "centroid_fit": 0.002487055778280754,
+        "clash_free": 0.0,
+        "pocket_contact": 0.0,
+        "valence_sane": 0.0,
+        "valid": 0.0
+      },
+      "target_mean": 0.9699945019738344,
+      "fitted_candidate_count": 3
+    },
+    "backend_scored_candidates": {
+      "chemistry_validity": {
+        "backend_examples_scored": 1.0,
+        "backend_missing_structure_fraction": 0.0,
+        "heuristic_structural_pass_fraction": 1.0,
+        "heuristic_valence_sanity_fraction": 1.0,
+        "heuristic_valid_fraction": 1.0,
+        "rdkit_available": 1.0,
+        "rdkit_finite_conformer_fraction": 1.0,
+        "rdkit_parseable_fraction": 1.0,
+        "rdkit_sanitized_fraction": 1.0,
+        "rdkit_unique_smiles_fraction": 1.0,
+        "schema_version": 1.0
+      },
+      "docking_affinity": {
+        "backend_examples_scored": 1.0,
+        "backend_missing_structure_fraction": 0.0,
+        "clash_fraction": 0.0,
+        "contact_fraction": 1.0,
+        "docking_like_score": 0.9514494514210614,
+        "heuristic_centroid_fit_score": 0.6588878116602167,
+        "heuristic_mean_centroid_offset": 0.5177090580569007,
+        "heuristic_pocket_contact_fraction": 1.0,
+        "mean_min_contact_distance": 1.3231655315057855,
+        "schema_version": 1.0
+      },
+      "pocket_compatibility": {
+        "atom_coverage_fraction": 1.0,
+        "backend_examples_scored": 1.0,
+        "backend_missing_structure_fraction": 0.0,
+        "centroid_inside_fraction": 1.0,
+        "clash_fraction": 0.0,
+        "heuristic_atom_coverage_fraction": 1.0,
+        "heuristic_centroid_inside_fraction": 1.0,
+        "heuristic_clash_free_fraction": 1.0,
+        "heuristic_strict_pocket_fit_score": 0.6588878116602167,
+        "schema_version": 1.0
+      }
+    }
+  },
+  "raw_rollout_candidates": [
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=raw_rollout;atoms=6;bonds=0",
+      "atom_types": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "coords": [
+        [
+          2.4678779,
+          -0.096366584,
+          0.9680575
+        ],
+        [
+          4.0910673,
+          -0.28980395,
+          0.78852224
+        ],
+        [
+          4.4440355,
+          1.1188577,
+          0.7189067
+        ],
+        [
+          3.5718439,
+          1.8062308,
+          1.206116
+        ],
+        [
+          1.9772767,
+          1.1705251,
+          1.3071115
+        ],
+        [
+          1.4307739,
+          -0.16582698,
+          0.9964016
+        ]
+      ],
+      "inferred_bonds": [],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "raw_modular_rollout:steps=6;candidate=0",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    },
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=raw_rollout;atoms=6;bonds=0",
+      "atom_types": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "coords": [
+        [
+          2.4678779,
+          -0.096366584,
+          0.9680575
+        ],
+        [
+          4.0910673,
+          -0.28980395,
+          0.78852224
+        ],
+        [
+          4.4440355,
+          1.1188577,
+          0.7189067
+        ],
+        [
+          3.5718439,
+          1.8062308,
+          1.206116
+        ],
+        [
+          1.9772767,
+          1.1705251,
+          1.3071115
+        ],
+        [
+          1.4307739,
+          -0.16582698,
+          0.9964016
+        ]
+      ],
+      "inferred_bonds": [],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "raw_modular_rollout:steps=6;candidate=1",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    },
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=raw_rollout;atoms=6;bonds=0",
+      "atom_types": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "coords": [
+        [
+          2.4678779,
+          -0.096366584,
+          0.9680575
+        ],
+        [
+          4.0910673,
+          -0.28980395,
+          0.78852224
+        ],
+        [
+          4.4440355,
+          1.1188577,
+          0.7189067
+        ],
+        [
+          3.5718439,
+          1.8062308,
+          1.206116
+        ],
+        [
+          1.9772767,
+          1.1705251,
+          1.3071115
+        ],
+        [
+          1.4307739,
+          -0.16582698,
+          0.9964016
+        ]
+      ],
+      "inferred_bonds": [],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "raw_modular_rollout:steps=6;candidate=2",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    }
+  ],
+  "repaired_candidates": [
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=repaired_no_bonds;atoms=6;bonds=0",
+      "atom_types": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "coords": [
+        [
+          0.5202489,
+          -0.6214967,
+          1.2094873
+        ],
+        [
+          1.7180865,
+          -1.1354975,
+          0.7804831
+        ],
+        [
+          2.5881865,
+          1.0254849,
+          0.7720902
+        ],
+        [
+          2.2668242,
+          1.6707039,
+          1.3951288
+        ],
+        [
+          -0.106392935,
+          0.5582945,
+          1.5740396
+        ],
+        [
+          -0.65685517,
+          -0.5509571,
+          1.1678314
+        ]
+      ],
+      "inferred_bonds": [],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "geometry_repair:steps=6;candidate=0",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    },
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=repaired_no_bonds;atoms=6;bonds=0",
+      "atom_types": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "coords": [
+        [
+          0.36701542,
+          -0.5161911,
+          1.1271615
+        ],
+        [
+          2.0152695,
+          -1.3346541,
+          0.80007243
+        ],
+        [
+          2.6743617,
+          0.974247,
+          0.8372823
+        ],
+        [
+          2.2986465,
+          1.4564768,
+          1.5820488
+        ],
+        [
+          -0.23784272,
+          0.8336904,
+          1.5019817
+        ],
+        [
+          -0.74307466,
+          -0.7879313,
+          1.255057
+        ]
+      ],
+      "inferred_bonds": [],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "geometry_repair:steps=6;candidate=1",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    },
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=repaired_no_bonds;atoms=6;bonds=0",
+      "atom_types": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "coords": [
+        [
+          0.38376424,
+          -0.7676085,
+          1.2221197
+        ],
+        [
+          1.8870367,
+          -1.172311,
+          0.702227
+        ],
+        [
+          2.7359645,
+          0.9395883,
+          0.7857403
+        ],
+        [
+          2.1951349,
+          2.0008624,
+          1.2643801
+        ],
+        [
+          -0.18533313,
+          0.7019858,
+          1.6154222
+        ],
+        [
+          -0.9992764,
+          -0.6681826,
+          1.1649988
+        ]
+      ],
+      "inferred_bonds": [],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "geometry_repair:steps=6;candidate=2",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    }
+  ],
+  "inferred_bond_candidates": [
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=modular;atoms=6;bonds=5",
+      "atom_types": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "coords": [
+        [
+          0.5202489,
+          -0.6214967,
+          1.2094873
+        ],
+        [
+          1.7180865,
+          -1.1354975,
+          0.7804831
+        ],
+        [
+          2.5881865,
+          1.0254849,
+          0.7720902
+        ],
+        [
+          2.2668242,
+          1.6707039,
+          1.3951288
+        ],
+        [
+          -0.106392935,
+          0.5582945,
+          1.5740396
+        ],
+        [
+          -0.65685517,
+          -0.5509571,
+          1.1678314
+        ]
+      ],
+      "inferred_bonds": [
+        [
+          2,
+          3
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "modular_rollout_decoder:steps=6",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    },
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=modular;atoms=6;bonds=4",
+      "atom_types": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "coords": [
+        [
+          0.36701542,
+          -0.5161911,
+          1.1271615
+        ],
+        [
+          2.0152695,
+          -1.3346541,
+          0.80007243
+        ],
+        [
+          2.6743617,
+          0.974247,
+          0.8372823
+        ],
+        [
+          2.2986465,
+          1.4564768,
+          1.5820488
+        ],
+        [
+          -0.23784272,
+          0.8336904,
+          1.5019817
+        ],
+        [
+          -0.74307466,
+          -0.7879313,
+          1.255057
+        ]
+      ],
+      "inferred_bonds": [
+        [
+          2,
+          3
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ]
+      ],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "modular_rollout_decoder:steps=6",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    },
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=modular;atoms=6;bonds=5",
+      "atom_types": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "coords": [
+        [
+          0.38376424,
+          -0.7676085,
+          1.2221197
+        ],
+        [
+          1.8870367,
+          -1.172311,
+          0.702227
+        ],
+        [
+          2.7359645,
+          0.9395883,
+          0.7857403
+        ],
+        [
+          2.1951349,
+          2.0008624,
+          1.2643801
+        ],
+        [
+          -0.18533313,
+          0.7019858,
+          1.6154222
+        ],
+        [
+          -0.9992764,
+          -0.6681826,
+          1.1649988
+        ]
+      ],
+      "inferred_bonds": [
+        [
+          2,
+          3
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          4,
+          5
+        ]
+      ],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "modular_rollout_decoder:steps=6",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    }
+  ],
+  "deterministic_proxy_candidates": [
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=modular;atoms=6;bonds=5",
+      "atom_types": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "coords": [
+        [
+          0.5202489,
+          -0.6214967,
+          1.2094873
+        ],
+        [
+          1.7180865,
+          -1.1354975,
+          0.7804831
+        ],
+        [
+          2.5881865,
+          1.0254849,
+          0.7720902
+        ],
+        [
+          2.2668242,
+          1.6707039,
+          1.3951288
+        ],
+        [
+          -0.106392935,
+          0.5582945,
+          1.5740396
+        ],
+        [
+          -0.65685517,
+          -0.5509571,
+          1.1678314
+        ]
+      ],
+      "inferred_bonds": [
+        [
+          2,
+          3
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "modular_rollout_decoder:steps=6",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    }
+  ],
+  "reranked_candidates": [
+    {
+      "example_id": "1bcu",
+      "protein_id": "1bcu",
+      "molecular_representation": "source=modular;atoms=6;bonds=5",
+      "atom_types": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "coords": [
+        [
+          0.5202489,
+          -0.6214967,
+          1.2094873
+        ],
+        [
+          1.7180865,
+          -1.1354975,
+          0.7804831
+        ],
+        [
+          2.5881865,
+          1.0254849,
+          0.7720902
+        ],
+        [
+          2.2668242,
+          1.6707039,
+          1.3951288
+        ],
+        [
+          -0.106392935,
+          0.5582945,
+          1.5740396
+        ],
+        [
+          -0.65685517,
+          -0.5509571,
+          1.1678314
+        ]
+      ],
+      "inferred_bonds": [
+        [
+          2,
+          3
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "pocket_centroid": [
+        1.561111,
+        0.26666668,
+        1.1444443
+      ],
+      "pocket_radius": 2.8291745,
+      "coordinate_frame_origin": [
+        0.5,
+        0.73333335,
+        0.13333334
+      ],
+      "source": "modular_rollout_decoder:steps=6",
+      "source_pocket_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_protein.pdb",
+      "source_ligand_path": "./data/PDBbind_v2020_refined/1bcu/1bcu_ligand.sdf"
+    }
+  ],
+  "backend_metrics": {
+    "chemistry_validity": {
+      "available": true,
+      "backend_name": "external_command_chemistry",
+      "metrics": {
+        "backend_examples_scored": 1.0,
+        "backend_missing_structure_fraction": 0.0,
+        "heuristic_structural_pass_fraction": 1.0,
+        "heuristic_valence_sanity_fraction": 1.0,
+        "heuristic_valid_fraction": 1.0,
+        "rdkit_available": 1.0,
+        "rdkit_finite_conformer_fraction": 1.0,
+        "rdkit_parseable_fraction": 1.0,
+        "rdkit_sanitized_fraction": 1.0,
+        "rdkit_unique_smiles_fraction": 1.0,
+        "schema_version": 1.0
+      },
+      "status": "external chemistry-validity backend on modular rollout candidates"
+    },
+    "docking_affinity": {
+      "available": true,
+      "backend_name": "external_command_docking",
+      "metrics": {
+        "backend_examples_scored": 1.0,
+        "backend_missing_structure_fraction": 0.0,
+        "clash_fraction": 0.0,
+        "contact_fraction": 1.0,
+        "docking_like_score": 0.9514494514210614,
+        "heuristic_centroid_fit_score": 0.6588878116602167,
+        "heuristic_mean_centroid_offset": 0.5177090580569007,
+        "heuristic_pocket_contact_fraction": 1.0,
+        "mean_min_contact_distance": 1.3231655315057855,
+        "schema_version": 1.0
+      },
+      "status": "external docking backend on modular rollout candidates"
+    },
+    "pocket_compatibility": {
+      "available": true,
+      "backend_name": "external_command_pocket_compatibility",
+      "metrics": {
+        "atom_coverage_fraction": 1.0,
+        "backend_examples_scored": 1.0,
+        "backend_missing_structure_fraction": 0.0,
+        "centroid_inside_fraction": 1.0,
+        "clash_fraction": 0.0,
+        "heuristic_atom_coverage_fraction": 1.0,
+        "heuristic_centroid_inside_fraction": 1.0,
+        "heuristic_clash_free_fraction": 1.0,
+        "heuristic_strict_pocket_fit_score": 0.6588878116602167,
+        "schema_version": 1.0
+      },
+      "status": "external pocket-compatibility backend on modular rollout candidates"
+    }
+  },
+  "backend_failure_examples": []
+}

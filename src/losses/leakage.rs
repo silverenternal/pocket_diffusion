@@ -53,6 +53,33 @@ impl LeakageLoss {
             + relu_scalar(topo_pocket_similarity - leakage_budget)
             + relu_scalar(geo_pocket_similarity - leakage_budget)
     }
+
+    /// Compute the mean leakage penalty over a mini-batch.
+    pub(crate) fn compute_batch(
+        &self,
+        examples: &[MolecularExample],
+        forwards: &[ResearchForward],
+    ) -> Tensor {
+        debug_assert_eq!(examples.len(), forwards.len());
+        let device = forwards
+            .first()
+            .map(|forward| forward.slots.topology.slots.device())
+            .or_else(|| {
+                examples
+                    .first()
+                    .map(|example| example.topology.atom_types.device())
+            })
+            .unwrap_or(tch::Device::Cpu);
+        if examples.is_empty() {
+            return Tensor::zeros([1], (Kind::Float, device));
+        }
+
+        let mut total = Tensor::zeros([1], (Kind::Float, device));
+        for (example, forward) in examples.iter().zip(forwards.iter()) {
+            total += self.compute(example, forward).to_device(device);
+        }
+        total / examples.len() as f64
+    }
 }
 
 fn mean_cosine_similarity(a: &Tensor, b: &Tensor) -> f64 {

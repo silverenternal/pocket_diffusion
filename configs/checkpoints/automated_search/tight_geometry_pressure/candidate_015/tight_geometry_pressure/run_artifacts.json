@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "run_kind": "experiment",
+  "artifact_dir": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure",
+  "config_hash": "33a4360754660bf1",
+  "dataset_validation_fingerprint": "c42e04afc454980c",
+  "metric_schema_version": 5,
+  "backend_environment": {
+    "config_fingerprint": "26c13425c3fbfd30",
+    "real_backend_backed": true,
+    "prerequisites": [
+      "Use the canonical experiment config that enables the external chemistry, docking, and pocket backends.",
+      "Ensure `python3` can execute `tools/rdkit_validity_backend.py` and `tools/pocket_contact_backend.py` from the repository root.",
+      "Keep source protein and ligand structure provenance available in the configured dataset so backend scoring does not degrade into missing-structure examples."
+    ],
+    "chemistry_backend": {
+      "logical_name": "chemistry_validity",
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/rdkit_validity_backend.py"
+      ],
+      "command_fingerprint": "f83effa09385dabf",
+      "runtime_available": true,
+      "backend_name": "external_command_chemistry",
+      "status": "external chemistry-validity backend on modular rollout candidates",
+      "schema_version": 1.0,
+      "backend_examples_scored": 1.0
+    },
+    "docking_backend": {
+      "logical_name": "docking_affinity",
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/pocket_contact_backend.py",
+        "--mode",
+        "docking"
+      ],
+      "command_fingerprint": "584a1e3aae941615",
+      "runtime_available": true,
+      "backend_name": "external_command_docking",
+      "status": "external docking backend on modular rollout candidates",
+      "schema_version": 1.0,
+      "backend_examples_scored": 1.0
+    },
+    "pocket_backend": {
+      "logical_name": "pocket_compatibility",
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/pocket_contact_backend.py",
+        "--mode",
+        "compatibility"
+      ],
+      "command_fingerprint": "b8e86df70649128f",
+      "runtime_available": true,
+      "backend_name": "external_command_pocket_compatibility",
+      "status": "external pocket-compatibility backend on modular rollout candidates",
+      "schema_version": 1.0,
+      "backend_examples_scored": 1.0
+    }
+  },
+  "paths": {
+    "config_snapshot": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/config.snapshot.json",
+    "dataset_validation_report": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/dataset_validation_report.json",
+    "split_report": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/split_report.json",
+    "run_summary": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/experiment_summary.json",
+    "run_bundle": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/run_artifacts.json",
+    "latest_checkpoint": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/latest.ot"
+  }
+}

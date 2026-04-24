@@ -15,12 +15,16 @@ pub struct EncoderBatchInputs {
     pub ligand_coords: Tensor,
     /// Padded pairwise distances `[batch, max_ligand_atoms, max_ligand_atoms]`.
     pub pairwise_distances: Tensor,
+    /// Padded dense ligand adjacency `[batch, max_ligand_atoms, max_ligand_atoms]`.
+    pub adjacency: Tensor,
     /// Padded pocket features `[batch, max_pocket_atoms, pocket_feat_dim]`.
     pub pocket_atom_features: Tensor,
     /// Padded pocket coordinates `[batch, max_pocket_atoms, 3]`.
     pub pocket_coords: Tensor,
     /// Pocket atom mask `[batch, max_pocket_atoms]`.
     pub pocket_mask: Tensor,
+    /// Pooled pocket features `[batch, pocket_feat_dim]`.
+    pub pocket_pooled_features: Tensor,
 }
 
 impl Clone for EncoderBatchInputs {
@@ -30,9 +34,11 @@ impl Clone for EncoderBatchInputs {
             ligand_mask: self.ligand_mask.shallow_clone(),
             ligand_coords: self.ligand_coords.shallow_clone(),
             pairwise_distances: self.pairwise_distances.shallow_clone(),
+            adjacency: self.adjacency.shallow_clone(),
             pocket_atom_features: self.pocket_atom_features.shallow_clone(),
             pocket_coords: self.pocket_coords.shallow_clone(),
             pocket_mask: self.pocket_mask.shallow_clone(),
+            pocket_pooled_features: self.pocket_pooled_features.shallow_clone(),
         }
     }
 }
@@ -124,12 +130,18 @@ impl MolecularBatch {
             [batch_size, max_ligand_atoms, max_ligand_atoms],
             (Kind::Float, device),
         );
+        let adjacency = Tensor::zeros(
+            [batch_size, max_ligand_atoms, max_ligand_atoms],
+            (Kind::Float, device),
+        );
         let pocket_atom_features = Tensor::zeros(
             [batch_size, max_pocket_atoms, pocket_feature_dim],
             (Kind::Float, device),
         );
         let pocket_coords = Tensor::zeros([batch_size, max_pocket_atoms, 3], (Kind::Float, device));
         let pocket_mask = Tensor::zeros([batch_size, max_pocket_atoms], (Kind::Float, device));
+        let pocket_pooled_features =
+            Tensor::zeros([batch_size, pocket_feature_dim], (Kind::Float, device));
         let target_atom_types =
             Tensor::zeros([batch_size, max_ligand_atoms], (Kind::Int64, device));
         let corrupted_atom_types =
@@ -173,6 +185,11 @@ impl MolecularBatch {
                     .narrow(0, 0, ligand_atoms)
                     .narrow(1, 0, ligand_atoms)
                     .copy_(&example.geometry.pairwise_distances);
+                adjacency
+                    .get(batch_ix as i64)
+                    .narrow(0, 0, ligand_atoms)
+                    .narrow(1, 0, ligand_atoms)
+                    .copy_(&example.topology.adjacency);
                 target_atom_types
                     .get(batch_ix as i64)
                     .narrow(0, 0, ligand_atoms)
@@ -217,6 +234,9 @@ impl MolecularBatch {
                     .get(batch_ix as i64)
                     .narrow(0, 0, pocket_atoms)
                     .fill_(1.0);
+                pocket_pooled_features
+                    .get(batch_ix as i64)
+                    .copy_(&example.pocket.pooled_features);
             }
         }
 
@@ -228,9 +248,11 @@ impl MolecularBatch {
                 ligand_mask,
                 ligand_coords,
                 pairwise_distances,
+                adjacency,
                 pocket_atom_features,
                 pocket_coords,
                 pocket_mask,
+                pocket_pooled_features,
             },
             decoder_targets: DecoderBatchTargets {
                 target_atom_types,

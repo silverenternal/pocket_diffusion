@@ -2,7 +2,7 @@
 
 use tch::{Kind, Tensor};
 
-use crate::models::DecomposedModalities;
+use crate::models::{DecomposedModalities, ResearchForward};
 
 /// Redundancy objective combining covariance decorrelation, predictability, and optional HSIC.
 #[derive(Debug, Clone)]
@@ -24,6 +24,23 @@ impl IntraRedundancyLoss {
         let geo = self.modality_loss(&slots.geometry.slots);
         let pocket = self.modality_loss(&slots.pocket.slots);
         (topo + geo + pocket) / 3.0
+    }
+
+    /// Compute the mean redundancy penalty over a mini-batch.
+    pub(crate) fn compute_batch(&self, forwards: &[ResearchForward]) -> Tensor {
+        let device = forwards
+            .first()
+            .map(|forward| forward.slots.topology.slots.device())
+            .unwrap_or(tch::Device::Cpu);
+        if forwards.is_empty() {
+            return Tensor::zeros([1], (Kind::Float, device));
+        }
+
+        let mut total = Tensor::zeros([1], (Kind::Float, device));
+        for forward in forwards {
+            total += self.compute(&forward.slots);
+        }
+        total / forwards.len() as f64
     }
 
     fn modality_loss(&self, slot_matrix: &Tensor) -> Tensor {

@@ -1,0 +1,71 @@
+{
+  "train": {
+    "example_count": 2,
+    "unique_protein_count": 2,
+    "labeled_example_count": 2,
+    "labeled_fraction": 1.0,
+    "dominant_measurement_histogram": {
+      "Ki": 1,
+      "pKd": 1
+    },
+    "ligand_atom_count_bins": {
+      "1-8": 2
+    },
+    "pocket_atom_count_bins": {
+      "1-8": 2
+    },
+    "protein_family_proxy_histogram": {
+      "prot": 2
+    },
+    "average_ligand_atoms": 6.0,
+    "average_pocket_atoms": 8.0
+  },
+  "val": {
+    "example_count": 1,
+    "unique_protein_count": 1,
+    "labeled_example_count": 1,
+    "labeled_fraction": 1.0,
+    "dominant_measurement_histogram": {
+      "Kd": 1
+    },
+    "ligand_atom_count_bins": {
+      "1-8": 1
+    },
+    "pocket_atom_count_bins": {
+      "9-16": 1
+    },
+    "protein_family_proxy_histogram": {
+      "prot": 1
+    },
+    "average_ligand_atoms": 5.0,
+    "average_pocket_atoms": 9.0
+  },
+  "test": {
+    "example_count": 1,
+    "unique_protein_count": 1,
+    "labeled_example_count": 1,
+    "labeled_fraction": 1.0,
+    "dominant_measurement_histogram": {
+      "IC50": 1
+    },
+    "ligand_atom_count_bins": {
+      "1-8": 1
+    },
+    "pocket_atom_count_bins": {
+      "1-8": 1
+    },
+    "protein_family_proxy_histogram": {
+      "prot": 1
+    },
+    "average_ligand_atoms": 5.0,
+    "average_pocket_atoms": 7.0
+  },
+  "leakage_checks": {
+    "protein_overlap_detected": false,
+    "duplicate_example_ids_detected": false,
+    "train_val_protein_overlap": 0,
+    "train_test_protein_overlap": 0,
+    "val_test_protein_overlap": 0,
+    "duplicated_example_ids": 0
+  }
+}

@@ -4,4 +4,7 @@
 *.log
 .DS_Store
 .codex/
+.codex
 .claude/
+__pycache__/
+data/pdbbindpp-2020/

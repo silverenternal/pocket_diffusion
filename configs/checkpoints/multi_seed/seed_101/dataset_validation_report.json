@@ -1,0 +1,19 @@
+{
+  "discovered_complexes": 4,
+  "parsed_examples": 4,
+  "parsed_ligands": 4,
+  "parsed_pockets": 4,
+  "attached_labels": 4,
+  "example_id_label_matches": 4,
+  "protein_id_label_matches": 0,
+  "unlabeled_examples": 0,
+  "fallback_pocket_extractions": 0,
+  "truncated_examples": 0,
+  "loaded_label_rows": 4,
+  "approximate_affinity_labels": 1,
+  "affinity_normalization_warnings": 1,
+  "normalization_warning_messages": [
+    "IC50 was normalized as a concentration-derived affinity proxy; comparability to thermodynamic binding measures is approximate"
+  ],
+  "parsing_mode": "lightweight"
+}

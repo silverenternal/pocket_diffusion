@@ -1,0 +1,278 @@
+{
+  "research": {
+    "data": {
+      "root_dir": "./data/PDBbind_v2020_refined",
+      "dataset_format": "pdbbind_like_dir",
+      "manifest_path": null,
+      "label_table_path": null,
+      "parsing_mode": "lightweight",
+      "max_ligand_atoms": 64,
+      "max_pocket_atoms": 192,
+      "pocket_cutoff_angstrom": 4.5,
+      "max_examples": null,
+      "batch_size": 2,
+      "split_seed": 7,
+      "val_fraction": 0.2,
+      "test_fraction": 0.2,
+      "stratify_by_measurement": false,
+      "quality_filters": {
+        "min_label_coverage": null,
+        "max_fallback_fraction": null,
+        "max_ligand_atoms": null,
+        "max_pocket_atoms": null,
+        "require_source_structure_provenance": false
+      },
+      "generation_target": {
+        "atom_mask_ratio": 0.2,
+        "coordinate_noise_std": 0.12,
+        "corruption_seed": 2026,
+        "rollout_steps": 6,
+        "min_rollout_steps": 3,
+        "stop_probability_threshold": 0.88,
+        "coordinate_step_scale": 0.65,
+        "training_step_weight_decay": 0.92,
+        "rollout_mode": "momentum_refine",
+        "coordinate_momentum": 0.65,
+        "atom_momentum": 0.5,
+        "atom_commit_temperature": 0.85,
+        "max_coordinate_delta_norm": 1.0,
+        "stop_delta_threshold": 0.015,
+        "stop_patience": 3,
+        "sampling_seed": 2027,
+        "sampling_temperature": 0.0,
+        "sampling_top_k": 0,
+        "sampling_top_p": 1.0,
+        "coordinate_sampling_noise_std": 0.0,
+        "pocket_guidance_scale": 1.0
+      }
+    },
+    "model": {
+      "hidden_dim": 128,
+      "num_slots": 8,
+      "atom_vocab_size": 32,
+      "bond_vocab_size": 8,
+      "pocket_feature_dim": 24,
+      "pair_feature_dim": 8,
+      "interaction_mode": "transformer",
+      "interaction_ff_multiplier": 2,
+      "interaction_tuning": {
+        "gate_temperature": 1.2,
+        "gate_bias": -0.2,
+        "attention_residual_scale": 0.85,
+        "ffn_residual_scale": 0.2,
+        "transformer_pre_norm": true,
+        "geometry_attention_bias_scale": 1.0
+      }
+    },
+    "training": {
+      "learning_rate": 0.001,
+      "max_steps": 4,
+      "schedule": {
+        "stage1_steps": 1,
+        "stage2_steps": 2,
+        "stage3_steps": 4
+      },
+      "loss_weights": {
+        "alpha_primary": 1.0,
+        "beta_intra_red": 0.1,
+        "gamma_probe": 0.2,
+        "delta_leak": 0.08,
+        "eta_gate": 0.03,
+        "mu_slot": 0.08,
+        "nu_consistency": 0.1,
+        "rho_pocket_contact": 0.0,
+        "sigma_pocket_clash": 0.0
+      },
+      "checkpoint_dir": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/objective_surrogate",
+      "checkpoint_every": 100,
+      "log_every": 1,
+      "primary_objective": "surrogate_reconstruction",
+      "affinity_weighting": "inverse_frequency"
+    },
+    "runtime": {
+      "device": "cpu",
+      "data_workers": 0,
+      "tch_intra_op_threads": null,
+      "tch_inter_op_threads": null
+    },
+    "automated_search": {
+      "enabled": false,
+      "strategy": "grid",
+      "include_base_candidate": true,
+      "max_candidates": 16,
+      "random_seed": 20260423,
+      "surface_configs": [],
+      "artifact_root_dir": "./checkpoints/automated_search",
+      "hard_gates": {
+        "minimum_candidate_valid_fraction": 1.0,
+        "minimum_sanitized_fraction": 1.0,
+        "minimum_unique_smiles_fraction": 0.5,
+        "maximum_clash_fraction": 0.0,
+        "minimum_strict_pocket_fit_score": 0.4,
+        "minimum_pocket_contact_fraction": 1.0,
+        "minimum_pocket_compatibility_fraction": 1.0,
+        "maximum_raw_centroid_offset": null,
+        "maximum_raw_clash_fraction": null,
+        "maximum_raw_mean_displacement": null,
+        "maximum_raw_atom_change_fraction": null,
+        "minimum_raw_uniqueness_proxy_fraction": null
+      },
+      "score_weights": {
+        "chemistry": 2.0,
+        "uniqueness": 1.5,
+        "geometry": 2.0,
+        "pocket": 1.5,
+        "specialization": 0.75,
+        "utilization": 0.5,
+        "interaction_review": 1.0
+      },
+      "search_space": {
+        "gate_temperature": [],
+        "gate_bias": [],
+        "attention_residual_scale": [],
+        "ffn_residual_scale": [],
+        "rollout_steps": [],
+        "min_rollout_steps": [],
+        "stop_probability_threshold": [],
+        "coordinate_step_scale": [],
+        "training_step_weight_decay": [],
+        "coordinate_momentum": [],
+        "atom_momentum": [],
+        "atom_commit_temperature": [],
+        "max_coordinate_delta_norm": [],
+        "stop_delta_threshold": [],
+        "stop_patience": [],
+        "beta_intra_red": [],
+        "gamma_probe": [],
+        "delta_leak": [],
+        "eta_gate": [],
+        "mu_slot": []
+      }
+    }
+  },
+  "surface_label": "tight_geometry_pressure",
+  "ablation": {
+    "disable_slots": false,
+    "disable_cross_attention": false,
+    "disable_probes": false,
+    "disable_leakage": false,
+    "disable_geometry_interaction_bias": false,
+    "disable_rollout_pocket_guidance": false,
+    "disable_candidate_repair": false,
+    "primary_objective_override": "surrogate_reconstruction",
+    "interaction_mode_override": null,
+    "variant_label": "objective_surrogate"
+  },
+  "external_evaluation": {
+    "chemistry_backend": {
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/rdkit_validity_backend.py"
+      ]
+    },
+    "docking_backend": {
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/pocket_contact_backend.py",
+        "--mode",
+        "docking"
+      ]
+    },
+    "pocket_backend": {
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/pocket_contact_backend.py",
+        "--mode",
+        "compatibility"
+      ]
+    },
+    "persist_generation_artifacts": true,
+    "generation_artifact_example_limit": 8,
+    "generation_artifact_candidate_limit": 32
+  },
+  "ablation_matrix": {
+    "enabled": false,
+    "include_surrogate_objective": true,
+    "include_conditioned_denoising": true,
+    "include_disable_slots": true,
+    "include_disable_cross_attention": true,
+    "include_disable_probes": false,
+    "include_lightweight_interaction": true,
+    "include_transformer_interaction": true,
+    "include_disable_geometry_interaction_bias": true,
+    "include_disable_rollout_pocket_guidance": true,
+    "include_disable_candidate_repair": true
+  },
+  "automated_search": {
+    "enabled": false,
+    "strategy": "grid",
+    "include_base_candidate": true,
+    "max_candidates": 16,
+    "random_seed": 20260423,
+    "surface_configs": [],
+    "artifact_root_dir": "./checkpoints/automated_search",
+    "hard_gates": {
+      "minimum_candidate_valid_fraction": 1.0,
+      "minimum_sanitized_fraction": 1.0,
+      "minimum_unique_smiles_fraction": 0.5,
+      "maximum_clash_fraction": 0.0,
+      "minimum_strict_pocket_fit_score": 0.4,
+      "minimum_pocket_contact_fraction": 1.0,
+      "minimum_pocket_compatibility_fraction": 1.0,
+      "maximum_raw_centroid_offset": null,
+      "maximum_raw_clash_fraction": null,
+      "maximum_raw_mean_displacement": null,
+      "maximum_raw_atom_change_fraction": null,
+      "minimum_raw_uniqueness_proxy_fraction": null
+    },
+    "score_weights": {
+      "chemistry": 2.0,
+      "uniqueness": 1.5,
+      "geometry": 2.0,
+      "pocket": 1.5,
+      "specialization": 0.75,
+      "utilization": 0.5,
+      "interaction_review": 1.0
+    },
+    "search_space": {
+      "gate_temperature": [],
+      "gate_bias": [],
+      "attention_residual_scale": [],
+      "ffn_residual_scale": [],
+      "rollout_steps": [],
+      "min_rollout_steps": [],
+      "stop_probability_threshold": [],
+      "coordinate_step_scale": [],
+      "training_step_weight_decay": [],
+      "coordinate_momentum": [],
+      "atom_momentum": [],
+      "atom_commit_temperature": [],
+      "max_coordinate_delta_norm": [],
+      "stop_delta_threshold": [],
+      "stop_patience": [],
+      "beta_intra_red": [],
+      "gamma_probe": [],
+      "delta_leak": [],
+      "eta_gate": [],
+      "mu_slot": []
+    }
+  },
+  "multi_seed": {
+    "enabled": false,
+    "seeds": [
+      17,
+      42,
+      101
+    ],
+    "artifact_root_dir": "./checkpoints/multi_seed"
+  },
+  "performance_gates": {
+    "min_validation_examples_per_second": null,
+    "min_test_examples_per_second": null,
+    "max_validation_memory_mb": null,
+    "max_test_memory_mb": null
+  }
+}

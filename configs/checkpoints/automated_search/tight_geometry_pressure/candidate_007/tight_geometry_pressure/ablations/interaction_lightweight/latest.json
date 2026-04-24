@@ -1,0 +1,47 @@
+{
+  "step": 0,
+  "metrics": {
+    "step": 0,
+    "stage": "Stage1",
+    "losses": {
+      "primary": {
+        "objective_name": "conditioned_denoising",
+        "primary_value": 5.907058238983154,
+        "decoder_anchored": true
+      },
+      "auxiliaries": {
+        "intra_red": 2.272123098373413,
+        "probe": 8.402928352355957,
+        "leak": 0.0,
+        "gate": 0.4729957580566406,
+        "slot": 0.13579189777374268,
+        "consistency": 0.4843903183937073,
+        "pocket_contact": 0.0,
+        "pocket_clash": 0.012287486344575882
+      },
+      "total": 5.9554972648620605
+    }
+  },
+  "config_hash": "0d22bf70d55db71a",
+  "dataset_validation_fingerprint": "c42e04afc454980c",
+  "metric_schema_version": 5,
+  "resume_contract_version": "weights+history+step",
+  "optimizer_state": {
+    "optimizer_kind": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "internal_state_persisted": false
+  },
+  "scheduler_state": {
+    "stage": "Stage1",
+    "primary_weight": 1.0,
+    "intra_red_weight": 0.0,
+    "probe_weight": 0.0,
+    "leak_weight": 0.0,
+    "gate_weight": 0.0,
+    "slot_weight": 0.0,
+    "consistency_weight": 0.1,
+    "pocket_contact_weight": 0.0,
+    "pocket_clash_weight": 0.0
+  }
+}

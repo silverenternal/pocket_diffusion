@@ -1,5 +1,6 @@
 //! Legacy dataset and demo utilities kept for compatibility.
 //! The modular research stack uses `crate::data::*` instead.
+#![allow(deprecated)]
 
 use crate::representation::{Molecule2D3D, Molecule3D, MoleculeRepresentation, ProteinPocket};
 use log::info;
@@ -459,6 +460,8 @@ pub struct DatasetEntry<M: MoleculeRepresentation> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(deprecated)]
+
     use super::*;
     use tempfile::tempdir;
 

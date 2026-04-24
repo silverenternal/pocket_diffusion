@@ -2,7 +2,7 @@
 
 use tch::{nn, Kind, Tensor};
 
-use super::{Encoder, GeometryEncoder, ModalityEncoding};
+use super::{BatchedModalityEncoding, Encoder, GeometryEncoder, ModalityEncoding};
 use crate::data::GeometryFeatures;
 
 /// Minimal geometry encoder that projects coordinates and local distance statistics.
@@ -25,6 +25,38 @@ impl GeometryEncoderImpl {
         Self {
             coord_projection,
             output_projection,
+        }
+    }
+
+    /// Encode padded geometry tensors without iterating over examples.
+    pub(crate) fn encode_batch(
+        &self,
+        coords: &Tensor,
+        pairwise_distances: &Tensor,
+        mask: &Tensor,
+    ) -> BatchedModalityEncoding {
+        let coord_hidden = coords.apply(&self.coord_projection).relu();
+        let pair_mask = mask.unsqueeze(1) * mask.unsqueeze(2);
+        let denom = pair_mask
+            .sum_dim_intlist([2].as_slice(), true, Kind::Float)
+            .clamp_min(1.0);
+        let mean_distances =
+            (pairwise_distances * &pair_mask).sum_dim_intlist([2].as_slice(), true, Kind::Float)
+                / denom;
+        let token_embeddings = Tensor::cat(&[coord_hidden, mean_distances], -1)
+            .apply(&self.output_projection)
+            .relu()
+            * mask.unsqueeze(-1);
+        let pooled_denom = mask
+            .sum_dim_intlist([1].as_slice(), true, Kind::Float)
+            .clamp_min(1.0);
+        let pooled_embedding =
+            token_embeddings.sum_dim_intlist([1].as_slice(), false, Kind::Float) / pooled_denom;
+
+        BatchedModalityEncoding {
+            token_embeddings,
+            token_mask: mask.shallow_clone(),
+            pooled_embedding,
         }
     }
 }

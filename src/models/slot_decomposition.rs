@@ -2,7 +2,9 @@
 
 use tch::{nn, Kind, Tensor};
 
-use super::{ModalityEncoding, SlotDecomposer, SlotEncoding};
+use super::{
+    BatchedModalityEncoding, BatchedSlotEncoding, ModalityEncoding, SlotDecomposer, SlotEncoding,
+};
 
 /// Soft slot decomposition with sparse activations and shared slot upper bound.
 #[derive(Debug)]
@@ -41,6 +43,37 @@ impl SoftSlotDecomposer {
             reconstruction_projector,
             num_slots,
             hidden_dim,
+        }
+    }
+
+    /// Decompose padded modality tokens into fixed-count slots in one tensor pass.
+    pub(crate) fn decompose_batch(&self, input: &BatchedModalityEncoding) -> BatchedSlotEncoding {
+        let tokens = &input.token_embeddings;
+        let mask = input.token_mask.to_kind(Kind::Float);
+        let token_logits = tokens.apply(&self.slot_logits);
+        let token_assignments = token_logits.softmax(-1, Kind::Float) * mask.unsqueeze(-1);
+        let slot_mass = token_assignments
+            .sum_dim_intlist([1].as_slice(), false, Kind::Float)
+            .clamp_min(1e-6);
+        let normalized_assignments = token_assignments.shallow_clone() / slot_mass.unsqueeze(1);
+        let projected_tokens = tokens.apply(&self.slot_projector);
+        let slots = normalized_assignments
+            .transpose(1, 2)
+            .bmm(&projected_tokens);
+        let slot_weights = slot_mass.shallow_clone()
+            / slot_mass
+                .sum_dim_intlist([1].as_slice(), true, Kind::Float)
+                .clamp_min(1e-6);
+        let reconstructed_tokens = token_assignments
+            .bmm(&slots)
+            .apply(&self.reconstruction_projector)
+            * mask.unsqueeze(-1);
+
+        BatchedSlotEncoding {
+            slots,
+            slot_weights,
+            reconstructed_tokens,
+            token_mask: mask,
         }
     }
 }

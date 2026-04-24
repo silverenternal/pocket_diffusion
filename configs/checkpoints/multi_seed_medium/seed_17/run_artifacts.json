@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "run_kind": "experiment",
+  "artifact_dir": "configs/./checkpoints/multi_seed_medium/seed_17",
+  "config_hash": "7bd331799d1c3a5f",
+  "dataset_validation_fingerprint": "96769c310e2425e3",
+  "metric_schema_version": 4,
+  "paths": {
+    "config_snapshot": "configs/./checkpoints/multi_seed_medium/seed_17/config.snapshot.json",
+    "dataset_validation_report": "configs/./checkpoints/multi_seed_medium/seed_17/dataset_validation_report.json",
+    "split_report": "configs/./checkpoints/multi_seed_medium/seed_17/split_report.json",
+    "run_summary": "configs/./checkpoints/multi_seed_medium/seed_17/experiment_summary.json",
+    "run_bundle": "configs/./checkpoints/multi_seed_medium/seed_17/run_artifacts.json",
+    "latest_checkpoint": "configs/./checkpoints/multi_seed_medium/seed_17/latest.ot"
+  }
+}

@@ -1,0 +1,294 @@
+{
+  "surface_label": "tight_geometry_pressure",
+  "artifact_dir": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure",
+  "validation": {
+    "lightweight": {
+      "primary_objective": "conditioned_denoising",
+      "variant_label": "interaction_lightweight",
+      "interaction_mode": "lightweight",
+      "candidate_valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "pocket_compatibility_fraction": 1.0,
+      "mean_centroid_offset": 0.6955215082029566,
+      "strict_pocket_fit_score": 0.5361718531394114,
+      "unique_smiles_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "topology_specialization_score": 0.6181720495223999,
+      "geometry_specialization_score": 0.24074600597373022,
+      "pocket_specialization_score": 0.5827244273424214,
+      "slot_activation_mean": 0.7916666666666666,
+      "gate_activation_mean": 0.09804135467857122,
+      "leakage_proxy_mean": 0.11713513674347549
+    },
+    "transformer": {
+      "primary_objective": "conditioned_denoising",
+      "variant_label": "tight_geometry_pressure_base",
+      "interaction_mode": "transformer",
+      "candidate_valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "pocket_compatibility_fraction": 1.0,
+      "mean_centroid_offset": 0.7106270643399935,
+      "strict_pocket_fit_score": 0.5845809532926028,
+      "unique_smiles_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "topology_specialization_score": 0.6153793931007385,
+      "geometry_specialization_score": 0.328249785851419,
+      "pocket_specialization_score": 0.5958874164625192,
+      "slot_activation_mean": 0.9166666666666666,
+      "gate_activation_mean": 0.5190533275405566,
+      "leakage_proxy_mean": 0.08244011473521372
+    },
+    "tally": {
+      "lightweight_wins": 2,
+      "transformer_wins": 6,
+      "ties": 4
+    },
+    "geometric_fit": [
+      {
+        "metric": "candidate_valid_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      },
+      {
+        "metric": "pocket_contact_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      },
+      {
+        "metric": "pocket_compatibility_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      },
+      {
+        "metric": "mean_centroid_offset",
+        "direction": "lower_is_better",
+        "lightweight": 0.6955215082029566,
+        "transformer": 0.7106270643399935,
+        "winner": "lightweight",
+        "preferred_delta": 0.015105556137036902
+      },
+      {
+        "metric": "strict_pocket_fit_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.5361718531394114,
+        "transformer": 0.5845809532926028,
+        "winner": "transformer",
+        "preferred_delta": 0.04840910015319144
+      },
+      {
+        "metric": "unique_smiles_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      }
+    ],
+    "specialization": [
+      {
+        "metric": "topology_specialization_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.6181720495223999,
+        "transformer": 0.6153793931007385,
+        "winner": "lightweight",
+        "preferred_delta": 0.002792656421661377
+      },
+      {
+        "metric": "geometry_specialization_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.24074600597373022,
+        "transformer": 0.328249785851419,
+        "winner": "transformer",
+        "preferred_delta": 0.08750377987768879
+      },
+      {
+        "metric": "pocket_specialization_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.5827244273424214,
+        "transformer": 0.5958874164625192,
+        "winner": "transformer",
+        "preferred_delta": 0.013162989120097834
+      },
+      {
+        "metric": "leakage_proxy_mean",
+        "direction": "lower_is_better",
+        "lightweight": 0.11713513674347549,
+        "transformer": 0.08244011473521372,
+        "winner": "transformer",
+        "preferred_delta": 0.03469502200826177
+      }
+    ],
+    "utilization": [
+      {
+        "metric": "slot_activation_mean",
+        "direction": "higher_is_better",
+        "lightweight": 0.7916666666666666,
+        "transformer": 0.9166666666666666,
+        "winner": "transformer",
+        "preferred_delta": 0.125
+      },
+      {
+        "metric": "gate_activation_mean",
+        "direction": "higher_is_better",
+        "lightweight": 0.09804135467857122,
+        "transformer": 0.5190533275405566,
+        "winner": "transformer",
+        "preferred_delta": 0.42101197286198533
+      }
+    ]
+  },
+  "test": {
+    "lightweight": {
+      "primary_objective": "conditioned_denoising",
+      "variant_label": "interaction_lightweight",
+      "interaction_mode": "lightweight",
+      "candidate_valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "pocket_compatibility_fraction": 1.0,
+      "mean_centroid_offset": 0.7377413528229599,
+      "strict_pocket_fit_score": 0.5754596323414302,
+      "unique_smiles_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "topology_specialization_score": 0.6181720495223999,
+      "geometry_specialization_score": 0.24074600597373022,
+      "pocket_specialization_score": 0.5827244273424214,
+      "slot_activation_mean": 0.7916666666666666,
+      "gate_activation_mean": 0.09804135467857122,
+      "leakage_proxy_mean": 0.11713513674347549
+    },
+    "transformer": {
+      "primary_objective": "conditioned_denoising",
+      "variant_label": "tight_geometry_pressure_base",
+      "interaction_mode": "transformer",
+      "candidate_valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "pocket_compatibility_fraction": 1.0,
+      "mean_centroid_offset": 0.6437302583712601,
+      "strict_pocket_fit_score": 0.6083723256338179,
+      "unique_smiles_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "topology_specialization_score": 0.6153793931007385,
+      "geometry_specialization_score": 0.328249785851419,
+      "pocket_specialization_score": 0.5958874164625192,
+      "slot_activation_mean": 0.9166666666666666,
+      "gate_activation_mean": 0.5190533275405566,
+      "leakage_proxy_mean": 0.08244011473521372
+    },
+    "tally": {
+      "lightweight_wins": 1,
+      "transformer_wins": 7,
+      "ties": 4
+    },
+    "geometric_fit": [
+      {
+        "metric": "candidate_valid_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      },
+      {
+        "metric": "pocket_contact_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      },
+      {
+        "metric": "pocket_compatibility_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      },
+      {
+        "metric": "mean_centroid_offset",
+        "direction": "lower_is_better",
+        "lightweight": 0.7377413528229599,
+        "transformer": 0.6437302583712601,
+        "winner": "transformer",
+        "preferred_delta": 0.09401109445169986
+      },
+      {
+        "metric": "strict_pocket_fit_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.5754596323414302,
+        "transformer": 0.6083723256338179,
+        "winner": "transformer",
+        "preferred_delta": 0.032912693292387774
+      },
+      {
+        "metric": "unique_smiles_fraction",
+        "direction": "higher_is_better",
+        "lightweight": 1.0,
+        "transformer": 1.0,
+        "winner": "tie",
+        "preferred_delta": 0.0
+      }
+    ],
+    "specialization": [
+      {
+        "metric": "topology_specialization_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.6181720495223999,
+        "transformer": 0.6153793931007385,
+        "winner": "lightweight",
+        "preferred_delta": 0.002792656421661377
+      },
+      {
+        "metric": "geometry_specialization_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.24074600597373022,
+        "transformer": 0.328249785851419,
+        "winner": "transformer",
+        "preferred_delta": 0.08750377987768879
+      },
+      {
+        "metric": "pocket_specialization_score",
+        "direction": "higher_is_better",
+        "lightweight": 0.5827244273424214,
+        "transformer": 0.5958874164625192,
+        "winner": "transformer",
+        "preferred_delta": 0.013162989120097834
+      },
+      {
+        "metric": "leakage_proxy_mean",
+        "direction": "lower_is_better",
+        "lightweight": 0.11713513674347549,
+        "transformer": 0.08244011473521372,
+        "winner": "transformer",
+        "preferred_delta": 0.03469502200826177
+      }
+    ],
+    "utilization": [
+      {
+        "metric": "slot_activation_mean",
+        "direction": "higher_is_better",
+        "lightweight": 0.7916666666666666,
+        "transformer": 0.9166666666666666,
+        "winner": "transformer",
+        "preferred_delta": 0.125
+      },
+      {
+        "metric": "gate_activation_mean",
+        "direction": "higher_is_better",
+        "lightweight": 0.09804135467857122,
+        "transformer": 0.5190533275405566,
+        "winner": "transformer",
+        "preferred_delta": 0.42101197286198533
+      }
+    ]
+  }
+}

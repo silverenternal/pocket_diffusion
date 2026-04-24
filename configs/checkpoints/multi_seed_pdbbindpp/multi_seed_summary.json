@@ -1,0 +1,180 @@
+{
+  "artifact_root": "configs/./checkpoints/multi_seed_pdbbindpp",
+  "source_config": "configs/unseen_pocket_multi_seed_pdbbindpp.json",
+  "seed_runs": [
+    {
+      "seed": 17,
+      "artifact_dir": "configs/./checkpoints/multi_seed_pdbbindpp/seed_17",
+      "config_hash": "ceee767d36ef3f8c",
+      "candidate_valid_fraction": 1.0,
+      "strict_pocket_fit_score": 0.41591175800304786,
+      "unique_smiles_fraction": 0.0,
+      "rdkit_unique_smiles_fraction": 0.0,
+      "slot_activation_mean": 0.5692640692640687,
+      "gate_activation_mean": 0.1372802504146819,
+      "leakage_proxy_mean": 0.0563400571485707,
+      "topology_signature_similarity": 0.9505390143011649,
+      "geometry_signature_similarity": 0.9435307598359377,
+      "pocket_signature_similarity": 0.9299724902350467,
+      "examples_per_second": 149.8736974450192,
+      "test_examples_per_second": 149.8736974450192
+    },
+    {
+      "seed": 42,
+      "artifact_dir": "configs/./checkpoints/multi_seed_pdbbindpp/seed_42",
+      "config_hash": "6df82c42a475535d",
+      "candidate_valid_fraction": 1.0,
+      "strict_pocket_fit_score": 0.5162562705908379,
+      "unique_smiles_fraction": 0.0,
+      "rdkit_unique_smiles_fraction": 0.0,
+      "slot_activation_mean": 0.47673160173160184,
+      "gate_activation_mean": 0.10915605465778719,
+      "leakage_proxy_mean": 0.07792881688948357,
+      "topology_signature_similarity": 0.964421990929877,
+      "geometry_signature_similarity": 0.9614821681235908,
+      "pocket_signature_similarity": 0.9472183131751295,
+      "examples_per_second": 135.3956496241859,
+      "test_examples_per_second": 135.3956496241859
+    },
+    {
+      "seed": 101,
+      "artifact_dir": "configs/./checkpoints/multi_seed_pdbbindpp/seed_101",
+      "config_hash": "4e2ade74d368db90",
+      "candidate_valid_fraction": 1.0,
+      "strict_pocket_fit_score": 0.33714854032276476,
+      "unique_smiles_fraction": 0.0,
+      "rdkit_unique_smiles_fraction": 0.0,
+      "slot_activation_mean": 0.5627705627705627,
+      "gate_activation_mean": 0.09273454982030667,
+      "leakage_proxy_mean": 0.044718914491842114,
+      "topology_signature_similarity": 0.9709130514558283,
+      "geometry_signature_similarity": 0.9532017523197217,
+      "pocket_signature_similarity": 0.931459730331404,
+      "examples_per_second": 145.9855583919075,
+      "test_examples_per_second": 145.9855583919075
+    }
+  ],
+  "aggregates": {
+    "candidate_valid_fraction": {
+      "count": 3,
+      "mean": 1.0,
+      "std": 0.0,
+      "standard_error": 0.0,
+      "confidence95_low": 1.0,
+      "confidence95_high": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "strict_pocket_fit_score": {
+      "count": 3,
+      "mean": 0.4231055229722169,
+      "std": 0.07329714615303447,
+      "standard_error": 0.05182890908643213,
+      "confidence95_low": 0.20008572717329942,
+      "confidence95_high": 0.6461253187711343,
+      "min": 0.33714854032276476,
+      "max": 0.5162562705908379
+    },
+    "unique_smiles_fraction": {
+      "count": 3,
+      "mean": 0.0,
+      "std": 0.0,
+      "standard_error": 0.0,
+      "confidence95_low": 0.0,
+      "confidence95_high": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "rdkit_unique_smiles_fraction": {
+      "count": 3,
+      "mean": 0.0,
+      "std": 0.0,
+      "standard_error": 0.0,
+      "confidence95_low": 0.0,
+      "confidence95_high": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "slot_activation_mean": {
+      "count": 3,
+      "mean": 0.5362554112554111,
+      "std": 0.04217309040778921,
+      "standard_error": 0.02982087821094109,
+      "confidence95_low": 0.4079361723137316,
+      "confidence95_high": 0.6645746501970906,
+      "min": 0.47673160173160184,
+      "max": 0.5692640692640687
+    },
+    "gate_activation_mean": {
+      "count": 3,
+      "mean": 0.11305695163092526,
+      "std": 0.018393705594708362,
+      "standard_error": 0.01300631395716722,
+      "confidence95_low": 0.05709078267323471,
+      "confidence95_high": 0.1690231205886158,
+      "min": 0.09273454982030667,
+      "max": 0.1372802504146819
+    },
+    "leakage_proxy_mean": {
+      "count": 3,
+      "mean": 0.05966259617663213,
+      "std": 0.01375993831163404,
+      "standard_error": 0.009729745688865005,
+      "confidence95_low": 0.01779550047744602,
+      "confidence95_high": 0.10152969187581824,
+      "min": 0.044718914491842114,
+      "max": 0.07792881688948357
+    },
+    "topology_signature_similarity": {
+      "count": 3,
+      "mean": 0.9619580188956234,
+      "std": 0.008498184752604072,
+      "standard_error": 0.006009124066342463,
+      "confidence95_low": 0.9361007580381517,
+      "confidence95_high": 0.987815279753095,
+      "min": 0.9505390143011649,
+      "max": 0.9709130514558283
+    },
+    "geometry_signature_similarity": {
+      "count": 3,
+      "mean": 0.9527382267597501,
+      "std": 0.007335957417000415,
+      "standard_error": 0.005187305236056743,
+      "confidence95_low": 0.9304172523289979,
+      "confidence95_high": 0.9750592011905023,
+      "min": 0.9435307598359377,
+      "max": 0.9614821681235908
+    },
+    "pocket_signature_similarity": {
+      "count": 3,
+      "mean": 0.9362168445805268,
+      "std": 0.007802871446015959,
+      "standard_error": 0.005517463312204767,
+      "confidence95_low": 0.9124751999481097,
+      "confidence95_high": 0.9599584892129439,
+      "min": 0.9299724902350467,
+      "max": 0.9472183131751295
+    },
+    "examples_per_second": {
+      "count": 3,
+      "mean": 143.7516351537042,
+      "std": 6.118075784167354,
+      "standard_error": 4.326132874797941,
+      "confidence95_low": 125.13628539344866,
+      "confidence95_high": 162.36698491395975,
+      "min": 135.3956496241859,
+      "max": 149.8736974450192
+    },
+    "test_examples_per_second": {
+      "count": 3,
+      "mean": 143.7516351537042,
+      "std": 6.118075784167354,
+      "standard_error": 4.326132874797941,
+      "confidence95_low": 125.13628539344866,
+      "confidence95_high": 162.36698491395975,
+      "min": 135.3956496241859,
+      "max": 149.8736974450192
+    }
+  },
+  "stability_decision": "stable enough for compact claim review; confirm on larger held-out pocket families"
+}

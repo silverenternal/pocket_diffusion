@@ -1,0 +1,47 @@
+{
+  "step": 0,
+  "metrics": {
+    "step": 0,
+    "stage": "Stage1",
+    "losses": {
+      "primary": {
+        "objective_name": "surrogate_reconstruction",
+        "primary_value": 8.29633903503418,
+        "decoder_anchored": false
+      },
+      "auxiliaries": {
+        "intra_red": 1.3183499574661255,
+        "probe": 6.887874603271484,
+        "leak": 0.0,
+        "gate": 0.6053540110588074,
+        "slot": 0.12972258031368256,
+        "consistency": 0.32057100534439087,
+        "pocket_contact": 1.2109510898590088,
+        "pocket_clash": 0.0
+      },
+      "total": 8.32839584350586
+    }
+  },
+  "config_hash": "3fccde46b66e7fda",
+  "dataset_validation_fingerprint": "c42e04afc454980c",
+  "metric_schema_version": 5,
+  "resume_contract_version": "weights+history+step",
+  "optimizer_state": {
+    "optimizer_kind": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "internal_state_persisted": false
+  },
+  "scheduler_state": {
+    "stage": "Stage1",
+    "primary_weight": 1.0,
+    "intra_red_weight": 0.0,
+    "probe_weight": 0.0,
+    "leak_weight": 0.0,
+    "gate_weight": 0.0,
+    "slot_weight": 0.0,
+    "consistency_weight": 0.1,
+    "pocket_contact_weight": 0.0,
+    "pocket_clash_weight": 0.0
+  }
+}

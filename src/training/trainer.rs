@@ -8,8 +8,8 @@ use crate::{
     config::{AffinityWeighting, ResearchConfig},
     data::{ExampleBatchIter, MolecularExample},
     losses::{
-        build_primary_objective, ConsistencyLoss, GateLoss, IntraRedundancyLoss, LeakageLoss,
-        ProbeLoss,
+        build_primary_objective, compute_primary_objective_batch, ConsistencyLoss, GateLoss,
+        IntraRedundancyLoss, LeakageLoss, PocketGeometryAuxLoss, ProbeLoss,
     },
     models::{Phase1ResearchSystem, ResearchForward, TaskDrivenObjective},
     training::{stable_json_hash, METRIC_SCHEMA_VERSION, RESUME_CONTRACT_VERSION},
@@ -17,7 +17,8 @@ use crate::{
 
 use super::{
     AuxiliaryLossMetrics, CheckpointManager, LoadedCheckpoint, LossBreakdown,
-    PrimaryObjectiveMetrics, StageScheduler, StepMetrics, TrainingStage,
+    OptimizerStateMetadata, PrimaryObjectiveMetrics, SchedulerStateMetadata, StageScheduler,
+    StepMetrics, TrainingStage,
 };
 
 /// Trainer that applies staged auxiliary losses to the new modular system.
@@ -31,12 +32,15 @@ pub struct ResearchTrainer {
     leakage_loss: LeakageLoss,
     gate_loss: GateLoss,
     consistency_loss: ConsistencyLoss,
+    pocket_geometry_loss: PocketGeometryAuxLoss,
     config: ResearchConfig,
     dataset_validation_fingerprint: Option<String>,
     affinity_measurement_weights: BTreeMap<String, f64>,
     step: usize,
     history: Vec<StepMetrics>,
     last_stage: Option<TrainingStage>,
+    restored_optimizer_state: Option<OptimizerStateMetadata>,
+    restored_scheduler_state: Option<SchedulerStateMetadata>,
 }
 
 impl ResearchTrainer {
@@ -62,12 +66,15 @@ impl ResearchTrainer {
             leakage_loss: LeakageLoss::default(),
             gate_loss: GateLoss,
             consistency_loss: ConsistencyLoss::default(),
+            pocket_geometry_loss: PocketGeometryAuxLoss::default(),
             config,
             dataset_validation_fingerprint: None,
             affinity_measurement_weights: BTreeMap::new(),
             step: 0,
             history: Vec::new(),
             last_stage: None,
+            restored_optimizer_state: None,
+            restored_scheduler_state: None,
         })
     }
 
@@ -80,6 +87,13 @@ impl ResearchTrainer {
         if let Some(loaded) = &checkpoint {
             if let Some(metrics) = loaded.metadata.metrics.clone() {
                 self.history.push(metrics);
+            }
+            self.restored_optimizer_state = loaded.metadata.optimizer_state.clone();
+            self.restored_scheduler_state = loaded.metadata.scheduler_state.clone();
+            if let Some(optimizer_state) = &self.restored_optimizer_state {
+                self.optimizer.set_lr(optimizer_state.learning_rate);
+                self.optimizer
+                    .set_weight_decay(optimizer_state.weight_decay);
             }
             self.step = loaded.metadata.step.saturating_add(1);
             self.last_stage = Some(self.scheduler.stage_for_step(loaded.metadata.step));
@@ -102,7 +116,7 @@ impl ResearchTrainer {
         let stage = self.scheduler.stage_for_step(self.step);
         if self.last_stage != Some(stage) {
             log::info!(
-                "entering {:?} at step {} with weights primary={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+                "entering {:?} at step {} with weights primary={:.4} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4}",
                 stage,
                 self.step,
                 weights.primary,
@@ -112,42 +126,28 @@ impl ResearchTrainer {
                 weights.gate,
                 weights.slot,
                 weights.consistency,
+                weights.pocket_contact,
+                weights.pocket_clash,
             );
             self.last_stage = Some(stage);
         }
 
-        let mut primary_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
-        let mut intra_red_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
-        let mut probe_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
-        let mut leak_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
-        let mut gate_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
-        let mut slot_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
-        let mut consistency_acc = Tensor::zeros([1], (Kind::Float, var_store.device()));
         self.affinity_measurement_weights =
             measurement_weights(examples, self.config.training.affinity_weighting);
-
-        for (example, forward) in examples.iter().zip(forwards.iter()) {
-            primary_acc += self.primary_objective.compute(example, forward);
-            intra_red_acc += self.redundancy_loss.compute(&forward.slots);
-            probe_acc += self.probe_loss.compute_weighted(
-                example,
-                forward,
-                self.affinity_weight_for(example),
-            );
-            leak_acc += self.leakage_loss.compute(example, forward);
-            gate_acc += self.gate_loss.compute(&forward.interactions);
-            slot_acc += slot_loss_from_forward(forward);
-            consistency_acc += self.consistency_loss.compute(example, forward);
-        }
-
-        let denom = (examples.len().max(1)) as f64;
-        let primary = primary_acc / denom;
-        let intra_red = intra_red_acc / denom;
-        let probe = probe_acc / denom;
-        let leak = leak_acc / denom;
-        let gate = gate_acc / denom;
-        let slot = slot_acc / denom;
-        let consistency = consistency_acc / denom;
+        let primary =
+            compute_primary_objective_batch(self.primary_objective.as_ref(), examples, &forwards);
+        let intra_red = self.redundancy_loss.compute_batch(&forwards);
+        let probe = self
+            .probe_loss
+            .compute_batch_weighted(examples, &forwards, |example| {
+                self.affinity_weight_for(example)
+            });
+        let leak = self.leakage_loss.compute_batch(examples, &forwards);
+        let gate = self.gate_loss.compute_batch(&forwards);
+        let slot = slot_loss_from_batch(&forwards, var_store.device());
+        let consistency = self.consistency_loss.compute_batch(examples, &forwards);
+        let (pocket_contact, pocket_clash) =
+            self.pocket_geometry_loss.compute_batch(examples, &forwards);
 
         let total = &primary * weights.primary
             + &intra_red * weights.intra_red
@@ -155,11 +155,31 @@ impl ResearchTrainer {
             + &leak * weights.leak
             + &gate * weights.gate
             + &slot * weights.slot
-            + &consistency * weights.consistency;
+            + &consistency * weights.consistency
+            + &pocket_contact * weights.pocket_contact
+            + &pocket_clash * weights.pocket_clash;
+
+        let primary_value = scalar_or_nan(&primary);
+        let intra_red_value = scalar_or_nan(&intra_red);
+        let probe_value = scalar_or_nan(&probe);
+        let leak_value = scalar_or_nan(&leak);
+        let gate_value = scalar_or_nan(&gate);
+        let slot_value = scalar_or_nan(&slot);
+        let consistency_value = scalar_or_nan(&consistency);
+        let pocket_contact_value = scalar_or_nan(&pocket_contact);
+        let pocket_clash_value = scalar_or_nan(&pocket_clash);
+        let total_value = scalar_or_nan(&total);
 
         self.optimizer.zero_grad();
-        total.backward();
-        self.optimizer.step();
+        if tensor_is_finite(&total) {
+            total.backward();
+            self.optimizer.step();
+        } else {
+            log::warn!(
+                "skipping optimizer step {} because total loss became non-finite",
+                self.step
+            );
+        }
 
         let metrics = StepMetrics {
             step: self.step,
@@ -167,18 +187,20 @@ impl ResearchTrainer {
             losses: LossBreakdown {
                 primary: PrimaryObjectiveMetrics {
                     objective_name: self.primary_objective.name().to_string(),
-                    primary_value: primary.double_value(&[]),
+                    primary_value,
                     decoder_anchored: self.primary_objective.name() != "surrogate_reconstruction",
                 },
                 auxiliaries: AuxiliaryLossMetrics {
-                    intra_red: intra_red.double_value(&[]),
-                    probe: probe.double_value(&[]),
-                    leak: leak.double_value(&[]),
-                    gate: gate.double_value(&[]),
-                    slot: slot.double_value(&[]),
-                    consistency: consistency.double_value(&[]),
+                    intra_red: intra_red_value,
+                    probe: probe_value,
+                    leak: leak_value,
+                    gate: gate_value,
+                    slot: slot_value,
+                    consistency: consistency_value,
+                    pocket_contact: pocket_contact_value,
+                    pocket_clash: pocket_clash_value,
                 },
-                total: total.double_value(&[]),
+                total: total_value,
             },
         };
 
@@ -193,11 +215,13 @@ impl ResearchTrainer {
                 self.dataset_validation_fingerprint.clone(),
                 METRIC_SCHEMA_VERSION,
                 RESUME_CONTRACT_VERSION,
+                Some(self.optimizer_state_metadata()),
+                Some(self.scheduler_state_metadata(self.step)),
             )?;
         }
         if self.config.training.log_every > 0 && self.step % self.config.training.log_every == 0 {
             log::info!(
-                "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4}",
+                "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4}",
                 metrics.step,
                 metrics.stage,
                 metrics.losses.total,
@@ -210,6 +234,8 @@ impl ResearchTrainer {
                 metrics.losses.auxiliaries.gate,
                 metrics.losses.auxiliaries.slot,
                 metrics.losses.auxiliaries.consistency,
+                metrics.losses.auxiliaries.pocket_contact,
+                metrics.losses.auxiliaries.pocket_clash,
             );
         }
         self.history.push(metrics.clone());
@@ -281,6 +307,16 @@ impl ResearchTrainer {
         &self.checkpoints
     }
 
+    /// Optimizer resume metadata restored from the latest checkpoint, when present.
+    pub fn restored_optimizer_state(&self) -> Option<&OptimizerStateMetadata> {
+        self.restored_optimizer_state.as_ref()
+    }
+
+    /// Scheduler resume metadata restored from the latest checkpoint, when present.
+    pub fn restored_scheduler_state(&self) -> Option<&SchedulerStateMetadata> {
+        self.restored_scheduler_state.as_ref()
+    }
+
     /// Attach the dataset validation fingerprint used by the current run.
     pub fn set_dataset_validation_fingerprint(&mut self, fingerprint: String) {
         self.dataset_validation_fingerprint = Some(fingerprint);
@@ -296,6 +332,32 @@ impl ResearchTrainer {
             .get(measurement)
             .copied()
             .unwrap_or(1.0)
+    }
+
+    fn optimizer_state_metadata(&self) -> OptimizerStateMetadata {
+        OptimizerStateMetadata {
+            optimizer_kind: "adam".to_string(),
+            learning_rate: self.config.training.learning_rate,
+            weight_decay: 0.0,
+            internal_state_persisted: false,
+        }
+    }
+
+    fn scheduler_state_metadata(&self, step: usize) -> SchedulerStateMetadata {
+        let stage = self.scheduler.stage_for_step(step);
+        let weights = self.scheduler.weights_for_step(step);
+        SchedulerStateMetadata {
+            stage: format!("{stage:?}"),
+            primary_weight: weights.primary,
+            intra_red_weight: weights.intra_red,
+            probe_weight: weights.probe,
+            leak_weight: weights.leak,
+            gate_weight: weights.gate,
+            slot_weight: weights.slot,
+            consistency_weight: weights.consistency,
+            pocket_contact_weight: weights.pocket_contact,
+            pocket_clash_weight: weights.pocket_clash,
+        }
     }
 }
 
@@ -338,6 +400,17 @@ fn slot_loss_from_forward(forward: &ResearchForward) -> Tensor {
     (topo + geo + pocket) / 3.0
 }
 
+fn slot_loss_from_batch(forwards: &[ResearchForward], device: tch::Device) -> Tensor {
+    if forwards.is_empty() {
+        return Tensor::zeros([1], (Kind::Float, device));
+    }
+    let mut total = Tensor::zeros([1], (Kind::Float, device));
+    for forward in forwards {
+        total += slot_loss_from_forward(forward);
+    }
+    total / forwards.len() as f64
+}
+
 fn slot_penalty(weights: &Tensor) -> Tensor {
     if weights.numel() == 0 {
         return Tensor::zeros([1], (Kind::Float, weights.device()));
@@ -350,6 +423,23 @@ fn slot_penalty(weights: &Tensor) -> Tensor {
     );
     let balance = (weights - uniform).pow_tensor_scalar(2.0).mean(Kind::Float);
     sparsity + balance
+}
+
+fn tensor_is_finite(tensor: &Tensor) -> bool {
+    tensor
+        .isfinite()
+        .all()
+        .to_kind(Kind::Int64)
+        .int64_value(&[])
+        != 0
+}
+
+fn scalar_or_nan(tensor: &Tensor) -> f64 {
+    if tensor_is_finite(tensor) {
+        tensor.double_value(&[])
+    } else {
+        f64::NAN
+    }
 }
 
 #[cfg(test)]
@@ -411,5 +501,160 @@ mod tests {
 
         assert_eq!(checkpoint.metadata.step, 1);
         assert_eq!(resumed_trainer.step(), 2);
+        assert_eq!(
+            resumed_trainer
+                .restored_optimizer_state()
+                .map(|state| state.optimizer_kind.as_str()),
+            Some("adam")
+        );
+        assert_eq!(
+            resumed_trainer
+                .restored_scheduler_state()
+                .map(|state| state.stage.as_str()),
+            Some("Stage1")
+        );
+    }
+
+    #[test]
+    fn conditioned_denoising_training_remains_finite_on_synthetic_examples() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 3;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.primary_objective =
+            crate::config::PrimaryObjectiveConfig::ConditionedDenoising;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();
+
+        let metrics = trainer
+            .fit(&var_store, &system, dataset.examples())
+            .unwrap();
+
+        assert!(!metrics.is_empty());
+        assert!(metrics.iter().all(|step| step.losses.total.is_finite()));
+        assert!(metrics
+            .iter()
+            .all(|step| step.losses.primary.primary_value.is_finite()));
+    }
+
+    #[test]
+    fn pocket_geometry_auxiliary_losses_are_reported_when_enabled() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 2;
+        config.training.schedule.stage1_steps = 0;
+        config.training.schedule.stage2_steps = 1;
+        config.training.schedule.stage3_steps = 2;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.loss_weights.rho_pocket_contact = 0.2;
+        config.training.loss_weights.sigma_pocket_clash = 0.3;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();
+
+        let metrics = trainer
+            .fit(&var_store, &system, dataset.examples())
+            .unwrap();
+
+        assert!(metrics
+            .iter()
+            .all(|step| step.losses.auxiliaries.pocket_contact.is_finite()));
+        assert!(metrics
+            .iter()
+            .all(|step| step.losses.auxiliaries.pocket_clash.is_finite()));
+        assert!(metrics
+            .iter()
+            .any(|step| step.losses.auxiliaries.pocket_contact >= 0.0));
+    }
+
+    #[test]
+    fn batched_loss_api_matches_per_example_aggregation() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 3;
+        config.training.primary_objective =
+            crate::config::PrimaryObjectiveConfig::ConditionedDenoising;
+        config.training.affinity_weighting = AffinityWeighting::InverseFrequency;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let examples = &dataset.examples()[..3];
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let (_, forwards) = system.forward_batch(examples);
+        let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();
+        trainer.affinity_measurement_weights =
+            measurement_weights(examples, trainer.config.training.affinity_weighting);
+
+        let primary_batch = compute_primary_objective_batch(
+            trainer.primary_objective.as_ref(),
+            examples,
+            &forwards,
+        );
+        let probe_batch =
+            trainer
+                .probe_loss
+                .compute_batch_weighted(examples, &forwards, |example| {
+                    trainer.affinity_weight_for(example)
+                });
+        let redundancy_batch = trainer.redundancy_loss.compute_batch(&forwards);
+        let leakage_batch = trainer.leakage_loss.compute_batch(examples, &forwards);
+        let gate_batch = trainer.gate_loss.compute_batch(&forwards);
+        let consistency_batch = trainer.consistency_loss.compute_batch(examples, &forwards);
+        let (contact_batch, clash_batch) = trainer
+            .pocket_geometry_loss
+            .compute_batch(examples, &forwards);
+
+        let denom = examples.len() as f64;
+        let mut primary_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut probe_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut redundancy_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut leakage_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut gate_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut consistency_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut contact_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut clash_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        for (example, forward) in examples.iter().zip(forwards.iter()) {
+            primary_manual += trainer.primary_objective.compute(example, forward);
+            probe_manual += trainer.probe_loss.compute_weighted(
+                example,
+                forward,
+                trainer.affinity_weight_for(example),
+            );
+            redundancy_manual += trainer.redundancy_loss.compute(&forward.slots);
+            leakage_manual += trainer.leakage_loss.compute(example, forward);
+            gate_manual += trainer.gate_loss.compute(&forward.interactions);
+            consistency_manual += trainer.consistency_loss.compute(example, forward);
+            let (contact, clash) = trainer.pocket_geometry_loss.compute(example, forward);
+            contact_manual += contact;
+            clash_manual += clash;
+        }
+
+        assert_close(&primary_batch, &(primary_manual / denom));
+        assert_close(&probe_batch, &(probe_manual / denom));
+        assert_close(&redundancy_batch, &(redundancy_manual / denom));
+        assert_close(&leakage_batch, &(leakage_manual / denom));
+        assert_close(&gate_batch, &(gate_manual / denom));
+        assert_close(&consistency_batch, &(consistency_manual / denom));
+        assert_close(&contact_batch, &(contact_manual / denom));
+        assert_close(&clash_batch, &(clash_manual / denom));
+    }
+
+    fn assert_close(left: &Tensor, right: &Tensor) {
+        let delta = (left - right).abs().double_value(&[]);
+        assert!(
+            delta <= 1e-5,
+            "loss mismatch: left={} right={} delta={delta}",
+            left.double_value(&[]),
+            right.double_value(&[])
+        );
     }
 }

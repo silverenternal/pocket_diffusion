@@ -24,6 +24,54 @@ pub struct CheckpointMetadata {
     pub metric_schema_version: u32,
     /// Human-readable resume contract identifier.
     pub resume_contract_version: String,
+    /// Optional optimizer-state metadata snapshot.
+    #[serde(default)]
+    pub optimizer_state: Option<OptimizerStateMetadata>,
+    /// Optional scheduler-state snapshot.
+    #[serde(default)]
+    pub scheduler_state: Option<SchedulerStateMetadata>,
+}
+
+/// Serializable optimizer resume metadata.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OptimizerStateMetadata {
+    /// Optimizer family used for the checkpoint.
+    pub optimizer_kind: String,
+    /// Learning rate active when the checkpoint was saved.
+    pub learning_rate: f64,
+    /// Weight decay active when the checkpoint was saved.
+    pub weight_decay: f64,
+    /// Whether the underlying optimizer moments were persisted.
+    ///
+    /// The current `tch` integration does not serialize Adam moment buffers,
+    /// so claim-bearing runs should leave this `false` and treat resume as a
+    /// bounded continuation rather than a strict replay.
+    pub internal_state_persisted: bool,
+}
+
+/// Serializable scheduler snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SchedulerStateMetadata {
+    /// Training stage associated with the saved step.
+    pub stage: String,
+    /// Primary-objective weight at save time.
+    pub primary_weight: f64,
+    /// Intra-modality redundancy weight at save time.
+    pub intra_red_weight: f64,
+    /// Probe weight at save time.
+    pub probe_weight: f64,
+    /// Leakage weight at save time.
+    pub leak_weight: f64,
+    /// Gate weight at save time.
+    pub gate_weight: f64,
+    /// Slot weight at save time.
+    pub slot_weight: f64,
+    /// Consistency weight at save time.
+    pub consistency_weight: f64,
+    /// Pocket-contact auxiliary weight at save time.
+    pub pocket_contact_weight: f64,
+    /// Pocket-clash auxiliary weight at save time.
+    pub pocket_clash_weight: f64,
 }
 
 /// Result of restoring a checkpoint into a var store.
@@ -59,6 +107,8 @@ impl CheckpointManager {
         dataset_validation_fingerprint: Option<String>,
         metric_schema_version: u32,
         resume_contract_version: &str,
+        optimizer_state: Option<OptimizerStateMetadata>,
+        scheduler_state: Option<SchedulerStateMetadata>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         fs::create_dir_all(&self.dir)?;
         let weights_path = self.dir.join(format!("step-{step}.ot"));
@@ -73,6 +123,8 @@ impl CheckpointManager {
             dataset_validation_fingerprint,
             metric_schema_version,
             resume_contract_version: resume_contract_version.to_string(),
+            optimizer_state,
+            scheduler_state,
         };
         let metadata_json = serde_json::to_string_pretty(&metadata)?;
         fs::write(&metadata_path, &metadata_json)?;
@@ -176,6 +228,24 @@ mod tests {
                 Some("dataset-hash".to_string()),
                 2,
                 "weights+history+step",
+                Some(OptimizerStateMetadata {
+                    optimizer_kind: "adam".to_string(),
+                    learning_rate: 1e-3,
+                    weight_decay: 0.0,
+                    internal_state_persisted: false,
+                }),
+                Some(SchedulerStateMetadata {
+                    stage: "stage1".to_string(),
+                    primary_weight: 1.0,
+                    intra_red_weight: 0.0,
+                    probe_weight: 0.0,
+                    leak_weight: 0.0,
+                    gate_weight: 0.0,
+                    slot_weight: 0.0,
+                    consistency_weight: 1.0,
+                    pocket_contact_weight: 0.0,
+                    pocket_clash_weight: 0.0,
+                }),
             )
             .unwrap();
 
@@ -197,6 +267,30 @@ mod tests {
             loaded.metadata.resume_contract_version,
             "weights+history+step"
         );
+        assert_eq!(
+            loaded.metadata.optimizer_state,
+            Some(OptimizerStateMetadata {
+                optimizer_kind: "adam".to_string(),
+                learning_rate: 1e-3,
+                weight_decay: 0.0,
+                internal_state_persisted: false,
+            })
+        );
+        assert_eq!(
+            loaded.metadata.scheduler_state,
+            Some(SchedulerStateMetadata {
+                stage: "stage1".to_string(),
+                primary_weight: 1.0,
+                intra_red_weight: 0.0,
+                probe_weight: 0.0,
+                leak_weight: 0.0,
+                gate_weight: 0.0,
+                slot_weight: 0.0,
+                consistency_weight: 1.0,
+                pocket_contact_weight: 0.0,
+                pocket_clash_weight: 0.0,
+            })
+        );
         assert_eq!(restored_tensor.double_value(&[0]), 2.5);
         assert_eq!(
             loaded
@@ -207,5 +301,33 @@ mod tests {
         );
         assert!(manager.dir().join("latest.ot").exists());
         assert!(manager.dir().join("latest.json").exists());
+    }
+
+    #[test]
+    fn older_checkpoint_metadata_without_resume_state_still_loads() {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = CheckpointManager::new(temp.path().join("checkpoints"));
+        fs::create_dir_all(manager.dir()).unwrap();
+        fs::write(manager.dir().join("latest.ot"), b"placeholder").unwrap();
+        fs::write(
+            manager.dir().join("latest.json"),
+            r#"{
+  "step": 7,
+  "metrics": null,
+  "config_hash": "cfg-hash",
+  "dataset_validation_fingerprint": "dataset-hash",
+  "metric_schema_version": 2,
+  "resume_contract_version": "weights+history+step"
+}"#,
+        )
+        .unwrap();
+
+        let metadata: CheckpointMetadata =
+            serde_json::from_str(&fs::read_to_string(manager.dir().join("latest.json")).unwrap())
+                .unwrap();
+
+        assert_eq!(metadata.step, 7);
+        assert!(metadata.optimizer_state.is_none());
+        assert!(metadata.scheduler_state.is_none());
     }
 }

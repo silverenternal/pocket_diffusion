@@ -1,0 +1,29 @@
+{
+  "step": 0,
+  "metrics": {
+    "step": 0,
+    "stage": "Stage1",
+    "losses": {
+      "primary": {
+        "objective_name": "conditioned_denoising",
+        "primary_value": 277.71282958984375,
+        "decoder_anchored": true
+      },
+      "auxiliaries": {
+        "intra_red": 17229.580078125,
+        "probe": 252.71945190429688,
+        "leak": 0.0,
+        "gate": 0.12242411822080612,
+        "slot": 0.15655818581581116,
+        "consistency": 0.1255844682455063,
+        "pocket_contact": 207.3037567138672,
+        "pocket_clash": 0.0
+      },
+      "total": 277.72540283203125
+    }
+  },
+  "config_hash": "82c444ecff37340d",
+  "dataset_validation_fingerprint": "2115f3011089906e",
+  "metric_schema_version": 4,
+  "resume_contract_version": "weights+history+step"
+}

@@ -1,0 +1,97 @@
+{
+  "research": {
+    "data": {
+      "root_dir": "./examples/datasets/mini_pdbbind",
+      "dataset_format": "manifest_json",
+      "manifest_path": "./examples/datasets/mini_pdbbind/manifest.json",
+      "label_table_path": "./examples/datasets/mini_pdbbind/affinity_labels.csv",
+      "max_ligand_atoms": 64,
+      "max_pocket_atoms": 256,
+      "pocket_cutoff_angstrom": 6.0,
+      "max_examples": null,
+      "batch_size": 2,
+      "split_seed": 42,
+      "val_fraction": 0.25,
+      "test_fraction": 0.25,
+      "stratify_by_measurement": true,
+      "generation_target": {
+        "atom_mask_ratio": 0.15,
+        "coordinate_noise_std": 0.08,
+        "corruption_seed": 1337,
+        "rollout_steps": 4,
+        "min_rollout_steps": 2,
+        "stop_probability_threshold": 0.82,
+        "coordinate_step_scale": 0.8,
+        "training_step_weight_decay": 0.9,
+        "rollout_mode": "lightweight"
+      }
+    },
+    "model": {
+      "hidden_dim": 128,
+      "num_slots": 8,
+      "atom_vocab_size": 32,
+      "bond_vocab_size": 8,
+      "pocket_feature_dim": 24,
+      "pair_feature_dim": 8
+    },
+    "training": {
+      "learning_rate": 0.001,
+      "max_steps": 4,
+      "schedule": {
+        "stage1_steps": 1,
+        "stage2_steps": 2,
+        "stage3_steps": 4
+      },
+      "loss_weights": {
+        "alpha_task": 1.0,
+        "beta_intra_red": 0.1,
+        "gamma_probe": 0.2,
+        "delta_leak": 0.05,
+        "eta_gate": 0.05,
+        "mu_slot": 0.05,
+        "nu_consistency": 0.1
+      },
+      "checkpoint_dir": "./checkpoints/ablations/objective_surrogate",
+      "checkpoint_every": 100,
+      "log_every": 1,
+      "primary_objective": "surrogate_reconstruction",
+      "affinity_weighting": "inverse_frequency"
+    },
+    "runtime": {
+      "device": "cpu",
+      "data_workers": 0
+    }
+  },
+  "ablation": {
+    "disable_slots": false,
+    "disable_cross_attention": false,
+    "disable_probes": false,
+    "disable_leakage": false,
+    "variant_label": "objective_surrogate"
+  },
+  "external_evaluation": {
+    "chemistry_backend": {
+      "enabled": false,
+      "executable": null,
+      "args": []
+    },
+    "docking_backend": {
+      "enabled": false,
+      "executable": null,
+      "args": []
+    },
+    "pocket_backend": {
+      "enabled": false,
+      "executable": null,
+      "args": []
+    }
+  },
+  "ablation_matrix": {
+    "enabled": false,
+    "include_surrogate_objective": false,
+    "include_conditioned_denoising": false,
+    "include_disable_slots": false,
+    "include_disable_cross_attention": false,
+    "include_disable_probes": false
+  }
+}

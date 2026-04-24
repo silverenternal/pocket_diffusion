@@ -3,6 +3,7 @@
 //! This module contains the older ndarray-based representation comparison path.
 //! It is kept for compatibility and exploratory benchmarks. New config-driven
 //! research workflows should prefer `crate::experiments` and `crate::training`.
+#![allow(deprecated)]
 
 use crate::dataset::{DatasetDownloader, PDBbindConfig};
 use crate::representation::{Molecule2D3D, Molecule3D, MoleculeRepresentation};
@@ -401,6 +402,8 @@ impl Default for ResourceMonitor {
 
 #[cfg(test)]
 mod tests {
+    #![allow(deprecated)]
+
     use super::*;
 
     #[test]

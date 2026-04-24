@@ -15,9 +15,23 @@
 
 pub mod config;
 pub mod data;
+#[doc(hidden)]
+#[cfg_attr(
+    not(test),
+    deprecated(
+        note = "legacy compatibility module; prefer pocket_diffusion::data and pocket_diffusion::legacy"
+    )
+)]
 pub mod dataset;
 pub mod disentangle;
 pub mod egnn;
+#[doc(hidden)]
+#[cfg_attr(
+    not(test),
+    deprecated(
+        note = "legacy compatibility module; prefer pocket_diffusion::experiments and pocket_diffusion::legacy"
+    )
+)]
 pub mod experiment;
 pub mod experiments;
 pub mod generator;
@@ -50,6 +64,9 @@ use crate::types::{Atom, AtomType, Ligand, Pocket};
 use tch::{nn, Device};
 
 /// 完整的生成-评分流水线
+#[deprecated(
+    note = "legacy compatibility pipeline; prefer config-driven research entrypoints or pocket_diffusion::legacy"
+)]
 pub struct PocketDiffusionPipeline {
     /// 生成器
     generator: PocketLigandGenerator,
@@ -57,6 +74,7 @@ pub struct PocketDiffusionPipeline {
     scorer: AffinityScorer,
 }
 
+#[allow(deprecated)]
 impl PocketDiffusionPipeline {
     /// 创建流水线
     pub fn new(vs: &nn::Path) -> Self {
@@ -231,6 +249,8 @@ fn seed_ligand_from_pocket(pocket: &Pocket) -> Ligand {
 
 #[cfg(test)]
 mod tests {
+    #![allow(deprecated)]
+
     use super::*;
     use crate::pocket::create_example_prrsv_pocket;
     use tch::Device;
@@ -246,8 +266,11 @@ mod tests {
 
     #[test]
     fn legacy_namespace_entrypoints_are_available() {
+        #[allow(deprecated)]
         let _demo = legacy::run_legacy_demo;
+        #[allow(deprecated)]
         let _comparison = legacy::run_comparison_experiment;
+        #[allow(deprecated)]
         let _pipeline_ctor = legacy::PocketDiffusionPipeline::new;
     }
 
@@ -256,6 +279,7 @@ mod tests {
         let device = Device::Cpu;
         let var_store = nn::VarStore::new(device);
         let vs = &var_store.root();
+        #[allow(deprecated)]
         let _pipeline = PocketDiffusionPipeline::new(vs);
     }
 

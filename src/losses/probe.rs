@@ -81,4 +81,32 @@ impl ProbeLoss {
 
         topo_loss + geo_loss + pocket_loss + affinity_loss
     }
+
+    /// Compute the mean semantic probe objective over a mini-batch.
+    pub(crate) fn compute_batch_weighted(
+        &self,
+        examples: &[MolecularExample],
+        forwards: &[ResearchForward],
+        affinity_weight_for: impl Fn(&MolecularExample) -> f64,
+    ) -> Tensor {
+        debug_assert_eq!(examples.len(), forwards.len());
+        let device = forwards
+            .first()
+            .map(|forward| forward.probes.affinity_prediction.device())
+            .or_else(|| {
+                examples
+                    .first()
+                    .map(|example| example.topology.atom_types.device())
+            })
+            .unwrap_or(tch::Device::Cpu);
+        if examples.is_empty() {
+            return Tensor::zeros([1], (Kind::Float, device));
+        }
+
+        let mut total = Tensor::zeros([1], (Kind::Float, device));
+        for (example, forward) in examples.iter().zip(forwards.iter()) {
+            total += self.compute_weighted(example, forward, affinity_weight_for(example));
+        }
+        total / examples.len() as f64
+    }
 }

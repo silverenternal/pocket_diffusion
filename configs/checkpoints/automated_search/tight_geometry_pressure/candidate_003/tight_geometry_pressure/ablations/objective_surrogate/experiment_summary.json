@@ -1,0 +1,1085 @@
+{
+  "config": {
+    "research": {
+      "data": {
+        "root_dir": "./data/PDBbind_v2020_refined",
+        "dataset_format": "pdbbind_like_dir",
+        "manifest_path": null,
+        "label_table_path": null,
+        "parsing_mode": "lightweight",
+        "max_ligand_atoms": 64,
+        "max_pocket_atoms": 192,
+        "pocket_cutoff_angstrom": 4.5,
+        "max_examples": null,
+        "batch_size": 2,
+        "split_seed": 7,
+        "val_fraction": 0.2,
+        "test_fraction": 0.2,
+        "stratify_by_measurement": false,
+        "quality_filters": {
+          "min_label_coverage": null,
+          "max_fallback_fraction": null,
+          "max_ligand_atoms": null,
+          "max_pocket_atoms": null,
+          "require_source_structure_provenance": false
+        },
+        "generation_target": {
+          "atom_mask_ratio": 0.2,
+          "coordinate_noise_std": 0.12,
+          "corruption_seed": 2026,
+          "rollout_steps": 6,
+          "min_rollout_steps": 3,
+          "stop_probability_threshold": 0.88,
+          "coordinate_step_scale": 0.65,
+          "training_step_weight_decay": 0.92,
+          "rollout_mode": "momentum_refine",
+          "coordinate_momentum": 0.65,
+          "atom_momentum": 0.5,
+          "atom_commit_temperature": 0.85,
+          "max_coordinate_delta_norm": 1.0,
+          "stop_delta_threshold": 0.015,
+          "stop_patience": 3,
+          "sampling_seed": 2027,
+          "sampling_temperature": 0.0,
+          "sampling_top_k": 0,
+          "sampling_top_p": 1.0,
+          "coordinate_sampling_noise_std": 0.0,
+          "pocket_guidance_scale": 1.0
+        }
+      },
+      "model": {
+        "hidden_dim": 128,
+        "num_slots": 8,
+        "atom_vocab_size": 32,
+        "bond_vocab_size": 8,
+        "pocket_feature_dim": 24,
+        "pair_feature_dim": 8,
+        "interaction_mode": "transformer",
+        "interaction_ff_multiplier": 2,
+        "interaction_tuning": {
+          "gate_temperature": 1.5,
+          "gate_bias": 0.0,
+          "attention_residual_scale": 0.85,
+          "ffn_residual_scale": 0.2,
+          "transformer_pre_norm": true,
+          "geometry_attention_bias_scale": 1.0
+        }
+      },
+      "training": {
+        "learning_rate": 0.001,
+        "max_steps": 4,
+        "schedule": {
+          "stage1_steps": 1,
+          "stage2_steps": 2,
+          "stage3_steps": 4
+        },
+        "loss_weights": {
+          "alpha_primary": 1.0,
+          "beta_intra_red": 0.1,
+          "gamma_probe": 0.2,
+          "delta_leak": 0.16,
+          "eta_gate": 0.08,
+          "mu_slot": 0.08,
+          "nu_consistency": 0.1,
+          "rho_pocket_contact": 0.0,
+          "sigma_pocket_clash": 0.0
+        },
+        "checkpoint_dir": "configs/./checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/objective_surrogate",
+        "checkpoint_every": 100,
+        "log_every": 1,
+        "primary_objective": "surrogate_reconstruction",
+        "affinity_weighting": "inverse_frequency"
+      },
+      "runtime": {
+        "device": "cpu",
+        "data_workers": 0,
+        "tch_intra_op_threads": null,
+        "tch_inter_op_threads": null
+      },
+      "automated_search": {
+        "enabled": false,
+        "strategy": "grid",
+        "include_base_candidate": true,
+        "max_candidates": 16,
+        "random_seed": 20260423,
+        "surface_configs": [],
+        "artifact_root_dir": "./checkpoints/automated_search",
+        "hard_gates": {
+          "minimum_candidate_valid_fraction": 1.0,
+          "minimum_sanitized_fraction": 1.0,
+          "minimum_unique_smiles_fraction": 0.5,
+          "maximum_clash_fraction": 0.0,
+          "minimum_strict_pocket_fit_score": 0.4,
+          "minimum_pocket_contact_fraction": 1.0,
+          "minimum_pocket_compatibility_fraction": 1.0,
+          "maximum_raw_centroid_offset": null,
+          "maximum_raw_clash_fraction": null,
+          "maximum_raw_mean_displacement": null,
+          "maximum_raw_atom_change_fraction": null,
+          "minimum_raw_uniqueness_proxy_fraction": null
+        },
+        "score_weights": {
+          "chemistry": 2.0,
+          "uniqueness": 1.5,
+          "geometry": 2.0,
+          "pocket": 1.5,
+          "specialization": 0.75,
+          "utilization": 0.5,
+          "interaction_review": 1.0
+        },
+        "search_space": {
+          "gate_temperature": [],
+          "gate_bias": [],
+          "attention_residual_scale": [],
+          "ffn_residual_scale": [],
+          "rollout_steps": [],
+          "min_rollout_steps": [],
+          "stop_probability_threshold": [],
+          "coordinate_step_scale": [],
+          "training_step_weight_decay": [],
+          "coordinate_momentum": [],
+          "atom_momentum": [],
+          "atom_commit_temperature": [],
+          "max_coordinate_delta_norm": [],
+          "stop_delta_threshold": [],
+          "stop_patience": [],
+          "beta_intra_red": [],
+          "gamma_probe": [],
+          "delta_leak": [],
+          "eta_gate": [],
+          "mu_slot": []
+        }
+      }
+    },
+    "surface_label": "tight_geometry_pressure",
+    "ablation": {
+      "disable_slots": false,
+      "disable_cross_attention": false,
+      "disable_probes": false,
+      "disable_leakage": false,
+      "disable_geometry_interaction_bias": false,
+      "disable_rollout_pocket_guidance": false,
+      "disable_candidate_repair": false,
+      "primary_objective_override": "surrogate_reconstruction",
+      "interaction_mode_override": null,
+      "variant_label": "objective_surrogate"
+    },
+    "external_evaluation": {
+      "chemistry_backend": {
+        "enabled": true,
+        "executable": "python3",
+        "args": [
+          "./tools/rdkit_validity_backend.py"
+        ]
+      },
+      "docking_backend": {
+        "enabled": true,
+        "executable": "python3",
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "docking"
+        ]
+      },
+      "pocket_backend": {
+        "enabled": true,
+        "executable": "python3",
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "compatibility"
+        ]
+      },
+      "persist_generation_artifacts": true,
+      "generation_artifact_example_limit": 8,
+      "generation_artifact_candidate_limit": 32
+    },
+    "ablation_matrix": {
+      "enabled": false,
+      "include_surrogate_objective": true,
+      "include_conditioned_denoising": true,
+      "include_disable_slots": true,
+      "include_disable_cross_attention": true,
+      "include_disable_probes": false,
+      "include_lightweight_interaction": true,
+      "include_transformer_interaction": true,
+      "include_disable_geometry_interaction_bias": true,
+      "include_disable_rollout_pocket_guidance": true,
+      "include_disable_candidate_repair": true
+    },
+    "automated_search": {
+      "enabled": false,
+      "strategy": "grid",
+      "include_base_candidate": true,
+      "max_candidates": 16,
+      "random_seed": 20260423,
+      "surface_configs": [],
+      "artifact_root_dir": "./checkpoints/automated_search",
+      "hard_gates": {
+        "minimum_candidate_valid_fraction": 1.0,
+        "minimum_sanitized_fraction": 1.0,
+        "minimum_unique_smiles_fraction": 0.5,
+        "maximum_clash_fraction": 0.0,
+        "minimum_strict_pocket_fit_score": 0.4,
+        "minimum_pocket_contact_fraction": 1.0,
+        "minimum_pocket_compatibility_fraction": 1.0,
+        "maximum_raw_centroid_offset": null,
+        "maximum_raw_clash_fraction": null,
+        "maximum_raw_mean_displacement": null,
+        "maximum_raw_atom_change_fraction": null,
+        "minimum_raw_uniqueness_proxy_fraction": null
+      },
+      "score_weights": {
+        "chemistry": 2.0,
+        "uniqueness": 1.5,
+        "geometry": 2.0,
+        "pocket": 1.5,
+        "specialization": 0.75,
+        "utilization": 0.5,
+        "interaction_review": 1.0
+      },
+      "search_space": {
+        "gate_temperature": [],
+        "gate_bias": [],
+        "attention_residual_scale": [],
+        "ffn_residual_scale": [],
+        "rollout_steps": [],
+        "min_rollout_steps": [],
+        "stop_probability_threshold": [],
+        "coordinate_step_scale": [],
+        "training_step_weight_decay": [],
+        "coordinate_momentum": [],
+        "atom_momentum": [],
+        "atom_commit_temperature": [],
+        "max_coordinate_delta_norm": [],
+        "stop_delta_threshold": [],
+        "stop_patience": [],
+        "beta_intra_red": [],
+        "gamma_probe": [],
+        "delta_leak": [],
+        "eta_gate": [],
+        "mu_slot": []
+      }
+    },
+    "multi_seed": {
+      "enabled": false,
+      "seeds": [
+        17,
+        42,
+        101
+      ],
+      "artifact_root_dir": "./checkpoints/multi_seed"
+    },
+    "performance_gates": {
+      "min_validation_examples_per_second": null,
+      "min_test_examples_per_second": null,
+      "max_validation_memory_mb": null,
+      "max_test_memory_mb": null
+    }
+  },
+  "dataset_validation": {
+    "discovered_complexes": 5,
+    "parsed_examples": 5,
+    "parsed_ligands": 5,
+    "parsed_pockets": 5,
+    "attached_labels": 0,
+    "example_id_label_matches": 0,
+    "protein_id_label_matches": 0,
+    "unlabeled_examples": 5,
+    "fallback_pocket_extractions": 0,
+    "truncated_examples": 0,
+    "quality_filtered_examples": 0,
+    "quality_filtered_unlabeled_examples": 0,
+    "quality_filtered_ligand_atom_limit": 0,
+    "quality_filtered_pocket_atom_limit": 0,
+    "quality_filtered_missing_source_provenance": 0,
+    "retained_label_coverage": 0.0,
+    "observed_fallback_fraction": 0.0,
+    "loaded_label_rows": 0,
+    "approximate_affinity_labels": 0,
+    "affinity_normalization_warnings": 0,
+    "normalization_warning_messages": [],
+    "parsing_mode": "lightweight"
+  },
+  "split_report": {
+    "train": {
+      "example_count": 3,
+      "unique_protein_count": 3,
+      "labeled_example_count": 0,
+      "labeled_fraction": 0.0,
+      "dominant_measurement_histogram": {
+        "unknown": 3
+      },
+      "ligand_atom_count_bins": {
+        "1-8": 3
+      },
+      "pocket_atom_count_bins": {
+        "9-16": 3
+      },
+      "protein_family_proxy_histogram": {
+        "1a30": 1,
+        "1c5z": 1,
+        "1d3d": 1
+      },
+      "average_ligand_atoms": 6.0,
+      "average_pocket_atoms": 9.0
+    },
+    "val": {
+      "example_count": 1,
+      "unique_protein_count": 1,
+      "labeled_example_count": 0,
+      "labeled_fraction": 0.0,
+      "dominant_measurement_histogram": {
+        "unknown": 1
+      },
+      "ligand_atom_count_bins": {
+        "1-8": 1
+      },
+      "pocket_atom_count_bins": {
+        "9-16": 1
+      },
+      "protein_family_proxy_histogram": {
+        "1e66": 1
+      },
+      "average_ligand_atoms": 6.0,
+      "average_pocket_atoms": 9.0
+    },
+    "test": {
+      "example_count": 1,
+      "unique_protein_count": 1,
+      "labeled_example_count": 0,
+      "labeled_fraction": 0.0,
+      "dominant_measurement_histogram": {
+        "unknown": 1
+      },
+      "ligand_atom_count_bins": {
+        "1-8": 1
+      },
+      "pocket_atom_count_bins": {
+        "9-16": 1
+      },
+      "protein_family_proxy_histogram": {
+        "1bcu": 1
+      },
+      "average_ligand_atoms": 6.0,
+      "average_pocket_atoms": 9.0
+    },
+    "leakage_checks": {
+      "protein_overlap_detected": false,
+      "duplicate_example_ids_detected": false,
+      "train_val_protein_overlap": 0,
+      "train_test_protein_overlap": 0,
+      "val_test_protein_overlap": 0,
+      "duplicated_example_ids": 0
+    },
+    "quality_checks": {
+      "weak_val_family_count": true,
+      "weak_test_family_count": true,
+      "severe_atom_count_skew_detected": false,
+      "measurement_family_skew_detected": false,
+      "warnings": [
+        "validation split has 1 proxy protein families; claim-bearing runs should have at least 3",
+        "test split has 1 proxy protein families; claim-bearing runs should have at least 3"
+      ]
+    }
+  },
+  "reproducibility": {
+    "config_hash": "09890bfd0e7bdf41",
+    "dataset_validation_fingerprint": "c42e04afc454980c",
+    "metric_schema_version": 5,
+    "artifact_bundle_schema_version": 1,
+    "resume_contract": {
+      "version": "weights+history+step",
+      "restores_model_weights": true,
+      "restores_step": true,
+      "restores_history": true,
+      "restores_optimizer_state": true,
+      "continuity_mode": "metadata_only_continuation",
+      "supports_strict_replay": false,
+      "notes": "Resume restores model weights, step index, prior persisted training history, and any checkpointed optimizer/scheduler metadata. The underlying tch Adam moment buffers are not persisted, so this remains a bounded reproducibility aid rather than a strict deterministic replay."
+    },
+    "resume_provenance": {
+      "resumed": false,
+      "resumed_from_step": null,
+      "checkpoint_config_hash": null,
+      "checkpoint_dataset_fingerprint": null,
+      "restored_optimizer_state_metadata": false,
+      "restored_scheduler_state_metadata": false,
+      "continuity_mode": "fresh_run",
+      "strict_replay_achieved": false
+    }
+  },
+  "training_history": [
+    {
+      "step": 0,
+      "stage": "Stage1",
+      "losses": {
+        "primary": {
+          "objective_name": "surrogate_reconstruction",
+          "primary_value": 8.042987823486328,
+          "decoder_anchored": false
+        },
+        "auxiliaries": {
+          "intra_red": 2.0425329208374023,
+          "probe": 4.179703712463379,
+          "leak": 0.0,
+          "gate": 0.48113149404525757,
+          "slot": 0.1497916579246521,
+          "consistency": 0.5241644978523254,
+          "pocket_contact": 0.0,
+          "pocket_clash": 0.010403629392385483
+        },
+        "total": 8.095404624938965
+      }
+    },
+    {
+      "step": 1,
+      "stage": "Stage2",
+      "losses": {
+        "primary": {
+          "objective_name": "surrogate_reconstruction",
+          "primary_value": 7.796004295349121,
+          "decoder_anchored": false
+        },
+        "auxiliaries": {
+          "intra_red": 2.043226480484009,
+          "probe": 4.227667331695557,
+          "leak": 0.0,
+          "gate": 0.4485544264316559,
+          "slot": 0.14869284629821777,
+          "consistency": 0.48927709460258484,
+          "pocket_contact": 7.806545257568359,
+          "pocket_clash": 0.0
+        },
+        "total": 7.8653645515441895
+      }
+    },
+    {
+      "step": 2,
+      "stage": "Stage3",
+      "losses": {
+        "primary": {
+          "objective_name": "surrogate_reconstruction",
+          "primary_value": 4.872378826141357,
+          "decoder_anchored": false
+        },
+        "auxiliaries": {
+          "intra_red": 1.9710742235183716,
+          "probe": 4.277757167816162,
+          "leak": 0.0,
+          "gate": 0.40088605880737305,
+          "slot": 0.14756812155246735,
+          "consistency": 0.4535638093948364,
+          "pocket_contact": 0.0,
+          "pocket_clash": 0.0
+        },
+        "total": 5.023000717163086
+      }
+    },
+    {
+      "step": 3,
+      "stage": "Stage3",
+      "losses": {
+        "primary": {
+          "objective_name": "surrogate_reconstruction",
+          "primary_value": 3.706444501876831,
+          "decoder_anchored": false
+        },
+        "auxiliaries": {
+          "intra_red": 1.943014144897461,
+          "probe": 4.14362907409668,
+          "leak": 0.0,
+          "gate": 0.3605598211288452,
+          "slot": 0.14626134932041168,
+          "consistency": 0.4184337854385376,
+          "pocket_contact": 0.0,
+          "pocket_clash": 0.0
+        },
+        "total": 4.259801864624023
+      }
+    }
+  ],
+  "validation": {
+    "representation_diagnostics": {
+      "finite_forward_fraction": 1.0,
+      "unique_complex_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "distance_probe_rmse": 1.236450433731079,
+      "topology_pocket_cosine_alignment": 0.4213840116265034,
+      "topology_reconstruction_mse": 1.178195834159851,
+      "slot_activation_mean": 0.6666666666666666,
+      "gate_activation_mean": 0.32458048065503436,
+      "leakage_proxy_mean": 0.17122445016193977
+    },
+    "proxy_task_metrics": {
+      "affinity_probe_mae": 0.0,
+      "affinity_probe_rmse": 0.0,
+      "labeled_fraction": 0.0,
+      "affinity_by_measurement": []
+    },
+    "split_context": {
+      "example_count": 1,
+      "unique_complex_count": 1,
+      "unique_protein_count": 1,
+      "train_reference_protein_count": 3,
+      "ligand_atom_count_bins": {
+        "1-8": 1
+      },
+      "pocket_atom_count_bins": {
+        "9-16": 1
+      },
+      "measurement_family_histogram": {
+        "unknown": 1
+      }
+    },
+    "resource_usage": {
+      "memory_usage_mb": 0.09765625,
+      "evaluation_time_ms": 89.065625,
+      "examples_per_second": 11.227676221886952,
+      "average_ligand_atoms": 6.0,
+      "average_pocket_atoms": 9.0
+    },
+    "real_generation_metrics": {
+      "chemistry_validity": {
+        "available": true,
+        "backend_name": "external_command_chemistry",
+        "metrics": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "heuristic_structural_pass_fraction": 1.0,
+          "heuristic_valence_sanity_fraction": 1.0,
+          "heuristic_valid_fraction": 1.0,
+          "rdkit_available": 1.0,
+          "rdkit_finite_conformer_fraction": 1.0,
+          "rdkit_parseable_fraction": 1.0,
+          "rdkit_sanitized_fraction": 1.0,
+          "rdkit_unique_smiles_fraction": 1.0,
+          "schema_version": 1.0
+        },
+        "status": "external chemistry-validity backend on modular rollout candidates"
+      },
+      "docking_affinity": {
+        "available": true,
+        "backend_name": "external_command_docking",
+        "metrics": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "clash_fraction": 0.0,
+          "contact_fraction": 1.0,
+          "docking_like_score": 0.981249223062476,
+          "heuristic_centroid_fit_score": 0.6325940803727522,
+          "heuristic_mean_centroid_offset": 0.5807925350973185,
+          "heuristic_pocket_contact_fraction": 1.0,
+          "mean_min_contact_distance": 1.3464626243758575,
+          "schema_version": 1.0
+        },
+        "status": "external docking backend on modular rollout candidates"
+      },
+      "pocket_compatibility": {
+        "available": true,
+        "backend_name": "external_command_pocket_compatibility",
+        "metrics": {
+          "atom_coverage_fraction": 1.0,
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "centroid_inside_fraction": 1.0,
+          "clash_fraction": 0.0,
+          "heuristic_atom_coverage_fraction": 1.0,
+          "heuristic_centroid_inside_fraction": 1.0,
+          "heuristic_clash_free_fraction": 1.0,
+          "heuristic_strict_pocket_fit_score": 0.6325940803727522,
+          "schema_version": 1.0
+        },
+        "status": "external pocket-compatibility backend on modular rollout candidates"
+      }
+    },
+    "layered_generation_metrics": {
+      "raw_rollout": {
+        "candidate_count": 3,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 1.6363655892030244,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.25465258955955505,
+        "atom_change_fraction": 0.3333333432674408,
+        "uniqueness_proxy_fraction": 0.3333333333333333,
+        "atom_type_sequence_diversity": 0.3333333333333333,
+        "bond_topology_diversity": 0.3333333333333333,
+        "coordinate_shape_diversity": 0.3333333333333333,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "repaired_candidates": {
+        "candidate_count": 3,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.6240640688848546,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 0.3333333333333333,
+        "bond_topology_diversity": 0.3333333333333333,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "inferred_bond_candidates": {
+        "candidate_count": 3,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.6240640688848546,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 0.6666666666666666,
+        "bond_topology_diversity": 0.6666666666666666,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "reranked_candidates": {
+        "candidate_count": 1,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.5807925350973185,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 1.0,
+        "bond_topology_diversity": 1.0,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "deterministic_proxy_candidates": {
+        "candidate_count": 1,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.5807925350973185,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 1.0,
+        "bond_topology_diversity": 1.0,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "reranker_calibration": {
+        "method": "bounded_nonnegative_feature_target_covariance_v1",
+        "coefficients": {
+          "bond_density_fit": 0.9108913765990911,
+          "centroid_fit": 0.08910862340090885,
+          "clash_free": 0.0,
+          "pocket_contact": 0.0,
+          "valence_sane": 0.0,
+          "valid": 0.0
+        },
+        "target_mean": 0.9600274364066649,
+        "fitted_candidate_count": 3
+      },
+      "backend_scored_candidates": {
+        "chemistry_validity": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "heuristic_structural_pass_fraction": 1.0,
+          "heuristic_valence_sanity_fraction": 1.0,
+          "heuristic_valid_fraction": 1.0,
+          "rdkit_available": 1.0,
+          "rdkit_finite_conformer_fraction": 1.0,
+          "rdkit_parseable_fraction": 1.0,
+          "rdkit_sanitized_fraction": 1.0,
+          "rdkit_unique_smiles_fraction": 1.0,
+          "schema_version": 1.0
+        },
+        "docking_affinity": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "clash_fraction": 0.0,
+          "contact_fraction": 1.0,
+          "docking_like_score": 0.981249223062476,
+          "heuristic_centroid_fit_score": 0.6325940803727522,
+          "heuristic_mean_centroid_offset": 0.5807925350973185,
+          "heuristic_pocket_contact_fraction": 1.0,
+          "mean_min_contact_distance": 1.3464626243758575,
+          "schema_version": 1.0
+        },
+        "pocket_compatibility": {
+          "atom_coverage_fraction": 1.0,
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "centroid_inside_fraction": 1.0,
+          "clash_fraction": 0.0,
+          "heuristic_atom_coverage_fraction": 1.0,
+          "heuristic_centroid_inside_fraction": 1.0,
+          "heuristic_clash_free_fraction": 1.0,
+          "heuristic_strict_pocket_fit_score": 0.6325940803727522,
+          "schema_version": 1.0
+        }
+      }
+    },
+    "comparison_summary": {
+      "primary_objective": "surrogate_reconstruction",
+      "variant_label": "objective_surrogate",
+      "interaction_mode": "transformer",
+      "candidate_valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "pocket_compatibility_fraction": 1.0,
+      "mean_centroid_offset": 0.5807925350973185,
+      "strict_pocket_fit_score": 0.6325940803727522,
+      "unique_smiles_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "topology_specialization_score": 0.37597566843032837,
+      "geometry_specialization_score": 0.4471371173344969,
+      "pocket_specialization_score": 0.5487016720498072,
+      "slot_activation_mean": 0.6666666666666666,
+      "gate_activation_mean": 0.32458048065503436,
+      "leakage_proxy_mean": 0.17122445016193977
+    },
+    "slot_stability": {
+      "topology_activation_mean": 0.375,
+      "geometry_activation_mean": 0.625,
+      "pocket_activation_mean": 1.0,
+      "topology_signature_similarity": 1.0,
+      "geometry_signature_similarity": 1.0,
+      "pocket_signature_similarity": 1.0,
+      "topology_probe_alignment": 0.046996958553791046,
+      "geometry_probe_alignment": 0.3241466495758809,
+      "pocket_probe_alignment": 0.620994825566254
+    },
+    "strata": [
+      {
+        "axis": "ligand_atoms",
+        "bin": "1-8",
+        "example_count": 1,
+        "unseen_protein_fraction": 1.0,
+        "labeled_fraction": 0.0,
+        "average_ligand_atoms": 6.0,
+        "average_pocket_atoms": 9.0
+      },
+      {
+        "axis": "measurement",
+        "bin": "unknown",
+        "example_count": 1,
+        "unseen_protein_fraction": 1.0,
+        "labeled_fraction": 0.0,
+        "average_ligand_atoms": 6.0,
+        "average_pocket_atoms": 9.0
+      },
+      {
+        "axis": "pocket_atoms",
+        "bin": "9-16",
+        "example_count": 1,
+        "unseen_protein_fraction": 1.0,
+        "labeled_fraction": 0.0,
+        "average_ligand_atoms": 6.0,
+        "average_pocket_atoms": 9.0
+      }
+    ]
+  },
+  "test": {
+    "representation_diagnostics": {
+      "finite_forward_fraction": 1.0,
+      "unique_complex_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "distance_probe_rmse": 1.236450433731079,
+      "topology_pocket_cosine_alignment": 0.4213840116265034,
+      "topology_reconstruction_mse": 1.178195834159851,
+      "slot_activation_mean": 0.6666666666666666,
+      "gate_activation_mean": 0.32458048065503436,
+      "leakage_proxy_mean": 0.17122445016193977
+    },
+    "proxy_task_metrics": {
+      "affinity_probe_mae": 0.0,
+      "affinity_probe_rmse": 0.0,
+      "labeled_fraction": 0.0,
+      "affinity_by_measurement": []
+    },
+    "split_context": {
+      "example_count": 1,
+      "unique_complex_count": 1,
+      "unique_protein_count": 1,
+      "train_reference_protein_count": 3,
+      "ligand_atom_count_bins": {
+        "1-8": 1
+      },
+      "pocket_atom_count_bins": {
+        "9-16": 1
+      },
+      "measurement_family_histogram": {
+        "unknown": 1
+      }
+    },
+    "resource_usage": {
+      "memory_usage_mb": 0.0,
+      "evaluation_time_ms": 86.976429,
+      "examples_per_second": 11.497367867333345,
+      "average_ligand_atoms": 6.0,
+      "average_pocket_atoms": 9.0
+    },
+    "real_generation_metrics": {
+      "chemistry_validity": {
+        "available": true,
+        "backend_name": "external_command_chemistry",
+        "metrics": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "heuristic_structural_pass_fraction": 1.0,
+          "heuristic_valence_sanity_fraction": 1.0,
+          "heuristic_valid_fraction": 1.0,
+          "rdkit_available": 1.0,
+          "rdkit_finite_conformer_fraction": 1.0,
+          "rdkit_parseable_fraction": 1.0,
+          "rdkit_sanitized_fraction": 1.0,
+          "rdkit_unique_smiles_fraction": 1.0,
+          "schema_version": 1.0
+        },
+        "status": "external chemistry-validity backend on modular rollout candidates"
+      },
+      "docking_affinity": {
+        "available": true,
+        "backend_name": "external_command_docking",
+        "metrics": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "clash_fraction": 0.0,
+          "contact_fraction": 1.0,
+          "docking_like_score": 0.9708071484915276,
+          "heuristic_centroid_fit_score": 0.5597311055256857,
+          "heuristic_mean_centroid_offset": 0.7865721417444265,
+          "heuristic_pocket_contact_fraction": 1.0,
+          "mean_min_contact_distance": 1.3541101575253294,
+          "schema_version": 1.0
+        },
+        "status": "external docking backend on modular rollout candidates"
+      },
+      "pocket_compatibility": {
+        "available": true,
+        "backend_name": "external_command_pocket_compatibility",
+        "metrics": {
+          "atom_coverage_fraction": 1.0,
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "centroid_inside_fraction": 1.0,
+          "clash_fraction": 0.0,
+          "heuristic_atom_coverage_fraction": 1.0,
+          "heuristic_centroid_inside_fraction": 1.0,
+          "heuristic_clash_free_fraction": 1.0,
+          "heuristic_strict_pocket_fit_score": 0.5597311055256857,
+          "schema_version": 1.0
+        },
+        "status": "external pocket-compatibility backend on modular rollout candidates"
+      }
+    },
+    "layered_generation_metrics": {
+      "raw_rollout": {
+        "candidate_count": 3,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 1.6456395100118553,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.2554178535938263,
+        "atom_change_fraction": 0.3333333432674408,
+        "uniqueness_proxy_fraction": 0.3333333333333333,
+        "atom_type_sequence_diversity": 0.3333333333333333,
+        "bond_topology_diversity": 0.3333333333333333,
+        "coordinate_shape_diversity": 0.3333333333333333,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "repaired_candidates": {
+        "candidate_count": 3,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.7300431868611731,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 0.3333333333333333,
+        "bond_topology_diversity": 0.3333333333333333,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "inferred_bond_candidates": {
+        "candidate_count": 3,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.7300431868611731,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 0.6666666666666666,
+        "bond_topology_diversity": 0.6666666666666666,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "reranked_candidates": {
+        "candidate_count": 1,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.7865721417444265,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 1.0,
+        "bond_topology_diversity": 1.0,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "deterministic_proxy_candidates": {
+        "candidate_count": 1,
+        "valid_fraction": 1.0,
+        "pocket_contact_fraction": 1.0,
+        "mean_centroid_offset": 0.6243979964347169,
+        "clash_fraction": 0.0,
+        "mean_displacement": 0.0,
+        "atom_change_fraction": 0.0,
+        "uniqueness_proxy_fraction": 1.0,
+        "atom_type_sequence_diversity": 1.0,
+        "bond_topology_diversity": 1.0,
+        "coordinate_shape_diversity": 1.0,
+        "novel_atom_type_sequence_fraction": 1.0,
+        "novel_bond_topology_fraction": 1.0,
+        "novel_coordinate_shape_fraction": 1.0
+      },
+      "reranker_calibration": {
+        "method": "bounded_nonnegative_feature_target_covariance_v1",
+        "coefficients": {
+          "bond_density_fit": 1.0,
+          "centroid_fit": 0.0,
+          "clash_free": 0.0,
+          "pocket_contact": 0.0,
+          "valence_sane": 0.0,
+          "valid": 0.0
+        },
+        "target_mean": 0.960400221762408,
+        "fitted_candidate_count": 3
+      },
+      "backend_scored_candidates": {
+        "chemistry_validity": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "heuristic_structural_pass_fraction": 1.0,
+          "heuristic_valence_sanity_fraction": 1.0,
+          "heuristic_valid_fraction": 1.0,
+          "rdkit_available": 1.0,
+          "rdkit_finite_conformer_fraction": 1.0,
+          "rdkit_parseable_fraction": 1.0,
+          "rdkit_sanitized_fraction": 1.0,
+          "rdkit_unique_smiles_fraction": 1.0,
+          "schema_version": 1.0
+        },
+        "docking_affinity": {
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "clash_fraction": 0.0,
+          "contact_fraction": 1.0,
+          "docking_like_score": 0.9708071484915276,
+          "heuristic_centroid_fit_score": 0.5597311055256857,
+          "heuristic_mean_centroid_offset": 0.7865721417444265,
+          "heuristic_pocket_contact_fraction": 1.0,
+          "mean_min_contact_distance": 1.3541101575253294,
+          "schema_version": 1.0
+        },
+        "pocket_compatibility": {
+          "atom_coverage_fraction": 1.0,
+          "backend_examples_scored": 1.0,
+          "backend_missing_structure_fraction": 0.0,
+          "centroid_inside_fraction": 1.0,
+          "clash_fraction": 0.0,
+          "heuristic_atom_coverage_fraction": 1.0,
+          "heuristic_centroid_inside_fraction": 1.0,
+          "heuristic_clash_free_fraction": 1.0,
+          "heuristic_strict_pocket_fit_score": 0.5597311055256857,
+          "schema_version": 1.0
+        }
+      }
+    },
+    "comparison_summary": {
+      "primary_objective": "surrogate_reconstruction",
+      "variant_label": "objective_surrogate",
+      "interaction_mode": "transformer",
+      "candidate_valid_fraction": 1.0,
+      "pocket_contact_fraction": 1.0,
+      "pocket_compatibility_fraction": 1.0,
+      "mean_centroid_offset": 0.7865721417444265,
+      "strict_pocket_fit_score": 0.5597311055256857,
+      "unique_smiles_fraction": 1.0,
+      "unseen_protein_fraction": 1.0,
+      "topology_specialization_score": 0.37597566843032837,
+      "geometry_specialization_score": 0.4471371173344969,
+      "pocket_specialization_score": 0.5487016720498072,
+      "slot_activation_mean": 0.6666666666666666,
+      "gate_activation_mean": 0.32458048065503436,
+      "leakage_proxy_mean": 0.17122445016193977
+    },
+    "slot_stability": {
+      "topology_activation_mean": 0.375,
+      "geometry_activation_mean": 0.625,
+      "pocket_activation_mean": 1.0,
+      "topology_signature_similarity": 1.0,
+      "geometry_signature_similarity": 1.0,
+      "pocket_signature_similarity": 1.0,
+      "topology_probe_alignment": 0.046996958553791046,
+      "geometry_probe_alignment": 0.3241466495758809,
+      "pocket_probe_alignment": 0.620994825566254
+    },
+    "strata": [
+      {
+        "axis": "ligand_atoms",
+        "bin": "1-8",
+        "example_count": 1,
+        "unseen_protein_fraction": 1.0,
+        "labeled_fraction": 0.0,
+        "average_ligand_atoms": 6.0,
+        "average_pocket_atoms": 9.0
+      },
+      {
+        "axis": "measurement",
+        "bin": "unknown",
+        "example_count": 1,
+        "unseen_protein_fraction": 1.0,
+        "labeled_fraction": 0.0,
+        "average_ligand_atoms": 6.0,
+        "average_pocket_atoms": 9.0
+      },
+      {
+        "axis": "pocket_atoms",
+        "bin": "9-16",
+        "example_count": 1,
+        "unseen_protein_fraction": 1.0,
+        "labeled_fraction": 0.0,
+        "average_ligand_atoms": 6.0,
+        "average_pocket_atoms": 9.0
+      }
+    ]
+  },
+  "ablation_matrix": null,
+  "performance_gates": {
+    "passed": true,
+    "failed_reasons": [],
+    "validation_examples_per_second": 11.227676221886952,
+    "test_examples_per_second": 11.497367867333345,
+    "validation_memory_mb": 0.09765625,
+    "test_memory_mb": 0.0
+  }
+}

@@ -1,5 +1,7 @@
 //! Feature structures used by the modular research pipeline.
 
+use std::path::PathBuf;
+
 use tch::{Device, Kind, Tensor};
 
 use crate::{
@@ -86,6 +88,12 @@ pub struct MolecularExample {
     pub geometry: GeometryFeatures,
     /// Pocket/context modality input.
     pub pocket: PocketFeatures,
+    /// Translation from ligand-centered model coordinates back to source structure coordinates.
+    pub coordinate_frame_origin: [f32; 3],
+    /// Optional source protein structure path for downstream backend workflows.
+    pub source_pocket_path: Option<PathBuf>,
+    /// Optional source ligand path for downstream backend workflows.
+    pub source_ligand_path: Option<PathBuf>,
     /// Explicit decoder-side supervision for corruption recovery and denoising.
     pub decoder_supervision: DecoderSupervision,
     /// Optional supervised targets attached to the complex.
@@ -109,6 +117,10 @@ pub struct DecoderSupervision {
     pub coordinate_noise: Tensor,
     /// Pairwise target distances derived from clean coordinates.
     pub target_pairwise_distances: Tensor,
+    /// Configured number of iterative rollout steps used by training and generation.
+    pub rollout_steps: usize,
+    /// Geometric decay applied to later rollout losses.
+    pub training_step_weight_decay: f64,
     /// Reproducibility metadata for the corruption transform.
     pub corruption_metadata: GenerationCorruptionMetadata,
 }
@@ -123,6 +135,8 @@ impl Clone for DecoderSupervision {
             noisy_coords: self.noisy_coords.shallow_clone(),
             coordinate_noise: self.coordinate_noise.shallow_clone(),
             target_pairwise_distances: self.target_pairwise_distances.shallow_clone(),
+            rollout_steps: self.rollout_steps,
+            training_step_weight_decay: self.training_step_weight_decay,
             corruption_metadata: self.corruption_metadata.clone(),
         }
     }
@@ -192,8 +206,9 @@ impl MolecularExample {
         generation_target: &GenerationTargetConfig,
     ) -> Self {
         let topology = topology_from_ligand(ligand);
-        let geometry = geometry_from_ligand(ligand);
-        let pocket_features = pocket_features_from_pocket(pocket);
+        let ligand_center = ligand_centroid(ligand);
+        let geometry = geometry_from_ligand_centered(ligand, ligand_center);
+        let pocket_features = pocket_features_from_pocket_centered(pocket, ligand_center);
         let example_id = example_id.into();
         let protein_id = protein_id.into();
         let decoder_supervision =
@@ -204,6 +219,13 @@ impl MolecularExample {
             topology,
             geometry,
             pocket: pocket_features,
+            coordinate_frame_origin: [
+                ligand_center[0] as f32,
+                ligand_center[1] as f32,
+                ligand_center[2] as f32,
+            ],
+            source_pocket_path: None,
+            source_ligand_path: None,
             decoder_supervision,
             targets,
         }
@@ -217,6 +239,9 @@ impl MolecularExample {
             topology: self.topology.to_device(device),
             geometry: self.geometry.to_device(device),
             pocket: self.pocket.to_device(device),
+            coordinate_frame_origin: self.coordinate_frame_origin,
+            source_pocket_path: self.source_pocket_path.clone(),
+            source_ligand_path: self.source_ligand_path.clone(),
             decoder_supervision: self.decoder_supervision.to_device(device),
             targets: self.targets.clone(),
         }
@@ -230,6 +255,9 @@ impl MolecularExample {
             topology: self.topology.clone(),
             geometry: self.geometry.clone(),
             pocket: self.pocket.with_feature_dim(pocket_feature_dim),
+            coordinate_frame_origin: self.coordinate_frame_origin,
+            source_pocket_path: self.source_pocket_path.clone(),
+            source_ligand_path: self.source_ligand_path.clone(),
             decoder_supervision: self.decoder_supervision.clone(),
             targets: self.targets.clone(),
         }
@@ -243,6 +271,9 @@ impl MolecularExample {
             topology: self.topology.clone(),
             geometry: self.geometry.clone(),
             pocket: self.pocket.clone(),
+            coordinate_frame_origin: self.coordinate_frame_origin,
+            source_pocket_path: self.source_pocket_path.clone(),
+            source_ligand_path: self.source_ligand_path.clone(),
             decoder_supervision: build_decoder_supervision(
                 &self.example_id,
                 &self.topology,
@@ -307,8 +338,15 @@ impl DecoderSupervision {
             noisy_coords: self.noisy_coords.to_device(device),
             coordinate_noise: self.coordinate_noise.to_device(device),
             target_pairwise_distances: self.target_pairwise_distances.to_device(device),
+            rollout_steps: self.rollout_steps,
+            training_step_weight_decay: self.training_step_weight_decay,
             corruption_metadata: self.corruption_metadata.clone(),
         }
+    }
+
+    /// Weight assigned to the provided rollout step under the configured decay schedule.
+    pub fn rollout_step_weight(&self, step_index: usize) -> f64 {
+        self.training_step_weight_decay.powi(step_index as i32)
     }
 }
 
@@ -358,10 +396,20 @@ pub fn topology_from_ligand(ligand: &Ligand) -> TopologyFeatures {
 
 /// Convert a ligand into geometry features.
 pub fn geometry_from_ligand(ligand: &Ligand) -> GeometryFeatures {
+    geometry_from_ligand_centered(ligand, ligand_centroid(ligand))
+}
+
+fn geometry_from_ligand_centered(ligand: &Ligand, center: [f64; 3]) -> GeometryFeatures {
     let coords_flat: Vec<f32> = ligand
         .atoms
         .iter()
-        .flat_map(|atom| atom.coords.map(|value| value as f32))
+        .flat_map(|atom| {
+            [
+                (atom.coords[0] - center[0]) as f32,
+                (atom.coords[1] - center[1]) as f32,
+                (atom.coords[2] - center[2]) as f32,
+            ]
+        })
         .collect();
     let num_atoms = ligand.atoms.len() as i64;
     let coords = if coords_flat.is_empty() {
@@ -384,10 +432,23 @@ pub fn geometry_from_ligand(ligand: &Ligand) -> GeometryFeatures {
 
 /// Convert a pocket into context features.
 pub fn pocket_features_from_pocket(pocket: &Pocket) -> PocketFeatures {
+    pocket_features_from_pocket_centered(pocket, [0.0, 0.0, 0.0])
+}
+
+fn pocket_features_from_pocket_centered(
+    pocket: &Pocket,
+    ligand_center: [f64; 3],
+) -> PocketFeatures {
     let coords_flat: Vec<f32> = pocket
         .atoms
         .iter()
-        .flat_map(|atom| atom.coords.map(|value| value as f32))
+        .flat_map(|atom| {
+            [
+                (atom.coords[0] - ligand_center[0]) as f32,
+                (atom.coords[1] - ligand_center[1]) as f32,
+                (atom.coords[2] - ligand_center[2]) as f32,
+            ]
+        })
         .collect();
     let feature_flat: Vec<f32> = pocket
         .atoms
@@ -422,6 +483,21 @@ pub fn pocket_features_from_pocket(pocket: &Pocket) -> PocketFeatures {
         atom_features,
         pooled_features,
     }
+}
+
+fn ligand_centroid(ligand: &Ligand) -> [f64; 3] {
+    if ligand.atoms.is_empty() {
+        return [0.0, 0.0, 0.0];
+    }
+    let (x, y, z) = ligand.atoms.iter().fold((0.0, 0.0, 0.0), |acc, atom| {
+        (
+            acc.0 + atom.coords[0],
+            acc.1 + atom.coords[1],
+            acc.2 + atom.coords[2],
+        )
+    });
+    let denom = ligand.atoms.len() as f64;
+    [x / denom, y / denom, z / denom]
 }
 
 fn atom_feature_vector(atom_type: AtomType) -> [f32; 6] {
@@ -493,6 +569,8 @@ fn build_decoder_supervision(
             noisy_coords: Tensor::zeros([0, 3], (Kind::Float, device)),
             coordinate_noise: Tensor::zeros([0, 3], (Kind::Float, device)),
             target_pairwise_distances,
+            rollout_steps: generation_target.rollout_steps,
+            training_step_weight_decay: generation_target.training_step_weight_decay,
             corruption_metadata: metadata,
         };
     }
@@ -537,6 +615,8 @@ fn build_decoder_supervision(
         noisy_coords,
         coordinate_noise,
         target_pairwise_distances,
+        rollout_steps: generation_target.rollout_steps,
+        training_step_weight_decay: generation_target.training_step_weight_decay,
         corruption_metadata: metadata,
     }
 }
@@ -592,4 +672,60 @@ fn stable_atom_hash(example_id: &str, atom_ix: usize, seed: u64) -> u64 {
         hash = hash.wrapping_mul(0x517c_c1b7_2722_0a95);
     }
     hash ^ (atom_ix as u64).wrapping_mul(0x94d0_49bb_1331_11eb)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::Atom;
+
+    fn ligand_with_offset(offset: f64) -> Ligand {
+        Ligand {
+            atoms: vec![
+                Atom {
+                    coords: [offset, offset + 1.0, offset + 2.0],
+                    atom_type: AtomType::Carbon,
+                    index: 0,
+                },
+                Atom {
+                    coords: [offset + 2.0, offset + 3.0, offset + 4.0],
+                    atom_type: AtomType::Oxygen,
+                    index: 1,
+                },
+            ],
+            bonds: vec![(0, 1)],
+            fingerprint: None,
+        }
+    }
+
+    #[test]
+    fn geometry_features_are_ligand_centered() {
+        let ligand = ligand_with_offset(100.0);
+        let geometry = geometry_from_ligand(&ligand);
+
+        let centroid = geometry.coords.mean_dim([0].as_slice(), false, Kind::Float);
+        for dim in 0..3 {
+            assert!(centroid.double_value(&[dim]).abs() < 1e-6);
+        }
+        assert!((geometry.pairwise_distances.double_value(&[0, 1]) - 12.0_f64.sqrt()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn legacy_examples_keep_pocket_coords_in_ligand_centered_frame() {
+        let ligand = ligand_with_offset(100.0);
+        let pocket = Pocket {
+            name: "pocket".to_string(),
+            atoms: vec![Atom {
+                coords: [102.0, 104.0, 106.0],
+                atom_type: AtomType::Nitrogen,
+                index: 0,
+            }],
+        };
+
+        let example = MolecularExample::from_legacy("example", "protein", &ligand, &pocket);
+        assert_eq!(example.coordinate_frame_origin, [101.0, 102.0, 103.0]);
+        assert_eq!(example.pocket.coords.double_value(&[0, 0]), 1.0);
+        assert_eq!(example.pocket.coords.double_value(&[0, 1]), 2.0);
+        assert_eq!(example.pocket.coords.double_value(&[0, 2]), 3.0);
+    }
 }

@@ -21,6 +21,10 @@ pub struct EffectiveLossWeights {
     pub slot: f64,
     /// Topology-geometry consistency objective.
     pub consistency: f64,
+    /// Pocket-ligand contact encouragement objective.
+    pub pocket_contact: f64,
+    /// Pocket-ligand steric-clash penalty objective.
+    pub pocket_clash: f64,
 }
 
 /// Maps optimization steps to staged loss activation.
@@ -82,6 +86,16 @@ impl StageScheduler {
                 0.0
             },
             consistency: w.nu_consistency,
+            pocket_contact: if matches!(stage, TrainingStage::Stage1) {
+                0.0
+            } else {
+                w.rho_pocket_contact * ramp
+            },
+            pocket_clash: if matches!(stage, TrainingStage::Stage1) {
+                0.0
+            } else {
+                w.sigma_pocket_clash * ramp
+            },
         }
     }
 

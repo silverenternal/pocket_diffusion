@@ -25,6 +25,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ResearchCommand::Experiment(args) => {
                 run_experiment_from_config(&args.config, args.resume)
             }
+            ResearchCommand::Ablate(args) => run_ablation_matrix_from_config(&args.config),
+            ResearchCommand::Search(args) => run_automated_search_from_config(&args.config),
+            ResearchCommand::MultiSeed(args) => run_multi_seed_experiment_from_config(&args.config),
             ResearchCommand::Generate(args) => run_generation_demo_from_config(
                 &args.config,
                 args.resume,
@@ -99,6 +102,12 @@ enum ResearchCommand {
     Train(RunArgs),
     /// Run the unseen-pocket experiment from an experiment config.
     Experiment(RunArgs),
+    /// Execute the configured ablation matrix from an experiment config.
+    Ablate(ConfigArgs),
+    /// Run bounded automated tuning across claim-bearing surfaces.
+    Search(ConfigArgs),
+    /// Run repeated seed-level claim surfaces and aggregate stability metrics.
+    MultiSeed(ConfigArgs),
     /// Emit conditioned ligand candidates from the modular research path.
     Generate(GenerateArgs),
 }
@@ -222,6 +231,51 @@ fn run_experiment_from_config(path: &str, resume: bool) -> Result<(), Box<dyn st
     Ok(())
 }
 
+fn run_ablation_matrix_from_config(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let summary = experiments::run_ablation_matrix_from_config(path)?;
+    println!("================================================");
+    println!("  Config-Driven Ablation Matrix");
+    println!("================================================");
+    for variant in summary.variants {
+        println!(
+            "{} [{}] | valid={:?} pocket={:?} unseen={:.4}",
+            variant.variant_label,
+            variant.test.interaction_mode,
+            variant.test.candidate_valid_fraction,
+            variant.test.pocket_compatibility_fraction,
+            variant.test.unseen_protein_fraction,
+        );
+    }
+    Ok(())
+}
+
+fn run_automated_search_from_config(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let summary = experiments::run_automated_search_from_config(path)?;
+    training::print_automated_search(&summary);
+    Ok(())
+}
+
+fn run_multi_seed_experiment_from_config(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let summary = experiments::run_multi_seed_experiment_from_config(path)?;
+    println!("================================================");
+    println!("  Multi-Seed Experiment Summary");
+    println!("================================================");
+    println!("artifact root: {}", summary.artifact_root.display());
+    println!("seeds: {}", summary.seed_runs.len());
+    println!("decision: {}", summary.stability_decision);
+    println!(
+        "valid mean/std: {:.4}/{:.4}",
+        summary.aggregates.candidate_valid_fraction.mean,
+        summary.aggregates.candidate_valid_fraction.std
+    );
+    println!(
+        "pocket fit mean/std: {:.4}/{:.4}",
+        summary.aggregates.strict_pocket_fit_score.mean,
+        summary.aggregates.strict_pocket_fit_score.std
+    );
+    Ok(())
+}
+
 fn run_generation_demo_from_config(
     path: &str,
     resume: bool,
@@ -238,6 +292,7 @@ fn run_generation_demo_from_config(
         summary.example_id, summary.protein_id
     );
     println!("candidates: {}", summary.candidate_count);
+    println!("rollout steps: {}", summary.rollout_steps);
     println!("loaded checkpoint: {}", summary.loaded_checkpoint);
     training::print_eval_metrics(&experiments::EvaluationMetrics {
         representation_diagnostics: experiments::RepresentationDiagnostics {
@@ -262,12 +317,92 @@ fn run_generation_demo_from_config(
             unique_complex_count: 0,
             unique_protein_count: 0,
             train_reference_protein_count: 0,
+            ligand_atom_count_bins: std::collections::BTreeMap::new(),
+            pocket_atom_count_bins: std::collections::BTreeMap::new(),
+            measurement_family_histogram: std::collections::BTreeMap::new(),
         },
         resource_usage: experiments::ResourceUsageMetrics {
             memory_usage_mb: 0.0,
             evaluation_time_ms: 0.0,
+            examples_per_second: 0.0,
+            average_ligand_atoms: 0.0,
+            average_pocket_atoms: 0.0,
         },
         real_generation_metrics: summary.real_generation_metrics,
+        layered_generation_metrics: experiments::LayeredGenerationMetrics {
+            raw_rollout: experiments::CandidateLayerMetrics {
+                candidate_count: 0,
+                valid_fraction: 0.0,
+                pocket_contact_fraction: 0.0,
+                mean_centroid_offset: 0.0,
+                clash_fraction: 0.0,
+                mean_displacement: 0.0,
+                atom_change_fraction: 0.0,
+                uniqueness_proxy_fraction: 0.0,
+                atom_type_sequence_diversity: 0.0,
+                bond_topology_diversity: 0.0,
+                coordinate_shape_diversity: 0.0,
+                novel_atom_type_sequence_fraction: 0.0,
+                novel_bond_topology_fraction: 0.0,
+                novel_coordinate_shape_fraction: 0.0,
+            },
+            repaired_candidates: experiments::CandidateLayerMetrics {
+                candidate_count: 0,
+                valid_fraction: 0.0,
+                pocket_contact_fraction: 0.0,
+                mean_centroid_offset: 0.0,
+                clash_fraction: 0.0,
+                mean_displacement: 0.0,
+                atom_change_fraction: 0.0,
+                uniqueness_proxy_fraction: 0.0,
+                atom_type_sequence_diversity: 0.0,
+                bond_topology_diversity: 0.0,
+                coordinate_shape_diversity: 0.0,
+                novel_atom_type_sequence_fraction: 0.0,
+                novel_bond_topology_fraction: 0.0,
+                novel_coordinate_shape_fraction: 0.0,
+            },
+            inferred_bond_candidates: experiments::CandidateLayerMetrics {
+                candidate_count: 0,
+                valid_fraction: 0.0,
+                pocket_contact_fraction: 0.0,
+                mean_centroid_offset: 0.0,
+                clash_fraction: 0.0,
+                mean_displacement: 0.0,
+                atom_change_fraction: 0.0,
+                uniqueness_proxy_fraction: 0.0,
+                atom_type_sequence_diversity: 0.0,
+                bond_topology_diversity: 0.0,
+                coordinate_shape_diversity: 0.0,
+                novel_atom_type_sequence_fraction: 0.0,
+                novel_bond_topology_fraction: 0.0,
+                novel_coordinate_shape_fraction: 0.0,
+            },
+            reranked_candidates: experiments::CandidateLayerMetrics::default(),
+            deterministic_proxy_candidates: experiments::CandidateLayerMetrics::default(),
+            reranker_calibration: experiments::RerankerCalibrationReport::default(),
+            backend_scored_candidates: std::collections::BTreeMap::new(),
+        },
+        comparison_summary: experiments::GenerationQualitySummary {
+            primary_objective: "generation_demo".to_string(),
+            variant_label: Some("rollout_demo".to_string()),
+            interaction_mode: "n/a".to_string(),
+            candidate_valid_fraction: None,
+            pocket_contact_fraction: None,
+            pocket_compatibility_fraction: None,
+            mean_centroid_offset: None,
+            strict_pocket_fit_score: None,
+            unique_smiles_fraction: None,
+            unseen_protein_fraction: 0.0,
+            topology_specialization_score: 0.0,
+            geometry_specialization_score: 0.0,
+            pocket_specialization_score: 0.0,
+            slot_activation_mean: 0.0,
+            gate_activation_mean: 0.0,
+            leakage_proxy_mean: 0.0,
+        },
+        slot_stability: experiments::SlotStabilityMetrics::default(),
+        strata: Vec::new(),
     });
     Ok(())
 }
@@ -381,6 +516,46 @@ mod tests {
                 assert_eq!(args.num_candidates, 5);
             }
             _ => panic!("expected research generate command"),
+        }
+    }
+
+    #[test]
+    fn parse_research_search_command() {
+        let command = parse_cli(&[
+            "pocket_diffusion",
+            "research",
+            "search",
+            "--config",
+            "configs/unseen_pocket_claim_matrix.json",
+        ]);
+
+        match command {
+            CliCommand::Research {
+                command: ResearchCommand::Search(args),
+            } => {
+                assert_eq!(args.config, "configs/unseen_pocket_claim_matrix.json");
+            }
+            _ => panic!("expected research search command"),
+        }
+    }
+
+    #[test]
+    fn parse_research_multi_seed_command() {
+        let command = parse_cli(&[
+            "pocket_diffusion",
+            "research",
+            "multi-seed",
+            "--config",
+            "configs/unseen_pocket_multi_seed.json",
+        ]);
+
+        match command {
+            CliCommand::Research {
+                command: ResearchCommand::MultiSeed(args),
+            } => {
+                assert_eq!(args.config, "configs/unseen_pocket_multi_seed.json");
+            }
+            _ => panic!("expected research multi-seed command"),
         }
     }
 

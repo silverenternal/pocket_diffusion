@@ -6,6 +6,7 @@
 //! 阶段3: 精炼 (Refinement) - 所有损失 + 一致性损失
 
 use std::time::Instant;
+use sysinfo::{MemoryRefreshKind, RefreshKind, System};
 use tch::{nn, Device, Kind, Tensor};
 
 use crate::disentangle::loss::TotalLoss;
@@ -152,6 +153,8 @@ pub struct DisentangleTrainer {
     statistics: TrainingStatistics,
     /// 设备
     device: Device,
+    /// Lightweight process-memory sampler for legacy training metrics.
+    memory_monitor: ProcessMemoryMonitor,
 }
 
 impl DisentangleTrainer {
@@ -167,6 +170,7 @@ impl DisentangleTrainer {
             loss_calculator,
             statistics,
             device,
+            memory_monitor: ProcessMemoryMonitor::new(),
         }
     }
 
@@ -198,6 +202,7 @@ impl DisentangleTrainer {
         pred_bond_types: Option<&Tensor>,
     ) -> (Tensor, LossComponents, TrainingMetrics) {
         let start_time = Instant::now();
+        let memory_before = self.memory_monitor.used_memory_bytes();
         let step = self.statistics.total_steps;
 
         // 确定当前阶段并在需要时转换阶段
@@ -258,6 +263,7 @@ impl DisentangleTrainer {
         let disentanglement_degree = self.statistics.disentanglement_score();
         let _avg_redundancy = (redundancy_topo + redundancy_geo + redundancy_pocket) / 3.0;
 
+        let memory_after = self.memory_monitor.used_memory_bytes();
         let metrics = TrainingMetrics {
             step,
             phase,
@@ -274,8 +280,12 @@ impl DisentangleTrainer {
             },
             disentanglement_degree,
             step_time_ms,
-            samples_per_second: 1.0 / (step_time_ms / 1000.0),
-            peak_memory_bytes: 0, // TODO: 实现显存监控
+            samples_per_second: if step_time_ms > 0.0 {
+                1.0 / (step_time_ms / 1000.0)
+            } else {
+                0.0
+            },
+            peak_memory_bytes: memory_before.max(memory_after),
         };
 
         (total_loss, loss_components, metrics)
@@ -326,6 +336,25 @@ impl DisentangleTrainer {
         let total_needed =
             self.config.warmup_steps + self.config.disentangle_steps + self.config.refinement_steps;
         self.statistics.total_steps >= total_needed
+    }
+}
+
+struct ProcessMemoryMonitor {
+    system: System,
+}
+
+impl ProcessMemoryMonitor {
+    fn new() -> Self {
+        Self {
+            system: System::new_with_specifics(
+                RefreshKind::new().with_memory(MemoryRefreshKind::everything()),
+            ),
+        }
+    }
+
+    fn used_memory_bytes(&mut self) -> u64 {
+        self.system.refresh_memory();
+        self.system.used_memory()
     }
 }
 

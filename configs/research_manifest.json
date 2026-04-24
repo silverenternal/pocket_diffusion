@@ -12,7 +12,24 @@
     "split_seed": 42,
     "val_fraction": 0.25,
     "test_fraction": 0.25,
-    "stratify_by_measurement": true
+    "stratify_by_measurement": true,
+      "generation_target": {
+        "atom_mask_ratio": 0.15,
+        "coordinate_noise_std": 0.08,
+        "corruption_seed": 1337,
+        "rollout_steps": 4,
+        "min_rollout_steps": 2,
+        "stop_probability_threshold": 0.82,
+        "coordinate_step_scale": 0.8,
+        "training_step_weight_decay": 0.9,
+        "rollout_mode": "momentum_refine",
+        "coordinate_momentum": 0.55,
+        "atom_momentum": 0.4,
+        "atom_commit_temperature": 0.9,
+        "max_coordinate_delta_norm": 1.5,
+        "stop_delta_threshold": 0.02,
+        "stop_patience": 2
+      }
   },
   "model": {
     "hidden_dim": 128,
@@ -42,6 +59,7 @@
     "checkpoint_dir": "./checkpoints",
     "checkpoint_every": 100,
     "log_every": 1,
+    "primary_objective": "conditioned_denoising",
     "affinity_weighting": "inverse_frequency"
   },
   "runtime": {

@@ -7,17 +7,21 @@
 //!
 //! Legacy items stay discoverable here, rather than through the crate root.
 
+#[allow(deprecated)]
 pub mod comparison;
 pub mod demo;
 
+#[allow(deprecated)]
 pub use crate::dataset::{
     DatasetDownloader, DatasetError, LigandReader, PDBbindConfig, PocketReader,
 };
+#[allow(deprecated)]
 pub use crate::experiment::{
     ComparisonExperiment, ComparisonResult, ExperimentConfig, MethodResult,
 };
 pub use crate::pocket::create_example_prrsv_pocket;
 pub use crate::types::{CandidateMolecule, GenerationResult};
+#[allow(deprecated)]
 pub use crate::PocketDiffusionPipeline;
 pub use comparison::run_comparison_experiment;
 pub use demo::run_legacy_demo;

@@ -1,0 +1,60 @@
+{
+  "continuity_mode": "metadata_only_continuation",
+  "guarantee": "bounded replay with explicit metric tolerances; not strict optimizer-state-identical replay",
+  "packaged_environment_default": ".reviewer-env/bin/python when available, otherwise REVIEWER_PYTHON or python3",
+  "packaged_environment_effective": true,
+  "packaged_environment_effective_python": "/usr/bin/python3",
+  "packaged_environment_ready": true,
+  "promotion_rule": "promote canonical reviewer surfaces only when replay drift passes and reviewer thresholds remain green",
+  "refresh_entrypoint": "./tools/revalidate_reviewer_bundle.sh",
+  "reviewer_bundle_status": "pass",
+  "schema_version": 1,
+  "supports_strict_replay": false,
+  "surfaces": [
+    {
+      "artifact_dir": "checkpoints/claim_matrix",
+      "backend_thresholds_passed": false,
+      "data_thresholds_passed": false,
+      "leakage_reviewer_status": "pass",
+      "promotion_decision": "pass",
+      "replay_drift_passed": true,
+      "run_label": "claim_matrix_base"
+    },
+    {
+      "artifact_dir": "checkpoints/real_backends",
+      "backend_thresholds_passed": true,
+      "data_thresholds_passed": false,
+      "leakage_reviewer_status": "pass",
+      "promotion_decision": "pass",
+      "replay_drift_passed": true,
+      "run_label": "base_run"
+    },
+    {
+      "artifact_dir": "checkpoints/pdbbindpp_real_backends",
+      "backend_thresholds_passed": true,
+      "data_thresholds_passed": true,
+      "leakage_reviewer_status": "pass",
+      "promotion_decision": "pass",
+      "replay_drift_passed": true,
+      "run_label": "base_run"
+    },
+    {
+      "artifact_dir": "checkpoints/lp_pdbbind_refined_real_backends",
+      "backend_thresholds_passed": true,
+      "data_thresholds_passed": true,
+      "leakage_reviewer_status": "pass",
+      "promotion_decision": "pass",
+      "replay_drift_passed": true,
+      "run_label": "base_run"
+    },
+    {
+      "artifact_dir": "checkpoints/tight_geometry_pressure",
+      "backend_thresholds_passed": true,
+      "data_thresholds_passed": false,
+      "leakage_reviewer_status": "pass",
+      "promotion_decision": "pass",
+      "replay_drift_passed": true,
+      "run_label": "tight_geometry_pressure_base"
+    }
+  ]
+}

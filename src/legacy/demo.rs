@@ -1,7 +1,9 @@
 //! Legacy demo runner and terminal presentation helpers.
 
+#[allow(deprecated)]
 use tch::{nn, Device};
 
+#[allow(deprecated)]
 use crate::{
     legacy::PocketDiffusionPipeline,
     pocket::{create_example_prrsv_pocket, PocketFeatureExtractor},
@@ -9,6 +11,7 @@ use crate::{
 };
 
 /// Run the legacy pocket-conditioned generation demo and print a CLI report.
+#[allow(deprecated)]
 pub fn run_legacy_demo(num_candidates: usize, top_k: usize, modular_bridge: bool) {
     println!("================================================");
     println!("  基于口袋条件扩散的结构感知小分子生成系统");

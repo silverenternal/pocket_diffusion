@@ -1,0 +1,175 @@
+{
+  "configs": [
+    {
+      "chemistry_backend": {
+        "args": [
+          "./tools/rdkit_validity_backend.py"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/rdkit_validity_backend.py"
+          }
+        ]
+      },
+      "config": "configs/unseen_pocket_pdbbindpp_real_backends.json",
+      "docking_backend": {
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "docking"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/pocket_contact_backend.py"
+          }
+        ]
+      },
+      "pocket_backend": {
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "compatibility"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/pocket_contact_backend.py"
+          }
+        ]
+      },
+      "surface_label": "pdbbindpp_real_backends"
+    },
+    {
+      "chemistry_backend": {
+        "args": [
+          "./tools/rdkit_validity_backend.py"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/rdkit_validity_backend.py"
+          }
+        ]
+      },
+      "config": "configs/unseen_pocket_lp_pdbbind_refined_real_backends.json",
+      "docking_backend": {
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "docking"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/pocket_contact_backend.py"
+          }
+        ]
+      },
+      "pocket_backend": {
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "compatibility"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/pocket_contact_backend.py"
+          }
+        ]
+      },
+      "surface_label": "lp_pdbbind_refined_real_backends"
+    },
+    {
+      "chemistry_backend": {
+        "args": [
+          "./tools/rdkit_validity_backend.py"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/rdkit_validity_backend.py"
+          }
+        ]
+      },
+      "config": "configs/unseen_pocket_tight_geometry_pressure.json",
+      "docking_backend": {
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "docking"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/pocket_contact_backend.py"
+          }
+        ]
+      },
+      "pocket_backend": {
+        "args": [
+          "./tools/pocket_contact_backend.py",
+          "--mode",
+          "compatibility"
+        ],
+        "available": true,
+        "executable": "python3",
+        "resolved_executable": "/usr/bin/python3",
+        "script_status": [
+          {
+            "exists": true,
+            "path": "./tools/pocket_contact_backend.py"
+          }
+        ]
+      },
+      "surface_label": "tight_geometry_pressure"
+    }
+  ],
+  "packaged_environment": {
+    "bootstrap_script": "tools/bootstrap_reviewer_env.sh",
+    "bootstrap_script_exists": true,
+    "effective_python": "/usr/bin/python3",
+    "effective_python_is_packaged": true,
+    "environment_file": "reviewer_env/environment.yml",
+    "environment_file_exists": true,
+    "local_python": ".reviewer-env/bin/python",
+    "local_python_exists": true,
+    "recommended_bootstrap_command": "./tools/bootstrap_reviewer_env.sh"
+  },
+  "python": {
+    "available": true,
+    "detail": "Python 3.14.4",
+    "executable": "/usr/bin/python3"
+  },
+  "rdkit": {
+    "available": true,
+    "detail": "importable"
+  },
+  "ready": true
+}

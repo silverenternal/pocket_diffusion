@@ -72,6 +72,16 @@ impl RuntimeConfig {
     pub fn resolve_device(&self) -> Result<Device, DeviceParseError> {
         parse_runtime_device(&self.device)
     }
+
+    /// Apply libtorch runtime controls that are independent from Rust data workers.
+    pub fn apply_tch_thread_settings(&self) {
+        if let Some(threads) = self.tch_intra_op_threads {
+            tch::set_num_threads(threads);
+        }
+        if let Some(threads) = self.tch_inter_op_threads {
+            tch::set_num_interop_threads(threads);
+        }
+    }
 }
 
 #[cfg(test)]

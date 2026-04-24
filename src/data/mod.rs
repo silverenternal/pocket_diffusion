@@ -13,6 +13,6 @@ pub use features::{
 };
 pub use parser::{
     apply_affinity_labels, discover_pdbbind_like_entries, load_affinity_labels, load_manifest,
-    load_manifest_entry, synthetic_phase1_examples, AffinityLabel, DataParseError, DatasetManifest,
-    DatasetValidationReport, ManifestEntry,
+    load_manifest_entry, synthetic_phase1_examples, AffinityLabel, AffinityLabelLoadReport,
+    DataParseError, DatasetManifest, DatasetValidationReport, LoadedAffinityLabels, ManifestEntry,
 };

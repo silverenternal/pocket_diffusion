@@ -2,7 +2,7 @@
 
 use tch::{nn, Kind, Tensor};
 
-use super::{Encoder, ModalityEncoding, TopologyEncoder};
+use super::{BatchedModalityEncoding, Encoder, ModalityEncoding, TopologyEncoder};
 use crate::data::TopologyFeatures;
 
 /// Minimal topology encoder that mixes atom embeddings with graph degree signals.
@@ -30,6 +30,32 @@ impl TopologyEncoderImpl {
         Self {
             atom_embedding,
             atom_projection,
+        }
+    }
+
+    /// Encode padded topology tensors without iterating over examples.
+    pub(crate) fn encode_batch(
+        &self,
+        atom_types: &Tensor,
+        adjacency: &Tensor,
+        mask: &Tensor,
+    ) -> BatchedModalityEncoding {
+        let atom_emb = atom_types.apply(&self.atom_embedding);
+        let degree = adjacency.sum_dim_intlist([2].as_slice(), true, Kind::Float);
+        let token_embeddings = Tensor::cat(&[atom_emb, degree], -1)
+            .apply(&self.atom_projection)
+            .relu()
+            * mask.unsqueeze(-1);
+        let denom = mask
+            .sum_dim_intlist([1].as_slice(), true, Kind::Float)
+            .clamp_min(1.0);
+        let pooled_embedding =
+            token_embeddings.sum_dim_intlist([1].as_slice(), false, Kind::Float) / denom;
+
+        BatchedModalityEncoding {
+            token_embeddings,
+            token_mask: mask.shallow_clone(),
+            pooled_embedding,
         }
     }
 }

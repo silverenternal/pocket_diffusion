@@ -1,13 +1,7 @@
 {
   "project": "pocket_diffusion",
-  "goal": "Completed current phase backlog for the modular pocket-conditioned molecular generation research path.",
-  "summary": {
-    "current_state": "The active Rust-first modular stack now supports deterministic generation-target construction, a decoder-anchored conditioned-denoising primary objective, staged training centered on the primary decoder task, active heuristic chemistry-validity / docking-hook / pocket-compatibility evaluation, a config-driven research generation demo, and an explicit legacy-to-modular generation bridge.",
-    "main_risks": [
-      "The new chemistry and downstream evaluation backends are heuristic adapters, not external chemistry toolkit integrations.",
-      "The modular generation demo emits research candidates from the current decoder path, but it is still a compact research interface rather than a production sampler."
-    ],
-    "top_priorities": []
-  },
-  "phases": []
+  "updated_at": "2026-04-24",
+  "status": "clear",
+  "principle": "Only keep unfinished work here. Delete an item immediately after its acceptance criteria are satisfied.",
+  "todos": []
 }

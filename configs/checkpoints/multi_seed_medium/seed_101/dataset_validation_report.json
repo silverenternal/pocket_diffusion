@@ -1,0 +1,17 @@
+{
+  "discovered_complexes": 5,
+  "parsed_examples": 5,
+  "parsed_ligands": 5,
+  "parsed_pockets": 5,
+  "attached_labels": 0,
+  "example_id_label_matches": 0,
+  "protein_id_label_matches": 0,
+  "unlabeled_examples": 5,
+  "fallback_pocket_extractions": 0,
+  "truncated_examples": 0,
+  "loaded_label_rows": 0,
+  "approximate_affinity_labels": 0,
+  "affinity_normalization_warnings": 0,
+  "normalization_warning_messages": [],
+  "parsing_mode": "lightweight"
+}

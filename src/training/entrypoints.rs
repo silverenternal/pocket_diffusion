@@ -79,6 +79,7 @@ pub fn inspect_dataset_from_config(
 ) -> Result<DatasetInspection, Box<dyn std::error::Error>> {
     let config = load_research_config(path.as_ref())?;
     config.validate()?;
+    config.runtime.apply_tch_thread_settings();
     let loaded = InMemoryDataset::load_from_config(&config.data)?;
     let dataset = loaded
         .dataset
@@ -211,15 +212,23 @@ pub fn run_training_from_config(
     let validation = evaluate_split(
         &system,
         splits.val.examples(),
+        splits.train.examples(),
         &train_proteins,
+        &config,
         AblationConfig::default(),
+        &crate::experiments::ExternalEvaluationConfig::default(),
+        "validation",
         device,
     );
     let test = evaluate_split(
         &system,
         splits.test.examples(),
+        splits.train.examples(),
         &train_proteins,
+        &config,
         AblationConfig::default(),
+        &crate::experiments::ExternalEvaluationConfig::default(),
+        "test",
         device,
     );
 
@@ -283,6 +292,7 @@ fn persist_training_artifacts(
             .dataset_validation_fingerprint
             .clone(),
         metric_schema_version: summary.reproducibility.metric_schema_version,
+        backend_environment: None,
         paths: RunArtifactPaths {
             config_snapshot,
             dataset_validation_report,
@@ -303,7 +313,11 @@ fn write_dataset_validation_report(
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
     fs::create_dir_all(checkpoint_dir)?;
     let path = checkpoint_dir.join(file_name);
-    fs::write(&path, serde_json::to_string_pretty(report)?)?;
+    let payload = serde_json::to_string_pretty(report)?;
+    fs::write(&path, &payload)?;
+    if file_name == "dataset_validation_report.json" {
+        fs::write(checkpoint_dir.join("dataset_validation.json"), payload)?;
+    }
     Ok(path)
 }
 
@@ -401,7 +415,7 @@ mod tests {
             .checkpoint_dir
             .join("dataset_validation_report.json")
             .exists());
-        assert_eq!(summary.reproducibility.metric_schema_version, 3);
+        assert!(summary.reproducibility.metric_schema_version >= 4);
         assert!(summary
             .config
             .training

@@ -31,6 +31,9 @@ pub struct ResearchConfig {
     pub training: TrainingConfig,
     /// Runtime and device preferences.
     pub runtime: RuntimeConfig,
+    /// Optional bounded automated search over interaction, rollout, and loss controls.
+    #[serde(default)]
+    pub automated_search: AutomatedSearchConfig,
 }
 
 impl Default for ResearchConfig {
@@ -40,6 +43,7 @@ impl Default for ResearchConfig {
             model: ModelConfig::default(),
             training: TrainingConfig::default(),
             runtime: RuntimeConfig::default(),
+            automated_search: AutomatedSearchConfig::default(),
         }
     }
 }
@@ -51,6 +55,7 @@ impl ResearchConfig {
         self.model.validate()?;
         self.training.validate()?;
         self.runtime.validate()?;
+        self.automated_search.validate()?;
         self.validate_cross_section_invariants()?;
         Ok(())
     }
@@ -106,6 +111,9 @@ pub struct DataConfig {
     pub test_fraction: f32,
     /// Whether to stratify protein-level splits by dominant affinity measurement type.
     pub stratify_by_measurement: bool,
+    /// Optional inclusion/exclusion filters for real-data evidence surfaces.
+    #[serde(default)]
+    pub quality_filters: DataQualityFilterConfig,
     /// Decoder-side corruption and denoising target generation.
     #[serde(default)]
     pub generation_target: GenerationTargetConfig,
@@ -128,6 +136,7 @@ impl Default for DataConfig {
             val_fraction: 0.1,
             test_fraction: 0.1,
             stratify_by_measurement: false,
+            quality_filters: DataQualityFilterConfig::default(),
             generation_target: GenerationTargetConfig::default(),
         }
     }
@@ -163,6 +172,7 @@ impl DataConfig {
             }
         }
         validate_split_fractions(self.val_fraction, self.test_fraction)?;
+        self.quality_filters.validate()?;
         self.generation_target.validate()?;
         match self.dataset_format {
             DatasetFormat::Synthetic => {}
@@ -185,6 +195,67 @@ impl DataConfig {
     }
 }
 
+/// Optional dataset quality filters used to make real-data inclusion criteria reproducible.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DataQualityFilterConfig {
+    /// Minimum retained labeled fraction required after filtering.
+    #[serde(default)]
+    pub min_label_coverage: Option<f32>,
+    /// Maximum allowed pocket-fallback fraction before the load is rejected.
+    #[serde(default)]
+    pub max_fallback_fraction: Option<f32>,
+    /// Optional atom-count exclusion threshold for parsed ligands.
+    #[serde(default)]
+    pub max_ligand_atoms: Option<usize>,
+    /// Optional atom-count exclusion threshold for parsed pockets.
+    #[serde(default)]
+    pub max_pocket_atoms: Option<usize>,
+    /// Require source protein and ligand structure paths to be retained on examples.
+    #[serde(default)]
+    pub require_source_structure_provenance: bool,
+    /// Require labeled examples to retain measurement-family and normalization metadata.
+    #[serde(default)]
+    pub require_affinity_metadata: bool,
+    /// Maximum retained fraction of approximate measurement families such as `IC50` or `EC50`.
+    #[serde(default)]
+    pub max_approximate_label_fraction: Option<f32>,
+    /// Minimum retained coverage of normalization provenance on labeled examples.
+    #[serde(default)]
+    pub min_normalization_provenance_coverage: Option<f32>,
+}
+
+impl DataQualityFilterConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        validate_optional_fraction(
+            self.min_label_coverage,
+            "data.quality_filters.min_label_coverage",
+        )?;
+        validate_optional_fraction(
+            self.max_fallback_fraction,
+            "data.quality_filters.max_fallback_fraction",
+        )?;
+        validate_optional_fraction(
+            self.max_approximate_label_fraction,
+            "data.quality_filters.max_approximate_label_fraction",
+        )?;
+        validate_optional_fraction(
+            self.min_normalization_provenance_coverage,
+            "data.quality_filters.min_normalization_provenance_coverage",
+        )?;
+        if self.max_ligand_atoms == Some(0) {
+            return Err(ConfigValidationError::new(
+                "data.quality_filters.max_ligand_atoms must be omitted or greater than zero",
+            ));
+        }
+        if self.max_pocket_atoms == Some(0) {
+            return Err(ConfigValidationError::new(
+                "data.quality_filters.max_pocket_atoms must be omitted or greater than zero",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Configurable corruption process used to derive decoder-side supervision.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerationTargetConfig {
@@ -194,6 +265,55 @@ pub struct GenerationTargetConfig {
     pub coordinate_noise_std: f32,
     /// Seed used for deterministic corruption and denoising target construction.
     pub corruption_seed: u64,
+    /// Number of iterative decoder refinement steps used by active generation paths.
+    pub rollout_steps: usize,
+    /// Minimum number of refinement steps before the stop logit may terminate rollout.
+    pub min_rollout_steps: usize,
+    /// Sigmoid threshold used to terminate iterative generation early.
+    pub stop_probability_threshold: f64,
+    /// Scalar applied to decoder coordinate updates during iterative refinement.
+    pub coordinate_step_scale: f64,
+    /// Geometric decay used to weight later rollout steps during training.
+    pub training_step_weight_decay: f64,
+    /// Rollout update semantics used by the iterative decoder.
+    #[serde(default)]
+    pub rollout_mode: GenerationRolloutMode,
+    /// Momentum used to smooth coordinate updates in stronger rollout mode.
+    #[serde(default = "default_coordinate_momentum")]
+    pub coordinate_momentum: f64,
+    /// Momentum used to smooth atom-type logits in stronger rollout mode.
+    #[serde(default = "default_atom_momentum")]
+    pub atom_momentum: f64,
+    /// Temperature applied before committing atom-type updates in stronger rollout mode.
+    #[serde(default = "default_atom_commit_temperature")]
+    pub atom_commit_temperature: f64,
+    /// Maximum L2 norm allowed for one atom coordinate delta before scaling.
+    #[serde(default = "default_max_coordinate_delta_norm")]
+    pub max_coordinate_delta_norm: f64,
+    /// Stability threshold used by adaptive stopping in stronger rollout mode.
+    #[serde(default = "default_stop_delta_threshold")]
+    pub stop_delta_threshold: f64,
+    /// Number of consecutive stable steps required before adaptive stopping may trigger.
+    #[serde(default = "default_stop_patience")]
+    pub stop_patience: usize,
+    /// Seed used by reproducible rollout sampling controls.
+    #[serde(default = "default_sampling_seed")]
+    pub sampling_seed: u64,
+    /// Atom sampling temperature; zero preserves deterministic argmax commits.
+    #[serde(default)]
+    pub sampling_temperature: f64,
+    /// Optional top-k truncation for stochastic atom commits; zero disables top-k filtering.
+    #[serde(default)]
+    pub sampling_top_k: usize,
+    /// Top-p nucleus threshold for stochastic atom commits.
+    #[serde(default = "default_sampling_top_p")]
+    pub sampling_top_p: f64,
+    /// Deterministic coordinate noise scale added during stochastic rollout.
+    #[serde(default)]
+    pub coordinate_sampling_noise_std: f64,
+    /// Multiplier for decoder-time pocket-centroid guidance during rollout.
+    #[serde(default = "default_pocket_guidance_scale")]
+    pub pocket_guidance_scale: f64,
 }
 
 impl Default for GenerationTargetConfig {
@@ -202,6 +322,24 @@ impl Default for GenerationTargetConfig {
             atom_mask_ratio: 0.15,
             coordinate_noise_std: 0.08,
             corruption_seed: 1337,
+            rollout_steps: 4,
+            min_rollout_steps: 2,
+            stop_probability_threshold: 0.82,
+            coordinate_step_scale: 0.8,
+            training_step_weight_decay: 0.9,
+            rollout_mode: GenerationRolloutMode::default(),
+            coordinate_momentum: default_coordinate_momentum(),
+            atom_momentum: default_atom_momentum(),
+            atom_commit_temperature: default_atom_commit_temperature(),
+            max_coordinate_delta_norm: default_max_coordinate_delta_norm(),
+            stop_delta_threshold: default_stop_delta_threshold(),
+            stop_patience: default_stop_patience(),
+            sampling_seed: default_sampling_seed(),
+            sampling_temperature: 0.0,
+            sampling_top_k: 0,
+            sampling_top_p: default_sampling_top_p(),
+            coordinate_sampling_noise_std: 0.0,
+            pocket_guidance_scale: default_pocket_guidance_scale(),
         }
     }
 }
@@ -217,6 +355,168 @@ impl GenerationTargetConfig {
             return Err(ConfigValidationError::new(
                 "data.generation_target.coordinate_noise_std must be finite and non-negative",
             ));
+        }
+        if self.rollout_steps == 0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.rollout_steps must be greater than zero",
+            ));
+        }
+        if self.min_rollout_steps > self.rollout_steps {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.min_rollout_steps must be <= data.generation_target.rollout_steps",
+            ));
+        }
+        if !self.stop_probability_threshold.is_finite()
+            || !(0.0..=1.0).contains(&self.stop_probability_threshold)
+        {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.stop_probability_threshold must be finite and in [0, 1]",
+            ));
+        }
+        if !self.coordinate_step_scale.is_finite() || self.coordinate_step_scale <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.coordinate_step_scale must be finite and positive",
+            ));
+        }
+        if !self.training_step_weight_decay.is_finite() || self.training_step_weight_decay <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.training_step_weight_decay must be finite and positive",
+            ));
+        }
+        if !(0.0..1.0).contains(&self.coordinate_momentum) {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.coordinate_momentum must be in [0, 1)",
+            ));
+        }
+        if !(0.0..1.0).contains(&self.atom_momentum) {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.atom_momentum must be in [0, 1)",
+            ));
+        }
+        if !self.atom_commit_temperature.is_finite() || self.atom_commit_temperature <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.atom_commit_temperature must be finite and positive",
+            ));
+        }
+        if !self.max_coordinate_delta_norm.is_finite() || self.max_coordinate_delta_norm <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.max_coordinate_delta_norm must be finite and positive",
+            ));
+        }
+        if !self.stop_delta_threshold.is_finite() || self.stop_delta_threshold < 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.stop_delta_threshold must be finite and non-negative",
+            ));
+        }
+        if self.stop_patience == 0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.stop_patience must be greater than zero",
+            ));
+        }
+        if !self.sampling_temperature.is_finite() || self.sampling_temperature < 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.sampling_temperature must be finite and non-negative",
+            ));
+        }
+        if !self.sampling_top_p.is_finite() || !(0.0..=1.0).contains(&self.sampling_top_p) {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.sampling_top_p must be finite and in [0, 1]",
+            ));
+        }
+        if self.sampling_temperature > 0.0 && self.sampling_top_p <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.sampling_top_p must be > 0 when sampling_temperature > 0",
+            ));
+        }
+        if !self.coordinate_sampling_noise_std.is_finite()
+            || self.coordinate_sampling_noise_std < 0.0
+        {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.coordinate_sampling_noise_std must be finite and non-negative",
+            ));
+        }
+        if !self.pocket_guidance_scale.is_finite() || self.pocket_guidance_scale < 0.0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.pocket_guidance_scale must be finite and non-negative",
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Rollout update semantics for the iterative conditioned generator.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum GenerationRolloutMode {
+    /// Preserve the original direct-update refinement loop as an ablation baseline.
+    #[default]
+    Lightweight,
+    /// Use momentum-smoothed atom/geometry updates with stability-aware stopping.
+    MomentumRefine,
+}
+
+fn default_coordinate_momentum() -> f64 {
+    0.55
+}
+
+fn default_atom_momentum() -> f64 {
+    0.4
+}
+
+fn default_atom_commit_temperature() -> f64 {
+    0.9
+}
+
+fn default_max_coordinate_delta_norm() -> f64 {
+    1.5
+}
+
+fn default_stop_delta_threshold() -> f64 {
+    0.02
+}
+
+fn default_stop_patience() -> usize {
+    2
+}
+
+fn default_sampling_seed() -> u64 {
+    2027
+}
+
+fn default_sampling_top_p() -> f64 {
+    1.0
+}
+
+fn default_pocket_guidance_scale() -> f64 {
+    1.0
+}
+
+/// Command-line backend adapter configuration used for external chemistry or docking hooks.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ExternalBackendCommandConfig {
+    /// Whether the backend should be invoked for the current run.
+    pub enabled: bool,
+    /// Executable path or command name.
+    pub executable: Option<String>,
+    /// Static argument list appended after the generated input/output paths.
+    #[serde(default)]
+    pub args: Vec<String>,
+}
+
+impl ExternalBackendCommandConfig {
+    /// Validate that enabled backends provide an executable.
+    pub fn validate(&self, logical_name: &str) -> Result<(), ConfigValidationError> {
+        if self.enabled
+            && self
+                .executable
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_none()
+        {
+            return Err(ConfigValidationError::new(format!(
+                "{logical_name}.executable is required when {logical_name}.enabled=true"
+            )));
         }
         Ok(())
     }
@@ -237,6 +537,15 @@ pub struct ModelConfig {
     pub pocket_feature_dim: i64,
     /// Pairwise geometric feature width.
     pub pair_feature_dim: i64,
+    /// Cross-modality interaction block style.
+    #[serde(default)]
+    pub interaction_mode: CrossAttentionMode,
+    /// Feed-forward expansion factor used by the Transformer-style interaction block.
+    #[serde(default = "default_interaction_ff_multiplier")]
+    pub interaction_ff_multiplier: i64,
+    /// Compact tuning knobs for the Transformer-style interaction refinement path.
+    #[serde(default)]
+    pub interaction_tuning: InteractionTuningConfig,
 }
 
 impl Default for ModelConfig {
@@ -248,6 +557,9 @@ impl Default for ModelConfig {
             bond_vocab_size: 8,
             pocket_feature_dim: 24,
             pair_feature_dim: 8,
+            interaction_mode: CrossAttentionMode::default(),
+            interaction_ff_multiplier: default_interaction_ff_multiplier(),
+            interaction_tuning: InteractionTuningConfig::default(),
         }
     }
 }
@@ -274,8 +586,122 @@ impl ModelConfig {
                 "model.pocket_feature_dim and model.pair_feature_dim must be greater than zero",
             ));
         }
+        if self.interaction_ff_multiplier <= 0 {
+            return Err(ConfigValidationError::new(
+                "model.interaction_ff_multiplier must be greater than zero",
+            ));
+        }
+        self.interaction_tuning.validate()?;
         Ok(())
     }
+}
+
+/// Controlled cross-modality interaction style used by the modular stack.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CrossAttentionMode {
+    /// Preserve the original gated single-path interaction as the main ablation baseline.
+    Lightweight,
+    /// Add normalization, residual structure, and feed-forward refinement around gated attention.
+    #[default]
+    Transformer,
+}
+
+fn default_interaction_ff_multiplier() -> i64 {
+    2
+}
+
+/// Compact tuning controls for the Transformer-style controlled-interaction path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InteractionTuningConfig {
+    /// Temperature applied to gate logits before the sigmoid.
+    #[serde(default = "default_interaction_gate_temperature")]
+    pub gate_temperature: f64,
+    /// Additive bias applied to gate logits before temperature scaling.
+    #[serde(default = "default_interaction_gate_bias")]
+    pub gate_bias: f64,
+    /// Residual scale applied to the gated attention update.
+    #[serde(default = "default_attention_residual_scale")]
+    pub attention_residual_scale: f64,
+    /// Residual scale applied to the Transformer-style feed-forward refinement.
+    #[serde(default = "default_ffn_residual_scale")]
+    pub ffn_residual_scale: f64,
+    /// Whether the refinement feed-forward block should use pre-normalized inputs.
+    #[serde(default = "default_transformer_pre_norm")]
+    pub transformer_pre_norm: bool,
+    /// Multiplier for ligand-pocket geometry bias injected into controlled attention.
+    #[serde(default = "default_geometry_attention_bias_scale")]
+    pub geometry_attention_bias_scale: f64,
+}
+
+impl Default for InteractionTuningConfig {
+    fn default() -> Self {
+        Self {
+            gate_temperature: default_interaction_gate_temperature(),
+            gate_bias: default_interaction_gate_bias(),
+            attention_residual_scale: default_attention_residual_scale(),
+            ffn_residual_scale: default_ffn_residual_scale(),
+            transformer_pre_norm: default_transformer_pre_norm(),
+            geometry_attention_bias_scale: default_geometry_attention_bias_scale(),
+        }
+    }
+}
+
+impl InteractionTuningConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if !self.gate_temperature.is_finite() || self.gate_temperature <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "model.interaction_tuning.gate_temperature must be finite and positive",
+            ));
+        }
+        if !self.gate_bias.is_finite() {
+            return Err(ConfigValidationError::new(
+                "model.interaction_tuning.gate_bias must be finite",
+            ));
+        }
+        if !self.attention_residual_scale.is_finite() || self.attention_residual_scale <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "model.interaction_tuning.attention_residual_scale must be finite and positive",
+            ));
+        }
+        if !self.ffn_residual_scale.is_finite() || self.ffn_residual_scale <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "model.interaction_tuning.ffn_residual_scale must be finite and positive",
+            ));
+        }
+        if !self.geometry_attention_bias_scale.is_finite()
+            || self.geometry_attention_bias_scale < 0.0
+        {
+            return Err(ConfigValidationError::new(
+                "model.interaction_tuning.geometry_attention_bias_scale must be finite and non-negative",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn default_interaction_gate_temperature() -> f64 {
+    1.35
+}
+
+fn default_interaction_gate_bias() -> f64 {
+    -0.1
+}
+
+fn default_attention_residual_scale() -> f64 {
+    0.7
+}
+
+fn default_ffn_residual_scale() -> f64 {
+    0.35
+}
+
+fn default_transformer_pre_norm() -> bool {
+    true
+}
+
+fn default_geometry_attention_bias_scale() -> f64 {
+    1.0
 }
 
 /// Runtime preferences that affect execution but not model semantics.
@@ -285,6 +711,642 @@ pub struct RuntimeConfig {
     pub device: String,
     /// Number of worker threads intended for data processing.
     pub data_workers: usize,
+    /// Optional libtorch intra-op thread count for tensor kernels.
+    #[serde(default)]
+    pub tch_intra_op_threads: Option<i32>,
+    /// Optional libtorch inter-op thread count for parallel operator scheduling.
+    #[serde(default)]
+    pub tch_inter_op_threads: Option<i32>,
+}
+
+/// Bounded cross-surface search strategy.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AutomatedSearchStrategy {
+    /// Exhaust the bounded value fragments until `max_candidates` is reached.
+    #[default]
+    Grid,
+    /// Sample bounded value fragments uniformly at random.
+    Random,
+}
+
+/// Config-driven automated search over interaction, rollout, and loss controls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomatedSearchConfig {
+    /// Whether the automated search entrypoint should be active for this config.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Search strategy used to enumerate candidate settings.
+    #[serde(default)]
+    pub strategy: AutomatedSearchStrategy,
+    /// Whether to always include the base config as a scored candidate.
+    #[serde(default = "default_include_base_candidate")]
+    pub include_base_candidate: bool,
+    /// Hard cap on generated candidates.
+    #[serde(default = "default_search_max_candidates")]
+    pub max_candidates: usize,
+    /// Seed used by random search.
+    #[serde(default = "default_search_seed")]
+    pub random_seed: u64,
+    /// Surface configs scored together during one search cycle.
+    #[serde(default)]
+    pub surface_configs: Vec<PathBuf>,
+    /// Root directory for ranked search artifacts.
+    #[serde(default = "default_search_artifact_root")]
+    pub artifact_root_dir: PathBuf,
+    /// Search-time hard regression gates.
+    #[serde(default)]
+    pub hard_gates: AutomatedSearchHardGateConfig,
+    /// Multi-objective weights used after hard gates pass.
+    #[serde(default)]
+    pub score_weights: AutomatedSearchScoreWeightConfig,
+    /// Bounded search space over explainable knobs.
+    #[serde(default)]
+    pub search_space: AutomatedSearchSpaceConfig,
+}
+
+impl Default for AutomatedSearchConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            strategy: AutomatedSearchStrategy::default(),
+            include_base_candidate: default_include_base_candidate(),
+            max_candidates: default_search_max_candidates(),
+            random_seed: default_search_seed(),
+            surface_configs: Vec::new(),
+            artifact_root_dir: default_search_artifact_root(),
+            hard_gates: AutomatedSearchHardGateConfig::default(),
+            score_weights: AutomatedSearchScoreWeightConfig::default(),
+            search_space: AutomatedSearchSpaceConfig::default(),
+        }
+    }
+}
+
+impl AutomatedSearchConfig {
+    /// Validate the search config before launching a search cycle.
+    pub fn validate(&self) -> Result<(), ConfigValidationError> {
+        if !self.enabled {
+            return Ok(());
+        }
+        if self.max_candidates == 0 {
+            return Err(ConfigValidationError::new(
+                "automated_search.max_candidates must be greater than zero when enabled",
+            ));
+        }
+        if self.surface_configs.is_empty() {
+            return Err(ConfigValidationError::new(
+                "automated_search.surface_configs must not be empty when enabled",
+            ));
+        }
+        if self.artifact_root_dir.as_os_str().is_empty() {
+            return Err(ConfigValidationError::new(
+                "automated_search.artifact_root_dir must not be empty when enabled",
+            ));
+        }
+        self.hard_gates.validate()?;
+        self.score_weights.validate()?;
+        self.search_space.validate()?;
+        Ok(())
+    }
+}
+
+/// Hard regression gates applied before multi-objective ranking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomatedSearchHardGateConfig {
+    /// Minimum chemistry-valid fraction across all surfaces.
+    #[serde(default = "default_min_candidate_valid_fraction")]
+    pub minimum_candidate_valid_fraction: f64,
+    /// Minimum sanitization fraction across all surfaces.
+    #[serde(default = "default_min_sanitized_fraction")]
+    pub minimum_sanitized_fraction: f64,
+    /// Minimum uniqueness fraction across all surfaces.
+    #[serde(default = "default_min_unique_smiles_fraction")]
+    pub minimum_unique_smiles_fraction: f64,
+    /// Maximum clash fraction across all surfaces.
+    #[serde(default = "default_max_clash_fraction")]
+    pub maximum_clash_fraction: f64,
+    /// Minimum strict pocket-fit score across all surfaces.
+    #[serde(default = "default_min_strict_pocket_fit_score")]
+    pub minimum_strict_pocket_fit_score: f64,
+    /// Minimum pocket-contact fraction across all surfaces.
+    #[serde(default = "default_min_pocket_contact_fraction")]
+    pub minimum_pocket_contact_fraction: f64,
+    /// Minimum pocket-compatibility fraction across all surfaces.
+    #[serde(default = "default_min_pocket_compatibility_fraction")]
+    pub minimum_pocket_compatibility_fraction: f64,
+    /// Optional maximum raw-rollout centroid offset before repair/scoring.
+    #[serde(default)]
+    pub maximum_raw_centroid_offset: Option<f64>,
+    /// Optional maximum raw-rollout clash proxy before repair/scoring.
+    #[serde(default)]
+    pub maximum_raw_clash_fraction: Option<f64>,
+    /// Optional maximum final raw-rollout coordinate displacement.
+    #[serde(default)]
+    pub maximum_raw_mean_displacement: Option<f64>,
+    /// Optional maximum final raw-rollout atom-change fraction.
+    #[serde(default)]
+    pub maximum_raw_atom_change_fraction: Option<f64>,
+    /// Optional minimum raw-rollout uniqueness proxy.
+    #[serde(default)]
+    pub minimum_raw_uniqueness_proxy_fraction: Option<f64>,
+}
+
+impl Default for AutomatedSearchHardGateConfig {
+    fn default() -> Self {
+        Self {
+            minimum_candidate_valid_fraction: default_min_candidate_valid_fraction(),
+            minimum_sanitized_fraction: default_min_sanitized_fraction(),
+            minimum_unique_smiles_fraction: default_min_unique_smiles_fraction(),
+            maximum_clash_fraction: default_max_clash_fraction(),
+            minimum_strict_pocket_fit_score: default_min_strict_pocket_fit_score(),
+            minimum_pocket_contact_fraction: default_min_pocket_contact_fraction(),
+            minimum_pocket_compatibility_fraction: default_min_pocket_compatibility_fraction(),
+            maximum_raw_centroid_offset: None,
+            maximum_raw_clash_fraction: None,
+            maximum_raw_mean_displacement: None,
+            maximum_raw_atom_change_fraction: None,
+            minimum_raw_uniqueness_proxy_fraction: None,
+        }
+    }
+}
+
+impl AutomatedSearchHardGateConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        for (name, value) in [
+            (
+                "automated_search.hard_gates.minimum_candidate_valid_fraction",
+                self.minimum_candidate_valid_fraction,
+            ),
+            (
+                "automated_search.hard_gates.minimum_sanitized_fraction",
+                self.minimum_sanitized_fraction,
+            ),
+            (
+                "automated_search.hard_gates.minimum_unique_smiles_fraction",
+                self.minimum_unique_smiles_fraction,
+            ),
+            (
+                "automated_search.hard_gates.minimum_strict_pocket_fit_score",
+                self.minimum_strict_pocket_fit_score,
+            ),
+            (
+                "automated_search.hard_gates.minimum_pocket_contact_fraction",
+                self.minimum_pocket_contact_fraction,
+            ),
+            (
+                "automated_search.hard_gates.minimum_pocket_compatibility_fraction",
+                self.minimum_pocket_compatibility_fraction,
+            ),
+        ] {
+            if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                return Err(ConfigValidationError::new(format!(
+                    "{name} must be finite and in [0, 1]"
+                )));
+            }
+        }
+        if !self.maximum_clash_fraction.is_finite()
+            || !(0.0..=1.0).contains(&self.maximum_clash_fraction)
+        {
+            return Err(ConfigValidationError::new(
+                "automated_search.hard_gates.maximum_clash_fraction must be finite and in [0, 1]",
+            ));
+        }
+        for (name, value) in [
+            (
+                "automated_search.hard_gates.maximum_raw_clash_fraction",
+                self.maximum_raw_clash_fraction,
+            ),
+            (
+                "automated_search.hard_gates.maximum_raw_atom_change_fraction",
+                self.maximum_raw_atom_change_fraction,
+            ),
+            (
+                "automated_search.hard_gates.minimum_raw_uniqueness_proxy_fraction",
+                self.minimum_raw_uniqueness_proxy_fraction,
+            ),
+        ] {
+            if let Some(value) = value {
+                if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                    return Err(ConfigValidationError::new(format!(
+                        "{name} must be finite and in [0, 1] when set"
+                    )));
+                }
+            }
+        }
+        for (name, value) in [
+            (
+                "automated_search.hard_gates.maximum_raw_centroid_offset",
+                self.maximum_raw_centroid_offset,
+            ),
+            (
+                "automated_search.hard_gates.maximum_raw_mean_displacement",
+                self.maximum_raw_mean_displacement,
+            ),
+        ] {
+            if let Some(value) = value {
+                if !value.is_finite() || value < 0.0 {
+                    return Err(ConfigValidationError::new(format!(
+                        "{name} must be finite and non-negative when set"
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Multi-objective scoring weights used after hard-gate filtering.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomatedSearchScoreWeightConfig {
+    /// Weight for chemistry-valid and sanitized quality.
+    #[serde(default = "default_chemistry_score_weight")]
+    pub chemistry: f64,
+    /// Weight for uniqueness and diversity.
+    #[serde(default = "default_uniqueness_score_weight")]
+    pub uniqueness: f64,
+    /// Weight for geometric fit.
+    #[serde(default = "default_geometry_score_weight")]
+    pub geometry: f64,
+    /// Weight for pocket-contact and compatibility behavior.
+    #[serde(default = "default_pocket_score_weight")]
+    pub pocket: f64,
+    /// Weight for representation specialization quality.
+    #[serde(default = "default_specialization_score_weight")]
+    pub specialization: f64,
+    /// Weight for slot and gate utilization quality.
+    #[serde(default = "default_utilization_score_weight")]
+    pub utilization: f64,
+    /// Weight for aggregate cross-surface interaction review margin.
+    #[serde(default = "default_interaction_review_score_weight")]
+    pub interaction_review: f64,
+}
+
+impl Default for AutomatedSearchScoreWeightConfig {
+    fn default() -> Self {
+        Self {
+            chemistry: default_chemistry_score_weight(),
+            uniqueness: default_uniqueness_score_weight(),
+            geometry: default_geometry_score_weight(),
+            pocket: default_pocket_score_weight(),
+            specialization: default_specialization_score_weight(),
+            utilization: default_utilization_score_weight(),
+            interaction_review: default_interaction_review_score_weight(),
+        }
+    }
+}
+
+impl AutomatedSearchScoreWeightConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        for (name, value) in [
+            ("automated_search.score_weights.chemistry", self.chemistry),
+            ("automated_search.score_weights.uniqueness", self.uniqueness),
+            ("automated_search.score_weights.geometry", self.geometry),
+            ("automated_search.score_weights.pocket", self.pocket),
+            (
+                "automated_search.score_weights.specialization",
+                self.specialization,
+            ),
+            (
+                "automated_search.score_weights.utilization",
+                self.utilization,
+            ),
+            (
+                "automated_search.score_weights.interaction_review",
+                self.interaction_review,
+            ),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(ConfigValidationError::new(format!(
+                    "{name} must be finite and non-negative"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Bounded search space over explainable interaction, rollout, and loss knobs.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AutomatedSearchSpaceConfig {
+    /// Candidate temperatures for gate sharpening or smoothing.
+    #[serde(default)]
+    pub gate_temperature: Vec<f64>,
+    /// Candidate additive gate biases.
+    #[serde(default)]
+    pub gate_bias: Vec<f64>,
+    /// Candidate residual scales for controlled attention updates.
+    #[serde(default)]
+    pub attention_residual_scale: Vec<f64>,
+    /// Candidate residual scales for Transformer feed-forward refinement.
+    #[serde(default)]
+    pub ffn_residual_scale: Vec<f64>,
+    /// Candidate rollout lengths.
+    #[serde(default)]
+    pub rollout_steps: Vec<usize>,
+    /// Candidate minimum rollout lengths before stopping.
+    #[serde(default)]
+    pub min_rollout_steps: Vec<usize>,
+    /// Candidate early-stop thresholds.
+    #[serde(default)]
+    pub stop_probability_threshold: Vec<f64>,
+    /// Candidate coordinate update scales.
+    #[serde(default)]
+    pub coordinate_step_scale: Vec<f64>,
+    /// Candidate per-step weighting decay values.
+    #[serde(default)]
+    pub training_step_weight_decay: Vec<f64>,
+    /// Candidate coordinate momentum values.
+    #[serde(default)]
+    pub coordinate_momentum: Vec<f64>,
+    /// Candidate atom-logit momentum values.
+    #[serde(default)]
+    pub atom_momentum: Vec<f64>,
+    /// Candidate atom commit temperatures.
+    #[serde(default)]
+    pub atom_commit_temperature: Vec<f64>,
+    /// Candidate coordinate delta clipping norms.
+    #[serde(default)]
+    pub max_coordinate_delta_norm: Vec<f64>,
+    /// Candidate stability thresholds for adaptive stopping.
+    #[serde(default)]
+    pub stop_delta_threshold: Vec<f64>,
+    /// Candidate stop patience values.
+    #[serde(default)]
+    pub stop_patience: Vec<usize>,
+    /// Candidate intra-modality redundancy weights.
+    #[serde(default)]
+    pub beta_intra_red: Vec<f64>,
+    /// Candidate semantic probe weights.
+    #[serde(default)]
+    pub gamma_probe: Vec<f64>,
+    /// Candidate leakage weights.
+    #[serde(default)]
+    pub delta_leak: Vec<f64>,
+    /// Candidate gate sparsity weights.
+    #[serde(default)]
+    pub eta_gate: Vec<f64>,
+    /// Candidate slot sparsity weights.
+    #[serde(default)]
+    pub mu_slot: Vec<f64>,
+}
+
+impl AutomatedSearchSpaceConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        let mut configured_axes = 0usize;
+        for (name, values, positive_required, unit_interval_required) in [
+            (
+                "automated_search.search_space.gate_temperature",
+                &self.gate_temperature,
+                true,
+                false,
+            ),
+            (
+                "automated_search.search_space.gate_bias",
+                &self.gate_bias,
+                false,
+                false,
+            ),
+            (
+                "automated_search.search_space.attention_residual_scale",
+                &self.attention_residual_scale,
+                true,
+                false,
+            ),
+            (
+                "automated_search.search_space.ffn_residual_scale",
+                &self.ffn_residual_scale,
+                true,
+                false,
+            ),
+            (
+                "automated_search.search_space.stop_probability_threshold",
+                &self.stop_probability_threshold,
+                false,
+                true,
+            ),
+            (
+                "automated_search.search_space.coordinate_step_scale",
+                &self.coordinate_step_scale,
+                true,
+                false,
+            ),
+            (
+                "automated_search.search_space.training_step_weight_decay",
+                &self.training_step_weight_decay,
+                true,
+                false,
+            ),
+            (
+                "automated_search.search_space.coordinate_momentum",
+                &self.coordinate_momentum,
+                false,
+                true,
+            ),
+            (
+                "automated_search.search_space.atom_momentum",
+                &self.atom_momentum,
+                false,
+                true,
+            ),
+            (
+                "automated_search.search_space.atom_commit_temperature",
+                &self.atom_commit_temperature,
+                true,
+                false,
+            ),
+            (
+                "automated_search.search_space.max_coordinate_delta_norm",
+                &self.max_coordinate_delta_norm,
+                true,
+                false,
+            ),
+            (
+                "automated_search.search_space.stop_delta_threshold",
+                &self.stop_delta_threshold,
+                false,
+                false,
+            ),
+            (
+                "automated_search.search_space.beta_intra_red",
+                &self.beta_intra_red,
+                false,
+                false,
+            ),
+            (
+                "automated_search.search_space.gamma_probe",
+                &self.gamma_probe,
+                false,
+                false,
+            ),
+            (
+                "automated_search.search_space.delta_leak",
+                &self.delta_leak,
+                false,
+                false,
+            ),
+            (
+                "automated_search.search_space.eta_gate",
+                &self.eta_gate,
+                false,
+                false,
+            ),
+            (
+                "automated_search.search_space.mu_slot",
+                &self.mu_slot,
+                false,
+                false,
+            ),
+        ] {
+            configured_axes += validate_f64_search_values(
+                name,
+                values,
+                positive_required,
+                unit_interval_required,
+            )?;
+        }
+        for (name, values, positive_required) in [
+            (
+                "automated_search.search_space.rollout_steps",
+                &self.rollout_steps,
+                true,
+            ),
+            (
+                "automated_search.search_space.min_rollout_steps",
+                &self.min_rollout_steps,
+                false,
+            ),
+            (
+                "automated_search.search_space.stop_patience",
+                &self.stop_patience,
+                true,
+            ),
+        ] {
+            configured_axes += validate_usize_search_values(name, values, positive_required)?;
+        }
+        if configured_axes == 0 {
+            return Err(ConfigValidationError::new(
+                "automated_search.search_space must configure at least one bounded axis when enabled",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn default_include_base_candidate() -> bool {
+    true
+}
+
+fn default_search_max_candidates() -> usize {
+    16
+}
+
+fn default_search_seed() -> u64 {
+    20260423
+}
+
+fn default_search_artifact_root() -> PathBuf {
+    PathBuf::from("./checkpoints/automated_search")
+}
+
+fn default_min_candidate_valid_fraction() -> f64 {
+    1.0
+}
+
+fn default_min_sanitized_fraction() -> f64 {
+    1.0
+}
+
+fn default_min_unique_smiles_fraction() -> f64 {
+    0.5
+}
+
+fn default_max_clash_fraction() -> f64 {
+    0.0
+}
+
+fn default_min_strict_pocket_fit_score() -> f64 {
+    0.4
+}
+
+fn default_min_pocket_contact_fraction() -> f64 {
+    1.0
+}
+
+fn default_min_pocket_compatibility_fraction() -> f64 {
+    1.0
+}
+
+fn default_chemistry_score_weight() -> f64 {
+    2.0
+}
+
+fn default_uniqueness_score_weight() -> f64 {
+    1.5
+}
+
+fn default_geometry_score_weight() -> f64 {
+    2.0
+}
+
+fn default_pocket_score_weight() -> f64 {
+    1.5
+}
+
+fn default_specialization_score_weight() -> f64 {
+    0.75
+}
+
+fn default_utilization_score_weight() -> f64 {
+    0.5
+}
+
+fn default_interaction_review_score_weight() -> f64 {
+    1.0
+}
+
+fn validate_f64_search_values(
+    name: &str,
+    values: &[f64],
+    positive_required: bool,
+    unit_interval_required: bool,
+) -> Result<usize, ConfigValidationError> {
+    if values.is_empty() {
+        return Ok(0);
+    }
+    for value in values {
+        if !value.is_finite() {
+            return Err(ConfigValidationError::new(format!(
+                "{name} entries must be finite"
+            )));
+        }
+        if positive_required && *value <= 0.0 {
+            return Err(ConfigValidationError::new(format!(
+                "{name} entries must be greater than zero"
+            )));
+        }
+        if unit_interval_required && !(0.0..=1.0).contains(value) {
+            return Err(ConfigValidationError::new(format!(
+                "{name} entries must be in [0, 1]"
+            )));
+        }
+    }
+    Ok(1)
+}
+
+fn validate_usize_search_values(
+    name: &str,
+    values: &[usize],
+    positive_required: bool,
+) -> Result<usize, ConfigValidationError> {
+    if values.is_empty() {
+        return Ok(0);
+    }
+    if positive_required && values.iter().any(|value| *value == 0) {
+        return Err(ConfigValidationError::new(format!(
+            "{name} entries must be greater than zero"
+        )));
+    }
+    Ok(1)
 }
 
 impl Default for RuntimeConfig {
@@ -292,6 +1354,8 @@ impl Default for RuntimeConfig {
         Self {
             device: "cpu".to_string(),
             data_workers: 0,
+            tch_intra_op_threads: None,
+            tch_inter_op_threads: None,
         }
     }
 }
@@ -302,6 +1366,18 @@ impl RuntimeConfig {
             return Err(ConfigValidationError::new(
                 "runtime.device must not be empty",
             ));
+        }
+        for (name, value) in [
+            ("runtime.tch_intra_op_threads", self.tch_intra_op_threads),
+            ("runtime.tch_inter_op_threads", self.tch_inter_op_threads),
+        ] {
+            if let Some(value) = value {
+                if value <= 0 {
+                    return Err(ConfigValidationError::new(format!(
+                        "{name} must be omitted or greater than zero"
+                    )));
+                }
+            }
         }
         Ok(())
     }
@@ -436,6 +1512,12 @@ pub struct LossWeightConfig {
     pub mu_slot: f64,
     /// Topology-geometry consistency objective.
     pub nu_consistency: f64,
+    /// Pocket-ligand contact encouragement objective.
+    #[serde(default)]
+    pub rho_pocket_contact: f64,
+    /// Pocket-ligand steric-clash penalty objective.
+    #[serde(default)]
+    pub sigma_pocket_clash: f64,
 }
 
 impl Default for LossWeightConfig {
@@ -448,6 +1530,8 @@ impl Default for LossWeightConfig {
             eta_gate: 0.05,
             mu_slot: 0.05,
             nu_consistency: 0.1,
+            rho_pocket_contact: 0.0,
+            sigma_pocket_clash: 0.0,
         }
     }
 }
@@ -462,6 +1546,14 @@ impl LossWeightConfig {
             ("training.loss_weights.eta_gate", self.eta_gate),
             ("training.loss_weights.mu_slot", self.mu_slot),
             ("training.loss_weights.nu_consistency", self.nu_consistency),
+            (
+                "training.loss_weights.rho_pocket_contact",
+                self.rho_pocket_contact,
+            ),
+            (
+                "training.loss_weights.sigma_pocket_clash",
+                self.sigma_pocket_clash,
+            ),
         ] {
             if !value.is_finite() || value < 0.0 {
                 return Err(ConfigValidationError::new(format!(
@@ -544,6 +1636,20 @@ fn validate_split_fractions(
             "data.val_fraction + data.test_fraction must be < 1.0 (got {:.4})",
             val_fraction + test_fraction
         )));
+    }
+    Ok(())
+}
+
+fn validate_optional_fraction(
+    value: Option<f32>,
+    field_name: &str,
+) -> Result<(), ConfigValidationError> {
+    if let Some(value) = value {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(ConfigValidationError::new(format!(
+                "{field_name} must be a finite fraction in [0, 1]"
+            )));
+        }
     }
     Ok(())
 }

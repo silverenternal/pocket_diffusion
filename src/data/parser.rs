@@ -1,7 +1,7 @@
 //! Parsers for synthetic samples and lightweight real-data ingestion.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -94,6 +94,34 @@ pub struct AffinityLabel {
     pub normalization_warning: Option<String>,
 }
 
+/// Parsed labels plus load-time accounting from one external label table.
+#[derive(Debug, Clone)]
+pub struct LoadedAffinityLabels {
+    /// Parsed labels retained from the source table.
+    pub labels: Vec<AffinityLabel>,
+    /// Structured accounting for the source table.
+    pub report: AffinityLabelLoadReport,
+}
+
+/// Row-level accounting for one external affinity label table.
+#[derive(Debug, Clone, Default)]
+pub struct AffinityLabelLoadReport {
+    /// Total non-header rows encountered in the source table.
+    pub rows_seen: usize,
+    /// Blank rows skipped while loading.
+    pub blank_rows: usize,
+    /// Comment rows skipped while loading.
+    pub comment_rows: usize,
+    /// Rows retained as parsed affinity labels.
+    pub parsed_rows: usize,
+    /// Measurement-family histogram for retained labels.
+    pub measurement_family_histogram: BTreeMap<String, usize>,
+    /// Distinct normalization provenance values observed while loading labels.
+    pub normalization_provenance_values: BTreeSet<String>,
+    /// Retained labels derived from approximate families such as `IC50` or `EC50`.
+    pub approximate_rows: usize,
+}
+
 /// Structured dataset validation artifact for one config-driven load.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatasetValidationReport {
@@ -116,13 +144,92 @@ pub struct DatasetValidationReport {
     /// Number of pocket extraction fallback events.
     pub fallback_pocket_extractions: usize,
     /// Number of examples truncated away by `max_examples`.
+    #[serde(default)]
     pub truncated_examples: usize,
+    /// Number of parsed examples filtered by optional quality criteria.
+    #[serde(default)]
+    pub quality_filtered_examples: usize,
+    /// Number of examples filtered because they lacked affinity labels.
+    #[serde(default)]
+    pub quality_filtered_unlabeled_examples: usize,
+    /// Number of examples filtered by optional ligand atom-count limits.
+    #[serde(default)]
+    pub quality_filtered_ligand_atom_limit: usize,
+    /// Number of examples filtered by optional pocket atom-count limits.
+    #[serde(default)]
+    pub quality_filtered_pocket_atom_limit: usize,
+    /// Number of examples filtered because source structure provenance was missing.
+    #[serde(default)]
+    pub quality_filtered_missing_source_provenance: usize,
+    /// Number of examples filtered because labeled affinity metadata was incomplete.
+    #[serde(default)]
+    pub quality_filtered_missing_affinity_metadata: usize,
+    /// Label coverage after optional quality filtering and truncation.
+    #[serde(default)]
+    pub retained_label_coverage: f32,
+    /// Pocket fallback fraction observed before optional fallback gating.
+    #[serde(default)]
+    pub observed_fallback_fraction: f32,
+    /// Fraction of retained examples carrying source structure provenance.
+    #[serde(default)]
+    pub retained_source_provenance_coverage: f32,
     /// Number of external label rows loaded.
     pub loaded_label_rows: usize,
+    /// Total non-header rows seen in the label table.
+    #[serde(default)]
+    pub label_table_rows_seen: usize,
+    /// Blank rows skipped in the label table.
+    #[serde(default)]
+    pub label_table_blank_rows: usize,
+    /// Comment rows skipped in the label table.
+    #[serde(default)]
+    pub label_table_comment_rows: usize,
     /// Number of labels normalized through approximate families such as `IC50` or `EC50`.
     pub approximate_affinity_labels: usize,
+    /// Histogram of measurement families present in the loaded label table.
+    #[serde(default)]
+    pub loaded_label_measurement_family_histogram: BTreeMap<String, usize>,
+    /// Distinct normalization provenance values seen in the loaded label table.
+    #[serde(default)]
+    pub loaded_label_normalization_provenance_values: BTreeSet<String>,
+    /// Number of retained labeled examples normalized through approximate families.
+    #[serde(default)]
+    pub retained_approximate_affinity_labels: usize,
+    /// Fraction of retained labeled examples that use approximate measurement families.
+    #[serde(default)]
+    pub retained_approximate_label_fraction: f32,
     /// Number of normalization warnings emitted while loading labels.
     pub affinity_normalization_warnings: usize,
+    /// Number of later label rows that overwrote an earlier `example_id` label row.
+    #[serde(default)]
+    pub duplicate_example_id_label_rows: usize,
+    /// Number of later label rows that overwrote an earlier `protein_id` label row.
+    #[serde(default)]
+    pub duplicate_protein_id_label_rows: usize,
+    /// Number of loaded `example_id` label rows that did not attach to any manifest entry.
+    #[serde(default)]
+    pub unmatched_example_id_label_rows: usize,
+    /// Number of loaded `protein_id` label rows that did not attach to any manifest entry.
+    #[serde(default)]
+    pub unmatched_protein_id_label_rows: usize,
+    /// Fraction of retained labeled examples carrying normalization provenance.
+    #[serde(default)]
+    pub retained_normalization_provenance_coverage: f32,
+    /// Number of retained labeled examples missing normalization provenance.
+    #[serde(default)]
+    pub retained_missing_normalization_provenance: usize,
+    /// Number of retained labeled examples missing measurement-family metadata.
+    #[serde(default)]
+    pub retained_missing_measurement_type: usize,
+    /// Histogram of retained measurement families.
+    #[serde(default)]
+    pub retained_measurement_family_histogram: BTreeMap<String, usize>,
+    /// Number of distinct retained measurement families.
+    #[serde(default)]
+    pub retained_measurement_family_count: usize,
+    /// Distinct retained normalization provenance values.
+    #[serde(default)]
+    pub retained_normalization_provenance_values: BTreeSet<String>,
     /// Warnings emitted by the affinity normalization path.
     pub normalization_warning_messages: Vec<String>,
     /// Active parsing mode used for the dataset load.
@@ -147,6 +254,14 @@ pub struct LabelAttachmentReport {
     pub example_id_matches: usize,
     /// Number of labels matched by `protein_id`.
     pub protein_id_matches: usize,
+    /// Number of duplicate `example_id` rows overwritten during attachment-map construction.
+    pub duplicate_example_id_rows: usize,
+    /// Number of duplicate `protein_id` rows overwritten during attachment-map construction.
+    pub duplicate_protein_id_rows: usize,
+    /// Number of loaded `example_id` rows that did not match any manifest entry.
+    pub unmatched_example_id_rows: usize,
+    /// Number of loaded `protein_id` rows that did not match any manifest entry.
+    pub unmatched_protein_id_rows: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -204,7 +319,7 @@ pub fn load_manifest(path: &Path) -> Result<DatasetManifest, DataParseError> {
 }
 
 /// Load an external affinity table from CSV or TSV.
-pub fn load_affinity_labels(path: &Path) -> Result<Vec<AffinityLabel>, DataParseError> {
+pub fn load_affinity_labels(path: &Path) -> Result<LoadedAffinityLabels, DataParseError> {
     let content = fs::read_to_string(path)?;
     match path.extension().and_then(|value| value.to_str()) {
         Some("csv") => load_delimited_affinity_labels(path, &content, ','),
@@ -228,8 +343,9 @@ fn load_delimited_affinity_labels(
     path: &Path,
     content: &str,
     delimiter: char,
-) -> Result<Vec<AffinityLabel>, DataParseError> {
-    let mut lines = content.lines().filter(|line| !line.trim().is_empty());
+) -> Result<LoadedAffinityLabels, DataParseError> {
+    let mut report = AffinityLabelLoadReport::default();
+    let mut lines = content.lines();
     let header = lines
         .next()
         .ok_or_else(|| DataParseError::InvalidLabelTable {
@@ -271,6 +387,16 @@ fn load_delimited_affinity_labels(
 
     let mut labels = Vec::new();
     for (line_ix, line) in lines.enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            report.blank_rows += 1;
+            continue;
+        }
+        if trimmed.starts_with('#') {
+            report.comment_rows += 1;
+            continue;
+        }
+        report.rows_seen += 1;
         let fields: Vec<&str> = line.split(delimiter).map(str::trim).collect();
         let example_id = example_ix
             .and_then(|ix| fields.get(ix))
@@ -361,7 +487,7 @@ fn load_delimited_affinity_labels(
             })?
         };
 
-        labels.push(AffinityLabel {
+        let label = AffinityLabel {
             example_id,
             protein_id,
             affinity_kcal_mol: parsed.affinity_kcal_mol,
@@ -371,23 +497,43 @@ fn load_delimited_affinity_labels(
             normalization_provenance: parsed.normalization_provenance,
             is_approximate: parsed.is_approximate,
             normalization_warning: parsed.normalization_warning,
-        });
+        };
+        report.parsed_rows += 1;
+        let measurement = label
+            .measurement_type
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string());
+        *report.measurement_family_histogram.entry(measurement).or_default() += 1;
+        if let Some(provenance) = &label.normalization_provenance {
+            report
+                .normalization_provenance_values
+                .insert(provenance.clone());
+        }
+        report.approximate_rows += usize::from(label.is_approximate);
+        labels.push(label);
     }
 
-    Ok(labels)
+    Ok(LoadedAffinityLabels { labels, report })
 }
 
 fn load_pdbbind_index_labels(
     path: &Path,
     content: &str,
-) -> Result<Vec<AffinityLabel>, DataParseError> {
+) -> Result<LoadedAffinityLabels, DataParseError> {
+    let mut report = AffinityLabelLoadReport::default();
     let mut labels = Vec::new();
 
     for (line_ix, raw_line) in content.lines().enumerate() {
         let line = raw_line.trim();
-        if line.is_empty() || line.starts_with('#') {
+        if line.is_empty() {
+            report.blank_rows += 1;
             continue;
         }
+        if line.starts_with('#') {
+            report.comment_rows += 1;
+            continue;
+        }
+        report.rows_seen += 1;
 
         let fields: Vec<&str> = line.split_whitespace().collect();
         if fields.len() < 2 {
@@ -405,7 +551,7 @@ fn load_pdbbind_index_labels(
             }
         })?;
 
-        labels.push(AffinityLabel {
+        let label = AffinityLabel {
             example_id: None,
             protein_id: Some(protein_id),
             affinity_kcal_mol: parsed.affinity_kcal_mol,
@@ -415,7 +561,20 @@ fn load_pdbbind_index_labels(
             normalization_provenance: parsed.normalization_provenance,
             is_approximate: parsed.is_approximate,
             normalization_warning: parsed.normalization_warning,
-        });
+        };
+        report.parsed_rows += 1;
+        let measurement = label
+            .measurement_type
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string());
+        *report.measurement_family_histogram.entry(measurement).or_default() += 1;
+        if let Some(provenance) = &label.normalization_provenance {
+            report
+                .normalization_provenance_values
+                .insert(provenance.clone());
+        }
+        report.approximate_rows += usize::from(label.is_approximate);
+        labels.push(label);
     }
 
     if labels.is_empty() {
@@ -425,7 +584,7 @@ fn load_pdbbind_index_labels(
         });
     }
 
-    Ok(labels)
+    Ok(LoadedAffinityLabels { labels, report })
 }
 
 #[derive(Debug, Clone)]
@@ -617,16 +776,24 @@ pub fn apply_affinity_labels(
 ) -> LabelAttachmentReport {
     let mut by_example: BTreeMap<&str, &AffinityLabel> = BTreeMap::new();
     let mut by_protein: BTreeMap<&str, &AffinityLabel> = BTreeMap::new();
+    let mut report = LabelAttachmentReport::default();
     for label in labels {
         if let Some(example_id) = &label.example_id {
-            by_example.insert(example_id.as_str(), label);
+            if by_example.insert(example_id.as_str(), label).is_some() {
+                report.duplicate_example_id_rows += 1;
+            }
         }
         if let Some(protein_id) = &label.protein_id {
-            by_protein.insert(protein_id.as_str(), label);
+            if by_protein.insert(protein_id.as_str(), label).is_some() {
+                report.duplicate_protein_id_rows += 1;
+            }
         }
     }
 
-    let mut report = LabelAttachmentReport::default();
+    let available_example_ids: BTreeSet<String> =
+        entries.iter().map(|entry| entry.example_id.clone()).collect();
+    let available_protein_ids: BTreeSet<String> =
+        entries.iter().map(|entry| entry.protein_id.clone()).collect();
     for entry in entries {
         if let Some(label) = by_example.get(entry.example_id.as_str()) {
             entry.affinity_kcal_mol = Some(label.affinity_kcal_mol);
@@ -648,6 +815,14 @@ pub fn apply_affinity_labels(
             entry.affinity_normalization_warning = label.normalization_warning.clone();
         }
     }
+    report.unmatched_example_id_rows = by_example
+        .keys()
+        .filter(|key| !available_example_ids.contains(**key))
+        .count();
+    report.unmatched_protein_id_rows = by_protein
+        .keys()
+        .filter(|key| !available_protein_ids.contains(**key))
+        .count();
 
     report
 }
@@ -737,22 +912,25 @@ pub fn load_manifest_entry(
         pocket_cutoff_angstrom,
         parsing_mode,
     )?;
+    let mut example = MolecularExample::from_legacy_with_targets(
+        entry.example_id.clone(),
+        entry.protein_id.clone(),
+        &ligand,
+        &pocket_result.pocket,
+        ExampleTargets {
+            affinity_kcal_mol: entry.affinity_kcal_mol,
+            affinity_measurement_type: entry.affinity_measurement_type.clone(),
+            affinity_raw_value: entry.affinity_raw_value,
+            affinity_raw_unit: entry.affinity_raw_unit.clone(),
+            affinity_normalization_provenance: entry.affinity_normalization_provenance.clone(),
+            affinity_is_approximate: entry.affinity_is_approximate,
+            affinity_normalization_warning: entry.affinity_normalization_warning.clone(),
+        },
+    );
+    example.source_pocket_path = Some(entry.pocket_path.clone());
+    example.source_ligand_path = Some(entry.ligand_path.clone());
     Ok((
-        MolecularExample::from_legacy_with_targets(
-            entry.example_id.clone(),
-            entry.protein_id.clone(),
-            &ligand,
-            &pocket_result.pocket,
-            ExampleTargets {
-                affinity_kcal_mol: entry.affinity_kcal_mol,
-                affinity_measurement_type: entry.affinity_measurement_type.clone(),
-                affinity_raw_value: entry.affinity_raw_value,
-                affinity_raw_unit: entry.affinity_raw_unit.clone(),
-                affinity_normalization_provenance: entry.affinity_normalization_provenance.clone(),
-                affinity_is_approximate: entry.affinity_is_approximate,
-                affinity_normalization_warning: entry.affinity_normalization_warning.clone(),
-            },
-        ),
+        example,
         ParsedEntryReport {
             parsed_ligand: true,
             parsed_pocket: true,
@@ -845,24 +1023,17 @@ pub fn load_ligand_from_sdf(path: &Path) -> Result<Ligand, DataParseError> {
 
     let mut bonds = Vec::with_capacity(num_bonds);
     for line in &lines[bond_start..bond_start + num_bonds] {
-        let fields: Vec<&str> = line.split_whitespace().collect();
-        if fields.len() < 2 {
+        let Some((src, dst)) = parse_v2000_bond_indices(line) else {
             continue;
-        }
-        let src = fields[0]
-            .parse::<usize>()
-            .map_err(|_| DataParseError::InvalidSdf {
-                path: path.to_path_buf(),
-                message: "invalid source atom index".to_string(),
-            })?;
-        let dst = fields[1]
-            .parse::<usize>()
-            .map_err(|_| DataParseError::InvalidSdf {
-                path: path.to_path_buf(),
-                message: "invalid destination atom index".to_string(),
-            })?;
+        };
         if src == 0 || dst == 0 {
             continue;
+        }
+        if src > num_atoms || dst > num_atoms {
+            return Err(DataParseError::InvalidSdf {
+                path: path.to_path_buf(),
+                message: "bond atom index exceeds declared atom count".to_string(),
+            });
         }
         bonds.push((src - 1, dst - 1));
     }
@@ -872,6 +1043,19 @@ pub fn load_ligand_from_sdf(path: &Path) -> Result<Ligand, DataParseError> {
         bonds,
         fingerprint: None,
     })
+}
+
+fn parse_v2000_bond_indices(line: &str) -> Option<(usize, usize)> {
+    if line.len() >= 6 {
+        let src = line.get(0..3)?.trim().parse::<usize>().ok()?;
+        let dst = line.get(3..6)?.trim().parse::<usize>().ok()?;
+        return Some((src, dst));
+    }
+
+    let mut fields = line.split_whitespace();
+    let src = fields.next()?.parse::<usize>().ok()?;
+    let dst = fields.next()?.parse::<usize>().ok()?;
+    Some((src, dst))
 }
 
 /// Extract a local pocket from a protein structure around the ligand center.
@@ -1073,6 +1257,15 @@ mod tests {
 
         let err = load_ligand_from_sdf(&sdf_path).unwrap_err();
         assert!(matches!(err, DataParseError::InvalidSdf { .. }));
+    }
+
+    #[test]
+    fn sdf_bond_parser_handles_contiguous_fixed_width_indices() {
+        assert_eq!(
+            parse_v2000_bond_indices(" 34100  1  0  0  0"),
+            Some((34, 100))
+        );
+        assert_eq!(parse_v2000_bond_indices("  2  5  1  0  0  0"), Some((2, 5)));
     }
 
     #[test]
