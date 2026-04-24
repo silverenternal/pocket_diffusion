@@ -27,6 +27,9 @@ pub struct ResearchConfig {
     pub data: DataConfig,
     /// Model architecture configuration.
     pub model: ModelConfig,
+    /// Method selection and comparison configuration.
+    #[serde(default)]
+    pub generation_method: GenerationMethodConfig,
     /// Training and optimization configuration.
     pub training: TrainingConfig,
     /// Runtime and device preferences.
@@ -41,6 +44,7 @@ impl Default for ResearchConfig {
         Self {
             data: DataConfig::default(),
             model: ModelConfig::default(),
+            generation_method: GenerationMethodConfig::default(),
             training: TrainingConfig::default(),
             runtime: RuntimeConfig::default(),
             automated_search: AutomatedSearchConfig::default(),
@@ -53,6 +57,7 @@ impl ResearchConfig {
     pub fn validate(&self) -> Result<(), ConfigValidationError> {
         self.data.validate()?;
         self.model.validate()?;
+        self.generation_method.validate()?;
         self.training.validate()?;
         self.runtime.validate()?;
         self.automated_search.validate()?;
@@ -77,6 +82,80 @@ impl ResearchConfig {
         }
         Ok(())
     }
+}
+
+/// Generation-method selection and fair comparison configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationMethodConfig {
+    /// Active method id used by the primary claim-bearing run.
+    #[serde(default = "default_active_generation_method")]
+    pub active_method: String,
+    /// Additional methods evaluated on shared splits for fair comparison.
+    #[serde(default = "default_comparison_generation_methods")]
+    pub comparison_methods: Vec<String>,
+    /// Candidate count requested from each method execution.
+    #[serde(default = "default_generation_method_candidate_count")]
+    pub candidate_count: usize,
+    /// Whether the shared comparison runner should execute auxiliary methods.
+    #[serde(default = "default_enable_method_comparison")]
+    pub enable_comparison_runner: bool,
+}
+
+impl Default for GenerationMethodConfig {
+    fn default() -> Self {
+        Self {
+            active_method: default_active_generation_method(),
+            comparison_methods: default_comparison_generation_methods(),
+            candidate_count: default_generation_method_candidate_count(),
+            enable_comparison_runner: default_enable_method_comparison(),
+        }
+    }
+}
+
+impl GenerationMethodConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.active_method.trim().is_empty() {
+            return Err(ConfigValidationError::new(
+                "generation_method.active_method must be non-empty",
+            ));
+        }
+        if self.candidate_count == 0 {
+            return Err(ConfigValidationError::new(
+                "generation_method.candidate_count must be greater than zero",
+            ));
+        }
+        if self
+            .comparison_methods
+            .iter()
+            .any(|method_id| method_id.trim().is_empty())
+        {
+            return Err(ConfigValidationError::new(
+                "generation_method.comparison_methods may not contain empty identifiers",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn default_active_generation_method() -> String {
+    "conditioned_denoising".to_string()
+}
+
+fn default_comparison_generation_methods() -> Vec<String> {
+    vec![
+        "heuristic_raw_rollout_no_repair".to_string(),
+        "pocket_centroid_repair_proxy".to_string(),
+        "deterministic_proxy_reranker".to_string(),
+        "calibrated_reranker".to_string(),
+    ]
+}
+
+fn default_generation_method_candidate_count() -> usize {
+    3
+}
+
+fn default_enable_method_comparison() -> bool {
+    true
 }
 
 /// Dataset and split configuration.

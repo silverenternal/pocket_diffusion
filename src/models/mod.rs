@@ -4,6 +4,7 @@ pub mod cross_attention;
 pub mod decoder;
 pub mod evaluation;
 pub mod geo_encoder;
+pub mod methods;
 pub mod pocket_encoder;
 pub mod probe_heads;
 pub mod slot_decomposition;
@@ -14,8 +15,7 @@ pub mod traits;
 pub use cross_attention::GatedCrossAttention;
 pub use decoder::ModularLigandDecoder;
 pub(crate) use evaluation::{
-    candidate_records_to_legacy, generate_candidates_from_forward,
-    generate_layered_candidates_with_options, report_to_metrics, CandidateGenerationLayers,
+    candidate_records_to_legacy, generate_candidates_from_forward, report_to_metrics,
 };
 pub use evaluation::{
     CommandChemistryValidityEvaluator, CommandDockingEvaluator,
@@ -23,6 +23,10 @@ pub use evaluation::{
     HeuristicDockingEvaluator, HeuristicPocketCompatibilityEvaluator,
 };
 pub use geo_encoder::GeometryEncoderImpl;
+pub use methods::{
+    flatten_layered_output, summarize_method_output, MethodComparisonRow,
+    PocketGenerationMethodRegistry,
+};
 pub use pocket_encoder::PocketEncoderImpl;
 pub use probe_heads::{ProbeOutputs, SemanticProbeHeads};
 pub use slot_decomposition::SoftSlotDecomposer;
@@ -33,10 +37,14 @@ pub(crate) use traits::{
     BatchedCrossAttentionOutput, BatchedModalityEncoding, BatchedSlotEncoding,
 };
 pub use traits::{
+    CandidateLayerKind, CandidateLayerOutput, CandidateLayerProvenance,
     ChemistryValidityEvaluator, ConditionedGenerationState, ConditionedLigandDecoder,
     CrossAttentionOutput, CrossModalInteractor, DecoderOutput, DockingEvaluator, Encoder,
     ExternalEvaluationReport, ExternalMetricRecord, GeneratedCandidateRecord,
-    GenerationRolloutRecord, GenerationStepRecord, GeometryEncoder, LossTerm, ModalityEncoding,
-    PartialLigandState, PocketCompatibilityEvaluator, PocketEncoder, SlotDecomposer, SlotEncoding,
+    GenerationEvidenceRole, GenerationExecutionMode, GenerationMethodCapability,
+    GenerationRolloutRecord, GenerationStepRecord, GeometryEncoder, LayeredGenerationOutput,
+    LossTerm, ModalityEncoding, PartialLigandState, PocketCompatibilityEvaluator,
+    PocketEncoder, PocketGenerationContext, PocketGenerationMethod,
+    PocketGenerationMethodFamily, PocketGenerationMethodMetadata, SlotDecomposer, SlotEncoding,
     TaskDrivenObjective, TopologyEncoder, TrainerHook,
 };

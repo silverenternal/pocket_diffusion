@@ -5,7 +5,7 @@ This project should separate implementation claims from evidence claims.
 ## Allowed Now
 
 - The Rust stack implements separate topology, geometry, and pocket encoders.
-- Slot decomposition, gated cross-modal interaction, staged losses, split diagnostics, multi-seed summaries, and backend command adapters are implemented and runnable.
+- Slot decomposition, gated cross-modal interaction, staged losses, split diagnostics, multi-seed summaries, backend command adapters, and the method-aware generation comparison contract are implemented and runnable.
 - Compact artifacts may be described as local regression or smoke evidence.
 - As of April 24, 2026, the repository may be described as a backend-supported research framework that is ready for real held-out-pocket iteration: the compact gate, repository real-backend gate, canonical larger-data PDBbind++ real-backend surface, and its refreshed three-seed companion all ran successfully in the current workspace.
 
@@ -25,6 +25,7 @@ This project should separate implementation claims from evidence claims.
 - Do not claim production docking quality from contact/clash/centroid proxy backends.
 - Do not claim a diffusion generator unless a diffusion-style objective and sampler are explicitly implemented and evaluated.
 - Treat the crate name `pocket_diffusion` as historical compatibility wording only; reviewer-facing text should describe the active system as modular representation learning / conditioned generation unless and until a true diffusion path is added.
+- Do not describe conditioned denoising as the repository's only generator interface anymore. Reviewer-facing wording should distinguish the active claim-bearing method from the broader method platform.
 - Do not claim strong chemistry novelty or diversity from uniqueness alone. Use the explicit novelty/diversity fields together with `benchmark_evidence`, which now separates proxy-only chemistry summaries, local benchmark-style chemistry aggregates, `reviewer_benchmark_plus`, and the explicit `external_benchmark_backed` tier on the canonical larger-data real-backend PDBbind++ surface.
 
 Proxy-only chemistry evidence is the structural-signature novelty/diversity summary. Local benchmark-style chemistry evidence combines backend-backed sanitization and unique-SMILES quality with held-out-pocket novelty/diversity aggregates. `reviewer_benchmark_plus` adds explicit reviewer checks on parseability, finite conformers, review-layer support, and novelty/diversity support. The current strongest reviewer-facing chemistry evidence is `benchmark_evidence.evidence_tier=external_benchmark_backed` on both `checkpoints/pdbbindpp_real_backends` and `checkpoints/lp_pdbbind_refined_real_backends`: they keep the reviewer benchmark-plus checks and make the external benchmark dataset layer first-class by requiring explicit benchmark dataset labels, passing data thresholds, and passing held-out family coverage. Strong chemistry-facing wording should now cite benchmark breadth rather than only the single strongest surface: the canonical PDBbind++ artifact remains the main anchor, the LP-PDBBind refined artifact is the second larger-data external benchmark surface, and `checkpoints/tight_geometry_pressure` plus `checkpoints/real_backends` remain persisted companion review surfaces summarized in `docs/evidence_bundle.json` and `docs/paper_claim_bundle.md`.
@@ -74,6 +75,7 @@ The current hard gate thresholds are intentionally conservative local-review def
 - Minimum pocket contact: `contact_fraction >= 0.8` or `pocket_contact_fraction >= 0.8`.
 - Multi-seed stability: at least three seeds with persisted `confidence95_low` and `confidence95_high` for validity, strict pocket fit, uniqueness, slot activation, gate activation, leakage, and throughput.
 - Baseline deltas: claim-ready wording requires no-slot, no-cross, no-pocket or pocket-centroid, surrogate-objective, deterministic-reranker-only, and calibrated-reranker comparisons to be present in `baseline_comparisons` or the ablation matrix.
+- Method contract: claim-bearing wording should cite `method_comparison.active_method` when method-aware artifacts are present and should keep comparison-only methods explicit rather than collapsing them into one unnamed generator path.
 - Leakage reviewer rule: `leakage_proxy_mean <= 0.08` is a clean pass, `0.08 < leakage_proxy_mean <= 0.12` is caution-only and must be called out explicitly, and `leakage_proxy_mean > 0.12` fails claim-ready review.
 - Leakage regression rule: a reviewed ablation increasing `leakage_proxy_mean` by more than `0.03` relative to the base claim surface is at least `caution` and must be called out explicitly. Treat it as `fail` only when the base run is already above the hard reviewer band or when split leakage checks are not clean.
 - Leakage split rule: any protein overlap or duplicated example identifiers across train/val/test is an automatic leakage-review failure regardless of scalar proxy values.

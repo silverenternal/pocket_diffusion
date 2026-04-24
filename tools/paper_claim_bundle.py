@@ -62,11 +62,16 @@ def build_markdown(bundle):
     backend_claim = backend.get("claim") or {}
     multi_seed_summary = multi_seed.get("multi_seed_summary") or {}
     ablation_variants = ablations.get("variants") or []
+    active_method = larger_claim.get("active_generation_method") or "conditioned_denoising"
 
     lines = [
         "# Paper-Facing Claim Bundle",
         "",
         "This file is generated from canonical reviewer artifacts. Update it through `./tools/revalidate_reviewer_bundle.sh` rather than manual editing.",
+        "",
+        "## Active Method",
+        "",
+        f"The current canonical reviewer surface is persisted under the active method id `{active_method}`. Comparison-only methods are tracked additively in the method-comparison artifact rather than by replacing the claim-bearing path.",
         "",
         "## Claim Map",
         "",

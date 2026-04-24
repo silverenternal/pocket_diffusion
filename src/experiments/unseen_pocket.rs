@@ -18,12 +18,13 @@ use crate::{
     },
     data::InMemoryDataset,
     models::{
-        generate_layered_candidates_with_options, report_to_metrics, CandidateGenerationLayers,
+        flatten_layered_output, report_to_metrics, summarize_method_output,
         ChemistryValidityEvaluator, CommandChemistryValidityEvaluator, CommandDockingEvaluator,
         CommandPocketCompatibilityEvaluator, DockingEvaluator, GeneratedCandidateRecord,
         HeuristicChemistryValidityEvaluator, HeuristicDockingEvaluator,
-        HeuristicPocketCompatibilityEvaluator, Phase1ResearchSystem, PocketCompatibilityEvaluator,
-        ResearchForward,
+        HeuristicPocketCompatibilityEvaluator, LayeredGenerationOutput, MethodComparisonRow,
+        Phase1ResearchSystem, PocketCompatibilityEvaluator, PocketGenerationContext,
+        PocketGenerationMethodMetadata, PocketGenerationMethodRegistry, ResearchForward,
     },
     runtime::parse_runtime_device,
     training::{
@@ -249,6 +250,23 @@ impl UnseenPocketExperimentConfig {
     /// Validate a config before allocating runtime state.
     pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
         self.research.validate()?;
+        if !PocketGenerationMethodRegistry::contains(
+            &self.research.generation_method.active_method,
+        ) {
+            return Err(format!(
+                "unknown generation_method.active_method `{}`",
+                self.research.generation_method.active_method
+            )
+            .into());
+        }
+        for method_id in &self.research.generation_method.comparison_methods {
+            if !PocketGenerationMethodRegistry::contains(method_id) {
+                return Err(format!(
+                    "unknown generation_method.comparison_methods entry `{method_id}`"
+                )
+                .into());
+            }
+        }
         self.automated_search.validate()?;
         self.external_evaluation.validate()?;
         self.performance_gates.validate()?;
@@ -1739,6 +1757,9 @@ pub struct EvaluationMetrics {
     pub real_generation_metrics: RealGenerationMetrics,
     /// Candidate-quality metrics split by generation and postprocessing layer.
     pub layered_generation_metrics: LayeredGenerationMetrics,
+    /// Method-aware comparison summary for this split.
+    #[serde(default)]
+    pub method_comparison: MethodComparisonSummary,
     /// Stable comparison-friendly summary fields for cross-run reporting.
     pub comparison_summary: GenerationQualitySummary,
     /// Lightweight slot semantic-stability diagnostics for this split.
@@ -1811,6 +1832,34 @@ pub struct LayeredGenerationMetrics {
     pub reranker_calibration: RerankerCalibrationReport,
     /// Backend-scored metrics copied from the active chemistry/docking/pocket layer.
     pub backend_scored_candidates: BTreeMap<String, BTreeMap<String, f64>>,
+    /// Method-aware comparison summary aligned to this layered artifact.
+    #[serde(default)]
+    pub method_comparison: MethodComparisonSummary,
+}
+
+/// Method-aware comparison summary persisted alongside layered candidate metrics.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MethodComparisonSummary {
+    /// Active method metadata for the current surface.
+    #[serde(default)]
+    pub active_method: Option<PocketGenerationMethodMetadata>,
+    /// One comparison row per executed or declared method.
+    #[serde(default)]
+    pub methods: Vec<MethodComparisonRow>,
+    /// Planned backend-agnostic metric interfaces reserved for future work.
+    #[serde(default)]
+    pub planned_metric_interfaces: Vec<PlannedMetricInterface>,
+}
+
+/// Planned backend-agnostic metric surface.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PlannedMetricInterface {
+    /// Stable interface key.
+    pub interface_id: String,
+    /// Human-readable description.
+    pub description: String,
+    /// Whether the interface is intentionally backend-agnostic.
+    pub backend_agnostic: bool,
 }
 
 /// Compact quality summary for a homogeneous candidate layer.
@@ -2055,6 +2104,9 @@ pub struct ClaimReport {
     /// Stronger baseline/control rows collected for claim review.
     #[serde(default)]
     pub baseline_comparisons: Vec<BaselineComparisonRow>,
+    /// Method-aware comparison artifact for the active claim surface.
+    #[serde(default)]
+    pub method_comparison: MethodComparisonSummary,
 }
 
 /// Compact row for heuristic or ablation baseline/control comparisons.
@@ -3082,6 +3134,7 @@ pub fn evaluate_split(
             },
             real_generation_metrics: disabled_real_generation_metrics(),
             layered_generation_metrics: empty_layered_generation_metrics(),
+            method_comparison: MethodComparisonSummary::default(),
             comparison_summary: GenerationQualitySummary {
                 primary_objective: primary_objective_label(research.training.primary_objective),
                 variant_label: ablation.variant_label.clone(),
@@ -3331,15 +3384,16 @@ pub fn evaluate_split(
         .collect::<std::collections::BTreeSet<_>>()
         .len();
 
-    let (real_generation_metrics, layered_generation_metrics) = evaluate_real_generation_metrics(
-        examples,
-        train_examples,
-        &forwards,
-        research,
-        &ablation,
-        external_evaluation,
-        split_label,
-    );
+    let (real_generation_metrics, layered_generation_metrics, method_comparison) =
+        evaluate_real_generation_metrics(
+            examples,
+            train_examples,
+            &forwards,
+            research,
+            &ablation,
+            external_evaluation,
+            split_label,
+        );
     let evaluation_time_ms = start.elapsed().as_secs_f64() * 1000.0;
     let (ligand_atom_count_bins, pocket_atom_count_bins, measurement_family_histogram) =
         split_histograms(examples);
@@ -3386,6 +3440,7 @@ pub fn evaluate_split(
         },
         real_generation_metrics: real_generation_metrics.clone(),
         layered_generation_metrics,
+        method_comparison: method_comparison.clone(),
         comparison_summary: build_comparison_summary(
             research,
             &ablation,
@@ -3441,6 +3496,108 @@ fn empty_layered_generation_metrics() -> LayeredGenerationMetrics {
         ),
         reranker_calibration: RerankerCalibrationReport::default(),
         backend_scored_candidates: BTreeMap::new(),
+        method_comparison: MethodComparisonSummary::default(),
+    }
+}
+
+fn planned_metric_interfaces() -> Vec<PlannedMetricInterface> {
+    vec![
+        PlannedMetricInterface {
+            interface_id: "chemistry_property_bundle".to_string(),
+            description:
+                "Backend-agnostic chemistry property interface reserved for future method comparison."
+                    .to_string(),
+            backend_agnostic: true,
+        },
+        PlannedMetricInterface {
+            interface_id: "scaffold_novelty_bundle".to_string(),
+            description:
+                "Backend-agnostic scaffold novelty interface reserved for future method comparison."
+                    .to_string(),
+            backend_agnostic: true,
+        },
+    ]
+}
+
+fn build_method_comparison_summary(
+    research: &ResearchConfig,
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+    ablation: &AblationConfig,
+    example_limit: usize,
+) -> MethodComparisonSummary {
+    let mut configured_method_ids = Vec::new();
+    configured_method_ids.push(research.generation_method.active_method.clone());
+    if research.generation_method.enable_comparison_runner {
+        configured_method_ids.extend(research.generation_method.comparison_methods.clone());
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let method_ids = configured_method_ids
+        .into_iter()
+        .filter(|method_id| seen.insert(method_id.clone()))
+        .collect::<Vec<_>>();
+    let contexts = examples
+        .iter()
+        .zip(forwards.iter())
+        .take(example_limit)
+        .map(|(example, forward)| PocketGenerationContext {
+            example: example.clone(),
+            forward: Some(forward.clone()),
+            candidate_limit: research.generation_method.candidate_count.max(1),
+            enable_repair: !ablation.disable_candidate_repair,
+        })
+        .collect::<Vec<_>>();
+
+    let methods = method_ids
+        .iter()
+        .filter_map(|method_id| PocketGenerationMethodRegistry::build(method_id).ok())
+        .map(|method| {
+            let metadata = method.metadata();
+            let outputs = method.generate_batch(contexts.clone());
+            summarize_method_output(&merge_method_outputs(metadata, outputs))
+        })
+        .collect::<Vec<_>>();
+
+    MethodComparisonSummary {
+        active_method: PocketGenerationMethodRegistry::metadata(
+            &research.generation_method.active_method,
+        )
+        .ok(),
+        methods,
+        planned_metric_interfaces: planned_metric_interfaces(),
+    }
+}
+
+fn merge_method_outputs(
+    metadata: PocketGenerationMethodMetadata,
+    outputs: Vec<LayeredGenerationOutput>,
+) -> LayeredGenerationOutput {
+    let mut merged = LayeredGenerationOutput::empty(metadata);
+    for mut output in outputs {
+        merge_layer(&mut merged.raw_rollout, output.raw_rollout.take());
+        merge_layer(&mut merged.repaired, output.repaired.take());
+        merge_layer(&mut merged.inferred_bond, output.inferred_bond.take());
+        merge_layer(
+            &mut merged.deterministic_proxy,
+            output.deterministic_proxy.take(),
+        );
+        merge_layer(&mut merged.reranked, output.reranked.take());
+    }
+    merged
+}
+
+fn merge_layer(
+    target: &mut Option<crate::models::CandidateLayerOutput>,
+    next: Option<crate::models::CandidateLayerOutput>,
+) {
+    match (target, next) {
+        (Some(existing), Some(mut next_layer)) => {
+            existing.candidates.append(&mut next_layer.candidates);
+        }
+        (slot @ None, Some(next_layer)) => {
+            *slot = Some(next_layer);
+        }
+        _ => {}
     }
 }
 
@@ -3452,55 +3609,65 @@ fn evaluate_real_generation_metrics(
     ablation: &AblationConfig,
     external_evaluation: &ExternalEvaluationConfig,
     split_label: &str,
-) -> (RealGenerationMetrics, LayeredGenerationMetrics) {
-    let layers = examples
-        .iter()
-        .zip(forwards.iter())
-        .take(external_evaluation.generation_artifact_example_limit)
-        .map(|(example, forward)| {
-            generate_layered_candidates_with_options(
-                example,
-                forward,
-                3,
-                !ablation.disable_candidate_repair,
-            )
-        })
-        .fold(
-            CandidateGenerationLayers {
-                raw_rollout: Vec::new(),
-                repaired: Vec::new(),
-                inferred_bond: Vec::new(),
-            },
-            |mut acc, mut next| {
-                acc.raw_rollout.append(&mut next.raw_rollout);
-                acc.repaired.append(&mut next.repaired);
-                acc.inferred_bond.append(&mut next.inferred_bond);
-                acc
-            },
-        );
-    let candidates = layers
-        .inferred_bond
-        .iter()
+) -> (
+    RealGenerationMetrics,
+    LayeredGenerationMetrics,
+    MethodComparisonSummary,
+) {
+    let candidate_limit = research.generation_method.candidate_count.max(1);
+    let active_method = PocketGenerationMethodRegistry::build(
+        &research.generation_method.active_method,
+    )
+    .unwrap_or_else(|_| {
+        PocketGenerationMethodRegistry::build("conditioned_denoising")
+            .expect("conditioned_denoising registry entry must exist")
+    });
+    let method_outputs = active_method.generate_batch(
+        examples
+            .iter()
+            .zip(forwards.iter())
+            .take(external_evaluation.generation_artifact_example_limit)
+            .map(|(example, forward)| PocketGenerationContext {
+                example: example.clone(),
+                forward: Some(forward.clone()),
+                candidate_limit,
+                enable_repair: !ablation.disable_candidate_repair,
+            })
+            .collect(),
+    );
+    let active_output = merge_method_outputs(active_method.metadata(), method_outputs);
+    let (raw_rollout, repaired, candidates, proxy_reranked, reranked) =
+        flatten_layered_output(&active_output);
+    let raw_rollout = raw_rollout
+        .into_iter()
         .take(external_evaluation.generation_artifact_candidate_limit)
-        .cloned()
         .collect::<Vec<_>>();
-    let raw_rollout = layers
-        .raw_rollout
-        .iter()
+    let repaired = repaired
+        .into_iter()
         .take(external_evaluation.generation_artifact_candidate_limit)
-        .cloned()
         .collect::<Vec<_>>();
-    let repaired = layers
-        .repaired
-        .iter()
+    let candidates = candidates
+        .into_iter()
         .take(external_evaluation.generation_artifact_candidate_limit)
-        .cloned()
         .collect::<Vec<_>>();
-    let proxy_reranked = proxy_rerank_candidates(&candidates);
-    let calibrated_reranker = CalibratedReranker::fit(&candidates);
-    let reranked = calibrated_reranker.rerank(&candidates);
+    let proxy_reranked = proxy_reranked
+        .into_iter()
+        .take(external_evaluation.generation_artifact_candidate_limit)
+        .collect::<Vec<_>>();
+    let reranked = reranked
+        .into_iter()
+        .take(external_evaluation.generation_artifact_candidate_limit)
+        .collect::<Vec<_>>();
     let backend_candidates = final_backend_candidate_layer(&candidates, &reranked, &proxy_reranked);
     let novelty_reference = novelty_reference_signatures(train_examples);
+    let calibrated_reranker = CalibratedReranker::fit(&candidates);
+    let method_comparison = build_method_comparison_summary(
+        research,
+        examples,
+        forwards,
+        ablation,
+        external_evaluation.generation_artifact_example_limit,
+    );
 
     let mut layered = LayeredGenerationMetrics {
         raw_rollout: summarize_candidate_layer(&raw_rollout, &novelty_reference),
@@ -3513,6 +3680,7 @@ fn evaluate_real_generation_metrics(
         ),
         reranker_calibration: calibrated_reranker.report(),
         backend_scored_candidates: BTreeMap::new(),
+        method_comparison: method_comparison.clone(),
     };
     apply_raw_rollout_stability(&mut layered.raw_rollout, forwards);
 
@@ -3529,8 +3697,9 @@ fn evaluate_real_generation_metrics(
             &proxy_reranked,
             &disabled,
             &layered,
+            &active_output,
         );
-        return (disabled, layered);
+        return (disabled, layered, method_comparison);
     }
 
     let heuristic_chemistry =
@@ -3607,8 +3776,9 @@ fn evaluate_real_generation_metrics(
         &proxy_reranked,
         &real_generation,
         &layered,
+        &active_output,
     );
-    (real_generation, layered)
+    (real_generation, layered, method_comparison)
 }
 
 fn final_backend_candidate_layer(
@@ -3847,6 +4017,7 @@ fn novelty_fraction(
         / candidates.len() as f64
 }
 
+#[allow(dead_code)]
 fn proxy_rerank_candidates(
     candidates: &[GeneratedCandidateRecord],
 ) -> Vec<GeneratedCandidateRecord> {
@@ -3861,6 +4032,7 @@ fn proxy_rerank_candidates(
     ranked
 }
 
+#[allow(dead_code)]
 fn proxy_rerank_score(candidate: &GeneratedCandidateRecord) -> f64 {
     let valid = if candidate_is_valid(candidate) {
         1.0
@@ -3943,6 +4115,7 @@ impl CalibratedReranker {
         }
     }
 
+    #[allow(dead_code)]
     fn rerank(&self, candidates: &[GeneratedCandidateRecord]) -> Vec<GeneratedCandidateRecord> {
         let mut ranked = candidates.to_vec();
         ranked.sort_by(|left, right| {
@@ -3956,6 +4129,7 @@ impl CalibratedReranker {
         ranked
     }
 
+    #[allow(dead_code)]
     fn score(&self, candidate: &GeneratedCandidateRecord) -> f64 {
         reranker_feature_names()
             .iter()
@@ -4100,12 +4274,14 @@ fn apply_raw_rollout_stability(layer: &mut CandidateLayerMetrics, forwards: &[Re
 struct LayeredGenerationArtifact<'a> {
     schema_version: u32,
     split_label: &'a str,
+    active_method: &'a PocketGenerationMethodMetadata,
     layered_metrics: &'a LayeredGenerationMetrics,
     raw_rollout_candidates: &'a [GeneratedCandidateRecord],
     repaired_candidates: &'a [GeneratedCandidateRecord],
     inferred_bond_candidates: &'a [GeneratedCandidateRecord],
     deterministic_proxy_candidates: &'a [GeneratedCandidateRecord],
     reranked_candidates: &'a [GeneratedCandidateRecord],
+    method_layer_outputs: &'a LayeredGenerationOutput,
     backend_metrics: &'a RealGenerationMetrics,
     backend_failure_examples: Vec<BackendFailureExample>,
 }
@@ -4133,6 +4309,7 @@ fn maybe_persist_generation_artifacts(
     deterministic_proxy: &[GeneratedCandidateRecord],
     backend_metrics: &RealGenerationMetrics,
     layered_metrics: &LayeredGenerationMetrics,
+    method_layer_outputs: &LayeredGenerationOutput,
 ) {
     if !external_evaluation.persist_generation_artifacts {
         return;
@@ -4143,12 +4320,14 @@ fn maybe_persist_generation_artifacts(
     let artifact = LayeredGenerationArtifact {
         schema_version: 2,
         split_label,
+        active_method: &method_layer_outputs.metadata,
         layered_metrics,
         raw_rollout_candidates: raw_rollout,
         repaired_candidates: repaired,
         inferred_bond_candidates: inferred_bond,
         deterministic_proxy_candidates: deterministic_proxy,
         reranked_candidates: reranked,
+        method_layer_outputs,
         backend_metrics,
         backend_failure_examples: backend_failure_examples(inferred_bond, backend_metrics, 16),
     };
@@ -5038,6 +5217,7 @@ fn build_claim_report(summary: &UnseenPocketExperimentSummary) -> ClaimReport {
         leakage_calibration: build_leakage_calibration_report(summary, &ablation_deltas),
         performance_gates: summary.performance_gates.clone(),
         baseline_comparisons: build_baseline_comparisons(summary),
+        method_comparison: summary.test.method_comparison.clone(),
         ablation_deltas,
     }
 }
@@ -6292,6 +6472,7 @@ mod tests {
                 leakage_calibration: LeakageCalibrationReport::default(),
                 performance_gates: PerformanceGateReport::default(),
                 baseline_comparisons: Vec::new(),
+                method_comparison: MethodComparisonSummary::default(),
             },
         };
 
@@ -6733,6 +6914,7 @@ mod tests {
             leakage_calibration: LeakageCalibrationReport::default(),
             performance_gates: PerformanceGateReport::default(),
             baseline_comparisons: Vec::new(),
+            method_comparison: MethodComparisonSummary::default(),
         }
     }
 

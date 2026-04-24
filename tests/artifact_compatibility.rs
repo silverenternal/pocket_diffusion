@@ -55,6 +55,7 @@ fn older_claim_artifact_defaults_recent_optional_sections() {
     assert_eq!(report.slot_stability.topology_activation_mean, 0.0);
     assert!(report.backend_thresholds.is_empty());
     assert_eq!(report.backend_review.reviewer_status, "");
+    assert!(report.method_comparison.methods.is_empty());
 }
 
 #[test]
@@ -159,6 +160,7 @@ fn evaluation_metrics_accepts_pre_strata_resource_schema() {
     let metrics: EvaluationMetrics = serde_json::from_str(json).unwrap();
     assert!(metrics.strata.is_empty());
     assert_eq!(CandidateLayerMetrics::default().candidate_count, 0);
+    assert!(metrics.method_comparison.methods.is_empty());
 }
 
 #[test]

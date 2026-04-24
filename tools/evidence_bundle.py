@@ -71,6 +71,8 @@ def compact_claim(claim):
     reranker = claim.get("reranker_report", {})
     calibration = reranker.get("calibration", {})
     baselines = claim.get("baseline_comparisons", [])
+    method_comparison = claim.get("method_comparison", {})
+    method_rows = method_comparison.get("methods", [])
     leakage = claim.get("leakage_calibration", {})
     chemistry_novelty = claim.get("chemistry_novelty_diversity", {})
     benchmark = chemistry_novelty.get("benchmark_evidence", {})
@@ -95,6 +97,13 @@ def compact_claim(claim):
         "reranker_training_candidate_count": calibration.get("training_candidate_count"),
         "baseline_comparison_count": len(baselines),
         "baseline_labels": [row.get("label") for row in baselines if row.get("label")],
+        "active_generation_method": (method_comparison.get("active_method") or {}).get(
+            "method_id"
+        ),
+        "comparison_method_count": len(method_rows),
+        "comparison_method_ids": [
+            row.get("method_id") for row in method_rows if row.get("method_id")
+        ],
         "chemistry_novelty_diversity": {
             "review_layer": chemistry_novelty.get("review_layer"),
             "unique_smiles_fraction": chemistry_novelty.get("unique_smiles_fraction"),
@@ -838,6 +847,11 @@ def build_generator_direction(bundle):
         "Use larger held-out-family evidence as the primary justification surface for generator changes, not compact-only wins.",
         "Keep the current conditioned-denoising plus bounded reranking path as the default while larger-data and tight-geometry surfaces still show non-trivial quality/efficiency tradeoffs.",
     ]
+    active_method = larger_claim.get("active_generation_method")
+    if active_method:
+        reasons.append(
+            f"Keep `{active_method}` as the explicit active method id in reviewer artifacts so future generator-family comparisons stay schema-stable."
+        )
     if fit_range is not None and fit_range > 0.1:
         reasons.append(
             "Larger-data multi-seed strict pocket fit still varies materially across persisted seeds, which indicates headroom for incremental hardening before major objective replacement."

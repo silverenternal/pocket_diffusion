@@ -31,8 +31,16 @@ The modular stack already reflects the intended research direction:
 - automated cross-surface tuning that replays compact, harder-pressure, and tight-geometry surfaces with explicit chemistry, clash, uniqueness, and strict-fit gates
 - geometry-attribution ablations that separately disable controlled-attention pocket geometry bias, decoder rollout pocket guidance, and candidate repair
 - claim summaries that include raw/repaired/inferred/reranked generation layers, slot-stability diagnostics, and leakage-calibration recommendations
+- a method-aware comparison boundary where conditioned denoising is one registered generation method instead of the only generation path
 
-It should currently be described as a modular generation-research framework with deterministic decoder supervision, conditioned-denoising training support, and backend-backed candidate evaluation. The repository still does not expose a true pocket-conditioned diffusion training loop on the actively extended path.
+It should currently be described as a modular generation-research framework with deterministic decoder supervision, method-aware generation comparison, conditioned-denoising training support, and backend-backed candidate evaluation. The repository still does not expose a true pocket-conditioned diffusion training loop on the actively extended path.
+
+The method-platform boundary is now explicit:
+
+- `src/models/traits.rs` defines the `PocketGenerationMethod` contract, method metadata, and layered output schema
+- `src/models/methods.rs` owns the concrete registry and current built-in method implementations or stubs
+- `src/experiments/unseen_pocket.rs` remains the compatibility layer that preserves reviewer field names while emitting additive method metadata
+- `docs/generation_method_platform.md` is the checked-in migration note for this boundary
 
 The repo is usable for real research iteration, but users still need to respect the documented surface boundary: config-driven research flows are the default path, while legacy/demo commands remain compatibility shims rather than the place for new claim-bearing behavior.
 

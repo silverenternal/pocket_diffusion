@@ -382,7 +382,9 @@ fn run_generation_demo_from_config(
             deterministic_proxy_candidates: experiments::CandidateLayerMetrics::default(),
             reranker_calibration: experiments::RerankerCalibrationReport::default(),
             backend_scored_candidates: std::collections::BTreeMap::new(),
+            method_comparison: experiments::MethodComparisonSummary::default(),
         },
+        method_comparison: experiments::MethodComparisonSummary::default(),
         comparison_summary: experiments::GenerationQualitySummary {
             primary_objective: "generation_demo".to_string(),
             variant_label: Some("rollout_demo".to_string()),

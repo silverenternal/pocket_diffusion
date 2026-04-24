@@ -1,6 +1,6 @@
 # pocket_diffusion
 
-Rust-first modular research framework for pocket-conditioned representation learning, with a legacy generation demo kept for compatibility.
+Rust-first modular research framework for pocket-conditioned representation learning and method-aware molecular generation comparison, with a legacy generation demo kept for compatibility.
 
 The actively extended path provides:
 
@@ -20,7 +20,7 @@ The actively extended path provides:
 | Unseen-pocket split experiments | `implemented` | Now reports active heuristic chemistry-validity, docking-hook, and pocket-compatibility metrics on modular decoder candidates |
 | Affinity supervision from lightweight parsing | `prototype` | Uses simplified normalization and lightweight parsing/reporting |
 | Distance / affinity probe evaluation | `proxy` | Computed from probe heads on held-out examples |
-| Direct candidate generation and ranking | `implemented` | Available through iterative `research generate`, plus `legacy-demo --modular-bridge` for compatibility migration |
+| Direct candidate generation and ranking | `implemented` | Available through iterative `research generate`, method-aware unseen-pocket evaluation, and backward-compatible layered artifacts |
 | Diffusion training objective | `planned` | Crate name is historical; the modular stack does not train a diffusion objective today |
 | Chemistry validity / docking / pocket-compatibility backend | `implemented` | Heuristic baselines remain active, and repository-supported executable backends are now provided under `tools/` |
 
@@ -34,6 +34,13 @@ The repository now supports a practical "real-data first" path:
 - PDBbind-like directory discovery
 - external CSV/TSV affinity label tables
 - protein-level train/val/test splits for unseen-pocket experiments
+
+The active generation path is now also a method platform:
+
+- stable `PocketGenerationMethod` contracts for trainable, heuristic, reranker-only, and future external-wrapper methods
+- additive `generation_method` config selection for active-method and fair-comparison execution
+- layered candidate outputs with explicit provenance for raw, repaired, inferred, deterministic-proxy, and calibrated-reranked layers
+- backward-compatible claim and layer artifacts that retain existing reviewer field names
 
 The included sample dataset is intentionally small, but it uses actual on-disk `*.pdb` and `*.sdf` files so the parsing, collation, training, and evaluation paths are exercised end to end.
 
@@ -56,7 +63,7 @@ In practical terms, the project is now suitable for real research iteration, reg
 This repository currently contains two parallel surfaces:
 
 - a legacy `PocketDiffusionPipeline` demo path for direct candidate generation and ranking
-- a newer modular research stack for multi-modal representation learning, staged training, conditioned denoising, and unseen-pocket evaluation
+- a newer modular research stack for multi-modal representation learning, staged training, method-aware generation, and unseen-pocket evaluation
 
 The modular research path is the actively extended surface and is the one documented below.
 
@@ -133,6 +140,8 @@ Run the modular generation demo and emit conditioned candidates plus evaluation 
 ```bash
 cargo run --bin pocket_diffusion -- research generate --config configs/research_manifest.json --resume --num-candidates 4
 ```
+
+The default active method remains `conditioned_denoising`, but config-driven experiment surfaces now read `generation_method.active_method` and execute additive method comparisons when enabled.
 
 Run the configured ablation matrix and emit comparison artifacts:
 
@@ -212,6 +221,25 @@ The same artifact now also records label-table row accounting: rows seen, blank/
 - `affinity_weighting`: `none` or `inverse_frequency` for labeled affinity supervision across mixed measurement families
 - `primary_objective`: `surrogate_reconstruction` or `conditioned_denoising`
 
+### `GenerationMethodConfig` fields
+
+- `active_method`: primary method id used by config-driven generation and claim-bearing experiment paths
+- `comparison_methods`: additive methods executed on the same split and backend surface for fair comparison
+- `candidate_count`: requested candidate count per method execution
+- `enable_comparison_runner`: enables persisted method-comparison summaries in experiment artifacts
+
+The built-in method ids currently are:
+
+- `conditioned_denoising`
+- `heuristic_raw_rollout_no_repair`
+- `pocket_centroid_repair_proxy`
+- `deterministic_proxy_reranker`
+- `calibrated_reranker`
+- `flow_matching_stub`
+- `diffusion_stub`
+- `autoregressive_stub`
+- `external_wrapper_stub`
+
 ### `ModelConfig` additions
 
 - `interaction_mode`: `lightweight` or `transformer` for controlled cross-modal interaction
@@ -222,6 +250,24 @@ The same artifact now also records label-table row accounting: rows seen, blank/
 - `external_evaluation`: optional external command adapters for chemistry validity, docking, and pocket-compatibility scoring
 - `reviewer_benchmark.dataset`: optional stable benchmark label used when a surface should qualify for the explicit `external_benchmark_backed` chemistry tier
 - `ablation_matrix`: lightweight config-driven matrix over objective choice, slots, cross-modal interaction reporting, and interaction-style comparisons
+
+### Method-aware artifacts
+
+Existing reviewer-consumed fields remain stable:
+
+- `raw_rollout`
+- `repaired_candidates`
+- `inferred_bond_candidates`
+- `deterministic_proxy_candidates`
+- `reranked_candidates`
+
+Method-platform metadata is now added additively:
+
+- `active_method`
+- `method_layer_outputs`
+- `method_comparison`
+
+The detailed architecture note lives in [docs/generation_method_platform.md](docs/generation_method_platform.md).
 
 ### Repository-supported backend workflow
 

@@ -243,6 +243,223 @@ pub struct GeneratedCandidateRecord {
     pub source_ligand_path: Option<String>,
 }
 
+/// Stable method family used by the comparison platform.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PocketGenerationMethodFamily {
+    /// Full conditioned denoising with the shared disentangled backbone.
+    ConditionedDenoising,
+    /// Lightweight heuristic generation or selection path.
+    Heuristic,
+    /// Repair-first or repair-only postprocessing path.
+    RepairOnly,
+    /// Candidate reranking-only selection path.
+    RerankerOnly,
+    /// Reserved flow-matching generator family.
+    FlowMatching,
+    /// Reserved diffusion generator family.
+    Diffusion,
+    /// Reserved autoregressive generator family.
+    Autoregressive,
+    /// Wrapper around an external executable or service.
+    ExternalWrapper,
+}
+
+/// Claim-review semantics for one method.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GenerationEvidenceRole {
+    /// Method is on a claim-bearing path for the active reviewer surface.
+    ClaimBearing,
+    /// Method is intended as a fair comparison baseline or control.
+    ComparisonOnly,
+    /// Method is diagnostic or exploratory only.
+    DiagnosticOnly,
+    /// Method delegates generation outside the native Rust stack.
+    ExternalWrapper,
+}
+
+/// How a method is expected to execute inside the comparison runner.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GenerationExecutionMode {
+    /// Native per-example generation.
+    PerExample,
+    /// Native batched generation.
+    Batched,
+    /// Delegates to an external process or service.
+    ExternalCommand,
+    /// Placeholder registration that documents a future method family.
+    Stub,
+}
+
+/// Stable candidate layer identifiers shared across methods and artifacts.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum CandidateLayerKind {
+    /// Direct method-native rollout output.
+    RawRollout,
+    /// Geometry-repaired output.
+    Repaired,
+    /// Bond-inferred output.
+    InferredBond,
+    /// Deterministic proxy reranker output.
+    DeterministicProxy,
+    /// Active calibrated reranker output.
+    Reranked,
+}
+
+impl CandidateLayerKind {
+    /// Legacy field name used by persisted reviewer artifacts.
+    pub fn legacy_field_name(self) -> &'static str {
+        match self {
+            Self::RawRollout => "raw_rollout",
+            Self::Repaired => "repaired_candidates",
+            Self::InferredBond => "inferred_bond_candidates",
+            Self::DeterministicProxy => "deterministic_proxy_candidates",
+            Self::Reranked => "reranked_candidates",
+        }
+    }
+}
+
+/// Capability flags surfaced by one generation method.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GenerationMethodCapability {
+    /// Whether the method has trainable parameters on its own path.
+    pub trainable: bool,
+    /// Whether the method can generate in batches.
+    pub batched_generation: bool,
+    /// Whether the method emits native raw candidates.
+    pub method_native_generation: bool,
+    /// Whether the method depends on shared postprocessors.
+    pub uses_postprocessors: bool,
+    /// Whether the method supports explicit repair layering.
+    pub repair_layer: bool,
+    /// Whether the method supports explicit bond-inference layering.
+    pub inferred_bond_layer: bool,
+    /// Whether the method supports explicit reranked layering.
+    pub reranked_layer: bool,
+    /// Whether the method delegates execution outside the native binary.
+    pub external_wrapper: bool,
+    /// Whether the registration is a future stub rather than an active implementation.
+    pub stub: bool,
+}
+
+/// Stable metadata exposed by every registered generation method.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PocketGenerationMethodMetadata {
+    /// Stable machine-readable method identifier.
+    pub method_id: String,
+    /// Human-readable method name.
+    pub method_name: String,
+    /// Method family used for reporting and compatibility checks.
+    pub method_family: PocketGenerationMethodFamily,
+    /// Capability summary for the method.
+    pub capability: GenerationMethodCapability,
+    /// Stable layered output support declaration.
+    pub layered_output_support: Vec<CandidateLayerKind>,
+    /// Claim-review role for the method.
+    pub evidence_role: GenerationEvidenceRole,
+    /// Expected execution mode for the method.
+    pub execution_mode: GenerationExecutionMode,
+}
+
+/// Provenance for one candidate layer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CandidateLayerProvenance {
+    /// Method identifier that owns the layer.
+    pub source_method_id: String,
+    /// Method name that owns the layer.
+    pub source_method_name: String,
+    /// Method family that owns the layer.
+    pub source_method_family: PocketGenerationMethodFamily,
+    /// Stable layer identifier.
+    pub layer_kind: CandidateLayerKind,
+    /// Backward-compatible persisted field name.
+    pub legacy_field_name: String,
+    /// Whether the layer is method-native rather than derived.
+    pub method_native: bool,
+    /// Ordered postprocessor chain that produced this layer.
+    pub postprocessor_chain: Vec<String>,
+    /// Whether the layer is available for this method.
+    pub available: bool,
+}
+
+/// Candidate collection plus provenance for one generation layer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CandidateLayerOutput {
+    /// Provenance attached to the layer.
+    pub provenance: CandidateLayerProvenance,
+    /// Candidate payloads for this layer.
+    pub candidates: Vec<GeneratedCandidateRecord>,
+}
+
+/// Stable layered output schema used by all generation methods.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayeredGenerationOutput {
+    /// Method metadata that produced these layers.
+    pub metadata: PocketGenerationMethodMetadata,
+    /// Raw rollout layer when available.
+    #[serde(default)]
+    pub raw_rollout: Option<CandidateLayerOutput>,
+    /// Geometry-repaired layer when available.
+    #[serde(default)]
+    pub repaired: Option<CandidateLayerOutput>,
+    /// Bond-inferred layer when available.
+    #[serde(default)]
+    pub inferred_bond: Option<CandidateLayerOutput>,
+    /// Deterministic proxy selection layer when available.
+    #[serde(default)]
+    pub deterministic_proxy: Option<CandidateLayerOutput>,
+    /// Calibrated reranked layer when available.
+    #[serde(default)]
+    pub reranked: Option<CandidateLayerOutput>,
+}
+
+impl LayeredGenerationOutput {
+    /// Construct an empty layered output for a method registration.
+    pub fn empty(metadata: PocketGenerationMethodMetadata) -> Self {
+        Self {
+            metadata,
+            raw_rollout: None,
+            repaired: None,
+            inferred_bond: None,
+            deterministic_proxy: None,
+            reranked: None,
+        }
+    }
+}
+
+/// Per-example method execution context.
+#[derive(Debug, Clone)]
+pub struct PocketGenerationContext {
+    /// Input example used for conditioned generation.
+    pub example: MolecularExample,
+    /// Optional shared backbone forward state.
+    pub(crate) forward: Option<crate::models::system::ResearchForward>,
+    /// Requested candidate count for this execution.
+    pub candidate_limit: usize,
+    /// Whether shared repair postprocessing is enabled for this execution.
+    pub enable_repair: bool,
+}
+
+/// Stable generation-method contract for comparison runners and demos.
+pub trait PocketGenerationMethod {
+    /// Return stable method metadata for registry, artifacts, and claim review.
+    fn metadata(&self) -> PocketGenerationMethodMetadata;
+
+    /// Generate layered outputs for one example.
+    fn generate_for_example(&self, context: PocketGenerationContext) -> LayeredGenerationOutput;
+
+    /// Generate layered outputs for a batch.
+    fn generate_batch(&self, contexts: Vec<PocketGenerationContext>) -> Vec<LayeredGenerationOutput> {
+        contexts
+            .into_iter()
+            .map(|context| self.generate_for_example(context))
+            .collect()
+    }
+}
+
 /// Named metrics emitted by an external chemistry or docking backend.
 #[derive(Debug, Clone)]
 pub struct ExternalMetricRecord {
