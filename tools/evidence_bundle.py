@@ -60,7 +60,139 @@ def file_hash(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
-def compact_claim(claim):
+def _sum_breakdown(target, source):
+    for key, value in (source or {}).items():
+        try:
+            target[key] = target.get(key, 0) + int(value)
+        except (TypeError, ValueError):
+            continue
+
+
+def _safe_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _safe_float(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number or number in (float("inf"), float("-inf")):
+        return None
+    return number
+
+
+def load_preference_artifact_summary(path):
+    profile_count_by_split = {}
+    pair_count_by_split = {}
+    source_breakdown = {}
+    backend_coverage = {}
+    schema_versions = {}
+    backend_supported_pair_fraction_by_split = {}
+    rule_only_pair_fraction_by_split = {}
+    missing_backend_evidence_fraction_by_split = {}
+    mean_preference_strength_by_split = {}
+    hard_constraint_win_fraction_by_split = {}
+
+    for split in ("validation", "test"):
+        profile = load_json(path / f"preference_profiles_{split}.json") or {}
+        if profile:
+            schema_versions[f"profile_{split}"] = profile.get("schema_version")
+            profile_count_by_split[split] = _safe_int(profile.get("profile_count"))
+            _sum_breakdown(backend_coverage, profile.get("backend_coverage") or {})
+
+        pair = load_json(path / f"preference_pairs_{split}.json") or {}
+        if pair:
+            schema_versions[f"pair_{split}"] = pair.get("schema_version")
+            pair_count = _safe_int(pair.get("pair_count"))
+            pair_count_by_split[split] = pair_count
+            _sum_breakdown(source_breakdown, pair.get("source_coverage") or {})
+            backend_supported = _safe_float(pair.get("backend_supported_pair_fraction"))
+            rule_only = _safe_float(pair.get("rule_only_pair_fraction"))
+            missing_backend = _safe_float(pair.get("missing_backend_evidence_fraction"))
+            mean_strength = _safe_float(pair.get("mean_preference_strength"))
+            hard_constraint = _safe_float(pair.get("hard_constraint_win_fraction"))
+            if backend_supported is None:
+                backend_supported = (
+                    (_safe_int((pair.get("source_coverage") or {}).get("backend_based")) / pair_count)
+                    if pair_count > 0
+                    else 0.0
+                )
+            if rule_only is None:
+                rule_only = (
+                    (_safe_int((pair.get("source_coverage") or {}).get("rule_based")) / pair_count)
+                    if pair_count > 0
+                    else 0.0
+                )
+            if missing_backend is None:
+                missing_backend = 1.0 - backend_supported if pair_count > 0 else 0.0
+            backend_supported_pair_fraction_by_split[split] = backend_supported
+            rule_only_pair_fraction_by_split[split] = rule_only
+            missing_backend_evidence_fraction_by_split[split] = missing_backend
+            mean_preference_strength_by_split[split] = mean_strength if mean_strength is not None else 0.0
+            hard_constraint_win_fraction_by_split[split] = hard_constraint if hard_constraint is not None else 0.0
+
+    reranker_summary = load_json(path / "preference_reranker_summary.json") or {}
+    if reranker_summary:
+        schema_versions["reranker_summary"] = reranker_summary.get("schema_version")
+
+    pair_total = sum(pair_count_by_split.values())
+    backend_weighted = 0.0
+    rule_weighted = 0.0
+    missing_weighted = 0.0
+    mean_strength_weighted = 0.0
+    hard_constraint_weighted = 0.0
+    for split, pair_count in pair_count_by_split.items():
+        if pair_count <= 0:
+            continue
+        backend_weighted += backend_supported_pair_fraction_by_split.get(split, 0.0) * pair_count
+        rule_weighted += rule_only_pair_fraction_by_split.get(split, 0.0) * pair_count
+        missing_weighted += (
+            missing_backend_evidence_fraction_by_split.get(split, 0.0) * pair_count
+        )
+        mean_strength_weighted += mean_preference_strength_by_split.get(split, 0.0) * pair_count
+        hard_constraint_weighted += (
+            hard_constraint_win_fraction_by_split.get(split, 0.0) * pair_count
+        )
+
+    artifacts_present = bool(
+        profile_count_by_split or pair_count_by_split or reranker_summary
+    )
+    return {
+        "available": artifacts_present,
+        "interpretation": (
+            "available" if artifacts_present else "unavailable"
+        ),
+        "schema_versions": schema_versions,
+        "profile_count_by_split": profile_count_by_split,
+        "pair_count_by_split": pair_count_by_split,
+        "source_breakdown": source_breakdown,
+        "backend_coverage": backend_coverage,
+        "reranker_enabled": reranker_summary.get("enabled")
+        if reranker_summary
+        else None,
+        "backend_supported_pair_fraction": (
+            backend_weighted / pair_total if pair_total > 0 else None
+        ),
+        "rule_only_pair_fraction": (
+            rule_weighted / pair_total if pair_total > 0 else None
+        ),
+        "missing_backend_evidence_fraction": (
+            missing_weighted / pair_total if pair_total > 0 else None
+        ),
+        "mean_preference_strength": (
+            mean_strength_weighted / pair_total if pair_total > 0 else None
+        ),
+        "hard_constraint_win_fraction": (
+            hard_constraint_weighted / pair_total if pair_total > 0 else None
+        ),
+    }
+
+
+def compact_claim(claim, preference_artifacts=None):
     if not claim:
         return None
     test = claim.get("test", {})
@@ -73,9 +205,16 @@ def compact_claim(claim):
     baselines = claim.get("baseline_comparisons", [])
     method_comparison = claim.get("method_comparison", {})
     method_rows = method_comparison.get("methods", [])
+    preference_alignment = method_comparison.get("preference_alignment", {})
     leakage = claim.get("leakage_calibration", {})
     chemistry_novelty = claim.get("chemistry_novelty_diversity", {})
     benchmark = chemistry_novelty.get("benchmark_evidence", {})
+    preference_artifacts = preference_artifacts or {}
+    profile_count_by_split = preference_artifacts.get("profile_count_by_split") or {}
+    pair_count_by_split = preference_artifacts.get("pair_count_by_split") or {}
+    source_breakdown = preference_artifacts.get("source_breakdown") or {}
+    backend_coverage = preference_artifacts.get("backend_coverage") or {}
+
     return {
         "run_label": claim.get("run_label"),
         "claim_context": claim.get("claim_context"),
@@ -104,6 +243,40 @@ def compact_claim(claim):
         "comparison_method_ids": [
             row.get("method_id") for row in method_rows if row.get("method_id")
         ],
+        "preference_alignment": {
+            "schema_version": preference_alignment.get("schema_version"),
+            "profile_extraction_enabled": preference_alignment.get("profile_extraction_enabled"),
+            "pair_construction_enabled": preference_alignment.get("pair_construction_enabled"),
+            "profile_count": preference_alignment.get("profile_count"),
+            "preference_pair_count": preference_alignment.get("preference_pair_count"),
+            "missing_artifacts_mean_unavailable": preference_alignment.get(
+                "missing_artifacts_mean_unavailable", True
+            ),
+            "interpretation": (
+                "Missing preference artifacts mean preference evidence unavailable, not failed alignment."
+                if not preference_artifacts.get("available")
+                else "Preference artifacts are available and summarized as compact counts/coverage."
+            ),
+            "artifact_interpretation": preference_artifacts.get("interpretation", "unavailable"),
+            "profile_count_by_split": profile_count_by_split,
+            "pair_count_by_split": pair_count_by_split,
+            "source_breakdown": source_breakdown,
+            "backend_coverage": backend_coverage,
+            "reranker_enabled": preference_artifacts.get("reranker_enabled"),
+            "backend_supported_pair_fraction": preference_artifacts.get(
+                "backend_supported_pair_fraction"
+            ),
+            "rule_only_pair_fraction": preference_artifacts.get(
+                "rule_only_pair_fraction"
+            ),
+            "missing_backend_evidence_fraction": preference_artifacts.get(
+                "missing_backend_evidence_fraction"
+            ),
+            "mean_preference_strength": preference_artifacts.get("mean_preference_strength"),
+            "hard_constraint_win_fraction": preference_artifacts.get(
+                "hard_constraint_win_fraction"
+            ),
+        },
         "chemistry_novelty_diversity": {
             "review_layer": chemistry_novelty.get("review_layer"),
             "unique_smiles_fraction": chemistry_novelty.get("unique_smiles_fraction"),
@@ -269,11 +442,13 @@ def collect_artifact_dir(path):
     bundle = load_json(path / "run_artifacts.json")
     multi_seed = load_json(path / "multi_seed_summary.json")
     replay_drift = load_json(path / "replay_drift_report.json")
+    preference_artifacts = load_preference_artifact_summary(path)
     return {
         "artifact_dir": str(path),
         "exists": path.is_dir(),
         "config_snapshot_hash": file_hash(path / "config.snapshot.json"),
-        "claim": compact_claim(claim),
+        "claim": compact_claim(claim, preference_artifacts),
+        "preference_artifacts": preference_artifacts,
         "reproducibility": None if experiment is None else experiment.get("reproducibility"),
         "dataset_validation": validation,
         "data_thresholds": evaluate_data_thresholds(validation, split),

@@ -87,3 +87,17 @@ Planned backend-agnostic metric interfaces are tracked in method comparison arti
 
 - `chemistry_property_bundle`
 - `scaffold_novelty_bundle`
+
+## Interaction Preference Addendum
+
+Interaction preference alignment is an additive layer over the same method contract. Candidate generation remains owned by `PocketGenerationMethod` implementations; preference extraction starts after candidate layers have been produced.
+
+The current compatible path is `conditioned_denoising`, with the same raw, repaired, inferred-bond, deterministic-proxy, and calibrated-reranked layers available to future methods. Preference-aware reranking is a planned layer, not a replacement for calibrated reranking or a hidden generator trainer.
+
+Preference artifacts should be named independently from legacy layer artifacts:
+
+- `preference_profiles_<split>.json`
+- `preference_pairs_<split>.json`
+- `preference_reranker_summary.json`
+
+Missing preference artifacts mean preference evidence is unavailable. Existing `generation_layers_<split>.json` and method comparison summaries remain valid without them.

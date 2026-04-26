@@ -30,6 +30,24 @@ pub struct CheckpointMetadata {
     /// Optional scheduler-state snapshot.
     #[serde(default)]
     pub scheduler_state: Option<SchedulerStateMetadata>,
+    /// Backend/objective compatibility metadata for model-switch training.
+    #[serde(default)]
+    pub backend_training: Option<BackendTrainingMetadata>,
+}
+
+/// Serializable backend/objective compatibility metadata.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BackendTrainingMetadata {
+    /// Active backend id used when the checkpoint was saved.
+    pub backend_id: String,
+    /// Active backend family used when the checkpoint was saved.
+    pub backend_family: String,
+    /// Primary objective implementation active when the checkpoint was saved.
+    pub objective_name: String,
+    /// Whether the active backend declares trainable parameters.
+    pub trainable_backend: bool,
+    /// Shared staged auxiliary objectives kept backend-independent.
+    pub shared_auxiliary_objectives: Vec<String>,
 }
 
 /// Serializable optimizer resume metadata.
@@ -109,6 +127,7 @@ impl CheckpointManager {
         resume_contract_version: &str,
         optimizer_state: Option<OptimizerStateMetadata>,
         scheduler_state: Option<SchedulerStateMetadata>,
+        backend_training: Option<BackendTrainingMetadata>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         fs::create_dir_all(&self.dir)?;
         let weights_path = self.dir.join(format!("step-{step}.ot"));
@@ -125,6 +144,7 @@ impl CheckpointManager {
             resume_contract_version: resume_contract_version.to_string(),
             optimizer_state,
             scheduler_state,
+            backend_training,
         };
         let metadata_json = serde_json::to_string_pretty(&metadata)?;
         fs::write(&metadata_path, &metadata_json)?;
@@ -246,6 +266,13 @@ mod tests {
                     pocket_contact_weight: 0.0,
                     pocket_clash_weight: 0.0,
                 }),
+                Some(BackendTrainingMetadata {
+                    backend_id: "conditioned_denoising".to_string(),
+                    backend_family: "conditioneddenoising".to_string(),
+                    objective_name: "conditioned_denoising".to_string(),
+                    trainable_backend: true,
+                    shared_auxiliary_objectives: vec!["L_consistency".to_string()],
+                }),
             )
             .unwrap();
 
@@ -291,6 +318,14 @@ mod tests {
                 pocket_clash_weight: 0.0,
             })
         );
+        assert_eq!(
+            loaded
+                .metadata
+                .backend_training
+                .as_ref()
+                .map(|metadata| metadata.backend_id.as_str()),
+            Some("conditioned_denoising")
+        );
         assert_eq!(restored_tensor.double_value(&[0]), 2.5);
         assert_eq!(
             loaded
@@ -329,5 +364,6 @@ mod tests {
         assert_eq!(metadata.step, 7);
         assert!(metadata.optimizer_state.is_none());
         assert!(metadata.scheduler_state.is_none());
+        assert!(metadata.backend_training.is_none());
     }
 }

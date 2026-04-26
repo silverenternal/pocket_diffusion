@@ -46,17 +46,20 @@ The included sample dataset is intentionally small, but it uses actual on-disk `
 
 ## Current readiness
 
-As of April 24, 2026, the repository is past the "architecture-only prototype" stage.
+As of April 26, 2026, the repository is past the "architecture-only prototype" stage.
 
 - `cargo test` passes locally for the current tree.
 - The compact config-driven path validates, inspects data, trains, and runs unseen-pocket experiments on the bundled mini dataset.
 - The compact claim gate at [`checkpoints/claim_matrix/`](checkpoints/claim_matrix) is usable as the default fast regression surface for generator-facing changes.
 - The repository-supported real-backend surface at [`checkpoints/real_backends/`](checkpoints/real_backends) runs successfully on the current machine with `python3` plus RDKit-backed chemistry checks.
-- The canonical larger-data held-out-pocket surface at [`checkpoints/pdbbindpp_real_backends/`](checkpoints/pdbbindpp_real_backends) now runs end to end in the current environment with `benchmark_evidence.evidence_tier=external_benchmark_backed`, `test.strict_pocket_fit_score=0.6752`, `test.leakage_proxy_mean=0.0506`, and `backend atom_coverage_fraction=0.8810`.
+- The canonical larger-data held-out-pocket surface at [`checkpoints/pdbbindpp_real_backends/`](checkpoints/pdbbindpp_real_backends) now runs end to end in the current environment with `benchmark_evidence.evidence_tier=external_benchmark_backed`, `test.strict_pocket_fit_score=0.4703`, `test.leakage_proxy_mean=0.0772`, and backend `atom_coverage_fraction=0.7407` (latest local rerun).
 - A second larger-data benchmark surface at [`checkpoints/lp_pdbbind_refined_real_backends/`](checkpoints/lp_pdbbind_refined_real_backends) now also passes the same reviewer contract with `parsed_examples=5048`, `retained_label_coverage=1.0`, `test.strict_pocket_fit_score=0.7599`, and `test.leakage_proxy_mean=0.0569`.
 - The reviewer refresh bundle is currently green again: [`docs/reviewer_refresh_report.json`](docs/reviewer_refresh_report.json) reports `reviewer_bundle_status=pass`.
+- Preference artifacts are now enabled on the canonical surface (`profile_extraction/pair_construction/preference_reranking`), and strict model-onboarding gating passes on the latest artifact: `python3 tools/claim_regression_gate.py checkpoints/pdbbindpp_real_backends --enforce-backend-thresholds --enforce-data-thresholds --enforce-publication-readiness --enforce-preference-readiness`.
 
 In practical terms, the project is now suitable for real research iteration, regression gating, and backend-backed held-out-pocket evaluation. It should still be described as a research framework rather than a finished production system or a fully settled paper result.
+
+As of April 26, 2026, the post-preference-artifact execution checklist tracked in `todo.json` has been completed and archived; `todo.json` now remains only as a completion marker (`status=completed`, `remaining_tasks=[]`), and the authoritative implementation/evidence status is documented in `docs/repo_audit.md`, `docs/claim_readiness.md`, and `docs/interaction_preference_alignment.md`.
 
 ## Repository status
 

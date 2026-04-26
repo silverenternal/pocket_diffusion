@@ -46,6 +46,13 @@ cargo run --bin pocket_diffusion -- validate --kind experiment --config configs/
 "${REVIEWER_PYTHON}" tools/claim_regression_gate.py checkpoints/pdbbindpp_real_backends --enforce-backend-thresholds --enforce-data-thresholds
 "${REVIEWER_PYTHON}" tools/claim_regression_gate.py checkpoints/lp_pdbbind_refined_real_backends --enforce-backend-thresholds --enforce-data-thresholds
 "${REVIEWER_PYTHON}" tools/claim_regression_gate.py checkpoints/tight_geometry_pressure --enforce-backend-thresholds
+if [[ "${STRICT_MODEL_ONBOARDING_GATE:-0}" == "1" ]]; then
+  "${REVIEWER_PYTHON}" tools/claim_regression_gate.py checkpoints/pdbbindpp_real_backends \
+    --enforce-backend-thresholds \
+    --enforce-data-thresholds \
+    --enforce-publication-readiness \
+    --enforce-preference-readiness
+fi
 "${REVIEWER_PYTHON}" tools/replay_drift_check.py \
   checkpoints/claim_matrix/claim_summary.json \
   checkpoints/claim_matrix/claim_summary.json \

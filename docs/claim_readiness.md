@@ -23,6 +23,7 @@ This project should separate implementation claims from evidence claims.
 
 - Do not claim broad unseen-pocket generalization from mini or five-complex smoke surfaces.
 - Do not claim production docking quality from contact/clash/centroid proxy backends.
+- Do not claim human, docking, or experimental preference alignment from heuristic-only preference pairs. Use `rule-based preference proxy` unless human-curated labels, passing docking coverage, or experimental outcomes are explicitly present.
 - Do not claim a diffusion generator unless a diffusion-style objective and sampler are explicitly implemented and evaluated.
 - Treat the crate name `pocket_diffusion` as historical compatibility wording only; reviewer-facing text should describe the active system as modular representation learning / conditioned generation unless and until a true diffusion path is added.
 - Do not describe conditioned denoising as the repository's only generator interface anymore. Reviewer-facing wording should distinguish the active claim-bearing method from the broader method platform.
@@ -31,6 +32,17 @@ This project should separate implementation claims from evidence claims.
 Proxy-only chemistry evidence is the structural-signature novelty/diversity summary. Local benchmark-style chemistry evidence combines backend-backed sanitization and unique-SMILES quality with held-out-pocket novelty/diversity aggregates. `reviewer_benchmark_plus` adds explicit reviewer checks on parseability, finite conformers, review-layer support, and novelty/diversity support. The current strongest reviewer-facing chemistry evidence is `benchmark_evidence.evidence_tier=external_benchmark_backed` on both `checkpoints/pdbbindpp_real_backends` and `checkpoints/lp_pdbbind_refined_real_backends`: they keep the reviewer benchmark-plus checks and make the external benchmark dataset layer first-class by requiring explicit benchmark dataset labels, passing data thresholds, and passing held-out family coverage. Strong chemistry-facing wording should now cite benchmark breadth rather than only the single strongest surface: the canonical PDBbind++ artifact remains the main anchor, the LP-PDBBind refined artifact is the second larger-data external benchmark surface, and `checkpoints/tight_geometry_pressure` plus `checkpoints/real_backends` remain persisted companion review surfaces summarized in `docs/evidence_bundle.json` and `docs/paper_claim_bundle.md`.
 
 The stronger Vina companion is now explicit about its own status. `checkpoints/vina_backend/claim_summary.json` persists `backend_review.policy_label=vina_claim_bearing_companion_policy` plus `docking_backend_available`, `docking_input_completeness_fraction`, and `docking_score_coverage_fraction`. On a machine without Vina or without receptor/ligand PDBQT inputs, that artifact should be cited as a non-passing stronger-backend companion profile, not as claim-bearing docking evidence. If those prerequisites are present and the persisted `backend_review.reviewer_status` flips to `pass`, the same surface can be cited as claim-bearing backend companion evidence without changing the reviewer contract.
+
+## Preference Wording Matrix
+
+| Source tier | Allowed wording | Forbidden wording without matching source coverage |
+| --- | --- | --- |
+| `rule_based` only | `rule-based preference proxy` | `human-aligned`, `experimental preference`, `docking preference trained` |
+| any `backend_based` coverage | `backend-supported preference evidence` | `human-aligned`, `experimental preference` |
+| `future_docking` coverage with docking backend examples scored | `docking-supported preference evidence` | `docking preference trained` when docking coverage is absent |
+| `human_curated` or `future_experimental` | only after explicit source coverage and matching data contract | any human/experimental alignment claim when source coverage is zero |
+
+`tools/claim_regression_gate.py --strict-preference-gate` enforces this matrix as an optional hard gate. By default, missing preference artifacts still mean unavailable preference evidence rather than claim failure.
 
 ## Promotion Rule
 
@@ -76,6 +88,8 @@ The current hard gate thresholds are intentionally conservative local-review def
 - Multi-seed stability: at least three seeds with persisted `confidence95_low` and `confidence95_high` for validity, strict pocket fit, uniqueness, slot activation, gate activation, leakage, and throughput.
 - Baseline deltas: claim-ready wording requires no-slot, no-cross, no-pocket or pocket-centroid, surrogate-objective, deterministic-reranker-only, and calibrated-reranker comparisons to be present in `baseline_comparisons` or the ablation matrix.
 - Method contract: claim-bearing wording should cite `method_comparison.active_method` when method-aware artifacts are present and should keep comparison-only methods explicit rather than collapsing them into one unnamed generator path.
+- Preference evidence: preference artifacts must carry `schema_version >= 1`; missing preference artifacts mean preference evidence unavailable, not failed alignment. Rule-based pairs must preserve reason codes, signed feature deltas, and source labels.
+- Optional model-onboarding gate: `tools/claim_regression_gate.py ... --enforce-publication-readiness --enforce-preference-readiness` requires `chemistry_novelty_diversity.benchmark_evidence.evidence_tier=external_benchmark_backed` plus non-unavailable preference artifacts with minimum profile/pair counts, minimum backend-supported pair fraction, and non-zero `source_breakdown.backend_based`.
 - Leakage reviewer rule: `leakage_proxy_mean <= 0.08` is a clean pass, `0.08 < leakage_proxy_mean <= 0.12` is caution-only and must be called out explicitly, and `leakage_proxy_mean > 0.12` fails claim-ready review.
 - Leakage regression rule: a reviewed ablation increasing `leakage_proxy_mean` by more than `0.03` relative to the base claim surface is at least `caution` and must be called out explicitly. Treat it as `fail` only when the base run is already above the hard reviewer band or when split leakage checks are not clean.
 - Leakage split rule: any protein overlap or duplicated example identifiers across train/val/test is an automatic leakage-review failure regardless of scalar proxy values.
@@ -94,6 +108,14 @@ Reviewer-facing validation should use the single canonical revalidation path:
 ```
 
 That script validates the compact regression surface, the repository real-backend gate, the canonical larger-data real-backend surface, the LP-PDBBind refined larger-data benchmark surface, the matching tight-geometry surface, runs `tools/reviewer_env_check.py`, records replay drift reports, rebuilds `docs/evidence_bundle.json`, regenerates `docs/paper_claim_bundle.md`, writes `checkpoints/generator_decision/generator_decision.json`, and persists `docs/reviewer_refresh_report.json`. The generated bundle records backend-threshold results, data-threshold results, split-quality warnings, reranker coefficients, baseline labels, config hashes, reviewer-surface anchors, multi-seed summaries, first-class leakage review verdicts, explicit proxy-vs-benchmark chemistry summaries, stronger-backend companion summaries, claim context, backend-environment fingerprints, determinism controls, replay tolerances, packaged-environment anchors, benchmark-breadth summaries, and the canonical revalidation anchors. Training and experiment summaries now persist deterministic controls plus bounded replay tolerances so reviewer artifacts can distinguish strict replay from tolerated bounded reruns; the repository documents bounded replay as the permanent reviewer guarantee, with `continuity_mode=metadata_only_continuation` and `supports_strict_replay=false`, unless a future implementation adds true optimizer-state replay. The larger-data reviewer path should now point to `checkpoints/pdbbindpp_real_backends`, `checkpoints/lp_pdbbind_refined_real_backends`, and `configs/checkpoints/multi_seed_pdbbindpp_real_backends`. If any threshold fails, keep that blocker explicit in reviewer-facing wording.
+
+For generator-level preference-model onboarding, enable the strict gate explicitly:
+
+```bash
+STRICT_MODEL_ONBOARDING_GATE=1 ./tools/revalidate_reviewer_bundle.sh
+```
+
+This keeps default reviewer refresh backward-compatible while allowing a hard fail when publication-readiness and preference-readiness prerequisites are not met.
 
 For a fresh machine, prefer the packaged reviewer environment path:
 

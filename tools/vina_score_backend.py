@@ -41,6 +41,14 @@ def write_metrics(path, metrics):
         json.dump(metrics, handle, indent=2, sort_keys=True)
 
 
+def structured_payload(aggregate_metrics, candidate_metrics):
+    return {
+        "schema_version": 1.0,
+        "aggregate_metrics": aggregate_metrics,
+        "candidate_metrics": candidate_metrics,
+    }
+
+
 def parse_affinity(output):
     match = AFFINITY_RE.search(output)
     if not match:
@@ -115,6 +123,7 @@ def main(argv):
     candidates = load_candidates(args.input_json)
     total = max(len(candidates), 1)
     counts = Counter()
+    candidate_rows = []
 
     for candidate in candidates:
         receptor = candidate.get("source_pocket_path")
@@ -149,7 +158,8 @@ def main(argv):
     if shutil.which(args.vina_executable) is None:
         write_metrics(
             args.output_json,
-            {
+            structured_payload(
+                {
                 "schema_version": 1.0,
                 "vina_available": 0.0,
                 "backend_examples_scored": 0.0,
@@ -162,7 +172,9 @@ def main(argv):
                 "ligand_payload_present_fraction": counts["ligand_payload_present"] / float(total),
                 "ligand_payload_pdbqt_like_fraction": counts["ligand_payload_looks_like_pdbqt"] / float(total),
                 "candidate_with_complete_vina_inputs_fraction": counts["candidate_with_complete_vina_inputs"] / float(total),
-            },
+                },
+                [],
+            ),
         )
         return
 
@@ -170,13 +182,37 @@ def main(argv):
     failures = 0
     failure_reasons = Counter()
     with tempfile.TemporaryDirectory(prefix="pocket_diffusion_vina_") as workdir:
-        for candidate in candidates:
+        for index, candidate in enumerate(candidates):
             affinity, reason = score_candidate(args.vina_executable, candidate, workdir)
+            row = {
+                "vina_score_success_fraction": 0.0,
+                "backend_missing_structure_fraction": 0.0,
+            }
             if reason is not None:
                 failures += 1
                 failure_reasons[reason] += 1
+                row["backend_missing_structure_fraction"] = 1.0
+                candidate_rows.append(
+                    {
+                        "candidate_id": candidate.get("candidate_id") or f"unknown:{index}",
+                        "example_id": candidate.get("example_id") or "unknown",
+                        "protein_id": candidate.get("protein_id") or "unknown",
+                        "metrics": row,
+                    }
+                )
                 continue
             affinities.append(affinity)
+            row["vina_score_success_fraction"] = 1.0
+            row["vina_mean_affinity_kcal_mol"] = affinity
+            row["vina_best_affinity_kcal_mol"] = affinity
+            candidate_rows.append(
+                {
+                    "candidate_id": candidate.get("candidate_id") or f"unknown:{index}",
+                    "example_id": candidate.get("example_id") or "unknown",
+                    "protein_id": candidate.get("protein_id") or "unknown",
+                    "metrics": row,
+                }
+            )
 
     if not affinities:
         payload = {
@@ -198,7 +234,7 @@ def main(argv):
             payload[f"vina_{reason}_fraction"] = count / float(total)
         write_metrics(
             args.output_json,
-            payload,
+            structured_payload(payload, candidate_rows),
         )
         return
 
@@ -223,7 +259,7 @@ def main(argv):
         payload[f"vina_{reason}_fraction"] = count / float(total)
     write_metrics(
         args.output_json,
-        payload,
+        structured_payload(payload, candidate_rows),
     )
 
 

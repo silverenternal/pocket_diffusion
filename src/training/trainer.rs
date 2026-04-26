@@ -16,9 +16,9 @@ use crate::{
 };
 
 use super::{
-    AuxiliaryLossMetrics, CheckpointManager, LoadedCheckpoint, LossBreakdown,
-    OptimizerStateMetadata, PrimaryObjectiveMetrics, SchedulerStateMetadata, StageScheduler,
-    StepMetrics, TrainingStage,
+    AuxiliaryLossMetrics, BackendTrainingMetadata, CheckpointManager, LoadedCheckpoint,
+    LossBreakdown, OptimizerStateMetadata, PrimaryObjectiveMetrics, SchedulerStateMetadata,
+    StageScheduler, StepMetrics, TrainingStage,
 };
 
 /// Trainer that applies staged auxiliary losses to the new modular system.
@@ -85,6 +85,7 @@ impl ResearchTrainer {
     ) -> Result<Option<LoadedCheckpoint>, Box<dyn std::error::Error>> {
         let checkpoint = self.checkpoints.load_latest(var_store)?;
         if let Some(loaded) = &checkpoint {
+            self.validate_checkpoint_compatibility(&loaded.metadata)?;
             if let Some(metrics) = loaded.metadata.metrics.clone() {
                 self.history.push(metrics);
             }
@@ -217,6 +218,7 @@ impl ResearchTrainer {
                 RESUME_CONTRACT_VERSION,
                 Some(self.optimizer_state_metadata()),
                 Some(self.scheduler_state_metadata(self.step)),
+                Some(self.backend_training_metadata()),
             )?;
         }
         if self.config.training.log_every > 0 && self.step % self.config.training.log_every == 0 {
@@ -358,6 +360,61 @@ impl ResearchTrainer {
             pocket_contact_weight: weights.pocket_contact,
             pocket_clash_weight: weights.pocket_clash,
         }
+    }
+
+    fn backend_training_metadata(&self) -> BackendTrainingMetadata {
+        let backend_id = self
+            .config
+            .generation_method
+            .primary_backend_id()
+            .to_string();
+        let metadata = crate::models::PocketGenerationMethodRegistry::metadata(&backend_id).ok();
+        BackendTrainingMetadata {
+            backend_id,
+            backend_family: metadata
+                .as_ref()
+                .map(|metadata| format!("{:?}", metadata.method_family).to_ascii_lowercase())
+                .unwrap_or_else(|| "unknown".to_string()),
+            objective_name: self.primary_objective.name().to_string(),
+            trainable_backend: metadata
+                .as_ref()
+                .map(|metadata| metadata.capability.trainable)
+                .unwrap_or(false),
+            shared_auxiliary_objectives: vec![
+                "L_consistency".to_string(),
+                "L_intra_red".to_string(),
+                "L_probe".to_string(),
+                "L_leak".to_string(),
+                "L_gate".to_string(),
+                "L_slot".to_string(),
+            ],
+        }
+    }
+
+    fn validate_checkpoint_compatibility(
+        &self,
+        checkpoint: &crate::training::CheckpointMetadata,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let Some(saved) = checkpoint.backend_training.as_ref() else {
+            return Ok(());
+        };
+        let current = self.backend_training_metadata();
+        if saved.backend_id != current.backend_id
+            || saved.backend_family != current.backend_family
+            || saved.objective_name != current.objective_name
+        {
+            return Err(format!(
+                "checkpoint backend/objective mismatch: saved {}:{}:{} but current {}:{}:{}",
+                saved.backend_id,
+                saved.backend_family,
+                saved.objective_name,
+                current.backend_id,
+                current.backend_family,
+                current.objective_name
+            )
+            .into());
+        }
+        Ok(())
     }
 }
 
@@ -540,6 +597,90 @@ mod tests {
         assert!(metrics
             .iter()
             .all(|step| step.losses.primary.primary_value.is_finite()));
+    }
+
+    #[test]
+    fn trainable_backend_families_have_finite_synthetic_training_smoke() {
+        for (backend_id, family) in [
+            (
+                "flow_matching",
+                crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            ),
+            (
+                "autoregressive_graph_geometry",
+                crate::config::GenerationBackendFamilyConfig::Autoregressive,
+            ),
+        ] {
+            let mut config = ResearchConfig::default();
+            config.data.batch_size = 2;
+            config.training.max_steps = 2;
+            config.training.checkpoint_every = 100;
+            config.training.log_every = 100;
+            config.training.primary_objective =
+                crate::config::PrimaryObjectiveConfig::ConditionedDenoising;
+            config.generation_method.active_method = backend_id.to_string();
+            config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+                backend_id: backend_id.to_string(),
+                family,
+                trainable: true,
+                ..crate::config::GenerationBackendConfig::default()
+            };
+
+            let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+                .with_pocket_feature_dim(config.model.pocket_feature_dim);
+            let var_store = nn::VarStore::new(Device::Cpu);
+            let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+            let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();
+
+            let metrics = trainer
+                .fit(&var_store, &system, dataset.examples())
+                .unwrap();
+
+            assert!(!metrics.is_empty());
+            assert!(metrics.iter().all(|step| step.losses.total.is_finite()));
+        }
+    }
+
+    #[test]
+    fn resume_rejects_incompatible_backend_metadata() {
+        let temp = tempfile::tempdir().unwrap();
+
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 1;
+        config.training.checkpoint_every = 1;
+        config.training.log_every = 100;
+        config.training.primary_objective =
+            crate::config::PrimaryObjectiveConfig::ConditionedDenoising;
+        config.training.checkpoint_dir = temp.path().join("checkpoints");
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = ResearchTrainer::new(&var_store, config.clone()).unwrap();
+        trainer
+            .fit(&var_store, &system, dataset.examples())
+            .unwrap();
+
+        let mut incompatible = config.clone();
+        incompatible.generation_method.active_method = "flow_matching".to_string();
+        incompatible.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+            backend_id: "flow_matching".to_string(),
+            family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..crate::config::GenerationBackendConfig::default()
+        };
+        let mut resumed_store = nn::VarStore::new(Device::Cpu);
+        let _system = Phase1ResearchSystem::new(&resumed_store.root(), &incompatible);
+        let mut resumed = ResearchTrainer::new(&resumed_store, incompatible).unwrap();
+
+        let error = resumed
+            .resume_from_latest(&mut resumed_store)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("checkpoint backend/objective mismatch"));
     }
 
     #[test]

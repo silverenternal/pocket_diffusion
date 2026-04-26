@@ -41,6 +41,16 @@ def fmt(value, digits=4):
     return str(value)
 
 
+def preference_wording(preference):
+    backend_fraction = preference.get("backend_supported_pair_fraction")
+    rule_fraction = preference.get("rule_only_pair_fraction")
+    if isinstance(backend_fraction, (int, float)) and backend_fraction > 0.0:
+        return "backend-supported preference evidence"
+    if isinstance(rule_fraction, (int, float)) and rule_fraction > 0.0:
+        return "rule-based preference proxy"
+    return "unavailable"
+
+
 def build_markdown(bundle):
     larger = claim_for(bundle, "checkpoints/pdbbindpp_real_backends")
     secondary_benchmark = claim_for(bundle, "checkpoints/lp_pdbbind_refined_real_backends")
@@ -63,6 +73,10 @@ def build_markdown(bundle):
     multi_seed_summary = multi_seed.get("multi_seed_summary") or {}
     ablation_variants = ablations.get("variants") or []
     active_method = larger_claim.get("active_generation_method") or "conditioned_denoising"
+    preference = larger_claim.get("preference_alignment") or {}
+    preference_tier = preference_wording(preference)
+    profile_count_by_split = preference.get("profile_count_by_split") or {}
+    pair_count_by_split = preference.get("pair_count_by_split") or {}
 
     lines = [
         "# Paper-Facing Claim Bundle",
@@ -174,6 +188,49 @@ def build_markdown(bundle):
             )
         )
         + "` |",
+        "| Interaction preference evidence | `preference_profiles_<split>.json`, `preference_pairs_<split>.json` | `evidence_tier="
+        + preference_tier
+        + "`, `schema_version="
+        + str(preference.get("schema_version"))
+        + "`, `profile_count="
+        + fmt(preference.get("profile_count"), 0)
+        + "`, `preference_pair_count="
+        + fmt(preference.get("preference_pair_count"), 0)
+        + "`, `missing_artifacts_mean_unavailable="
+        + str(preference.get("missing_artifacts_mean_unavailable", True))
+        + "` |",
+        "",
+        "## Preference Evidence",
+        "",
+        "| Split | Evidence tier | Profile count | Pair count | Source coverage | Backend coverage | Claim-safe wording |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| validation | "
+        + preference_tier
+        + " | "
+        + fmt(profile_count_by_split.get("validation"), 0)
+        + " | "
+        + fmt(pair_count_by_split.get("validation"), 0)
+        + " | "
+        + str(preference.get("source_breakdown") or "n/a")
+        + " | "
+        + str(preference.get("backend_coverage") or "n/a")
+        + " | "
+        + preference_tier
+        + " |",
+        "| test | "
+        + preference_tier
+        + " | "
+        + fmt(profile_count_by_split.get("test"), 0)
+        + " | "
+        + fmt(pair_count_by_split.get("test"), 0)
+        + " | "
+        + str(preference.get("source_breakdown") or "n/a")
+        + " | "
+        + str(preference.get("backend_coverage") or "n/a")
+        + " | "
+        + preference_tier
+        + " |",
+        "| docking / human / experimental coverage | n/a | n/a | n/a | n/a | n/a | unavailable |",
         "",
         "## Main Results Table",
         "",

@@ -10,6 +10,19 @@ fn run_python(args: &[&str]) {
 }
 
 #[test]
+fn claim_regression_gate_exposes_model_onboarding_flags() {
+    let output = Command::new("python3")
+        .args(["tools/claim_regression_gate.py", "--help"])
+        .output()
+        .expect("python3 should be available for reviewer tooling tests");
+    assert!(output.status.success(), "claim gate --help should succeed");
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("--enforce-publication-readiness"));
+    assert!(text.contains("--enforce-preference-readiness"));
+    assert!(text.contains("--min-backend-supported-pair-fraction"));
+}
+
+#[test]
 fn replay_drift_report_contains_promotion_decision() {
     let output = "/tmp/replay_drift_report_test.json";
     run_python(&[
@@ -97,4 +110,91 @@ fn vina_companion_claim_artifact_persists_backend_review() {
     assert!(payload.contains("\"vina_claim_bearing_companion_policy\""));
     assert!(payload.contains("\"docking_input_completeness_fraction\""));
     assert!(payload.contains("\"docking_score_coverage_fraction\""));
+}
+
+#[test]
+fn evidence_bundle_reads_compact_preference_artifact_summary() {
+    let artifact_dir = "/tmp/reviewer_preference_artifacts_case";
+    let output = "/tmp/evidence_bundle_preference_summary_test.json";
+    let _ = fs::remove_dir_all(artifact_dir);
+    fs::create_dir_all(artifact_dir).expect("temp artifact dir should be creatable");
+
+    fs::write(
+        format!("{artifact_dir}/preference_profiles_validation.json"),
+        r#"{
+          "schema_version": 1,
+          "split": "validation",
+          "profile_count": 2,
+          "backend_coverage": {"chemistry_validity": 2},
+          "records": []
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/preference_pairs_validation.json"),
+        r#"{
+          "schema_version": 1,
+          "split": "validation",
+          "pair_count": 1,
+          "source_coverage": {"backend_based": 1},
+          "backend_supported_pair_fraction": 1.0,
+          "rule_only_pair_fraction": 0.0,
+          "missing_backend_evidence_fraction": 0.0,
+          "mean_preference_strength": 0.8,
+          "hard_constraint_win_fraction": 1.0,
+          "records": []
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/preference_profiles_test.json"),
+        r#"{
+          "schema_version": 1,
+          "split": "test",
+          "profile_count": 1,
+          "backend_coverage": {"pocket_compatibility": 1},
+          "records": []
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/preference_pairs_test.json"),
+        r#"{
+          "schema_version": 1,
+          "split": "test",
+          "pair_count": 1,
+          "source_coverage": {"rule_based": 1},
+          "backend_supported_pair_fraction": 0.0,
+          "rule_only_pair_fraction": 1.0,
+          "missing_backend_evidence_fraction": 1.0,
+          "mean_preference_strength": 0.4,
+          "hard_constraint_win_fraction": 0.0,
+          "records": []
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/preference_reranker_summary.json"),
+        r#"{
+          "schema_version": 1,
+          "enabled": true
+        }"#,
+    )
+    .unwrap();
+
+    run_python(&[
+        "tools/evidence_bundle.py",
+        "--artifact-dir",
+        artifact_dir,
+        "--output",
+        output,
+    ]);
+
+    let payload = fs::read_to_string(output).expect("bundle should exist");
+    assert!(payload.contains("\"profile_count_by_split\""));
+    assert!(payload.contains("\"pair_count_by_split\""));
+    assert!(payload.contains("\"source_breakdown\""));
+    assert!(payload.contains("\"backend_coverage\""));
+    assert!(payload.contains("\"reranker_enabled\": true"));
+    assert!(!payload.contains("\"records\""));
 }

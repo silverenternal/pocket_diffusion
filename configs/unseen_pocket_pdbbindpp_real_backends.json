@@ -48,6 +48,16 @@
       "pocket_feature_dim": 24,
       "pair_feature_dim": 8
     },
+    "preference_alignment": {
+      "enable_profile_extraction": true,
+      "enable_pair_construction": true,
+      "enable_preference_reranking": true,
+      "max_pairs_per_example": 256,
+      "min_soft_margin": 0.0,
+      "max_clash_fraction": 0.1,
+      "min_strict_pocket_fit_score": 0.35,
+      "missing_artifacts_mean_unavailable": true
+    },
     "training": {
       "learning_rate": 0.001,
       "max_steps": 8,

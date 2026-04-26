@@ -145,18 +145,34 @@ def main(argv):
     candidates = load_candidates(input_path)
 
     rows = []
+    candidate_rows = []
     missing = 0
-    for candidate in candidates:
+    for index, candidate in enumerate(candidates):
         metrics = candidate_metrics(candidate, mode)
         if metrics is None:
             missing += 1
             continue
         rows.append(metrics)
+        candidate_rows.append(
+            {
+                "candidate_id": candidate.get("candidate_id") or f"unknown:{index}",
+                "example_id": candidate.get("example_id") or "unknown",
+                "protein_id": candidate.get("protein_id") or "unknown",
+                "metrics": metrics,
+            }
+        )
 
     aggregated = aggregate(rows)
     total = max(len(candidates), 1)
     aggregated["backend_missing_structure_fraction"] = missing / float(total)
-    write_metrics(output_path, aggregated)
+    write_metrics(
+        output_path,
+        {
+            "schema_version": 1.0,
+            "aggregate_metrics": aggregated,
+            "candidate_metrics": candidate_rows,
+        },
+    )
 
 
 if __name__ == "__main__":

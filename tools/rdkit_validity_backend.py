@@ -62,10 +62,14 @@ def main(argv):
             output_path,
             {
                 "schema_version": 1.0,
-                "rdkit_available": 0.0,
-                "backend_import_error": 1.0,
-                "backend_examples_scored": 0.0,
-                "backend_missing_structure_fraction": 1.0,
+                "aggregate_metrics": {
+                    "schema_version": 1.0,
+                    "rdkit_available": 0.0,
+                    "backend_import_error": 1.0,
+                    "backend_examples_scored": 0.0,
+                    "backend_missing_structure_fraction": 1.0,
+                },
+                "candidate_metrics": [],
             },
         )
         return
@@ -75,12 +79,34 @@ def main(argv):
     sanitized = 0
     unique_smiles = set()
     finite_conformers = 0
+    candidate_metrics = []
 
     for candidate in candidates:
+        candidate_id = candidate.get("candidate_id") or "unknown"
+        example_id = candidate.get("example_id") or "unknown"
+        protein_id = candidate.get("protein_id") or "unknown"
+        row = {
+            "rdkit_parseable_fraction": 0.0,
+            "rdkit_valid_fraction": 0.0,
+            "rdkit_sanitized_fraction": 0.0,
+            "rdkit_unique_smiles_fraction": 0.0,
+            "rdkit_finite_conformer_fraction": 0.0,
+            "backend_missing_structure_fraction": 0.0,
+        }
         try:
             mol = build_molecule(candidate, Chem)
             parseable += 1
+            row["rdkit_parseable_fraction"] = 1.0
+            row["rdkit_valid_fraction"] = 1.0
         except Exception:
+            candidate_metrics.append(
+                {
+                    "candidate_id": candidate_id,
+                    "example_id": example_id,
+                    "protein_id": protein_id,
+                    "metrics": row,
+                }
+            )
             continue
 
         coords = candidate.get("coords", [])
@@ -89,29 +115,53 @@ def main(argv):
             for coord in coords
         ):
             finite_conformers += 1
+            row["rdkit_finite_conformer_fraction"] = 1.0
 
         try:
             Chem.SanitizeMol(mol)
             sanitized += 1
+            row["rdkit_sanitized_fraction"] = 1.0
         except Exception:
+            candidate_metrics.append(
+                {
+                    "candidate_id": candidate_id,
+                    "example_id": example_id,
+                    "protein_id": protein_id,
+                    "metrics": row,
+                }
+            )
             continue
 
         try:
             unique_smiles.add(Chem.MolToSmiles(mol))
+            row["rdkit_unique_smiles_fraction"] = 1.0
         except Exception:
             pass
+        candidate_metrics.append(
+            {
+                "candidate_id": candidate_id,
+                "example_id": example_id,
+                "protein_id": protein_id,
+                "metrics": row,
+            }
+        )
 
     write_metrics(
         output_path,
         {
             "schema_version": 1.0,
-            "rdkit_available": 1.0,
-            "backend_examples_scored": float(len(candidates)),
-            "backend_missing_structure_fraction": 0.0,
-            "rdkit_parseable_fraction": parseable / total,
-            "rdkit_sanitized_fraction": sanitized / total,
-            "rdkit_unique_smiles_fraction": len(unique_smiles) / total,
-            "rdkit_finite_conformer_fraction": finite_conformers / total,
+            "aggregate_metrics": {
+                "schema_version": 1.0,
+                "rdkit_available": 1.0,
+                "backend_examples_scored": float(len(candidates)),
+                "backend_missing_structure_fraction": 0.0,
+                "rdkit_parseable_fraction": parseable / total,
+                "rdkit_valid_fraction": parseable / total,
+                "rdkit_sanitized_fraction": sanitized / total,
+                "rdkit_unique_smiles_fraction": len(unique_smiles) / total,
+                "rdkit_finite_conformer_fraction": finite_conformers / total,
+            },
+            "candidate_metrics": candidate_metrics,
         },
     )
 

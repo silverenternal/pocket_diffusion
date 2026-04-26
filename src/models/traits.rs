@@ -3,7 +3,10 @@
 use serde::{Deserialize, Serialize};
 use tch::Tensor;
 
-use crate::data::{GeometryFeatures, MolecularExample, PocketFeatures, TopologyFeatures};
+use crate::{
+    config::GenerationTargetConfig,
+    data::{GeometryFeatures, MolecularExample, PocketFeatures, TopologyFeatures},
+};
 
 /// Generic encoder interface.
 pub trait Encoder<Input, Output> {
@@ -146,6 +149,128 @@ impl Clone for ConditionedGenerationState {
     }
 }
 
+/// Backend-facing context for one decomposed modality.
+#[derive(Debug)]
+pub struct GenerationModalityConditioning {
+    /// Controlled-interaction context consumed by the backend.
+    pub context: Tensor,
+    /// Original decomposed slots for this modality.
+    pub slots: Tensor,
+    /// Soft slot activation weights for utilization and sparsity checks.
+    pub slot_weights: Tensor,
+    /// Mean slot activation for backend-agnostic reporting.
+    pub active_slot_fraction: f64,
+}
+
+impl Clone for GenerationModalityConditioning {
+    fn clone(&self) -> Self {
+        Self {
+            context: self.context.shallow_clone(),
+            slots: self.slots.shallow_clone(),
+            slot_weights: self.slot_weights.shallow_clone(),
+            active_slot_fraction: self.active_slot_fraction,
+        }
+    }
+}
+
+/// Directed gate summary attached to a backend-neutral generation request.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+pub struct GenerationGateSummary {
+    /// Topology receiving information from geometry.
+    pub topo_from_geo: f64,
+    /// Topology receiving information from pocket context.
+    pub topo_from_pocket: f64,
+    /// Geometry receiving information from topology.
+    pub geo_from_topo: f64,
+    /// Geometry receiving information from pocket context.
+    pub geo_from_pocket: f64,
+    /// Pocket/context receiving information from topology.
+    pub pocket_from_topo: f64,
+    /// Pocket/context receiving information from geometry.
+    pub pocket_from_geo: f64,
+}
+
+/// Backend-neutral request that exposes decomposed conditioning explicitly.
+#[derive(Debug, Clone)]
+pub struct ConditionedGenerationRequest {
+    /// Stable example identifier.
+    pub example_id: String,
+    /// Stable protein identifier.
+    pub protein_id: String,
+    /// Topology-side conditioning.
+    pub topology: GenerationModalityConditioning,
+    /// Geometry-side conditioning.
+    pub geometry: GenerationModalityConditioning,
+    /// Pocket/context-side conditioning.
+    pub pocket: GenerationModalityConditioning,
+    /// Directed controlled-interaction gate summaries.
+    pub gate_summary: GenerationGateSummary,
+    /// Decoder-facing state that keeps modality contexts separate.
+    pub generation_state: ConditionedGenerationState,
+    /// Generation/sampling config selected for this request.
+    pub generation_config: GenerationTargetConfig,
+}
+
+impl ConditionedGenerationRequest {
+    pub(crate) fn from_forward(
+        example: &MolecularExample,
+        forward: &crate::models::system::ResearchForward,
+        generation_config: &GenerationTargetConfig,
+    ) -> Self {
+        Self {
+            example_id: example.example_id.clone(),
+            protein_id: example.protein_id.clone(),
+            topology: GenerationModalityConditioning {
+                context: forward.generation.state.topology_context.shallow_clone(),
+                slots: forward.slots.topology.slots.shallow_clone(),
+                slot_weights: forward.slots.topology.slot_weights.shallow_clone(),
+                active_slot_fraction: active_slot_fraction(&forward.slots.topology.slot_weights),
+            },
+            geometry: GenerationModalityConditioning {
+                context: forward.generation.state.geometry_context.shallow_clone(),
+                slots: forward.slots.geometry.slots.shallow_clone(),
+                slot_weights: forward.slots.geometry.slot_weights.shallow_clone(),
+                active_slot_fraction: active_slot_fraction(&forward.slots.geometry.slot_weights),
+            },
+            pocket: GenerationModalityConditioning {
+                context: forward.generation.state.pocket_context.shallow_clone(),
+                slots: forward.slots.pocket.slots.shallow_clone(),
+                slot_weights: forward.slots.pocket.slot_weights.shallow_clone(),
+                active_slot_fraction: active_slot_fraction(&forward.slots.pocket.slot_weights),
+            },
+            gate_summary: GenerationGateSummary {
+                topo_from_geo: scalar_gate(&forward.interactions.topo_from_geo.gate),
+                topo_from_pocket: scalar_gate(&forward.interactions.topo_from_pocket.gate),
+                geo_from_topo: scalar_gate(&forward.interactions.geo_from_topo.gate),
+                geo_from_pocket: scalar_gate(&forward.interactions.geo_from_pocket.gate),
+                pocket_from_topo: scalar_gate(&forward.interactions.pocket_from_topo.gate),
+                pocket_from_geo: scalar_gate(&forward.interactions.pocket_from_geo.gate),
+            },
+            generation_state: forward.generation.state.clone(),
+            generation_config: generation_config.clone(),
+        }
+    }
+}
+
+fn active_slot_fraction(weights: &Tensor) -> f64 {
+    if weights.numel() == 0 {
+        return 0.0;
+    }
+    weights
+        .gt(0.05)
+        .to_kind(tch::Kind::Float)
+        .mean(tch::Kind::Float)
+        .double_value(&[])
+}
+
+fn scalar_gate(gate: &Tensor) -> f64 {
+    if gate.numel() == 0 {
+        0.0
+    } else {
+        gate.mean(tch::Kind::Float).double_value(&[])
+    }
+}
+
 /// Decoder outputs for one conditioned ligand-generation step.
 #[derive(Debug)]
 pub struct DecoderOutput {
@@ -241,6 +366,55 @@ pub struct GeneratedCandidateRecord {
     pub source_pocket_path: Option<String>,
     /// Optional source ligand path associated with the conditioning example.
     pub source_ligand_path: Option<String>,
+}
+
+/// JSONL request schema for external molecular generator wrappers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGenerationRequestRecord {
+    /// Schema version for wrapper compatibility.
+    pub schema_version: u32,
+    /// Stable request id.
+    pub request_id: String,
+    /// Example id being generated.
+    pub example_id: String,
+    /// Protein id for pocket conditioning.
+    pub protein_id: String,
+    /// Requested candidate count.
+    pub candidate_limit: usize,
+    /// Explicit decomposed conditioning summary.
+    pub conditioning: ExternalConditioningSummary,
+}
+
+/// Compact decomposed conditioning summary safe for external wrappers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalConditioningSummary {
+    /// Mean active topology slot fraction.
+    pub topology_slot_activation: f64,
+    /// Mean active geometry slot fraction.
+    pub geometry_slot_activation: f64,
+    /// Mean active pocket/context slot fraction.
+    pub pocket_slot_activation: f64,
+    /// Directed gate summary.
+    pub gates: GenerationGateSummary,
+}
+
+/// JSONL response schema for external molecular generator wrappers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGenerationResponseRecord {
+    /// Schema version for wrapper compatibility.
+    pub schema_version: u32,
+    /// Request id echoed from the request.
+    pub request_id: String,
+    /// Candidate payloads emitted by the wrapper.
+    pub candidates: Vec<GeneratedCandidateRecord>,
+    /// Wrapper status such as `ok`, `unavailable`, or `error`.
+    pub status: String,
+    /// Optional wrapper version string.
+    pub wrapper_version: Option<String>,
+    /// Optional environment fingerprint for auditability.
+    pub environment_fingerprint: Option<String>,
+    /// Optional failure reason.
+    pub failure_reason: Option<String>,
 }
 
 /// Stable method family used by the comparison platform.
@@ -435,12 +609,27 @@ impl LayeredGenerationOutput {
 pub struct PocketGenerationContext {
     /// Input example used for conditioned generation.
     pub example: MolecularExample,
+    /// Explicit decomposed backend request.
+    pub conditioned_request: Option<ConditionedGenerationRequest>,
     /// Optional shared backbone forward state.
     pub(crate) forward: Option<crate::models::system::ResearchForward>,
     /// Requested candidate count for this execution.
     pub candidate_limit: usize,
     /// Whether shared repair postprocessing is enabled for this execution.
     pub enable_repair: bool,
+}
+
+impl PocketGenerationContext {
+    /// Attach explicit decomposed conditioning derived from the shared backbone.
+    pub(crate) fn with_conditioned_request(
+        mut self,
+        generation_config: &GenerationTargetConfig,
+    ) -> Self {
+        self.conditioned_request = self.forward.as_ref().map(|forward| {
+            ConditionedGenerationRequest::from_forward(&self.example, forward, generation_config)
+        });
+        self
+    }
 }
 
 /// Stable generation-method contract for comparison runners and demos.
@@ -452,7 +641,10 @@ pub trait PocketGenerationMethod {
     fn generate_for_example(&self, context: PocketGenerationContext) -> LayeredGenerationOutput;
 
     /// Generate layered outputs for a batch.
-    fn generate_batch(&self, contexts: Vec<PocketGenerationContext>) -> Vec<LayeredGenerationOutput> {
+    fn generate_batch(
+        &self,
+        contexts: Vec<PocketGenerationContext>,
+    ) -> Vec<LayeredGenerationOutput> {
         contexts
             .into_iter()
             .map(|context| self.generate_for_example(context))

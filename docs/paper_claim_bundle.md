@@ -2,6 +2,10 @@
 
 This file is generated from canonical reviewer artifacts. Update it through `./tools/revalidate_reviewer_bundle.sh` rather than manual editing.
 
+## Active Method
+
+The current canonical reviewer surface is persisted under the active method id `conditioned_denoising`. Comparison-only methods are tracked additively in the method-comparison artifact rather than by replacing the claim-bearing path.
+
 ## Claim Map
 
 | Claim | Canonical artifact | Current support |
@@ -12,6 +16,15 @@ This file is generated from canonical reviewer artifacts. Update it through `./t
 | Repository-supported backend gate | `checkpoints/real_backends` | `rdkit_sanitized_fraction=1.0000`, `strict_pocket_fit_score=0.5805` |
 | Seed stability for the larger-data reviewer path | `configs/checkpoints/multi_seed_pdbbindpp_real_backends/multi_seed_summary.json` | `seed_count=3`, `stability_decision=stable enough for larger-data real-backend claim review on the held-out pocket surface` |
 | Stronger backend companion profile | `checkpoints/vina_backend` | `reviewer_status=fail`, `docking_input_completeness_fraction=0.0000`, `docking_score_coverage_fraction=0.0000`, `rdkit_sanitized_fraction=1.0000`, `backend_missing_structure_fraction=0.0000` |
+| Interaction preference evidence | `preference_profiles_<split>.json`, `preference_pairs_<split>.json` | `evidence_tier=unavailable`, `schema_version=None`, `profile_count=n/a`, `preference_pair_count=n/a`, `missing_artifacts_mean_unavailable=True` |
+
+## Preference Evidence
+
+| Split | Evidence tier | Profile count | Pair count | Source coverage | Backend coverage | Claim-safe wording |
+| --- | --- | --- | --- | --- | --- | --- |
+| validation | unavailable | n/a | n/a | n/a | n/a | unavailable |
+| test | unavailable | n/a | n/a | n/a | n/a | unavailable |
+| docking / human / experimental coverage | n/a | n/a | n/a | n/a | n/a | unavailable |
 
 ## Main Results Table
 

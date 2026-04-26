@@ -572,8 +572,7 @@ fn print_dataset_validation(report: &crate::data::DatasetValidationReport) {
     );
     println!(
         "  retained approximate labels: {} ({:.4})",
-        report.retained_approximate_affinity_labels,
-        report.retained_approximate_label_fraction
+        report.retained_approximate_affinity_labels, report.retained_approximate_label_fraction
     );
     println!(
         "  normalization warnings: {}",
@@ -585,14 +584,12 @@ fn print_dataset_validation(report: &crate::data::DatasetValidationReport) {
     );
     println!(
         "  retained metadata gaps: measurement_type={} normalization_provenance={}",
-        report.retained_missing_measurement_type,
-        report.retained_missing_normalization_provenance
+        report.retained_missing_measurement_type, report.retained_missing_normalization_provenance
     );
     if !report.retained_measurement_family_histogram.is_empty() {
         println!(
             "  retained measurement families ({}): {:?}",
-            report.retained_measurement_family_count,
-            report.retained_measurement_family_histogram
+            report.retained_measurement_family_count, report.retained_measurement_family_histogram
         );
     }
     if !report.normalization_warning_messages.is_empty() {

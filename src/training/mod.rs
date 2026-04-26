@@ -9,8 +9,8 @@ pub mod scheduler;
 pub mod trainer;
 
 pub use checkpoint::{
-    CheckpointManager, CheckpointMetadata, LoadedCheckpoint, OptimizerStateMetadata,
-    SchedulerStateMetadata,
+    BackendTrainingMetadata, CheckpointManager, CheckpointMetadata, LoadedCheckpoint,
+    OptimizerStateMetadata, SchedulerStateMetadata,
 };
 pub use demos::{run_phase1_demo, run_phase3_training_demo, run_phase4_experiment_demo};
 pub(crate) use entrypoints::DatasetInspection;

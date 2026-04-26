@@ -1,4 +1,10 @@
 use pocket_diffusion::experiments::{CandidateLayerMetrics, ClaimReport, EvaluationMetrics};
+use pocket_diffusion::models::{
+    extract_interaction_profiles, CandidateLayerKind, GeneratedCandidateRecord,
+    PreferenceDatasetBuilder, PreferencePair, PreferencePairArtifact, PreferenceProfileArtifact,
+    PreferenceReasonCode, RuleBasedPreferenceDatasetBuilder, INTERACTION_PROFILE_SCHEMA_VERSION,
+    PREFERENCE_PAIR_SCHEMA_VERSION,
+};
 use pocket_diffusion::training::{ResumeContinuityMode, SplitReport, TrainingRunSummary};
 
 #[test]
@@ -161,6 +167,87 @@ fn evaluation_metrics_accepts_pre_strata_resource_schema() {
     assert!(metrics.strata.is_empty());
     assert_eq!(CandidateLayerMetrics::default().candidate_count, 0);
     assert!(metrics.method_comparison.methods.is_empty());
+    assert!(
+        metrics
+            .method_comparison
+            .preference_alignment
+            .missing_artifacts_mean_unavailable
+    );
+}
+
+#[test]
+fn preference_profile_and_pair_schema_round_trip() {
+    let candidate = preference_candidate("good", vec![[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]]);
+    let profiles =
+        extract_interaction_profiles(&[candidate], CandidateLayerKind::Reranked, None, &[]);
+    assert_eq!(
+        profiles[0].schema_version,
+        INTERACTION_PROFILE_SCHEMA_VERSION
+    );
+    let json = serde_json::to_string(&profiles[0]).unwrap();
+    let restored: pocket_diffusion::models::InteractionProfile =
+        serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.schema_version, INTERACTION_PROFILE_SCHEMA_VERSION);
+}
+
+#[test]
+fn preference_pair_artifact_schema_preserves_reasons() {
+    let good = extract_interaction_profiles(
+        &[preference_candidate(
+            "same",
+            vec![[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]],
+        )],
+        CandidateLayerKind::Reranked,
+        None,
+        &[],
+    )
+    .remove(0);
+    let bad = extract_interaction_profiles(
+        &[preference_candidate(
+            "same",
+            vec![[6.0, 0.0, 0.0], [6.1, 0.0, 0.0]],
+        )],
+        CandidateLayerKind::Reranked,
+        None,
+        &[],
+    )
+    .remove(0);
+    let pairs = RuleBasedPreferenceDatasetBuilder::default().build_pairs(&[good, bad]);
+    assert_eq!(pairs.len(), 1);
+    assert_eq!(pairs[0].schema_version, PREFERENCE_PAIR_SCHEMA_VERSION);
+    assert!(pairs[0]
+        .preference_reason
+        .contains(&PreferenceReasonCode::BetterStrictPocketFit));
+    let json = serde_json::to_string(&pairs[0]).unwrap();
+    let restored: PreferencePair = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.schema_version, PREFERENCE_PAIR_SCHEMA_VERSION);
+    assert!(restored
+        .feature_deltas
+        .contains_key("strict_pocket_fit_score"));
+}
+
+#[test]
+fn preference_artifact_envelopes_round_trip_with_empty_records() {
+    let profiles = PreferenceProfileArtifact::new("validation", Vec::new());
+    assert_eq!(profiles.schema_version, INTERACTION_PROFILE_SCHEMA_VERSION);
+    assert_eq!(profiles.profile_count, 0);
+    assert!(profiles.records.is_empty());
+    let restored_profiles: PreferenceProfileArtifact =
+        serde_json::from_str(&serde_json::to_string(&profiles).unwrap()).unwrap();
+    assert_eq!(restored_profiles.split, "validation");
+
+    let pairs = PreferencePairArtifact::new("test", &[], Vec::new());
+    assert_eq!(pairs.schema_version, PREFERENCE_PAIR_SCHEMA_VERSION);
+    assert_eq!(pairs.pair_count, 0);
+    assert_eq!(pairs.backend_supported_pair_fraction, 0.0);
+    assert_eq!(pairs.rule_only_pair_fraction, 0.0);
+    assert_eq!(pairs.missing_backend_evidence_fraction, 0.0);
+    assert_eq!(pairs.mean_preference_strength, 0.0);
+    assert_eq!(pairs.hard_constraint_win_fraction, 0.0);
+    assert!(pairs.records.is_empty());
+    let restored_pairs: PreferencePairArtifact =
+        serde_json::from_str(&serde_json::to_string(&pairs).unwrap()).unwrap();
+    assert_eq!(restored_pairs.split, "test");
 }
 
 #[test]
@@ -359,4 +446,21 @@ fn training_summary_defaults_new_resume_continuity_fields() {
             .resume_provenance
             .strict_replay_achieved
     );
+}
+
+fn preference_candidate(example_id: &str, coords: Vec<[f32; 3]>) -> GeneratedCandidateRecord {
+    GeneratedCandidateRecord {
+        example_id: example_id.to_string(),
+        protein_id: "protein".to_string(),
+        molecular_representation: None,
+        atom_types: vec![6; coords.len()],
+        coords,
+        inferred_bonds: vec![(0, 1)],
+        pocket_centroid: [0.0, 0.0, 0.0],
+        pocket_radius: 3.0,
+        coordinate_frame_origin: [0.0, 0.0, 0.0],
+        source: "test".to_string(),
+        source_pocket_path: None,
+        source_ligand_path: None,
+    }
 }

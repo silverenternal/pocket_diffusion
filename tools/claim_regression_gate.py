@@ -77,6 +77,57 @@ def parse_args(argv):
     parser.add_argument("--min-parsed-complexes", type=int, default=100)
     parser.add_argument("--min-retained-label-coverage", type=float, default=0.8)
     parser.add_argument("--min-heldout-family-count", type=int, default=10)
+    parser.add_argument(
+        "--strict-preference-gate",
+        action="store_true",
+        help="Enforce strict preference schema/source/wording checks when preference artifacts are expected.",
+    )
+    parser.add_argument(
+        "--strict-preference-min-pair-count",
+        type=int,
+        default=1,
+        help="Minimum total preference pairs required in strict preference mode.",
+    )
+    parser.add_argument(
+        "--enforce-publication-readiness",
+        action="store_true",
+        help=(
+            "Require external benchmark-backed chemistry evidence tier on top of "
+            "the selected claim/data/backend threshold checks."
+        ),
+    )
+    parser.add_argument(
+        "--enforce-preference-readiness",
+        action="store_true",
+        help=(
+            "Require usable preference evidence for generator-level alignment onboarding "
+            "(schema, counts, backend-supported coverage, and source hygiene)."
+        ),
+    )
+    parser.add_argument(
+        "--min-preference-profile-count",
+        type=int,
+        default=50,
+        help="Minimum preference profile_count required under --enforce-preference-readiness.",
+    )
+    parser.add_argument(
+        "--min-preference-pair-count",
+        type=int,
+        default=100,
+        help="Minimum preference_pair_count required under --enforce-preference-readiness.",
+    )
+    parser.add_argument(
+        "--min-backend-supported-pair-fraction",
+        type=float,
+        default=0.2,
+        help="Minimum backend_supported_pair_fraction required under --enforce-preference-readiness.",
+    )
+    parser.add_argument(
+        "--min-backend-based-source-count",
+        type=int,
+        default=1,
+        help="Minimum backend_based source count required under --enforce-preference-readiness.",
+    )
     return parser.parse_args(argv[1:])
 
 
@@ -214,6 +265,204 @@ def validate_data_thresholds(validation, split, args):
         )
 
 
+def iter_strings(payload):
+    if isinstance(payload, str):
+        yield payload
+        return
+    if isinstance(payload, dict):
+        for value in payload.values():
+            yield from iter_strings(value)
+        return
+    if isinstance(payload, list):
+        for value in payload:
+            yield from iter_strings(value)
+
+
+def strict_preference_checks(artifact_dir, claim, args):
+    profiles = []
+    pairs = []
+    schema_versions = []
+    for split in ("validation", "test"):
+        profile_path = artifact_dir / f"preference_profiles_{split}.json"
+        pair_path = artifact_dir / f"preference_pairs_{split}.json"
+        require(profile_path.is_file(), f"strict preference gate missing {profile_path.name}")
+        require(pair_path.is_file(), f"strict preference gate missing {pair_path.name}")
+        profile = load_json(profile_path)
+        pair = load_json(pair_path)
+        profiles.append(profile)
+        pairs.append(pair)
+        schema_versions.append(profile.get("schema_version", 0))
+        schema_versions.append(pair.get("schema_version", 0))
+
+    summary_path = artifact_dir / "preference_reranker_summary.json"
+    if summary_path.is_file():
+        summary = load_json(summary_path)
+        schema_versions.append(summary.get("schema_version", 0))
+
+    for version in schema_versions:
+        require(
+            isinstance(version, (int, float)) and version >= 1,
+            "strict preference gate requires preference artifact schema_version >= 1",
+        )
+
+    total_pairs = sum(int((payload or {}).get("pair_count", 0)) for payload in pairs)
+    require(
+        total_pairs >= args.strict_preference_min_pair_count,
+        f"strict preference gate requires at least {args.strict_preference_min_pair_count} pairs",
+    )
+
+    source_coverage = {}
+    for payload in pairs:
+        for source, count in ((payload or {}).get("source_coverage") or {}).items():
+            source_coverage[source] = source_coverage.get(source, 0) + int(count)
+    allowed_sources = {
+        "rule_based",
+        "backend_based",
+        "human_curated",
+        "future_docking",
+        "future_experimental",
+    }
+    unknown_sources = sorted(set(source_coverage) - allowed_sources)
+    require(not unknown_sources, f"strict preference gate unknown source labels: {unknown_sources}")
+
+    require(
+        source_coverage.get("human_curated", 0) == 0,
+        "strict preference gate blocks human_curated source without explicit human-labeled evidence contract",
+    )
+    require(
+        source_coverage.get("future_experimental", 0) == 0,
+        "strict preference gate blocks future_experimental source without experimental outcome evidence",
+    )
+
+    if source_coverage.get("future_docking", 0) > 0:
+        docking = (claim.get("backend_metrics") or {}).get("docking_affinity") or {}
+        docking_metrics = docking.get("metrics") or {}
+        scored = docking_metrics.get("backend_examples_scored", 0.0)
+        require(
+            isinstance(scored, (int, float)) and scored > 0,
+            "strict preference gate blocks future_docking source without docking backend coverage",
+        )
+
+    claim_text = "\n".join(value.lower() for value in iter_strings(claim))
+    forbidden = {
+        "human-aligned": source_coverage.get("human_curated", 0) > 0,
+        "experimental preference": source_coverage.get("future_experimental", 0) > 0,
+        "docking preference trained": source_coverage.get("future_docking", 0) > 0,
+    }
+    for phrase, allowed in forbidden.items():
+        if phrase in claim_text:
+            require(
+                allowed,
+                f"strict preference gate forbids wording `{phrase}` without matching preference evidence source coverage",
+            )
+
+
+def validate_publication_readiness(claim):
+    chemistry = claim.get("chemistry_novelty_diversity") or {}
+    benchmark = chemistry.get("benchmark_evidence") or {}
+    tier = benchmark.get("evidence_tier")
+    require(
+        tier == "external_benchmark_backed",
+        "publication-readiness gate requires chemistry benchmark evidence_tier=external_benchmark_backed",
+    )
+
+
+def validate_preference_readiness(claim, args):
+    preference = (claim.get("method_comparison") or {}).get("preference_alignment")
+    require(
+        isinstance(preference, dict) and preference,
+        "preference-readiness gate requires method_comparison.preference_alignment",
+    )
+    require(
+        preference.get("schema_version", 0) >= 1,
+        "preference-readiness gate requires preference_alignment.schema_version >= 1",
+    )
+    require(
+        preference.get("artifact_interpretation") != "unavailable",
+        "preference-readiness gate requires available preference artifacts (not unavailable)",
+    )
+    profile_count = preference.get("profile_count")
+    pair_count = preference.get("preference_pair_count")
+    backend_fraction = preference.get("backend_supported_pair_fraction")
+    source_breakdown = preference.get("source_breakdown") or {}
+
+    pair_artifact_name = preference.get("preference_pair_artifact")
+    if not isinstance(pair_artifact_name, str) or not pair_artifact_name:
+        pair_artifact_name = "preference_pairs_test.json"
+    pair_artifact_path = Path(claim.get("artifact_dir", ".")).joinpath(pair_artifact_name)
+    if not pair_artifact_path.is_file():
+        pair_artifact_path = Path("checkpoints").joinpath(pair_artifact_name)
+    if pair_artifact_path.is_file():
+        pair_payload = load_json(pair_artifact_path)
+        if not isinstance(pair_count, int):
+            pair_count = pair_payload.get("pair_count")
+        if not finite_number(backend_fraction):
+            backend_fraction = pair_payload.get("backend_supported_pair_fraction")
+        if not source_breakdown:
+            source_breakdown = pair_payload.get("source_coverage") or {}
+
+    profile_artifact_name = preference.get("profile_artifact")
+    if not isinstance(profile_artifact_name, str) or not profile_artifact_name:
+        profile_artifact_name = "preference_profiles_test.json"
+    profile_artifact_path = Path(claim.get("artifact_dir", ".")).joinpath(profile_artifact_name)
+    if not profile_artifact_path.is_file():
+        profile_artifact_path = Path("checkpoints").joinpath(profile_artifact_name)
+    if profile_artifact_path.is_file() and not isinstance(profile_count, int):
+        profile_payload = load_json(profile_artifact_path)
+        profile_count = profile_payload.get("profile_count")
+    require(
+        isinstance(profile_count, int),
+        "preference-readiness gate requires integer preference_alignment.profile_count",
+    )
+    require(
+        isinstance(pair_count, int),
+        "preference-readiness gate requires integer preference_alignment.preference_pair_count",
+    )
+    require(
+        profile_count >= args.min_preference_profile_count,
+        (
+            "preference-readiness gate requires "
+            f"profile_count >= {args.min_preference_profile_count} (got {profile_count})"
+        ),
+    )
+    require(
+        pair_count >= args.min_preference_pair_count,
+        (
+            "preference-readiness gate requires "
+            f"preference_pair_count >= {args.min_preference_pair_count} (got {pair_count})"
+        ),
+    )
+    require(
+        finite_number(backend_fraction),
+        "preference-readiness gate requires finite backend_supported_pair_fraction",
+    )
+    require(
+        backend_fraction >= args.min_backend_supported_pair_fraction,
+        (
+            "preference-readiness gate requires "
+            f"backend_supported_pair_fraction >= {args.min_backend_supported_pair_fraction} "
+            f"(got {backend_fraction})"
+        ),
+    )
+    backend_based = int(source_breakdown.get("backend_based", 0))
+    require(
+        backend_based >= args.min_backend_based_source_count,
+        (
+            "preference-readiness gate requires "
+            f"source_breakdown.backend_based >= {args.min_backend_based_source_count} "
+            f"(got {backend_based})"
+        ),
+    )
+    require(
+        int(source_breakdown.get("human_curated", 0)) == 0,
+        "preference-readiness gate blocks human_curated source without explicit human-label contract",
+    )
+    require(
+        int(source_breakdown.get("future_experimental", 0)) == 0,
+        "preference-readiness gate blocks future_experimental source without experimental outcomes",
+    )
+
+
 def validate_artifact_dir(artifact_dir, args):
     claim_path = artifact_dir / "claim_summary.json"
     experiment_path = artifact_dir / "experiment_summary.json"
@@ -279,6 +528,29 @@ def validate_artifact_dir(artifact_dir, args):
             "benchmark_evidence.evidence_tier is not a recognized reviewer tier",
         )
 
+    preference = claim.get("method_comparison", {}).get("preference_alignment")
+    if preference:
+        require(
+            preference.get("schema_version", 0) >= 1,
+            "method_comparison.preference_alignment schema_version must be >= 1",
+        )
+        require(
+            preference.get("missing_artifacts_mean_unavailable") is True,
+            "missing preference artifacts must mean unavailable evidence, not failed alignment",
+        )
+        require(
+            isinstance(preference.get("profile_count", 0), int),
+            "preference_alignment.profile_count must be an integer",
+        )
+        require(
+            isinstance(preference.get("preference_pair_count", 0), int),
+            "preference_alignment.preference_pair_count must be an integer",
+        )
+        if args.strict_preference_gate:
+            strict_preference_checks(artifact_dir, claim, args)
+    elif args.strict_preference_gate:
+        require(False, "strict preference gate requires method_comparison.preference_alignment")
+
     for split_name in ("train", "val", "test"):
         row = split.get(split_name, {})
         require("ligand_atom_count_bins" in row, f"split {split_name} missing ligand bins")
@@ -300,6 +572,10 @@ def validate_artifact_dir(artifact_dir, args):
         validate_backend_thresholds(claim, args)
     if args.enforce_data_thresholds:
         validate_data_thresholds(validation, split, args)
+    if args.enforce_publication_readiness:
+        validate_publication_readiness(claim)
+    if args.enforce_preference_readiness:
+        validate_preference_readiness(claim, args)
 
     print(f"claim regression gate passed: {artifact_dir}")
 
