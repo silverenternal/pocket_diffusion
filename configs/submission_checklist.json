@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-27",
+  "status": "complete",
+  "items": [
+    {
+      "id": "canonical-claim-surface",
+      "description": "Canonical larger-data claim surface artifacts are present and refreshable.",
+      "status": "complete",
+      "artifacts": [
+        "checkpoints/pdbbindpp_real_backends/claim_summary.json",
+        "checkpoints/pdbbindpp_real_backends/experiment_summary.json",
+        "checkpoints/pdbbindpp_real_backends/method_comparison_summary.json"
+      ]
+    },
+    {
+      "id": "ablation-evidence",
+      "description": "Core ablation evidence and delta table versus canonical base are available.",
+      "status": "complete",
+      "artifacts": [
+        "checkpoints/pdbbindpp_real_backends/ablation_matrix_summary.json",
+        "checkpoints/pdbbindpp_real_backends/ablation_delta_table.json"
+      ]
+    },
+    {
+      "id": "flow-diagnostics",
+      "description": "Flow rollout diagnostics are exported in reviewer artifact form.",
+      "status": "complete",
+      "artifacts": [
+        "checkpoints/pdbbindpp_real_backends/flow_rollout_diagnostics.json"
+      ]
+    },
+    {
+      "id": "multi-seed-stability",
+      "description": "Multi-seed aggregate and per-seed records are present for canonical larger-data path.",
+      "status": "complete",
+      "artifacts": [
+        "configs/checkpoints/multi_seed_pdbbindpp_real_backends/multi_seed_summary.json",
+        "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_17/claim_summary.json",
+        "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_42/claim_summary.json",
+        "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_101/claim_summary.json"
+      ]
+    },
+    {
+      "id": "repro-packaging",
+      "description": "One-command reproduction entrypoint and artifact path manifest are pinned.",
+      "status": "complete",
+      "artifacts": [
+        "configs/repro_manifest.json",
+        "docs/reviewer_refresh_report.json"
+      ]
+    },
+    {
+      "id": "narrative-and-limitations",
+      "description": "Result interpretation and threat-to-validity notes are written with explicit non-claims.",
+      "status": "complete",
+      "artifacts": [
+        "docs/results_narrative.md"
+      ]
+    },
+    {
+      "id": "claim-gate-report",
+      "description": "Reviewer claim-gate status is persisted in the refresh report.",
+      "status": "complete",
+      "artifacts": [
+        "docs/reviewer_refresh_report.json"
+      ]
+    }
+  ]
+}

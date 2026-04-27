@@ -103,6 +103,9 @@ pub struct GenerationMethodConfig {
     /// Whether the shared comparison runner should execute auxiliary methods.
     #[serde(default = "default_enable_method_comparison")]
     pub enable_comparison_runner: bool,
+    /// Flow-matching-specific geometry transport controls.
+    #[serde(default)]
+    pub flow_matching: FlowMatchingConfig,
 }
 
 impl Default for GenerationMethodConfig {
@@ -114,6 +117,7 @@ impl Default for GenerationMethodConfig {
             comparison_backends: default_comparison_generation_backends(),
             candidate_count: default_generation_method_candidate_count(),
             enable_comparison_runner: default_enable_method_comparison(),
+            flow_matching: FlowMatchingConfig::default(),
         }
     }
 }
@@ -144,6 +148,7 @@ impl GenerationMethodConfig {
         for (index, backend) in self.comparison_backends.iter().enumerate() {
             backend.validate(&format!("generation_method.comparison_backends[{index}]"))?;
         }
+        self.flow_matching.validate()?;
         Ok(())
     }
 
@@ -198,6 +203,76 @@ fn default_generation_method_candidate_count() -> usize {
 }
 
 fn default_enable_method_comparison() -> bool {
+    true
+}
+
+/// Integration method used by geometry flow-matching rollout.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FlowMatchingIntegrationMethod {
+    /// First-order Euler integration.
+    #[default]
+    Euler,
+    /// Two-stage Heun integration.
+    Heun,
+}
+
+/// Flow-matching configuration for geometry-only generator rollout.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlowMatchingConfig {
+    /// Integration step count used during flow rollout.
+    pub steps: usize,
+    /// Initial-noise scale used to construct x0.
+    pub noise_scale: f64,
+    /// Integration update method.
+    #[serde(default)]
+    pub integration_method: FlowMatchingIntegrationMethod,
+    /// Geometry-only transport flag; topology remains unchanged.
+    #[serde(default = "default_flow_matching_geometry_only")]
+    pub geometry_only: bool,
+    /// Whether x0 should start from decoder corruption (`true`) or Gaussian init (`false`).
+    #[serde(default = "default_flow_matching_use_corrupted_x0")]
+    pub use_corrupted_x0: bool,
+}
+
+impl Default for FlowMatchingConfig {
+    fn default() -> Self {
+        Self {
+            steps: 20,
+            noise_scale: 0.15,
+            integration_method: FlowMatchingIntegrationMethod::default(),
+            geometry_only: default_flow_matching_geometry_only(),
+            use_corrupted_x0: default_flow_matching_use_corrupted_x0(),
+        }
+    }
+}
+
+impl FlowMatchingConfig {
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.steps == 0 {
+            return Err(ConfigValidationError::new(
+                "generation_method.flow_matching.steps must be greater than zero",
+            ));
+        }
+        if !self.noise_scale.is_finite() || self.noise_scale < 0.0 {
+            return Err(ConfigValidationError::new(
+                "generation_method.flow_matching.noise_scale must be finite and non-negative",
+            ));
+        }
+        if !self.geometry_only {
+            return Err(ConfigValidationError::new(
+                "generation_method.flow_matching.geometry_only must remain true in geometry-only v1",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn default_flow_matching_geometry_only() -> bool {
+    true
+}
+
+fn default_flow_matching_use_corrupted_x0() -> bool {
     true
 }
 

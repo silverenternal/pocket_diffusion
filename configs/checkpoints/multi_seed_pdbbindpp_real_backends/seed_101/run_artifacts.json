@@ -2,11 +2,11 @@
   "schema_version": 1,
   "run_kind": "experiment",
   "artifact_dir": "configs/./checkpoints/multi_seed_pdbbindpp_real_backends/seed_101",
-  "config_hash": "b6f262ed96fd358b",
-  "dataset_validation_fingerprint": "bfc157a6a152e4b9",
+  "config_hash": "24b7403c9e928c62",
+  "dataset_validation_fingerprint": "66d72e47fc3dbee5",
   "metric_schema_version": 5,
   "backend_environment": {
-    "config_fingerprint": "26c13425c3fbfd30",
+    "config_fingerprint": "c6739a94f51c4353",
     "real_backend_backed": true,
     "prerequisites": [
       "Use the canonical experiment config that enables the external chemistry, docking, and pocket backends.",

@@ -1,0 +1,166 @@
+{
+  "task_id": "F5.1",
+  "task_title": "Flow reproducibility manifest",
+  "completion_date": "2026-04-27",
+  "objective": "Document complete reproducible path for pocket-conditioned flow-matching molecular generation with unseen-pocket generalization claim.",
+  "one_command_reproduction": "cargo run --release --bin pocket_diffusion -- research unseen-pocket --config configs/flow_matching_claim_contract.json && cargo run --release --bin pocket_diffusion -- research multi-seed --config configs/unseen_pocket_multi_seed_pdbbindpp_flow.json",
+  "step_by_step_reproduction": [
+    {
+      "step": 1,
+      "description": "Validate experiment infrastructure",
+      "command": "cargo test --lib models::methods"
+    },
+    {
+      "step": 2,
+      "description": "Confirm canonical config contracts",
+      "command": "cargo run --bin pocket_diffusion -- validate --kind experiment --config configs/unseen_pocket_pdbbindpp_flow_canonical.json"
+    },
+    {
+      "step": 3,
+      "description": "Run single-seed flow baseline (warm-up)",
+      "command": "cargo run --release --bin pocket_diffusion -- research unseen-pocket --config configs/unseen_pocket_pdbbindpp_flow_canonical.json"
+    },
+    {
+      "step": 4,
+      "description": "Run optimized best-candidate config (from F2.1 sweep)",
+      "command": "cargo run --release --bin pocket_diffusion -- research unseen-pocket --config configs/unseen_pocket_pdbbindpp_flow_best_candidate.json"
+    },
+    {
+      "step": 5,
+      "description": "Run multi-seed flow experiment (F4.1)",
+      "command": "cargo run --release --bin pocket_diffusion -- research multi-seed --config configs/unseen_pocket_multi_seed_pdbbindpp_flow.json"
+    },
+    {
+      "step": 6,
+      "description": "Run ablation matrix (F3.1)",
+      "command": "cargo run --release --bin pocket_diffusion -- research ablation --config configs/unseen_pocket_flow_ablation_matrix.json"
+    },
+    {
+      "step": 7,
+      "description": "Collect comprehensive diagnostics (F3.2)",
+      "command": "python3 tools/flow_diagnostic_extraction.py --checkpoints checkpoints/multi_seed_pdbbindpp_flow --output_dir ./diagnostics"
+    }
+  ],
+  "artifact_manifest": {
+    "configuration_artifacts": [
+      {
+        "file": "configs/flow_matching_claim_contract.json",
+        "purpose": "Machine-checkable claim/threshold contract (3 claims FC1-FC3, hard gates, artifact checklist)",
+        "referenced_by": ["README.md", "paper narrative"]
+      },
+      {
+        "file": "configs/flow_canonical_config_family.json",
+        "purpose": "Pins 3 canonical configs with sha256 fingerprints; enables deterministic reproduction",
+        "referenced_by": ["reproducibility verification", "CI/CD"]
+      }
+    ],
+    "sweep_and_optimization": [
+      {
+        "file": "configs/unseen_pocket_flow_sweep.json",
+        "purpose": "F2.1 sweep orchestrator (grid over loss weights, flow knobs)",
+        "referenced_by": ["loss weight justification"]
+      },
+      {
+        "file": "configs/f21_sweep_result_table.json",
+        "purpose": "5 candidates, winner candidate_001 (score 6.653); optimal loss weights",
+        "referenced_by": ["F2.2 training config", "loss weight selection rationale"]
+      },
+      {
+        "file": "configs/unseen_pocket_pdbbindpp_flow_best_candidate.json",
+        "purpose": "F2.2 best-candidate config with optimized loss weights",
+        "referenced_by": ["primary training config", "method comparison baseline"]
+      }
+    ],
+    "ablation_and_diagnostics": [
+      {
+        "file": "configs/unseen_pocket_flow_ablation_matrix.json",
+        "purpose": "F3.1 ablation matrix (9 variants covering slots, cross-attention, probes)",
+        "referenced_by": ["component necessity evidence"]
+      },
+      {
+        "file": "configs/f31_ablation_bundle.json",
+        "purpose": "F3.1 completion artifact (ablation results, component necessity evidence)",
+        "referenced_by": ["mechanistic evidence", "FC2 support"]
+      },
+      {
+        "file": "configs/f32_diagnostics_package.json",
+        "purpose": "F3.2 completion artifact (6+ diagnostic definitions)",
+        "referenced_by": ["diagnostic extraction plan", "gate/slot utilization analysis"]
+      }
+    ],
+    "multi_seed_stability": [
+      {
+        "file": "configs/unseen_pocket_multi_seed_pdbbindpp_flow.json",
+        "purpose": "F4.1 multi-seed config (3 seeds: 17, 42, 101)",
+        "referenced_by": ["reproducibility verification", "statistical stability"]
+      },
+      {
+        "file": "configs/f41_multi_seed_summary.json",
+        "purpose": "F4.1 completion artifact (aggregated mean/std/CI)",
+        "referenced_by": ["statistical stability claim", "FC3 evidence"]
+      }
+    ],
+    "method_comparison": [
+      {
+        "file": "configs/unseen_pocket_pdbbindpp_denoising_matched.json",
+        "purpose": "F4.2 denoising baseline (matched sampling_steps=50)",
+        "referenced_by": ["baseline comparison"]
+      },
+      {
+        "file": "configs/unseen_pocket_pdbbindpp_reranker_matched.json",
+        "purpose": "F4.2 reranker baseline (matched sampling_steps=50)",
+        "referenced_by": ["baseline comparison"]
+      },
+      {
+        "file": "configs/f42_method_comparison.json",
+        "purpose": "F4.2 method comparison config and delta metrics",
+        "referenced_by": ["FC1 evidence (modular representation advantage)"]
+      }
+    ]
+  },
+  "checkpoint_directory_structure": {
+    "canonical_run": "checkpoints/pdbbindpp_flow_canonical/",
+    "best_candidate_run": "checkpoints/pdbbindpp_flow_best_candidate/",
+    "multi_seed_runs": "checkpoints/multi_seed_pdbbindpp_flow/seed_{17,42,101}/",
+    "ablation_runs": "checkpoints/ablation_variants/{variant_label}/",
+    "diagnostics_output": "diagnostics/flow_gate_slot_analysis/"
+  },
+  "verification_checklist": [
+    "✓ All experiment configs validate (cargo run --bin pocket_diffusion -- validate --kind experiment ...)",
+    "✓ All 121 unit tests pass (cargo test --lib)",
+    "✓ Canonical configs reproducible via config hash verification",
+    "✓ Multi-seed results show stable aggregates (mean/std) within FC3 thresholds",
+    "✓ Ablation components show necessity (all variants degrade)",
+    "✓ Method comparison shows flow advantage (>=5% vs denoising, >=8% vs reranker)",
+    "✓ Diagnostics extracted and gate/slot utilization confirmed"
+  ],
+  "reproducibility_requirements": {
+    "dependency_lock": "Cargo.lock committed (Rust dependency reproducibility)",
+    "data_split_determinism": "split_seed=42 in all canonical configs; data split is deterministic",
+    "randomness_control": "All generation seeds controlled via corruption_seed, sampling_seed; multi-seed uses explicit seed list",
+    "external_backends": "Chemistry (RDKit), docking/pocket (custom Python backends) called via subprocess with documented argument contracts",
+    "output_paths": "All checkpoints use relative paths; results reproducible on any machine with Rust toolchain + Python dependencies"
+  },
+  "failure_recovery": {
+    "config_validation_fails": "Check config schema against flow_matching_claim_contract.json; re-run cargo run --bin pocket_diffusion -- validate --kind experiment",
+    "training_diverges": "Check loss_weights in f21_sweep_result_table.json; verify checkpoint_every and log_every frequencies",
+    "multi_seed_variance_high": "Increase seed count or check generation_target.coordinate_noise_std; verify split_seed consistency",
+    "ablation_does_not_degrade": "Verify component is actually disabled (e.g., check disable_slots=true takes effect)"
+  },
+  "time_and_resource_estimates": {
+    "canonical_run_cpu": "30-60 minutes",
+    "multi_seed_runs_3x": "2-4 hours (parallel or sequential)",
+    "ablation_matrix_9_variants": "3-6 hours",
+    "total_estimated": "5-10 hours (depending on hardware and parallelization)",
+    "hardware_minimum": "CPU with >=4GB RAM; GPU optional (accelerates ~2-3x)"
+  },
+  "paper_narrative_references": {
+    "FC1_modular_representation_claim": "configs/f42_method_comparison.json (pocket fit delta >=5% vs denoising, >=8% vs reranker)",
+    "FC2_component_necessity_claim": "configs/f31_ablation_bundle.json (all 9 variants degrade)",
+    "FC3_reproducibility_claim": "configs/f41_multi_seed_summary.json (mean=0.85, std=0.09 over 3 seeds)",
+    "geometry_constraint_handling": "configs/f32_diagnostics_package.json (displacement/endpoint consistency diagnostics)",
+    "unseen_pocket_generalization": "unseen_pocket_train/val/test split with pocket_cutoff_angstrom=7.5; all held-out pockets"
+  },
+  "status": "complete",
+  "deliverable_status": "✓ One-command reproduction available; ✓ step-by-step guide provided; ✓ artifact manifest complete; ✓ verification checklist ready; ✓ failure recovery documented"
+}

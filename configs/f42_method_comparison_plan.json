@@ -1,0 +1,52 @@
+{
+  "task_id": "F4.2",
+  "task_title": "Matched-budget method comparison refresh",
+  "description": "Compare flow_matching against conditioned_denoising and calibrated_reranker under identical sampling_steps budget. Establish delta report showing flow improvement over baselines.",
+  "orchestrator_config": "unseen_pocket_matched_budget_comparison.json",
+  "comparison_scope": {
+    "primary_method": "flow_matching",
+    "baseline_methods": ["conditioned_denoising", "calibrated_reranker"],
+    "budget_constraint": "matched_sampling_steps",
+    "budget_value": 50,
+    "evaluation_surface": "unseen_pocket_pdbbindpp"
+  },
+  "method_configs_required": [
+    {
+      "method": "flow_matching",
+      "config": "configs/unseen_pocket_pdbbindpp_flow_best_candidate.json",
+      "sampling_steps": 50,
+      "note": "Uses optimized loss weights from F2.1 sweep"
+    },
+    {
+      "method": "conditioned_denoising",
+      "config": "configs/unseen_pocket_pdbbindpp_denoising_matched.json",
+      "sampling_steps": 50,
+      "note": "To be created with sampling_steps: 50"
+    },
+    {
+      "method": "calibrated_reranker",
+      "config": "configs/unseen_pocket_pdbbindpp_reranker_matched.json",
+      "sampling_steps": 50,
+      "note": "To be created with sampling_steps: 50"
+    }
+  ],
+  "comparison_metrics": [
+    "candidate_valid_fraction",
+    "strict_pocket_fit_score",
+    "efficiency_tokens_per_sample",
+    "diversity_coverage"
+  ],
+  "expected_deltas": {
+    "flow_vs_denoising": "flow should show >= 5% improvement in pocket_fit with same or better validity",
+    "flow_vs_reranker": "flow should show >= 8% improvement in pocket_fit with lower sampling overhead"
+  },
+  "result_artifact": "f42_method_comparison.json",
+  "next_steps": [
+    "Create matched-budget baseline configs (denoising_matched, reranker_matched)",
+    "Create orchestrator config: unseen_pocket_matched_budget_comparison.json",
+    "Run comparison experiments",
+    "Parse results and compute delta report",
+    "Document in f42_method_comparison.json"
+  ],
+  "status": "in_progress"
+}

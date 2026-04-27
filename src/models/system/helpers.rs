@@ -251,3 +251,134 @@ fn pocket_radius_from_coords(pocket_coords: &Tensor, pocket_centroid: &Tensor) -
         .double_value(&[])
 }
 
+fn flow_matching_x0(example: &MolecularExample, noise_scale: f64, use_corrupted_x0: bool) -> Tensor {
+    let base = if use_corrupted_x0 {
+        example.decoder_supervision.noisy_coords.shallow_clone()
+    } else {
+        let coords = &example.decoder_supervision.target_coords;
+        let atom_count = coords.size()[0].max(0) as usize;
+        let pocket_centroid = if example.pocket.coords.numel() == 0 {
+            [0.0_f64, 0.0, 0.0]
+        } else {
+            let centroid = example
+                .pocket
+                .coords
+                .mean_dim([0].as_slice(), false, Kind::Float);
+            [
+                centroid.double_value(&[0]),
+                centroid.double_value(&[1]),
+                centroid.double_value(&[2]),
+            ]
+        };
+        let mut values = Vec::with_capacity(atom_count * 3);
+        for atom_ix in 0..atom_count {
+            for axis in 0..3 {
+                let unit = deterministic_flow_unit(
+                    example.decoder_supervision.corruption_metadata.corruption_seed,
+                    atom_ix,
+                    axis,
+                );
+                let centered = unit * 2.0 - 1.0;
+                values.push((pocket_centroid[axis] + centered * noise_scale) as f32);
+            }
+        }
+        Tensor::from_slice(&values)
+            .reshape([atom_count as i64, 3])
+            .to_device(coords.device())
+    };
+
+    if noise_scale <= 0.0 {
+        base
+    } else {
+        &base
+            + deterministic_flow_noise(
+            &base,
+            noise_scale,
+            example
+                .decoder_supervision
+                .corruption_metadata
+                .corruption_seed
+                .wrapping_add(17),
+        )
+    }
+}
+
+fn flow_matching_t_from_example(example: &MolecularExample) -> f64 {
+    let seed = example
+        .decoder_supervision
+        .corruption_metadata
+        .corruption_seed
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    let scaled = (seed % 10_000) as f64 / 10_000.0;
+    scaled.clamp(0.05, 0.95)
+}
+
+fn gate_summary_from_interactions(interactions: &CrossModalInteractions) -> GenerationGateSummary {
+    GenerationGateSummary {
+        topo_from_geo: scalar_gate_from_tensor(&interactions.topo_from_geo.gate),
+        topo_from_pocket: scalar_gate_from_tensor(&interactions.topo_from_pocket.gate),
+        geo_from_topo: scalar_gate_from_tensor(&interactions.geo_from_topo.gate),
+        geo_from_pocket: scalar_gate_from_tensor(&interactions.geo_from_pocket.gate),
+        pocket_from_topo: scalar_gate_from_tensor(&interactions.pocket_from_topo.gate),
+        pocket_from_geo: scalar_gate_from_tensor(&interactions.pocket_from_geo.gate),
+    }
+}
+
+fn flow_conditioning_state(
+    generation_state: &ConditionedGenerationState,
+    gate_summary: GenerationGateSummary,
+) -> ConditioningState {
+    ConditioningState {
+        topology_context: generation_state.topology_context.shallow_clone(),
+        geometry_context: generation_state.geometry_context.shallow_clone(),
+        pocket_context: generation_state.pocket_context.shallow_clone(),
+        gate_summary,
+    }
+}
+
+fn scalar_gate_from_tensor(gate: &Tensor) -> f64 {
+    if gate.numel() == 0 {
+        0.0
+    } else {
+        gate.mean(Kind::Float).double_value(&[])
+    }
+}
+
+fn deterministic_flow_noise(coords: &Tensor, std: f64, seed: u64) -> Tensor {
+    if std <= 0.0 || coords.numel() == 0 {
+        return Tensor::zeros_like(coords);
+    }
+    let atom_count = coords.size()[0].max(0) as usize;
+    let mut values = Vec::with_capacity(atom_count * 3);
+    for atom_ix in 0..atom_count {
+        for axis in 0..3 {
+            let centered = deterministic_flow_unit(seed, atom_ix, axis) * 2.0 - 1.0;
+            values.push((centered * std) as f32);
+        }
+    }
+    Tensor::from_slice(&values)
+        .reshape([atom_count as i64, 3])
+        .to_device(coords.device())
+}
+
+fn deterministic_flow_unit(seed: u64, atom_ix: usize, axis: usize) -> f64 {
+    let mut value = seed
+        ^ ((atom_ix as u64).wrapping_mul(0xBF58_476D_1CE4_E5B9))
+        ^ ((axis as u64).wrapping_mul(0x94D0_49BB_1331_11EB));
+    value ^= value >> 30;
+    value = value.wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    value ^= value >> 27;
+    value = value.wrapping_mul(0x94D0_49BB_1331_11EB);
+    value ^= value >> 31;
+    (value as f64) / (u64::MAX as f64)
+}
+
+fn resolved_generation_backend_family(config: &ResearchConfig) -> GenerationBackendFamilyConfig {
+    match config.generation_method.primary_backend_id() {
+        "flow_matching" => GenerationBackendFamilyConfig::FlowMatching,
+        "autoregressive_graph_geometry" => GenerationBackendFamilyConfig::Autoregressive,
+        "energy_guided_refinement" => GenerationBackendFamilyConfig::EnergyGuidedRefinement,
+        "conditioned_denoising" => GenerationBackendFamilyConfig::ConditionedDenoising,
+        _ => config.generation_method.primary_backend.family,
+    }
+}

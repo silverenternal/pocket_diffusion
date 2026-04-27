@@ -119,4 +119,14 @@ mod tests {
             .to_string()
             .contains("enable_pair_construction requires enable_profile_extraction"));
     }
+
+    #[test]
+    fn flow_matching_generation_config_validates_geometry_only_guard() {
+        let mut config = ResearchConfig::default();
+        config.generation_method.flow_matching.geometry_only = false;
+        let err = config.validate().unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("flow_matching.geometry_only must remain true"));
+    }
 }

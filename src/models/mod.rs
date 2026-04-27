@@ -3,6 +3,7 @@
 pub mod cross_attention;
 pub mod decoder;
 pub mod evaluation;
+pub mod flow_matching;
 pub mod geo_encoder;
 pub mod methods;
 pub mod pocket_encoder;
@@ -23,6 +24,7 @@ pub use evaluation::{
     CommandPocketCompatibilityEvaluator, HeuristicChemistryValidityEvaluator,
     HeuristicDockingEvaluator, HeuristicPocketCompatibilityEvaluator,
 };
+pub use flow_matching::GeometryFlowMatchingHead;
 pub use geo_encoder::GeometryEncoderImpl;
 pub use methods::{
     flatten_layered_output, summarize_method_output, MethodComparisonRow,
@@ -51,13 +53,14 @@ pub(crate) use traits::{
 pub use traits::{
     CandidateLayerKind, CandidateLayerOutput, CandidateLayerProvenance, ChemistryValidityEvaluator,
     ConditionedGenerationRequest, ConditionedGenerationState, ConditionedLigandDecoder,
-    CrossAttentionOutput, CrossModalInteractor, DecoderOutput, DockingEvaluator, Encoder,
-    ExternalConditioningSummary, ExternalEvaluationReport, ExternalGenerationRequestRecord,
-    ExternalGenerationResponseRecord, ExternalMetricRecord, GeneratedCandidateRecord,
-    GenerationEvidenceRole, GenerationExecutionMode, GenerationGateSummary,
-    GenerationMethodCapability, GenerationModalityConditioning, GenerationRolloutRecord,
-    GenerationStepRecord, GeometryEncoder, LayeredGenerationOutput, LossTerm, ModalityEncoding,
-    PartialLigandState, PocketCompatibilityEvaluator, PocketEncoder, PocketGenerationContext,
-    PocketGenerationMethod, PocketGenerationMethodFamily, PocketGenerationMethodMetadata,
-    SlotDecomposer, SlotEncoding, TaskDrivenObjective, TopologyEncoder, TrainerHook,
+    ConditioningState, CrossAttentionOutput, CrossModalInteractor, DecoderOutput, DockingEvaluator,
+    Encoder, ExternalConditioningSummary, ExternalEvaluationReport,
+    ExternalGenerationRequestRecord, ExternalGenerationResponseRecord, ExternalMetricRecord,
+    FlowMatchingHead, FlowState, GeneratedCandidateRecord, GenerationEvidenceRole,
+    GenerationExecutionMode, GenerationGateSummary, GenerationMethodCapability,
+    GenerationModalityConditioning, GenerationRolloutRecord, GenerationStepRecord, GeometryEncoder,
+    LayeredGenerationOutput, LossTerm, ModalityEncoding, ModelError, PartialLigandState,
+    PocketCompatibilityEvaluator, PocketEncoder, PocketGenerationContext, PocketGenerationMethod,
+    PocketGenerationMethodFamily, PocketGenerationMethodMetadata, SlotDecomposer, SlotEncoding,
+    TaskDrivenObjective, TopologyEncoder, TrainerHook, VelocityField,
 };

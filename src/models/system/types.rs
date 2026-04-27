@@ -85,6 +85,8 @@ pub(crate) struct GenerationForward {
     pub decoded: DecoderOutput,
     /// Iterative rollout trace aligned with the active generation semantics.
     pub rollout: GenerationRolloutRecord,
+    /// Optional flow-matching training tuple for geometry transport.
+    pub flow_matching: Option<FlowMatchingTrainingRecord>,
 }
 
 /// Full Phase 2 forward-pass bundle.
@@ -102,3 +104,29 @@ pub(crate) struct ResearchForward {
     pub generation: GenerationForward,
 }
 
+/// Cached flow-matching tuple used by flow objectives.
+#[derive(Debug)]
+pub(crate) struct FlowMatchingTrainingRecord {
+    /// Predicted velocity field at sampled path location.
+    pub predicted_velocity: Tensor,
+    /// Supervised target velocity `x1 - x0`.
+    pub target_velocity: Tensor,
+    /// Coordinates at sampled path location `x_t`.
+    pub sampled_coords: Tensor,
+    /// Scalar sampled timestep in `[0, 1]`.
+    pub t: f64,
+    /// Atom mask used for weighted reduction.
+    pub atom_mask: Tensor,
+}
+
+impl Clone for FlowMatchingTrainingRecord {
+    fn clone(&self) -> Self {
+        Self {
+            predicted_velocity: self.predicted_velocity.shallow_clone(),
+            target_velocity: self.target_velocity.shallow_clone(),
+            sampled_coords: self.sampled_coords.shallow_clone(),
+            t: self.t,
+            atom_mask: self.atom_mask.shallow_clone(),
+        }
+    }
+}

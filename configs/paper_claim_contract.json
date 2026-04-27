@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-27",
+  "scope": "paper_readiness_next_phase",
+  "claims": [
+    {
+      "id": "C1_unseen_pocket_generalization",
+      "wording": "The claim-bearing larger-data surfaces provide held-out-pocket chemistry/generalization evidence under the reviewer contract.",
+      "surfaces": [
+        "checkpoints/pdbbindpp_real_backends",
+        "checkpoints/lp_pdbbind_refined_real_backends"
+      ],
+      "required_metrics": [
+        {
+          "path": "chemistry_novelty_diversity.benchmark_evidence.evidence_tier",
+          "equals": "external_benchmark_backed"
+        },
+        {
+          "path": "test.strict_pocket_fit_score",
+          "min": 0.45
+        },
+        {
+          "path": "test.leakage_proxy_mean",
+          "max": 0.12
+        },
+        {
+          "path": "test.candidate_valid_fraction",
+          "min": 0.95
+        }
+      ]
+    },
+    {
+      "id": "C2_geometry_consistency",
+      "wording": "The tight-geometry pressure surface preserves geometric consistency while satisfying chemistry validity and leakage limits.",
+      "surfaces": [
+        "checkpoints/tight_geometry_pressure"
+      ],
+      "required_metrics": [
+        {
+          "path": "backend_metrics.pocket_compatibility.metrics.clash_fraction",
+          "max": 0.0
+        },
+        {
+          "path": "test.strict_pocket_fit_score",
+          "min": 0.6
+        },
+        {
+          "path": "test.leakage_proxy_mean",
+          "max": 0.12
+        },
+        {
+          "path": "test.candidate_valid_fraction",
+          "min": 0.95
+        }
+      ]
+    },
+    {
+      "id": "C3_controlled_interaction_activity",
+      "wording": "Claim-bearing runs keep cross-modal interaction and slot pathways active instead of collapsing to inactive routing.",
+      "surfaces": [
+        "checkpoints/pdbbindpp_real_backends",
+        "checkpoints/lp_pdbbind_refined_real_backends",
+        "checkpoints/tight_geometry_pressure"
+      ],
+      "required_metrics": [
+        {
+          "path": "test.gate_activation_mean",
+          "min": 0.01
+        },
+        {
+          "path": "test.slot_activation_mean",
+          "min": 0.01
+        }
+      ]
+    }
+  ],
+  "thresholds": {
+    "min_rdkit_available": 1.0,
+    "min_rdkit_sanitized_fraction": 0.95,
+    "min_unique_fraction": 0.5,
+    "max_backend_missing_structure_fraction": 0.0,
+    "max_clash_fraction": 0.1,
+    "min_strict_pocket_fit": 0.35,
+    "min_pocket_contact": 0.8,
+    "min_candidate_valid_fraction": 0.95,
+    "max_leakage_proxy_mean": 0.12,
+    "min_parsed_complexes": 100,
+    "min_retained_label_coverage": 0.8,
+    "min_heldout_family_count": 10
+  },
+  "baseline_matrix": {
+    "surfaces": [
+      "checkpoints/pdbbindpp_real_backends"
+    ],
+    "required_methods": [
+      {
+        "method_id": "conditioned_denoising",
+        "evidence_role": "claim_bearing",
+        "trainable": true
+      },
+      {
+        "method_id": "flow_matching",
+        "evidence_role": "comparison_only",
+        "trainable": true
+      },
+      {
+        "method_id": "heuristic_raw_rollout_no_repair",
+        "evidence_role": "comparison_only",
+        "trainable": false
+      }
+    ],
+    "required_metric_fields": [
+      "native_valid_fraction",
+      "native_pocket_contact_fraction",
+      "native_clash_fraction",
+      "sampling_steps",
+      "wall_time_ms"
+    ],
+    "require_matched_sampling_steps": true,
+    "shared_budget_policy": "All required methods must run with the same sampling_steps budget as the active method on the same split/backends."
+  },
+  "promotion_decision": {
+    "decision_label": "promote_claim_ready_surface",
+    "criteria": [
+      "Surface passes claim_regression_gate with --enforce-backend-thresholds and --enforce-data-thresholds.",
+      "Claim contract mapping check succeeds for all claims mapped to the surface.",
+      "Chemistry benchmark evidence tier is external_benchmark_backed on larger-data claim-bearing surfaces.",
+      "Leakage remains in reviewer clean band (<= 0.08) and candidate_valid_fraction >= 0.95.",
+      "Canonical reviewer refresh report remains pass for backend/data/leakage/replay checks."
+    ]
+  }
+}

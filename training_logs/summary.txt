@@ -1,0 +1,32 @@
+Flow Matching Training Experiments Summary
+==========================================
+Generated: Mon Apr 27 02:31:18 PM HKT 2026
+Log file: training_logs/training_20260427_143104.log
+
+Commands Executed:
+  1. F2.2 Flow Best Candidate
+     cargo run --release --bin pocket_diffusion -- research experiment \
+       --config configs/unseen_pocket_pdbbindpp_flow_best_candidate.json
+
+  2. F4.2 Denoising Baseline (matched_steps=50)
+     cargo run --release --bin pocket_diffusion -- research experiment \
+       --config configs/unseen_pocket_pdbbindpp_denoising_matched.json
+
+  3. F4.2 Reranker Baseline (matched_steps=50)
+     cargo run --release --bin pocket_diffusion -- research experiment \
+       --config configs/unseen_pocket_pdbbindpp_reranker_matched.json
+
+
+Results Saved To:
+  - Flow Best Candidate: checkpoints/pdbbindpp_flow_best_candidate/claim_summary.json
+  - Denoising Baseline:  checkpoints/pdbbindpp_denoising_matched/claim_summary.json
+  - Reranker Baseline:   checkpoints/pdbbindpp_reranker_matched/claim_summary.json
+
+Comparison Command:
+  for method in flow denoising reranker; do
+    echo "=== $method ==="
+    cat "checkpoints/pdbbindpp_${method}_matched/claim_summary.json" 2>/dev/null | \
+      jq '.surfaces[0] | {valid: .candidate_valid_fraction, pocket_fit: .strict_pocket_fit_score}' || echo "Not complete"
+  done
+
+Full Log: training_logs/training_20260427_143104.log

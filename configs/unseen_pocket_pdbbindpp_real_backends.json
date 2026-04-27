@@ -48,6 +48,15 @@
       "pocket_feature_dim": 24,
       "pair_feature_dim": 8
     },
+    "generation_method": {
+      "flow_matching": {
+        "steps": 4,
+        "noise_scale": 0.15,
+        "integration_method": "euler",
+        "geometry_only": true,
+        "use_corrupted_x0": true
+      }
+    },
     "preference_alignment": {
       "enable_profile_extraction": true,
       "enable_pair_construction": true,
@@ -92,6 +101,19 @@
     "disable_cross_attention": false,
     "disable_probes": false,
     "disable_leakage": false
+  },
+  "ablation_matrix": {
+    "enabled": true,
+    "include_surrogate_objective": true,
+    "include_conditioned_denoising": true,
+    "include_disable_slots": true,
+    "include_disable_cross_attention": true,
+    "include_disable_geometry_interaction_bias": true,
+    "include_disable_rollout_pocket_guidance": true,
+    "include_disable_candidate_repair": true,
+    "include_disable_probes": true,
+    "include_lightweight_interaction": true,
+    "include_transformer_interaction": true
   },
   "external_evaluation": {
     "chemistry_backend": {

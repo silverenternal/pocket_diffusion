@@ -9,7 +9,8 @@ use crate::{
     data::{ExampleBatchIter, MolecularExample},
     losses::{
         build_primary_objective, compute_primary_objective_batch, ConsistencyLoss, GateLoss,
-        IntraRedundancyLoss, LeakageLoss, PocketGeometryAuxLoss, ProbeLoss,
+        IntraRedundancyLoss, LeakageLoss, MutualInformationMonitor, PocketGeometryAuxLoss,
+        ProbeLoss,
     },
     models::{Phase1ResearchSystem, ResearchForward, TaskDrivenObjective},
     training::{stable_json_hash, METRIC_SCHEMA_VERSION, RESUME_CONTRACT_VERSION},
@@ -33,6 +34,7 @@ pub struct ResearchTrainer {
     gate_loss: GateLoss,
     consistency_loss: ConsistencyLoss,
     pocket_geometry_loss: PocketGeometryAuxLoss,
+    mi_monitor: MutualInformationMonitor,
     config: ResearchConfig,
     dataset_validation_fingerprint: Option<String>,
     affinity_measurement_weights: BTreeMap<String, f64>,
@@ -60,13 +62,14 @@ impl ResearchTrainer {
             optimizer,
             scheduler,
             checkpoints,
-            primary_objective: build_primary_objective(config.training.primary_objective),
+            primary_objective: build_primary_objective(&config.training),
             redundancy_loss: IntraRedundancyLoss::default(),
             probe_loss: ProbeLoss,
             leakage_loss: LeakageLoss::default(),
             gate_loss: GateLoss,
             consistency_loss: ConsistencyLoss::default(),
             pocket_geometry_loss: PocketGeometryAuxLoss::default(),
+            mi_monitor: MutualInformationMonitor::default(),
             config,
             dataset_validation_fingerprint: None,
             affinity_measurement_weights: BTreeMap::new(),
@@ -160,6 +163,7 @@ impl ResearchTrainer {
             + &pocket_contact * weights.pocket_contact
             + &pocket_clash * weights.pocket_clash;
 
+        let (mi_topo_geo, mi_topo_pocket, mi_geo_pocket) = average_mi(&self.mi_monitor, &forwards);
         let primary_value = scalar_or_nan(&primary);
         let intra_red_value = scalar_or_nan(&intra_red);
         let probe_value = scalar_or_nan(&probe);
@@ -200,6 +204,9 @@ impl ResearchTrainer {
                     consistency: consistency_value,
                     pocket_contact: pocket_contact_value,
                     pocket_clash: pocket_clash_value,
+                    mi_topo_geo,
+                    mi_topo_pocket,
+                    mi_geo_pocket,
                 },
                 total: total_value,
             },
@@ -223,7 +230,7 @@ impl ResearchTrainer {
         }
         if self.config.training.log_every > 0 && self.step % self.config.training.log_every == 0 {
             log::info!(
-                "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4}",
+                "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4} mi_topo_geo={:.4} mi_topo_pocket={:.4} mi_geo_pocket={:.4}",
                 metrics.step,
                 metrics.stage,
                 metrics.losses.total,
@@ -238,6 +245,9 @@ impl ResearchTrainer {
                 metrics.losses.auxiliaries.consistency,
                 metrics.losses.auxiliaries.pocket_contact,
                 metrics.losses.auxiliaries.pocket_clash,
+                metrics.losses.auxiliaries.mi_topo_geo,
+                metrics.losses.auxiliaries.mi_topo_pocket,
+                metrics.losses.auxiliaries.mi_geo_pocket,
             );
         }
         self.history.push(metrics.clone());
@@ -457,6 +467,30 @@ fn slot_loss_from_forward(forward: &ResearchForward) -> Tensor {
     (topo + geo + pocket) / 3.0
 }
 
+fn average_mi(
+    mi_monitor: &MutualInformationMonitor,
+    forwards: &[ResearchForward],
+) -> (f64, f64, f64) {
+    if forwards.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+    let mut mi_topo_geo = 0.0;
+    let mut mi_topo_pocket = 0.0;
+    let mut mi_geo_pocket = 0.0;
+    for forward in forwards {
+        let (tg, tp, gp) = mi_monitor.compute_all_mi(forward);
+        mi_topo_geo += tg;
+        mi_topo_pocket += tp;
+        mi_geo_pocket += gp;
+    }
+    let denom = forwards.len() as f64;
+    (
+        mi_topo_geo / denom,
+        mi_topo_pocket / denom,
+        mi_geo_pocket / denom,
+    )
+}
+
 fn slot_loss_from_batch(forwards: &[ResearchForward], device: tch::Device) -> Tensor {
     if forwards.is_empty() {
         return Tensor::zeros([1], (Kind::Float, device));
@@ -581,6 +615,39 @@ mod tests {
         config.training.log_every = 100;
         config.training.primary_objective =
             crate::config::PrimaryObjectiveConfig::ConditionedDenoising;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();
+
+        let metrics = trainer
+            .fit(&var_store, &system, dataset.examples())
+            .unwrap();
+
+        assert!(!metrics.is_empty());
+        assert!(metrics.iter().all(|step| step.losses.total.is_finite()));
+        assert!(metrics
+            .iter()
+            .all(|step| step.losses.primary.primary_value.is_finite()));
+    }
+
+    #[test]
+    fn flow_matching_training_remains_finite_on_synthetic_examples() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 3;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
+        config.generation_method.active_method = "flow_matching".to_string();
+        config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+            backend_id: "flow_matching".to_string(),
+            family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..crate::config::GenerationBackendConfig::default()
+        };
 
         let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
             .with_pocket_feature_dim(config.model.pocket_feature_dim);

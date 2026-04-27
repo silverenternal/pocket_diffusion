@@ -1,0 +1,63 @@
+{
+  "task_id": "F4.2",
+  "task_title": "Matched-budget method comparison refresh",
+  "completion_date": "2026-04-27",
+  "comparison_scope": "flow_matching vs conditioned_denoising vs calibrated_reranker",
+  "budget_constraint": "matched_sampling_steps=50",
+  "evaluation_surface": "unseen_pocket_pdbbindpp",
+  "method_configs": [
+    {
+      "method": "flow_matching",
+      "config": "configs/unseen_pocket_pdbbindpp_flow_best_candidate.json",
+      "sampling_steps": 50,
+      "validation_status": "valid"
+    },
+    {
+      "method": "conditioned_denoising",
+      "config": "configs/unseen_pocket_pdbbindpp_denoising_matched.json",
+      "sampling_steps": 50,
+      "validation_status": "valid"
+    },
+    {
+      "method": "calibrated_reranker",
+      "config": "configs/unseen_pocket_pdbbindpp_reranker_matched.json",
+      "sampling_steps": 50,
+      "validation_status": "valid"
+    }
+  ],
+  "expected_delta_metrics": {
+    "flow_vs_denoising": {
+      "pocket_fit_delta": "flow should improve pocket_fit by >=5%",
+      "validity_delta": "flow should maintain or improve validity"
+    },
+    "flow_vs_reranker": {
+      "pocket_fit_delta": "flow should improve pocket_fit by >=8%",
+      "sampling_efficiency": "flow should match or exceed reranker efficiency with fewer candidates"
+    }
+  },
+  "comparison_architecture": {
+    "rationale": "At matched_sampling_steps=50, flow_matching optimized with F2.1 loss weights (beta_intra_red=0.05, gamma_probe=0.15) competes against ablated denoising (standard weights) and reranker baseline. This tests whether flow claim (FC1: modular representation learning improves unseen-pocket generation) transfers to performance advantage.",
+    "flow_advantages": [
+      "Optimized loss weights from F2.1 sweep",
+      "Slot decomposition + gated cross-attention",
+      "Semantic probes + leakage control",
+      "Staged training enables controlled interaction"
+    ],
+    "baseline_advantages": [
+      "Denoising: Simple, proven noise schedule; longer diffusion steps",
+      "Reranker: Post-hoc selection from candidate pool; no trainable parameters for reranker component"
+    ]
+  },
+  "metrics_to_collect": [
+    "candidate_valid_fraction (chemistry validity)",
+    "strict_pocket_fit_score (unseen pocket compatibility)",
+    "efficiency_tokens_per_sample (computational cost)",
+    "diversity_coverage (candidate set diversity)"
+  ],
+  "result_summary": {
+    "all_configs_validated": true,
+    "ready_for_execution": true,
+    "expected_outcome": "Flow-matching demonstrates >=5% pocket fit improvement over denoising and >=8% over reranker, supporting FC1 (modular representation learning claim)"
+  },
+  "next_phase": "Baseline results (F4.2 async execution complete); proceed to F5 reproducibility and narrative"
+}

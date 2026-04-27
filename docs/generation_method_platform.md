@@ -55,6 +55,7 @@ Method-aware metadata is additive at the artifact boundary:
 - `active_method`
 - `method_layer_outputs`
 - `method_comparison`
+- `method_comparison_summary.json` (generated via `tools/method_comparison_summary.py`)
 
 ## Extraction Targets
 
@@ -73,6 +74,7 @@ The remaining extraction boundary is explicit:
 - claim-bearing interpretation is driven by each method's `evidence_role`
 - layered metrics distinguish method-native output from derived postprocessed layers
 - raw-to-repaired and inferred-to-reranked deltas are reported additively
+- canonical required baseline matrix and shared sampling-step budget policy are codified in `configs/paper_claim_contract.json` and enforced by `tools/claim_regression_gate.py`
 
 ## Future Planning
 

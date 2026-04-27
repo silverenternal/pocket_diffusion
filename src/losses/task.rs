@@ -3,7 +3,7 @@
 use tch::{Kind, Tensor};
 
 use crate::{
-    config::PrimaryObjectiveConfig,
+    config::{PrimaryObjectiveConfig, TrainingConfig},
     data::MolecularExample,
     models::{ResearchForward, TaskDrivenObjective},
 };
@@ -110,15 +110,56 @@ impl TaskDrivenObjective<ResearchForward> for ConditionedDenoisingObjective {
     }
 }
 
+/// Geometry-only flow-matching objective over predicted velocity fields.
+#[derive(Debug, Clone)]
+pub struct FlowMatchingObjective {
+    weight: f64,
+}
+
+impl TaskDrivenObjective<ResearchForward> for FlowMatchingObjective {
+    fn name(&self) -> &'static str {
+        "flow_matching"
+    }
+
+    fn compute(&self, _example: &MolecularExample, forward: &ResearchForward) -> Tensor {
+        flow_matching_loss_from_forward(forward) * self.weight
+    }
+}
+
+/// Hybrid objective combining denoising and flow matching.
+#[derive(Debug, Clone)]
+pub struct DenoisingFlowMatchingObjective {
+    denoising_weight: f64,
+    flow_weight: f64,
+}
+
+impl TaskDrivenObjective<ResearchForward> for DenoisingFlowMatchingObjective {
+    fn name(&self) -> &'static str {
+        "denoising_flow_matching"
+    }
+
+    fn compute(&self, example: &MolecularExample, forward: &ResearchForward) -> Tensor {
+        ConditionedDenoisingObjective.compute(example, forward) * self.denoising_weight
+            + flow_matching_loss_from_forward(forward) * self.flow_weight
+    }
+}
+
 /// Build the configured primary objective implementation.
 pub(crate) fn build_primary_objective(
-    config: PrimaryObjectiveConfig,
+    training: &TrainingConfig,
 ) -> Box<dyn TaskDrivenObjective<ResearchForward>> {
-    match config {
+    match training.primary_objective {
         PrimaryObjectiveConfig::SurrogateReconstruction => {
             Box::new(SurrogateReconstructionObjective)
         }
         PrimaryObjectiveConfig::ConditionedDenoising => Box::new(ConditionedDenoisingObjective),
+        PrimaryObjectiveConfig::FlowMatching => Box::new(FlowMatchingObjective {
+            weight: training.flow_matching_loss_weight,
+        }),
+        PrimaryObjectiveConfig::DenoisingFlowMatching => Box::new(DenoisingFlowMatchingObjective {
+            denoising_weight: training.hybrid_denoising_weight,
+            flow_weight: training.hybrid_flow_weight,
+        }),
     }
 }
 
@@ -239,6 +280,44 @@ fn weighted_mean(values: &Tensor, mask: &Tensor) -> Tensor {
     let mask = mask.to_kind(Kind::Float);
     let denom = mask.sum(Kind::Float).clamp_min(1.0);
     (values * mask).sum(Kind::Float) / denom
+}
+
+fn flow_matching_loss_from_forward(forward: &ResearchForward) -> Tensor {
+    let Some(flow) = forward.generation.flow_matching.as_ref() else {
+        return Tensor::zeros(
+            [1],
+            (
+                Kind::Float,
+                forward.generation.decoded.coordinate_deltas.device(),
+            ),
+        );
+    };
+    if flow.predicted_velocity.numel() == 0 || flow.target_velocity.numel() == 0 {
+        return Tensor::zeros([1], (Kind::Float, flow.predicted_velocity.device()));
+    }
+    let velocity_mse = (&flow.predicted_velocity - &flow.target_velocity)
+        .pow_tensor_scalar(2.0)
+        .mean_dim([1].as_slice(), false, Kind::Float);
+    let velocity_loss = weighted_mean(&velocity_mse, &flow.atom_mask);
+
+    let t = flow.t.clamp(0.0, 1.0);
+    let x0_true = &flow.sampled_coords - &flow.target_velocity * t;
+    let x1_true = &flow.sampled_coords + &flow.target_velocity * (1.0 - t);
+    let x0_pred = &flow.sampled_coords - &flow.predicted_velocity * t;
+    let x1_pred = &flow.sampled_coords + &flow.predicted_velocity * (1.0 - t);
+
+    let x0_mse =
+        (&x0_pred - &x0_true)
+            .pow_tensor_scalar(2.0)
+            .mean_dim([1].as_slice(), false, Kind::Float);
+    let x1_mse =
+        (&x1_pred - &x1_true)
+            .pow_tensor_scalar(2.0)
+            .mean_dim([1].as_slice(), false, Kind::Float);
+    let endpoint_loss =
+        weighted_mean(&x0_mse, &flow.atom_mask) + weighted_mean(&x1_mse, &flow.atom_mask);
+
+    velocity_loss + 0.2 * endpoint_loss
 }
 
 fn rollout_recovery_loss(

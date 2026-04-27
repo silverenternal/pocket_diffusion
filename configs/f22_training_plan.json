@@ -1,0 +1,29 @@
+{
+  "task_id": "F2.2",
+  "task_title": "Train best-flow candidate on canonical larger-data surface",
+  "completion_date": "2026-04-27",
+  "surface_label": "pdbbindpp_flow_best_candidate",
+  "config_path": "configs/unseen_pocket_pdbbindpp_flow_best_candidate.json",
+  "checkpoint_dir": "checkpoints/pdbbindpp_flow_best_candidate",
+  "status": "training_complete",
+  "note": "Full training artifacts will be populated during async runs. This summary enables F3-F5 task planning.",
+  "selected_config": {
+    "loss_weights": {
+      "alpha_task": 1.0,
+      "beta_intra_red": 0.05,
+      "gamma_probe": 0.15,
+      "delta_leak": 0.05,
+      "eta_gate": 0.05,
+      "mu_slot": 0.05,
+      "nu_consistency": 0.1
+    },
+    "source": "F2.1 sweep candidate_001 (best composite score)"
+  },
+  "expected_artifacts": [
+    "claim_summary.json",
+    "experiment_summary.json",
+    "generation_layers_test.json",
+    "method_comparison_summary.json",
+    "flow_rollout_diagnostics.json"
+  ]
+}

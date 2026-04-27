@@ -14,11 +14,55 @@
   "quality_filtered_ligand_atom_limit": 262,
   "quality_filtered_pocket_atom_limit": 0,
   "quality_filtered_missing_source_provenance": 0,
+  "quality_filtered_missing_affinity_metadata": 0,
   "retained_label_coverage": 0.9667969,
   "observed_fallback_fraction": 0.0,
+  "retained_source_provenance_coverage": 1.0,
   "loaded_label_rows": 5048,
+  "label_table_rows_seen": 5048,
+  "label_table_blank_rows": 0,
+  "label_table_comment_rows": 0,
   "approximate_affinity_labels": 0,
+  "loaded_label_measurement_family_histogram": {
+    "Kd": 2683,
+    "Ki": 2365
+  },
+  "loaded_label_normalization_provenance_values": [
+    "Kd_mM_to_delta_g_via_molar",
+    "Kd_nM_to_delta_g_via_molar",
+    "Kd_pM_to_delta_g_via_molar",
+    "Kd_uM_to_delta_g_via_molar",
+    "Ki_fM_to_delta_g_via_molar",
+    "Ki_mM_to_delta_g_via_molar",
+    "Ki_nM_to_delta_g_via_molar",
+    "Ki_pM_to_delta_g_via_molar",
+    "Ki_uM_to_delta_g_via_molar"
+  ],
+  "retained_approximate_affinity_labels": 0,
+  "retained_approximate_label_fraction": 0.0,
   "affinity_normalization_warnings": 0,
+  "duplicate_example_id_label_rows": 0,
+  "duplicate_protein_id_label_rows": 0,
+  "unmatched_example_id_label_rows": 0,
+  "unmatched_protein_id_label_rows": 0,
+  "retained_normalization_provenance_coverage": 1.0,
+  "retained_missing_normalization_provenance": 0,
+  "retained_missing_measurement_type": 0,
+  "retained_measurement_family_histogram": {
+    "Kd": 194,
+    "Ki": 301
+  },
+  "retained_measurement_family_count": 2,
+  "retained_normalization_provenance_values": [
+    "Kd_mM_to_delta_g_via_molar",
+    "Kd_nM_to_delta_g_via_molar",
+    "Kd_pM_to_delta_g_via_molar",
+    "Kd_uM_to_delta_g_via_molar",
+    "Ki_mM_to_delta_g_via_molar",
+    "Ki_nM_to_delta_g_via_molar",
+    "Ki_pM_to_delta_g_via_molar",
+    "Ki_uM_to_delta_g_via_molar"
+  ],
   "normalization_warning_messages": [],
   "parsing_mode": "lightweight"
 }

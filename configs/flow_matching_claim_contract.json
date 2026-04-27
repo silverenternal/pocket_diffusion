@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-27",
+  "scope": "flow_matching_training_to_submission",
+  "claim_threshold_table": [
+    {
+      "claim_id": "FC1_flow_claim_gate_quality",
+      "wording": "Flow-matching reaches claim-gate-compatible chemistry and pocket metrics on canonical larger-data surfaces.",
+      "required_surfaces": [
+        "checkpoints/pdbbindpp_flow_canonical",
+        "checkpoints/lp_pdbbind_refined_flow_canonical"
+      ],
+      "required_metrics": [
+        {
+          "path": "chemistry_novelty_diversity.benchmark_evidence.evidence_tier",
+          "equals": "external_benchmark_backed"
+        },
+        {
+          "path": "test.strict_pocket_fit_score",
+          "min": 0.45
+        },
+        {
+          "path": "test.leakage_proxy_mean",
+          "max": 0.12
+        },
+        {
+          "path": "test.candidate_valid_fraction",
+          "min": 0.95
+        }
+      ]
+    },
+    {
+      "claim_id": "FC2_flow_rollout_stability",
+      "wording": "Flow rollout diagnostics remain stable for displacement and endpoint behavior across seeds.",
+      "required_surfaces": [
+        "checkpoints/multi_seed_pdbbindpp_flow_canonical"
+      ],
+      "required_metrics": [
+        {
+          "path": "flow_rollout_diagnostics.summary.displacement_mean_std",
+          "max": 0.25
+        },
+        {
+          "path": "flow_rollout_diagnostics.summary.endpoint_consistency_score",
+          "min": 0.75
+        },
+        {
+          "path": "multi_seed_summary.aggregate.seed_count",
+          "min": 3
+        }
+      ]
+    },
+    {
+      "claim_id": "FC3_matched_budget_comparison",
+      "wording": "Flow matching beats at least one strong baseline under matched budget on key quality metrics.",
+      "required_surfaces": [
+        "checkpoints/pdbbindpp_flow_canonical"
+      ],
+      "required_metrics": [
+        {
+          "path": "method_comparison_summary.comparison_budget.matched_sampling_steps",
+          "equals": true
+        },
+        {
+          "path": "method_comparison_summary.summary.flow_matching.beats_any_strong_baseline",
+          "equals": true
+        }
+      ]
+    }
+  ],
+  "global_thresholds": {
+    "max_leakage_proxy_mean": 0.12,
+    "min_candidate_valid_fraction": 0.95,
+    "min_gate_activation_mean": 0.01,
+    "min_slot_activation_mean": 0.01,
+    "min_seed_count": 3
+  },
+  "required_artifact_checklist": [
+    {
+      "artifact_id": "A1_flow_claim_summary",
+      "required": true,
+      "path_pattern": "checkpoints/*flow_canonical/claim_summary.json",
+      "description": "Primary quality, leakage, and validity summary."
+    },
+    {
+      "artifact_id": "A2_flow_generation_layers",
+      "required": true,
+      "path_pattern": "checkpoints/*flow_canonical/generation_layers_test.json",
+      "description": "Layered generation behavior for flow runs."
+    },
+    {
+      "artifact_id": "A3_flow_backend_reports",
+      "required": true,
+      "path_pattern": "checkpoints/*flow_canonical/backend_metrics_summary.json",
+      "description": "Chemistry, docking, and pocket backend metrics."
+    },
+    {
+      "artifact_id": "A4_flow_rollout_diagnostics",
+      "required": true,
+      "path_pattern": "checkpoints/*flow_canonical/flow_rollout_diagnostics.json",
+      "description": "Displacement, endpoint, and stepwise rollout diagnostics."
+    },
+    {
+      "artifact_id": "A5_flow_method_comparison",
+      "required": true,
+      "path_pattern": "checkpoints/*flow_canonical/method_comparison_summary.json",
+      "description": "Matched-budget comparison outputs against required baselines."
+    },
+    {
+      "artifact_id": "A6_flow_ablation_matrix",
+      "required": true,
+      "path_pattern": "checkpoints/*flow_canonical/ablation_matrix_summary.json",
+      "description": "Core flow component ablation evidence."
+    },
+    {
+      "artifact_id": "A7_flow_multi_seed_summary",
+      "required": true,
+      "path_pattern": "checkpoints/multi_seed_*flow_canonical/multi_seed_summary.json",
+      "description": "Aggregated multi-seed reliability summary."
+    }
+  ],
+  "promotion_decision": {
+    "decision_label": "promote_flow_claim_surface",
+    "criteria": [
+      "All claims in claim_threshold_table pass on their required surfaces.",
+      "Every required_artifact_checklist entry resolves to at least one existing artifact path.",
+      "Matched-budget method comparison confirms flow_matching beats at least one strong baseline.",
+      "Multi-seed evidence includes >=3 seeds with stable rollout diagnostics."
+    ]
+  }
+}

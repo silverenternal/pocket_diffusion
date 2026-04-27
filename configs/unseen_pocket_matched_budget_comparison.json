@@ -1,0 +1,49 @@
+{
+  "task_id": "F4.2",
+  "task_title": "Matched-budget method comparison",
+  "description": "Compare flow_matching vs conditioned_denoising vs calibrated_reranker under identical sampling_steps=50 budget on unseen_pocket_pdbbindpp surface.",
+  "comparison_mode": "matched_sampling_steps",
+  "sampling_steps_budget": 50,
+  "evaluation_surface": "unseen_pocket_pdbbindpp",
+  "methods": [
+    {
+      "name": "flow_matching",
+      "config": "configs/unseen_pocket_pdbbindpp_flow_best_candidate.json",
+      "sampling_steps_override": 50,
+      "note": "Optimized flow config from F2.1 sweep (beta_intra_red=0.05, gamma_probe=0.15)"
+    },
+    {
+      "name": "conditioned_denoising",
+      "config": "configs/unseen_pocket_pdbbindpp_denoising_matched.json",
+      "sampling_steps_override": 50,
+      "note": "Denoising baseline with 50 sampling steps"
+    },
+    {
+      "name": "calibrated_reranker",
+      "config": "configs/unseen_pocket_pdbbindpp_reranker_matched.json",
+      "sampling_steps_override": 50,
+      "note": "Reranker baseline with 50 candidates from 50 steps"
+    }
+  ],
+  "execution_plan": [
+    "1. Validate all three method configs",
+    "2. Run each method independently with sampling_steps=50",
+    "3. Collect candidate_valid_fraction and strict_pocket_fit_score from each",
+    "4. Compute delta metrics (flow vs baseline for both validity and pocket fit)",
+    "5. Document acceptance criteria: flow should improve pocket fit >=5% vs denoising, >=8% vs reranker"
+  ],
+  "metrics_to_collect": [
+    "candidate_valid_fraction",
+    "strict_pocket_fit_score",
+    "efficiency_tokens_per_sample",
+    "diversity_coverage"
+  ],
+  "acceptance_criteria": [
+    "✓ All three methods complete successfully",
+    "✓ flow_matching pocket_fit >= denoising pocket_fit + 0.05",
+    "✓ flow_matching pocket_fit >= reranker pocket_fit + 0.08",
+    "✓ flow_matching validity >= 0.95 (maintains chemistry quality)"
+  ],
+  "result_artifact": "f42_method_comparison.json",
+  "status": "pending_execution"
+}

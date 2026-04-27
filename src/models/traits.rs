@@ -1,5 +1,7 @@
 //! Replaceable model interfaces for research ablations.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use tch::Tensor;
 
@@ -299,6 +301,103 @@ impl Clone for DecoderOutput {
 pub trait ConditionedLigandDecoder {
     /// Decode one modular generation state into topology and geometry updates.
     fn decode(&self, state: &ConditionedGenerationState) -> DecoderOutput;
+}
+
+/// Continuous flow state used by geometry-only flow-matching generators.
+#[derive(Debug)]
+pub struct FlowState {
+    /// Coordinates at the current integration time `t` with shape `[num_atoms, 3]`.
+    pub coords: Tensor,
+    /// Initial coordinates used to build the transport path.
+    pub x0_coords: Tensor,
+    /// Optional target coordinates used during training only.
+    pub target_coords: Option<Tensor>,
+    /// Scalar normalized timestep in `[0, 1]`.
+    pub t: f64,
+}
+
+impl Clone for FlowState {
+    fn clone(&self) -> Self {
+        Self {
+            coords: self.coords.shallow_clone(),
+            x0_coords: self.x0_coords.shallow_clone(),
+            target_coords: self.target_coords.as_ref().map(Tensor::shallow_clone),
+            t: self.t,
+        }
+    }
+}
+
+/// Explicit conditioning bundle consumed by flow-matching velocity heads.
+#[derive(Debug)]
+pub struct ConditioningState {
+    /// Topology conditioning context with shape `[slots, hidden_dim]`.
+    pub topology_context: Tensor,
+    /// Geometry conditioning context with shape `[slots, hidden_dim]`.
+    pub geometry_context: Tensor,
+    /// Pocket conditioning context with shape `[slots, hidden_dim]`.
+    pub pocket_context: Tensor,
+    /// Directed gate summary from controlled cross-modal interaction.
+    pub gate_summary: GenerationGateSummary,
+}
+
+impl Clone for ConditioningState {
+    fn clone(&self) -> Self {
+        Self {
+            topology_context: self.topology_context.shallow_clone(),
+            geometry_context: self.geometry_context.shallow_clone(),
+            pocket_context: self.pocket_context.shallow_clone(),
+            gate_summary: self.gate_summary,
+        }
+    }
+}
+
+/// Predicted per-atom flow velocity field.
+#[derive(Debug)]
+pub struct VelocityField {
+    /// Predicted velocity vectors with shape `[num_atoms, 3]`.
+    pub velocity: Tensor,
+}
+
+impl Clone for VelocityField {
+    fn clone(&self) -> Self {
+        Self {
+            velocity: self.velocity.shallow_clone(),
+        }
+    }
+}
+
+/// Structured model error surface for replaceable generator heads.
+#[derive(Debug, Clone)]
+pub struct ModelError {
+    /// Human-readable message.
+    pub message: String,
+}
+
+impl ModelError {
+    /// Create a model error with a message.
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for ModelError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for ModelError {}
+
+/// Replaceable geometry flow-matching prediction head.
+pub trait FlowMatchingHead {
+    /// Predict velocity for one flow state under decomposed conditioning.
+    fn predict_velocity(
+        &self,
+        state: &FlowState,
+        conditioning: &ConditioningState,
+    ) -> Result<VelocityField, ModelError>;
 }
 
 /// One iterative refinement step emitted by the modular decoder rollout.

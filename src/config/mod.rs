@@ -6,8 +6,9 @@ pub use types::{
     load_research_config, AffinityWeighting, AutomatedSearchConfig, AutomatedSearchHardGateConfig,
     AutomatedSearchScoreWeightConfig, AutomatedSearchSpaceConfig, AutomatedSearchStrategy,
     ConfigValidationError, CrossAttentionMode, DataConfig, DataQualityFilterConfig, DatasetFormat,
-    ExternalBackendCommandConfig, GenerationBackendConfig, GenerationBackendFamilyConfig,
-    GenerationMethodConfig, GenerationRolloutMode, GenerationTargetConfig, InteractionTuningConfig,
-    LossWeightConfig, ModelConfig, ParsingMode, PrimaryObjectiveConfig, ResearchConfig,
-    RuntimeConfig, StageScheduleConfig, TrainingConfig,
+    ExternalBackendCommandConfig, FlowMatchingConfig, FlowMatchingIntegrationMethod,
+    GenerationBackendConfig, GenerationBackendFamilyConfig, GenerationMethodConfig,
+    GenerationRolloutMode, GenerationTargetConfig, InteractionTuningConfig, LossWeightConfig,
+    ModelConfig, ParsingMode, PrimaryObjectiveConfig, ResearchConfig, RuntimeConfig,
+    StageScheduleConfig, TrainingConfig,
 };

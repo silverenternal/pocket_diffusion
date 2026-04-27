@@ -20,7 +20,10 @@
         "max_fallback_fraction": 0.0,
         "max_ligand_atoms": 96,
         "max_pocket_atoms": 512,
-        "require_source_structure_provenance": true
+        "require_source_structure_provenance": true,
+        "require_affinity_metadata": false,
+        "max_approximate_label_fraction": null,
+        "min_normalization_provenance_coverage": null
       },
       "generation_target": {
         "atom_mask_ratio": 0.15,
@@ -64,6 +67,52 @@
         "geometry_attention_bias_scale": 1.0
       }
     },
+    "generation_method": {
+      "active_method": "conditioned_denoising",
+      "primary_backend": {
+        "backend_id": "conditioned_denoising",
+        "family": "conditioned_denoising",
+        "trainable": true,
+        "checkpoint_path": null,
+        "sampling_steps": null,
+        "sampling_temperature": null,
+        "external_wrapper": {
+          "enabled": false,
+          "executable": null,
+          "args": [],
+          "timeout_ms": 30000
+        }
+      },
+      "comparison_methods": [
+        "heuristic_raw_rollout_no_repair",
+        "pocket_centroid_repair_proxy",
+        "deterministic_proxy_reranker",
+        "calibrated_reranker",
+        "flow_matching",
+        "autoregressive_graph_geometry",
+        "energy_guided_refinement"
+      ],
+      "comparison_backends": [],
+      "candidate_count": 3,
+      "enable_comparison_runner": true,
+      "flow_matching": {
+        "steps": 20,
+        "noise_scale": 0.15,
+        "integration_method": "euler",
+        "geometry_only": true,
+        "use_corrupted_x0": true
+      }
+    },
+    "preference_alignment": {
+      "enable_profile_extraction": false,
+      "enable_pair_construction": false,
+      "enable_preference_reranking": false,
+      "max_pairs_per_example": 256,
+      "min_soft_margin": 0.05,
+      "max_clash_fraction": 0.1,
+      "min_strict_pocket_fit_score": 0.35,
+      "missing_artifacts_mean_unavailable": true
+    },
     "training": {
       "learning_rate": 0.001,
       "max_steps": 8,
@@ -87,6 +136,9 @@
       "checkpoint_every": 100,
       "log_every": 1,
       "primary_objective": "conditioned_denoising",
+      "flow_matching_loss_weight": 1.0,
+      "hybrid_denoising_weight": 0.5,
+      "hybrid_flow_weight": 0.5,
       "affinity_weighting": "inverse_frequency"
     },
     "runtime": {
@@ -151,6 +203,9 @@
     }
   },
   "surface_label": "multi_seed_pdbbindpp_real_backends",
+  "reviewer_benchmark": {
+    "dataset": null
+  },
   "ablation": {
     "disable_slots": false,
     "disable_cross_attention": false,
@@ -160,6 +215,10 @@
     "disable_rollout_pocket_guidance": false,
     "disable_candidate_repair": false,
     "primary_objective_override": null,
+    "generation_backend_override": null,
+    "num_slots_override": null,
+    "eta_gate_override": null,
+    "delta_leak_override": null,
     "interaction_mode_override": null,
     "variant_label": "multi_seed_pdbbindpp_real_backends_base"
   },
@@ -169,7 +228,8 @@
       "executable": "python3",
       "args": [
         "./tools/rdkit_validity_backend.py"
-      ]
+      ],
+      "timeout_ms": 30000
     },
     "docking_backend": {
       "enabled": true,
@@ -178,7 +238,8 @@
         "./tools/pocket_contact_backend.py",
         "--mode",
         "docking"
-      ]
+      ],
+      "timeout_ms": 30000
     },
     "pocket_backend": {
       "enabled": true,
@@ -187,7 +248,8 @@
         "./tools/pocket_contact_backend.py",
         "--mode",
         "compatibility"
-      ]
+      ],
+      "timeout_ms": 30000
     },
     "persist_generation_artifacts": true,
     "generation_artifact_example_limit": 8,
@@ -204,7 +266,11 @@
     "include_transformer_interaction": true,
     "include_disable_geometry_interaction_bias": true,
     "include_disable_rollout_pocket_guidance": true,
-    "include_disable_candidate_repair": true
+    "include_disable_candidate_repair": true,
+    "include_backend_family_ablation": true,
+    "include_slot_count_ablation": true,
+    "include_gate_sparsity_ablation": true,
+    "include_leakage_penalty_ablation": true
   },
   "automated_search": {
     "enabled": false,

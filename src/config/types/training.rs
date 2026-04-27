@@ -18,6 +18,15 @@ pub struct TrainingConfig {
     /// Configured primary objective implementation.
     #[serde(default = "default_primary_objective")]
     pub primary_objective: PrimaryObjectiveConfig,
+    /// Weight applied to the flow-matching objective when enabled.
+    #[serde(default = "default_flow_matching_loss_weight")]
+    pub flow_matching_loss_weight: f64,
+    /// Weight applied to denoising term in the hybrid denoising+flow objective.
+    #[serde(default = "default_hybrid_denoising_weight")]
+    pub hybrid_denoising_weight: f64,
+    /// Weight applied to flow term in the hybrid denoising+flow objective.
+    #[serde(default = "default_hybrid_flow_weight")]
+    pub hybrid_flow_weight: f64,
     /// Weighting strategy for labeled affinity supervision.
     pub affinity_weighting: AffinityWeighting,
 }
@@ -33,6 +42,9 @@ impl Default for TrainingConfig {
             checkpoint_every: 10,
             log_every: 1,
             primary_objective: PrimaryObjectiveConfig::SurrogateReconstruction,
+            flow_matching_loss_weight: default_flow_matching_loss_weight(),
+            hybrid_denoising_weight: default_hybrid_denoising_weight(),
+            hybrid_flow_weight: default_hybrid_flow_weight(),
             affinity_weighting: AffinityWeighting::None,
         }
     }
@@ -52,6 +64,30 @@ impl TrainingConfig {
         }
         self.schedule.validate(self.max_steps)?;
         self.loss_weights.validate()?;
+        for (name, value) in [
+            (
+                "training.flow_matching_loss_weight",
+                self.flow_matching_loss_weight,
+            ),
+            (
+                "training.hybrid_denoising_weight",
+                self.hybrid_denoising_weight,
+            ),
+            ("training.hybrid_flow_weight", self.hybrid_flow_weight),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(ConfigValidationError::new(format!(
+                    "{name} must be finite and non-negative"
+                )));
+            }
+        }
+        if self.primary_objective == PrimaryObjectiveConfig::DenoisingFlowMatching
+            && (self.hybrid_denoising_weight + self.hybrid_flow_weight) <= 0.0
+        {
+            return Err(ConfigValidationError::new(
+                "training.hybrid_denoising_weight + training.hybrid_flow_weight must be > 0 for denoising_flow_matching",
+            ));
+        }
         if self.checkpoint_dir.as_os_str().is_empty() {
             return Err(ConfigValidationError::new(
                 "training.checkpoint_dir must not be empty",
@@ -188,6 +224,22 @@ pub enum PrimaryObjectiveConfig {
     SurrogateReconstruction,
     /// Decoder-side corruption recovery over ligand atom identities and coordinates.
     ConditionedDenoising,
+    /// Geometry-only flow-matching objective over velocity prediction.
+    FlowMatching,
+    /// Hybrid objective combining conditioned denoising and flow matching.
+    DenoisingFlowMatching,
+}
+
+fn default_flow_matching_loss_weight() -> f64 {
+    1.0
+}
+
+fn default_hybrid_denoising_weight() -> f64 {
+    0.5
+}
+
+fn default_hybrid_flow_weight() -> f64 {
+    0.5
 }
 
 /// Backing format used by the dataset loader.
@@ -300,4 +352,3 @@ fn ensure_directory_exists(path: &Path, field_name: &str) -> Result<(), ConfigVa
     }
     Ok(())
 }
-

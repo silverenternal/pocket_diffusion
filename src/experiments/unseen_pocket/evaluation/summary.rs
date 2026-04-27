@@ -250,6 +250,10 @@ fn primary_objective_label(config: crate::config::PrimaryObjectiveConfig) -> Str
         crate::config::PrimaryObjectiveConfig::ConditionedDenoising => {
             "conditioned_denoising".to_string()
         }
+        crate::config::PrimaryObjectiveConfig::FlowMatching => "flow_matching".to_string(),
+        crate::config::PrimaryObjectiveConfig::DenoisingFlowMatching => {
+            "denoising_flow_matching".to_string()
+        }
     }
 }
 

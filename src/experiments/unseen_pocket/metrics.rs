@@ -208,6 +208,34 @@ pub struct MethodComparisonSummary {
     /// Additive preference-alignment artifact summary.
     #[serde(default)]
     pub preference_alignment: PreferenceAlignmentSummary,
+    /// Flow-matching focused layer metrics extracted from method comparison outputs.
+    #[serde(default)]
+    pub flow_metrics: FlowMethodMetrics,
+}
+
+/// Focused flow-matching layer metrics and deltas against conditioned denoising.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FlowMethodMetrics {
+    /// Raw flow output quality metrics when flow backend is available.
+    #[serde(default)]
+    pub raw_output: Option<CandidateLayerMetrics>,
+    /// Repaired flow output quality metrics when flow backend is available.
+    #[serde(default)]
+    pub repaired_output: Option<CandidateLayerMetrics>,
+    /// Flow-vs-denoising deltas (flow minus denoising) for shared metrics.
+    #[serde(default)]
+    pub versus_conditioned_denoising: Option<FlowVsDenoisingDelta>,
+}
+
+/// Compact flow-vs-denoising delta report.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FlowVsDenoisingDelta {
+    /// Delta in native valid fraction (flow - denoising).
+    pub native_valid_fraction_delta: f64,
+    /// Delta in native pocket-contact fraction (flow - denoising).
+    pub native_pocket_contact_fraction_delta: f64,
+    /// Delta in native clash fraction (flow - denoising); lower-is-better in absolute terms.
+    pub native_clash_fraction_delta: f64,
 }
 
 /// Additive summary for interaction-profile and preference-pair artifacts.

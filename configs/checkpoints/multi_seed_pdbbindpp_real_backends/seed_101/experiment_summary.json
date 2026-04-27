@@ -21,7 +21,10 @@
           "max_fallback_fraction": 0.0,
           "max_ligand_atoms": 96,
           "max_pocket_atoms": 512,
-          "require_source_structure_provenance": true
+          "require_source_structure_provenance": true,
+          "require_affinity_metadata": false,
+          "max_approximate_label_fraction": null,
+          "min_normalization_provenance_coverage": null
         },
         "generation_target": {
           "atom_mask_ratio": 0.15,
@@ -65,6 +68,52 @@
           "geometry_attention_bias_scale": 1.0
         }
       },
+      "generation_method": {
+        "active_method": "conditioned_denoising",
+        "primary_backend": {
+          "backend_id": "conditioned_denoising",
+          "family": "conditioned_denoising",
+          "trainable": true,
+          "checkpoint_path": null,
+          "sampling_steps": null,
+          "sampling_temperature": null,
+          "external_wrapper": {
+            "enabled": false,
+            "executable": null,
+            "args": [],
+            "timeout_ms": 30000
+          }
+        },
+        "comparison_methods": [
+          "heuristic_raw_rollout_no_repair",
+          "pocket_centroid_repair_proxy",
+          "deterministic_proxy_reranker",
+          "calibrated_reranker",
+          "flow_matching",
+          "autoregressive_graph_geometry",
+          "energy_guided_refinement"
+        ],
+        "comparison_backends": [],
+        "candidate_count": 3,
+        "enable_comparison_runner": true,
+        "flow_matching": {
+          "steps": 20,
+          "noise_scale": 0.15,
+          "integration_method": "euler",
+          "geometry_only": true,
+          "use_corrupted_x0": true
+        }
+      },
+      "preference_alignment": {
+        "enable_profile_extraction": false,
+        "enable_pair_construction": false,
+        "enable_preference_reranking": false,
+        "max_pairs_per_example": 256,
+        "min_soft_margin": 0.05,
+        "max_clash_fraction": 0.1,
+        "min_strict_pocket_fit_score": 0.35,
+        "missing_artifacts_mean_unavailable": true
+      },
       "training": {
         "learning_rate": 0.001,
         "max_steps": 8,
@@ -88,6 +137,9 @@
         "checkpoint_every": 100,
         "log_every": 1,
         "primary_objective": "conditioned_denoising",
+        "flow_matching_loss_weight": 1.0,
+        "hybrid_denoising_weight": 0.5,
+        "hybrid_flow_weight": 0.5,
         "affinity_weighting": "inverse_frequency"
       },
       "runtime": {
@@ -152,6 +204,9 @@
       }
     },
     "surface_label": "multi_seed_pdbbindpp_real_backends",
+    "reviewer_benchmark": {
+      "dataset": null
+    },
     "ablation": {
       "disable_slots": false,
       "disable_cross_attention": false,
@@ -161,6 +216,10 @@
       "disable_rollout_pocket_guidance": false,
       "disable_candidate_repair": false,
       "primary_objective_override": null,
+      "generation_backend_override": null,
+      "num_slots_override": null,
+      "eta_gate_override": null,
+      "delta_leak_override": null,
       "interaction_mode_override": null,
       "variant_label": "multi_seed_pdbbindpp_real_backends_base"
     },
@@ -170,7 +229,8 @@
         "executable": "python3",
         "args": [
           "./tools/rdkit_validity_backend.py"
-        ]
+        ],
+        "timeout_ms": 30000
       },
       "docking_backend": {
         "enabled": true,
@@ -179,7 +239,8 @@
           "./tools/pocket_contact_backend.py",
           "--mode",
           "docking"
-        ]
+        ],
+        "timeout_ms": 30000
       },
       "pocket_backend": {
         "enabled": true,
@@ -188,7 +249,8 @@
           "./tools/pocket_contact_backend.py",
           "--mode",
           "compatibility"
-        ]
+        ],
+        "timeout_ms": 30000
       },
       "persist_generation_artifacts": true,
       "generation_artifact_example_limit": 8,
@@ -205,7 +267,11 @@
       "include_transformer_interaction": true,
       "include_disable_geometry_interaction_bias": true,
       "include_disable_rollout_pocket_guidance": true,
-      "include_disable_candidate_repair": true
+      "include_disable_candidate_repair": true,
+      "include_backend_family_ablation": true,
+      "include_slot_count_ablation": true,
+      "include_gate_sparsity_ablation": true,
+      "include_leakage_penalty_ablation": true
     },
     "automated_search": {
       "enabled": false,
@@ -293,11 +359,55 @@
     "quality_filtered_ligand_atom_limit": 262,
     "quality_filtered_pocket_atom_limit": 0,
     "quality_filtered_missing_source_provenance": 0,
+    "quality_filtered_missing_affinity_metadata": 0,
     "retained_label_coverage": 0.9667969,
     "observed_fallback_fraction": 0.0,
+    "retained_source_provenance_coverage": 1.0,
     "loaded_label_rows": 5048,
+    "label_table_rows_seen": 5048,
+    "label_table_blank_rows": 0,
+    "label_table_comment_rows": 0,
     "approximate_affinity_labels": 0,
+    "loaded_label_measurement_family_histogram": {
+      "Kd": 2683,
+      "Ki": 2365
+    },
+    "loaded_label_normalization_provenance_values": [
+      "Kd_mM_to_delta_g_via_molar",
+      "Kd_nM_to_delta_g_via_molar",
+      "Kd_pM_to_delta_g_via_molar",
+      "Kd_uM_to_delta_g_via_molar",
+      "Ki_fM_to_delta_g_via_molar",
+      "Ki_mM_to_delta_g_via_molar",
+      "Ki_nM_to_delta_g_via_molar",
+      "Ki_pM_to_delta_g_via_molar",
+      "Ki_uM_to_delta_g_via_molar"
+    ],
+    "retained_approximate_affinity_labels": 0,
+    "retained_approximate_label_fraction": 0.0,
     "affinity_normalization_warnings": 0,
+    "duplicate_example_id_label_rows": 0,
+    "duplicate_protein_id_label_rows": 0,
+    "unmatched_example_id_label_rows": 0,
+    "unmatched_protein_id_label_rows": 0,
+    "retained_normalization_provenance_coverage": 1.0,
+    "retained_missing_normalization_provenance": 0,
+    "retained_missing_measurement_type": 0,
+    "retained_measurement_family_histogram": {
+      "Kd": 194,
+      "Ki": 301
+    },
+    "retained_measurement_family_count": 2,
+    "retained_normalization_provenance_values": [
+      "Kd_mM_to_delta_g_via_molar",
+      "Kd_nM_to_delta_g_via_molar",
+      "Kd_pM_to_delta_g_via_molar",
+      "Kd_uM_to_delta_g_via_molar",
+      "Ki_mM_to_delta_g_via_molar",
+      "Ki_nM_to_delta_g_via_molar",
+      "Ki_pM_to_delta_g_via_molar",
+      "Ki_uM_to_delta_g_via_molar"
+    ],
     "normalization_warning_messages": [],
     "parsing_mode": "lightweight"
   },
@@ -906,8 +1016,8 @@
     }
   },
   "reproducibility": {
-    "config_hash": "b6f262ed96fd358b",
-    "dataset_validation_fingerprint": "bfc157a6a152e4b9",
+    "config_hash": "24b7403c9e928c62",
+    "dataset_validation_fingerprint": "66d72e47fc3dbee5",
     "metric_schema_version": 5,
     "artifact_bundle_schema_version": 1,
     "determinism_controls": {
@@ -953,20 +1063,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 12.484442710876465,
+          "primary_value": 29.95199203491211,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 44.39897155761719,
-          "probe": 83.73941802978516,
+          "intra_red": 143.0430908203125,
+          "probe": 150.9107666015625,
           "leak": 0.0,
-          "gate": 0.452485591173172,
-          "slot": 0.1454106867313385,
-          "consistency": 0.4315143823623657,
-          "pocket_contact": 0.20478501915931702,
-          "pocket_clash": 0.0000761155752115883
+          "gate": 0.5683797001838684,
+          "slot": 0.14544227719306946,
+          "consistency": 0.6622692942619324,
+          "pocket_contact": 0.7038505673408508,
+          "pocket_clash": 0.0005136121762916446
         },
-        "total": 12.527594566345215
+        "total": 30.018218994140625
       }
     },
     {
@@ -975,20 +1085,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 58.75766372680664,
+          "primary_value": 113.73980712890625,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 81.7799072265625,
-          "probe": 79.48544311523438,
+          "intra_red": 96.81230163574219,
+          "probe": 144.71763610839844,
           "leak": 0.0,
-          "gate": 0.41393527388572693,
-          "slot": 0.14521892368793488,
-          "consistency": 0.3973041772842407,
-          "pocket_contact": 5.1524658203125,
-          "pocket_clash": 0.00011972961510764435
+          "gate": 0.5470967292785645,
+          "slot": 0.1481619030237198,
+          "consistency": 0.5752605199813843,
+          "pocket_contact": 25.064552307128906,
+          "pocket_clash": 0.0
         },
-        "total": 58.797393798828125
+        "total": 113.79733276367188
       }
     },
     {
@@ -997,20 +1107,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 10.56171989440918,
+          "primary_value": 13.991729736328125,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 47.46107482910156,
-          "probe": 55.68235397338867,
+          "intra_red": 53.43404769897461,
+          "probe": 109.4999008178711,
           "leak": 0.0,
-          "gate": 0.34130585193634033,
-          "slot": 0.1451079547405243,
-          "consistency": 0.36255618929862976,
-          "pocket_contact": 0.02294827438890934,
-          "pocket_clash": 0.0003400991845410317
+          "gate": 0.5054099559783936,
+          "slot": 0.148095041513443,
+          "consistency": 0.5358635187149048,
+          "pocket_contact": 0.2618106007575989,
+          "pocket_clash": 0.0005655027343891561
         },
-        "total": 11.072586059570312
+        "total": 14.579656600952148
       }
     },
     {
@@ -1019,20 +1129,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 11.89704704284668,
+          "primary_value": 12.950448989868164,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 88.87611389160156,
-          "probe": 75.03411102294922,
+          "intra_red": 125.34603118896484,
+          "probe": 133.9615936279297,
           "leak": 0.0,
-          "gate": 0.30465587973594666,
-          "slot": 0.14505530893802643,
-          "consistency": 0.3439328968524933,
-          "pocket_contact": 0.15759187936782837,
-          "pocket_clash": 0.0004414661379996687
+          "gate": 0.44554343819618225,
+          "slot": 0.14960846304893494,
+          "consistency": 0.5337743163108826,
+          "pocket_contact": 0.20284898579120636,
+          "pocket_clash": 0.0005429162411019206
         },
-        "total": 16.375246047973633
+        "total": 19.271127700805664
       }
     },
     {
@@ -1041,20 +1151,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 5.2817792892456055,
+          "primary_value": 11.975284576416016,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 75.01129913330078,
-          "probe": 89.49430084228516,
+          "intra_red": 40.235313415527344,
+          "probe": 146.74533081054688,
           "leak": 0.0,
-          "gate": 0.256946861743927,
-          "slot": 0.1465766429901123,
-          "consistency": 0.32497450709342957,
-          "pocket_contact": 0.34992289543151855,
-          "pocket_clash": 0.0002171475935028866
+          "gate": 0.3965127468109131,
+          "slot": 0.1516014039516449,
+          "consistency": 0.5164152979850769,
+          "pocket_contact": 0.18576975166797638,
+          "pocket_clash": 0.0005666970973834395
         },
-        "total": 7.854275703430176
+        "total": 15.364185333251953
       }
     },
     {
@@ -1063,20 +1173,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 4.284492492675781,
+          "primary_value": 8.005915641784668,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 44.982948303222656,
-          "probe": 45.73955154418945,
+          "intra_red": 30.51792335510254,
+          "probe": 98.10731506347656,
           "leak": 0.0,
-          "gate": 0.21380828320980072,
-          "slot": 0.14630430936813354,
-          "consistency": 0.30478784441947937,
-          "pocket_contact": 0.06651025265455246,
-          "pocket_clash": 0.000013191961443226319
+          "gate": 0.343098521232605,
+          "slot": 0.15149343013763428,
+          "consistency": 0.46261802315711975,
+          "pocket_contact": 0.22511950135231018,
+          "pocket_clash": 0.00039725148235447705
         },
-        "total": 11.138073921203613
+        "total": 19.38880729675293
       }
     },
     {
@@ -1085,20 +1195,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 4.571496486663818,
+          "primary_value": 3.953062057495117,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 61.29121398925781,
-          "probe": 61.779659271240234,
-          "leak": 0.0,
-          "gate": 0.18240122497081757,
-          "slot": 0.1466110497713089,
-          "consistency": 0.29219746589660645,
-          "pocket_contact": 0.16638222336769104,
-          "pocket_clash": 0.00008406070264754817
+          "intra_red": 45.1624755859375,
+          "probe": 124.545654296875,
+          "leak": 0.0008771344437263906,
+          "gate": 0.2996106445789337,
+          "slot": 0.15272046625614166,
+          "consistency": 0.46423378586769104,
+          "pocket_contact": 0.13226155936717987,
+          "pocket_clash": 0.00006100444807088934
         },
-        "total": 6.45086669921875
+        "total": 6.944289207458496
       }
     },
     {
@@ -1107,20 +1217,20 @@
       "losses": {
         "primary": {
           "objective_name": "conditioned_denoising",
-          "primary_value": 5.062354564666748,
+          "primary_value": 3.986309051513672,
           "decoder_anchored": true
         },
         "auxiliaries": {
-          "intra_red": 138.80471801757812,
-          "probe": 73.61082458496094,
+          "intra_red": 52.86684799194336,
+          "probe": 131.58108520507812,
           "leak": 0.0,
-          "gate": 0.1585308313369751,
-          "slot": 0.14637041091918945,
-          "consistency": 0.28233662247657776,
-          "pocket_contact": 0.12439309805631638,
-          "pocket_clash": 4.266760697646532e-6
+          "gate": 0.2452472597360611,
+          "slot": 0.15495441854000092,
+          "consistency": 0.40588903427124023,
+          "pocket_contact": 0.29288601875305176,
+          "pocket_clash": 2.3409634195559192e-6
         },
-        "total": 19.3995304107666
+        "total": 19.838354110717773
       }
     }
   ],
@@ -1129,29 +1239,29 @@
       "finite_forward_fraction": 1.0,
       "unique_complex_fraction": 1.0,
       "unseen_protein_fraction": 1.0,
-      "distance_probe_rmse": 1.3263390737540934,
-      "topology_pocket_cosine_alignment": 0.44088760163685736,
-      "topology_reconstruction_mse": 4.068607475850489,
-      "slot_activation_mean": 0.5822510822510822,
-      "gate_activation_mean": 0.14239159950913935,
-      "leakage_proxy_mean": 0.03866926770137197
+      "distance_probe_rmse": 6.061261701422583,
+      "topology_pocket_cosine_alignment": 0.3591143212074295,
+      "topology_reconstruction_mse": 3.4862137893577674,
+      "slot_activation_mean": 0.6314935064935064,
+      "gate_activation_mean": 0.2366456779574742,
+      "leakage_proxy_mean": 0.08533223018607007
     },
     "proxy_task_metrics": {
-      "affinity_probe_mae": 6.235534441935552,
-      "affinity_probe_rmse": 6.7838065202312015,
+      "affinity_probe_mae": 6.597638402666364,
+      "affinity_probe_rmse": 7.114490961063154,
       "labeled_fraction": 1.0,
       "affinity_by_measurement": [
         {
           "measurement_type": "Kd",
           "count": 39,
-          "mae": 6.296961188316345,
-          "rmse": 6.784886394390771
+          "mae": 6.6871540026787,
+          "rmse": 7.162476497572723
         },
         {
           "measurement_type": "Ki",
           "count": 38,
-          "mae": 6.172491202228947,
-          "rmse": 6.782698049557584
+          "mae": 6.505767128969493,
+          "rmse": 7.064903754597931
         }
       ]
     },
@@ -1177,8 +1287,8 @@
     },
     "resource_usage": {
       "memory_usage_mb": 0.0,
-      "evaluation_time_ms": 1198.367753,
-      "examples_per_second": 64.25406542126805,
+      "evaluation_time_ms": 1372.641548,
+      "examples_per_second": 56.096218355179786,
       "average_ligand_atoms": 44.5974025974026,
       "average_pocket_atoms": 76.11688311688312
     },
@@ -1189,6 +1299,13 @@
         "metrics": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|backend_missing_structure_fraction": 0.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_finite_conformer_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_parseable_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_sanitized_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_unique_smiles_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_valid_fraction": 1.0,
           "heuristic_structural_pass_fraction": 0.0,
           "heuristic_valence_sanity_fraction": 1.0,
           "heuristic_valid_fraction": 1.0,
@@ -1197,6 +1314,7 @@
           "rdkit_parseable_fraction": 1.0,
           "rdkit_sanitized_fraction": 1.0,
           "rdkit_unique_smiles_fraction": 1.0,
+          "rdkit_valid_fraction": 1.0,
           "schema_version": 1.0
         },
         "status": "external chemistry-validity backend on modular rollout candidates"
@@ -1207,13 +1325,18 @@
         "metrics": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|clash_fraction": 0.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|contact_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|docking_like_score": 0.9108283711899944,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|mean_min_contact_distance": 2.312215166147652,
           "clash_fraction": 0.0,
           "contact_fraction": 1.0,
-          "docking_like_score": 0.9070936449552524,
-          "heuristic_centroid_fit_score": 0.6082176771870071,
-          "heuristic_mean_centroid_offset": 0.6441482013889782,
+          "docking_like_score": 0.9108283711899944,
+          "heuristic_centroid_fit_score": 0.5473319673662799,
+          "heuristic_mean_centroid_offset": 0.8270447545973325,
           "heuristic_pocket_contact_fraction": 1.0,
-          "mean_min_contact_distance": 2.4311588657965677,
+          "mean_min_contact_distance": 2.312215166147652,
           "schema_version": 1.0
         },
         "status": "external docking backend on modular rollout candidates"
@@ -1222,15 +1345,19 @@
         "available": true,
         "backend_name": "external_command_pocket_compatibility",
         "metrics": {
-          "atom_coverage_fraction": 0.967741935483871,
+          "atom_coverage_fraction": 1.0,
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|atom_coverage_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|centroid_inside_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|clash_fraction": 0.0,
           "centroid_inside_fraction": 1.0,
           "clash_fraction": 0.0,
           "heuristic_atom_coverage_fraction": 1.0,
           "heuristic_centroid_inside_fraction": 1.0,
           "heuristic_clash_free_fraction": 1.0,
-          "heuristic_strict_pocket_fit_score": 0.6082176771870071,
+          "heuristic_strict_pocket_fit_score": 0.5473319673662799,
           "schema_version": 1.0
         },
         "status": "external pocket-compatibility backend on modular rollout candidates"
@@ -1241,10 +1368,10 @@
         "candidate_count": 24,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 2.0321653187275355,
-        "clash_fraction": 0.00749734218137679,
-        "mean_displacement": 0.8280707984775691,
-        "atom_change_fraction": 0.10700552414667297,
+        "mean_centroid_offset": 2.334118488301185,
+        "clash_fraction": 0.003852716108518476,
+        "mean_displacement": 1.0418086903435844,
+        "atom_change_fraction": 0.05707046546816052,
         "uniqueness_proxy_fraction": 0.3333333333333333,
         "atom_type_sequence_diversity": 0.3333333333333333,
         "bond_topology_diversity": 0.041666666666666664,
@@ -1257,8 +1384,8 @@
         "candidate_count": 24,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.8766037835726611,
-        "clash_fraction": 0.0002316532269032375,
+        "mean_centroid_offset": 1.0013770375909037,
+        "clash_fraction": 0.00006740247818113716,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
@@ -1273,8 +1400,8 @@
         "candidate_count": 24,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.8766037835726611,
-        "clash_fraction": 0.00022329373274981664,
+        "mean_centroid_offset": 1.0013770375909037,
+        "clash_fraction": 0.00005338349167108682,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
@@ -1286,11 +1413,11 @@
         "novel_coordinate_shape_fraction": 1.0
       },
       "reranked_candidates": {
-        "candidate_count": 12,
+        "candidate_count": 8,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.6988014373943344,
-        "clash_fraction": 0.00003163756011136421,
+        "mean_centroid_offset": 0.973911927345209,
+        "clash_fraction": 0.00005617977528089888,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
@@ -1302,11 +1429,11 @@
         "novel_coordinate_shape_fraction": 1.0
       },
       "deterministic_proxy_candidates": {
-        "candidate_count": 12,
+        "candidate_count": 8,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.6701795449430721,
-        "clash_fraction": 0.00003163756011136421,
+        "mean_centroid_offset": 0.9582743647138219,
+        "clash_fraction": 0.0,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
@@ -1320,20 +1447,27 @@
       "reranker_calibration": {
         "method": "bounded_nonnegative_feature_target_covariance_v1",
         "coefficients": {
-          "bond_density_fit": 0.05117073792385738,
-          "centroid_fit": 0.049606527687676,
-          "clash_free": 0.00005669949144685351,
+          "bond_density_fit": 0.0,
+          "centroid_fit": 0.0,
+          "clash_free": 0.000049423683435604324,
           "pocket_contact": 0.0,
-          "valence_sane": 0.8991660348970197,
+          "valence_sane": 0.9999505763165645,
           "valid": 0.0
         },
-        "target_mean": 0.9186303583707258,
+        "target_mean": 0.9458766581056728,
         "fitted_candidate_count": 24
       },
       "backend_scored_candidates": {
         "chemistry_validity": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|backend_missing_structure_fraction": 0.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_finite_conformer_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_parseable_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_sanitized_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_unique_smiles_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|rdkit_valid_fraction": 1.0,
           "heuristic_structural_pass_fraction": 0.0,
           "heuristic_valence_sanity_fraction": 1.0,
           "heuristic_valid_fraction": 1.0,
@@ -1342,31 +1476,747 @@
           "rdkit_parseable_fraction": 1.0,
           "rdkit_sanitized_fraction": 1.0,
           "rdkit_unique_smiles_fraction": 1.0,
+          "rdkit_valid_fraction": 1.0,
           "schema_version": 1.0
         },
         "docking_affinity": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|clash_fraction": 0.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|contact_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|docking_like_score": 0.9108283711899944,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|mean_min_contact_distance": 2.312215166147652,
           "clash_fraction": 0.0,
           "contact_fraction": 1.0,
-          "docking_like_score": 0.9070936449552524,
-          "heuristic_centroid_fit_score": 0.6082176771870071,
-          "heuristic_mean_centroid_offset": 0.6441482013889782,
+          "docking_like_score": 0.9108283711899944,
+          "heuristic_centroid_fit_score": 0.5473319673662799,
+          "heuristic_mean_centroid_offset": 0.8270447545973325,
           "heuristic_pocket_contact_fraction": 1.0,
-          "mean_min_contact_distance": 2.4311588657965677,
+          "mean_min_contact_distance": 2.312215166147652,
           "schema_version": 1.0
         },
         "pocket_compatibility": {
-          "atom_coverage_fraction": 0.967741935483871,
+          "atom_coverage_fraction": 1.0,
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|atom_coverage_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|centroid_inside_fraction": 1.0,
+          "candidate_metric|1moq|1moq|1moq:1moq:0|clash_fraction": 0.0,
           "centroid_inside_fraction": 1.0,
           "clash_fraction": 0.0,
           "heuristic_atom_coverage_fraction": 1.0,
           "heuristic_centroid_inside_fraction": 1.0,
           "heuristic_clash_free_fraction": 1.0,
-          "heuristic_strict_pocket_fit_score": 0.6082176771870071,
+          "heuristic_strict_pocket_fit_score": 0.5473319673662799,
           "schema_version": 1.0
+        }
+      },
+      "method_comparison": {
+        "active_method": {
+          "method_id": "conditioned_denoising",
+          "method_name": "Conditioned Denoising",
+          "method_family": "conditioned_denoising",
+          "capability": {
+            "trainable": true,
+            "batched_generation": true,
+            "method_native_generation": true,
+            "uses_postprocessors": true,
+            "repair_layer": true,
+            "inferred_bond_layer": true,
+            "reranked_layer": true,
+            "external_wrapper": false,
+            "stub": false
+          },
+          "layered_output_support": [
+            "raw_rollout",
+            "repaired",
+            "inferred_bond",
+            "deterministic_proxy",
+            "reranked"
+          ],
+          "evidence_role": "claim_bearing",
+          "execution_mode": "batched"
+        },
+        "methods": [
+          {
+            "method_id": "conditioned_denoising",
+            "method_name": "Conditioned Denoising",
+            "method_family": "conditioneddenoising",
+            "evidence_role": "claimbearing",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "trainable": true,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 43.218922,
+            "memory_estimate_bytes": 130745,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.003852716108518476,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": 0.0
+          },
+          {
+            "method_id": "heuristic_raw_rollout_no_repair",
+            "method_name": "Heuristic Raw Rollout",
+            "method_family": "heuristic",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 9.308805999999999,
+            "memory_estimate_bytes": 25740,
+            "available_layers": [
+              "raw_rollout"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.003852716108518476,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": null,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "pocket_centroid_repair_proxy",
+            "method_name": "Pocket Centroid Repair Proxy",
+            "method_family": "repaironly",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": null,
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 12.174915,
+            "memory_estimate_bytes": 51624,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates"
+            ],
+            "native_candidate_count": 0,
+            "native_valid_fraction": null,
+            "native_pocket_contact_fraction": null,
+            "native_clash_fraction": null,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "deterministic_proxy_reranker",
+            "method_name": "Deterministic Proxy Reranker",
+            "method_family": "rerankeronly",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": null,
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 20.398426,
+            "memory_estimate_bytes": 114892,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "native_candidate_count": 0,
+            "native_valid_fraction": null,
+            "native_pocket_contact_fraction": null,
+            "native_clash_fraction": null,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "calibrated_reranker",
+            "method_name": "Calibrated Reranker",
+            "method_family": "rerankeronly",
+            "evidence_role": "claimbearing",
+            "available": true,
+            "native_layer": "reranked_candidates",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 44.013175000000004,
+            "memory_estimate_bytes": 130745,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "native_candidate_count": 8,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.00005617977528089888,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": 0.0
+          },
+          {
+            "method_id": "flow_matching",
+            "method_name": "Flow Matching Transport",
+            "method_family": "flowmatching",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "trainable": true,
+            "parameter_count": null,
+            "sampling_steps": 20,
+            "wall_time_ms": 39.149235999999995,
+            "memory_estimate_bytes": 150596,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.0006334366438854101,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "autoregressive_graph_geometry",
+            "method_name": "Autoregressive Graph Geometry",
+            "method_family": "autoregressive",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "trainable": true,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 22.185011,
+            "memory_estimate_bytes": 145860,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.0005175540774497834,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "energy_guided_refinement",
+            "method_name": "Energy Guided Refinement",
+            "method_family": "repaironly",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": null,
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 38.925899,
+            "memory_estimate_bytes": 212936,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "native_candidate_count": 0,
+            "native_valid_fraction": null,
+            "native_pocket_contact_fraction": null,
+            "native_clash_fraction": null,
+            "slot_activation_mean": 0.6354166666666666,
+            "gate_activation_mean": 0.25254846798876923,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          }
+        ],
+        "planned_metric_interfaces": [
+          {
+            "interface_id": "chemistry_property_bundle",
+            "description": "Backend-agnostic chemistry property interface reserved for future method comparison.",
+            "backend_agnostic": true
+          },
+          {
+            "interface_id": "scaffold_novelty_bundle",
+            "description": "Backend-agnostic scaffold novelty interface reserved for future method comparison.",
+            "backend_agnostic": true
+          }
+        ],
+        "preference_alignment": {
+          "schema_version": 1,
+          "profile_extraction_enabled": false,
+          "pair_construction_enabled": false,
+          "profile_count": 0,
+          "preference_pair_count": 0,
+          "profile_artifact": null,
+          "preference_pair_artifact": null,
+          "reranker_summary_artifact": null,
+          "missing_artifacts_mean_unavailable": true
+        },
+        "flow_metrics": {
+          "raw_output": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 2.334118488301185,
+            "clash_fraction": 0.0006334366438854101,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 0.3333333333333333,
+            "atom_type_sequence_diversity": 0.3333333333333333,
+            "bond_topology_diversity": 0.3333333333333333,
+            "coordinate_shape_diversity": 0.3333333333333333,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "repaired_output": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 1.0013770375909037,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 1.0,
+            "atom_type_sequence_diversity": 0.3333333333333333,
+            "bond_topology_diversity": 1.0,
+            "coordinate_shape_diversity": 1.0,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "versus_conditioned_denoising": {
+            "native_valid_fraction_delta": 0.0,
+            "native_pocket_contact_fraction_delta": 0.0,
+            "native_clash_fraction_delta": -0.0032192794646330658
+          }
+        }
+      }
+    },
+    "method_comparison": {
+      "active_method": {
+        "method_id": "conditioned_denoising",
+        "method_name": "Conditioned Denoising",
+        "method_family": "conditioned_denoising",
+        "capability": {
+          "trainable": true,
+          "batched_generation": true,
+          "method_native_generation": true,
+          "uses_postprocessors": true,
+          "repair_layer": true,
+          "inferred_bond_layer": true,
+          "reranked_layer": true,
+          "external_wrapper": false,
+          "stub": false
+        },
+        "layered_output_support": [
+          "raw_rollout",
+          "repaired",
+          "inferred_bond",
+          "deterministic_proxy",
+          "reranked"
+        ],
+        "evidence_role": "claim_bearing",
+        "execution_mode": "batched"
+      },
+      "methods": [
+        {
+          "method_id": "conditioned_denoising",
+          "method_name": "Conditioned Denoising",
+          "method_family": "conditioneddenoising",
+          "evidence_role": "claimbearing",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "trainable": true,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 43.218922,
+          "memory_estimate_bytes": 130745,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.003852716108518476,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": 0.0
+        },
+        {
+          "method_id": "heuristic_raw_rollout_no_repair",
+          "method_name": "Heuristic Raw Rollout",
+          "method_family": "heuristic",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 9.308805999999999,
+          "memory_estimate_bytes": 25740,
+          "available_layers": [
+            "raw_rollout"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.003852716108518476,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": null,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "pocket_centroid_repair_proxy",
+          "method_name": "Pocket Centroid Repair Proxy",
+          "method_family": "repaironly",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": null,
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 12.174915,
+          "memory_estimate_bytes": 51624,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates"
+          ],
+          "native_candidate_count": 0,
+          "native_valid_fraction": null,
+          "native_pocket_contact_fraction": null,
+          "native_clash_fraction": null,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "deterministic_proxy_reranker",
+          "method_name": "Deterministic Proxy Reranker",
+          "method_family": "rerankeronly",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": null,
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 20.398426,
+          "memory_estimate_bytes": 114892,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "native_candidate_count": 0,
+          "native_valid_fraction": null,
+          "native_pocket_contact_fraction": null,
+          "native_clash_fraction": null,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "calibrated_reranker",
+          "method_name": "Calibrated Reranker",
+          "method_family": "rerankeronly",
+          "evidence_role": "claimbearing",
+          "available": true,
+          "native_layer": "reranked_candidates",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 44.013175000000004,
+          "memory_estimate_bytes": 130745,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "native_candidate_count": 8,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.00005617977528089888,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": 0.0
+        },
+        {
+          "method_id": "flow_matching",
+          "method_name": "Flow Matching Transport",
+          "method_family": "flowmatching",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "trainable": true,
+          "parameter_count": null,
+          "sampling_steps": 20,
+          "wall_time_ms": 39.149235999999995,
+          "memory_estimate_bytes": 150596,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.0006334366438854101,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "autoregressive_graph_geometry",
+          "method_name": "Autoregressive Graph Geometry",
+          "method_family": "autoregressive",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "trainable": true,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 22.185011,
+          "memory_estimate_bytes": 145860,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.0005175540774497834,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "energy_guided_refinement",
+          "method_name": "Energy Guided Refinement",
+          "method_family": "repaironly",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": null,
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 38.925899,
+          "memory_estimate_bytes": 212936,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "native_candidate_count": 0,
+          "native_valid_fraction": null,
+          "native_pocket_contact_fraction": null,
+          "native_clash_fraction": null,
+          "slot_activation_mean": 0.6354166666666666,
+          "gate_activation_mean": 0.25254846798876923,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        }
+      ],
+      "planned_metric_interfaces": [
+        {
+          "interface_id": "chemistry_property_bundle",
+          "description": "Backend-agnostic chemistry property interface reserved for future method comparison.",
+          "backend_agnostic": true
+        },
+        {
+          "interface_id": "scaffold_novelty_bundle",
+          "description": "Backend-agnostic scaffold novelty interface reserved for future method comparison.",
+          "backend_agnostic": true
+        }
+      ],
+      "preference_alignment": {
+        "schema_version": 1,
+        "profile_extraction_enabled": false,
+        "pair_construction_enabled": false,
+        "profile_count": 0,
+        "preference_pair_count": 0,
+        "profile_artifact": null,
+        "preference_pair_artifact": null,
+        "reranker_summary_artifact": null,
+        "missing_artifacts_mean_unavailable": true
+      },
+      "flow_metrics": {
+        "raw_output": {
+          "candidate_count": 24,
+          "valid_fraction": 1.0,
+          "pocket_contact_fraction": 1.0,
+          "mean_centroid_offset": 2.334118488301185,
+          "clash_fraction": 0.0006334366438854101,
+          "mean_displacement": 0.0,
+          "atom_change_fraction": 0.0,
+          "uniqueness_proxy_fraction": 0.3333333333333333,
+          "atom_type_sequence_diversity": 0.3333333333333333,
+          "bond_topology_diversity": 0.3333333333333333,
+          "coordinate_shape_diversity": 0.3333333333333333,
+          "novel_atom_type_sequence_fraction": 1.0,
+          "novel_bond_topology_fraction": 1.0,
+          "novel_coordinate_shape_fraction": 1.0
+        },
+        "repaired_output": {
+          "candidate_count": 24,
+          "valid_fraction": 1.0,
+          "pocket_contact_fraction": 1.0,
+          "mean_centroid_offset": 1.0013770375909037,
+          "clash_fraction": 0.0,
+          "mean_displacement": 0.0,
+          "atom_change_fraction": 0.0,
+          "uniqueness_proxy_fraction": 1.0,
+          "atom_type_sequence_diversity": 0.3333333333333333,
+          "bond_topology_diversity": 1.0,
+          "coordinate_shape_diversity": 1.0,
+          "novel_atom_type_sequence_fraction": 1.0,
+          "novel_bond_topology_fraction": 1.0,
+          "novel_coordinate_shape_fraction": 1.0
+        },
+        "versus_conditioned_denoising": {
+          "native_valid_fraction_delta": 0.0,
+          "native_pocket_contact_fraction_delta": 0.0,
+          "native_clash_fraction_delta": -0.0032192794646330658
         }
       }
     },
@@ -1377,27 +2227,27 @@
       "candidate_valid_fraction": 1.0,
       "pocket_contact_fraction": 1.0,
       "pocket_compatibility_fraction": 1.0,
-      "mean_centroid_offset": 0.6441482013889782,
-      "strict_pocket_fit_score": 0.6082176771870071,
+      "mean_centroid_offset": 0.8270447545973325,
+      "strict_pocket_fit_score": 0.5473319673662799,
       "unique_smiles_fraction": 1.0,
       "unseen_protein_fraction": 1.0,
-      "topology_specialization_score": 0.45484174071968375,
-      "geometry_specialization_score": 0.4298599508911079,
-      "pocket_specialization_score": 0.343185852245884,
-      "slot_activation_mean": 0.5822510822510822,
-      "gate_activation_mean": 0.14239159950913935,
-      "leakage_proxy_mean": 0.03866926770137197
+      "topology_specialization_score": 0.658882875721176,
+      "geometry_specialization_score": 0.14161775080486494,
+      "pocket_specialization_score": 0.3875718968547243,
+      "slot_activation_mean": 0.6314935064935064,
+      "gate_activation_mean": 0.2366456779574742,
+      "leakage_proxy_mean": 0.08533223018607007
     },
     "slot_stability": {
-      "topology_activation_mean": 0.6753246753246753,
+      "topology_activation_mean": 0.6801948051948052,
       "geometry_activation_mean": 0.25,
-      "pocket_activation_mean": 0.8214285714285714,
-      "topology_signature_similarity": 0.9777177237479705,
-      "geometry_signature_similarity": 0.9627845102836005,
-      "pocket_signature_similarity": 0.9300699695589166,
-      "topology_probe_alignment": 0.05685521729967811,
-      "geometry_probe_alignment": 0.0540096467485822,
-      "pocket_probe_alignment": 0.3273240239137775
+      "pocket_activation_mean": 0.9642857142857143,
+      "topology_signature_similarity": 0.9523828144058825,
+      "geometry_signature_similarity": 0.9483216704282551,
+      "pocket_signature_similarity": 0.9311192970960132,
+      "topology_probe_alignment": 0.0823603572396489,
+      "geometry_probe_alignment": 0.09675732847005464,
+      "pocket_probe_alignment": 0.4295883451818724
     },
     "strata": [
       {
@@ -1479,29 +2329,29 @@
       "finite_forward_fraction": 1.0,
       "unique_complex_fraction": 1.0,
       "unseen_protein_fraction": 1.0,
-      "distance_probe_rmse": 1.5316151409727645,
-      "topology_pocket_cosine_alignment": 0.44230839480215,
-      "topology_reconstruction_mse": 4.0342360874275105,
-      "slot_activation_mean": 0.5714285714285714,
-      "gate_activation_mean": 0.13972260874143733,
-      "leakage_proxy_mean": 0.03603440780990978
+      "distance_probe_rmse": 6.456256123380996,
+      "topology_pocket_cosine_alignment": 0.3591735426130263,
+      "topology_reconstruction_mse": 3.489635736911328,
+      "slot_activation_mean": 0.6244588744588743,
+      "gate_activation_mean": 0.22562008520418944,
+      "leakage_proxy_mean": 0.08934762731100704
     },
     "proxy_task_metrics": {
-      "affinity_probe_mae": 6.035677053531011,
-      "affinity_probe_rmse": 6.52055164410872,
+      "affinity_probe_mae": 6.265416379769643,
+      "affinity_probe_rmse": 6.746796164864008,
       "labeled_fraction": 0.7792207792207793,
       "affinity_by_measurement": [
         {
           "measurement_type": "Kd",
           "count": 30,
-          "mae": 6.91930916706721,
-          "rmse": 7.184849995701786
+          "mae": 7.214765286445617,
+          "rmse": 7.46453125605605
         },
         {
           "measurement_type": "Ki",
           "count": 30,
-          "mae": 5.152044939994812,
-          "rmse": 5.780408119349526
+          "mae": 5.316067473093669,
+          "rmse": 5.943003458505612
         }
       ]
     },
@@ -1528,9 +2378,9 @@
       }
     },
     "resource_usage": {
-      "memory_usage_mb": 0.96484375,
-      "evaluation_time_ms": 1153.153689,
-      "examples_per_second": 66.77340647175434,
+      "memory_usage_mb": 0.0,
+      "evaluation_time_ms": 1287.3704699999998,
+      "examples_per_second": 59.8118426625088,
       "average_ligand_atoms": 50.02597402597402,
       "average_pocket_atoms": 73.50649350649351
     },
@@ -1541,6 +2391,13 @@
         "metrics": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|backend_missing_structure_fraction": 0.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_finite_conformer_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_parseable_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_sanitized_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_unique_smiles_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_valid_fraction": 1.0,
           "heuristic_structural_pass_fraction": 1.0,
           "heuristic_valence_sanity_fraction": 1.0,
           "heuristic_valid_fraction": 1.0,
@@ -1549,6 +2406,7 @@
           "rdkit_parseable_fraction": 1.0,
           "rdkit_sanitized_fraction": 1.0,
           "rdkit_unique_smiles_fraction": 1.0,
+          "rdkit_valid_fraction": 1.0,
           "schema_version": 1.0
         },
         "status": "external chemistry-validity backend on modular rollout candidates"
@@ -1559,13 +2417,18 @@
         "metrics": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|clash_fraction": 0.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|contact_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|docking_like_score": 0.8998217852516335,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|mean_min_contact_distance": 2.3005204024551884,
           "clash_fraction": 0.0,
           "contact_fraction": 1.0,
-          "docking_like_score": 0.8843182969492365,
-          "heuristic_centroid_fit_score": 0.6765874561165399,
-          "heuristic_mean_centroid_offset": 0.4780055275333885,
+          "docking_like_score": 0.8998217852516335,
+          "heuristic_centroid_fit_score": 0.6689180038219686,
+          "heuristic_mean_centroid_offset": 0.49495154007866754,
           "heuristic_pocket_contact_fraction": 1.0,
-          "mean_min_contact_distance": 2.173640733912636,
+          "mean_min_contact_distance": 2.3005204024551884,
           "schema_version": 1.0
         },
         "status": "external docking backend on modular rollout candidates"
@@ -1574,15 +2437,19 @@
         "available": true,
         "backend_name": "external_command_pocket_compatibility",
         "metrics": {
-          "atom_coverage_fraction": 0.9333333333333332,
+          "atom_coverage_fraction": 0.9666666666666668,
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|atom_coverage_fraction": 0.9666666666666668,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|centroid_inside_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|clash_fraction": 0.0,
           "centroid_inside_fraction": 1.0,
           "clash_fraction": 0.0,
           "heuristic_atom_coverage_fraction": 1.0,
           "heuristic_centroid_inside_fraction": 1.0,
           "heuristic_clash_free_fraction": 0.0,
-          "heuristic_strict_pocket_fit_score": 0.6749250790744845,
+          "heuristic_strict_pocket_fit_score": 0.6672744706430449,
           "schema_version": 1.0
         },
         "status": "external pocket-compatibility backend on modular rollout candidates"
@@ -1593,10 +2460,10 @@
         "candidate_count": 24,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 1.6506460489147656,
-        "clash_fraction": 0.0031932649459679684,
-        "mean_displacement": 0.8447845822030847,
-        "atom_change_fraction": 0.10109739421637028,
+        "mean_centroid_offset": 2.072560856017913,
+        "clash_fraction": 0.003684281122387235,
+        "mean_displacement": 1.05384968395357,
+        "atom_change_fraction": 0.07270677097432025,
         "uniqueness_proxy_fraction": 0.3333333333333333,
         "atom_type_sequence_diversity": 0.3333333333333333,
         "bond_topology_diversity": 0.041666666666666664,
@@ -1609,8 +2476,8 @@
         "candidate_count": 24,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.7027150038209736,
-        "clash_fraction": 0.00026874596788693437,
+        "mean_centroid_offset": 0.890286258063817,
+        "clash_fraction": 0.00027121237660334313,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
@@ -1625,45 +2492,45 @@
         "candidate_count": 24,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.7027150038209736,
-        "clash_fraction": 0.0002613935013113728,
+        "mean_centroid_offset": 0.890286258063817,
+        "clash_fraction": 0.00020300050398808808,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
-        "atom_type_sequence_diversity": 0.875,
-        "bond_topology_diversity": 0.9583333333333334,
+        "atom_type_sequence_diversity": 0.8333333333333334,
+        "bond_topology_diversity": 1.0,
         "coordinate_shape_diversity": 1.0,
         "novel_atom_type_sequence_fraction": 1.0,
         "novel_bond_topology_fraction": 1.0,
         "novel_coordinate_shape_fraction": 1.0
       },
       "reranked_candidates": {
-        "candidate_count": 12,
+        "candidate_count": 8,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.6996932303024807,
-        "clash_fraction": 0.0,
+        "mean_centroid_offset": 0.8744537180736793,
+        "clash_fraction": 0.0002498795326259787,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
-        "atom_type_sequence_diversity": 0.8333333333333334,
-        "bond_topology_diversity": 0.9166666666666666,
+        "atom_type_sequence_diversity": 1.0,
+        "bond_topology_diversity": 1.0,
         "coordinate_shape_diversity": 1.0,
         "novel_atom_type_sequence_fraction": 1.0,
         "novel_bond_topology_fraction": 1.0,
         "novel_coordinate_shape_fraction": 1.0
       },
       "deterministic_proxy_candidates": {
-        "candidate_count": 12,
+        "candidate_count": 8,
         "valid_fraction": 1.0,
         "pocket_contact_fraction": 1.0,
-        "mean_centroid_offset": 0.6065312006014026,
-        "clash_fraction": 0.0002736207281661827,
+        "mean_centroid_offset": 0.86395484091217,
+        "clash_fraction": 0.00019809825673534074,
         "mean_displacement": 0.0,
         "atom_change_fraction": 0.0,
         "uniqueness_proxy_fraction": 1.0,
-        "atom_type_sequence_diversity": 0.75,
-        "bond_topology_diversity": 0.9166666666666666,
+        "atom_type_sequence_diversity": 1.0,
+        "bond_topology_diversity": 1.0,
         "coordinate_shape_diversity": 1.0,
         "novel_atom_type_sequence_fraction": 1.0,
         "novel_bond_topology_fraction": 1.0,
@@ -1673,19 +2540,26 @@
         "method": "bounded_nonnegative_feature_target_covariance_v1",
         "coefficients": {
           "bond_density_fit": 0.0,
-          "centroid_fit": 0.0,
-          "clash_free": 0.00042045240798199024,
+          "centroid_fit": 0.00600022871270776,
+          "clash_free": 0.00009235318484146488,
           "pocket_contact": 0.0,
-          "valence_sane": 0.999579547592018,
+          "valence_sane": 0.9939074181024508,
           "valid": 0.0
         },
-        "target_mean": 0.9446120522382292,
+        "target_mean": 0.9106041070828912,
         "fitted_candidate_count": 24
       },
       "backend_scored_candidates": {
         "chemistry_validity": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|backend_missing_structure_fraction": 0.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_finite_conformer_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_parseable_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_sanitized_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_unique_smiles_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|rdkit_valid_fraction": 1.0,
           "heuristic_structural_pass_fraction": 1.0,
           "heuristic_valence_sanity_fraction": 1.0,
           "heuristic_valid_fraction": 1.0,
@@ -1694,31 +2568,747 @@
           "rdkit_parseable_fraction": 1.0,
           "rdkit_sanitized_fraction": 1.0,
           "rdkit_unique_smiles_fraction": 1.0,
+          "rdkit_valid_fraction": 1.0,
           "schema_version": 1.0
         },
         "docking_affinity": {
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|clash_fraction": 0.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|contact_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|docking_like_score": 0.8998217852516335,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|mean_min_contact_distance": 2.3005204024551884,
           "clash_fraction": 0.0,
           "contact_fraction": 1.0,
-          "docking_like_score": 0.8843182969492365,
-          "heuristic_centroid_fit_score": 0.6765874561165399,
-          "heuristic_mean_centroid_offset": 0.4780055275333885,
+          "docking_like_score": 0.8998217852516335,
+          "heuristic_centroid_fit_score": 0.6689180038219686,
+          "heuristic_mean_centroid_offset": 0.49495154007866754,
           "heuristic_pocket_contact_fraction": 1.0,
-          "mean_min_contact_distance": 2.173640733912636,
+          "mean_min_contact_distance": 2.3005204024551884,
           "schema_version": 1.0
         },
         "pocket_compatibility": {
-          "atom_coverage_fraction": 0.9333333333333332,
+          "atom_coverage_fraction": 0.9666666666666668,
           "backend_examples_scored": 1.0,
           "backend_missing_structure_fraction": 0.0,
+          "candidate_metric_rows": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|atom_coverage_fraction": 0.9666666666666668,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|centroid_inside_fraction": 1.0,
+          "candidate_metric|1bq4|1bq4|1bq4:1bq4:0|clash_fraction": 0.0,
           "centroid_inside_fraction": 1.0,
           "clash_fraction": 0.0,
           "heuristic_atom_coverage_fraction": 1.0,
           "heuristic_centroid_inside_fraction": 1.0,
           "heuristic_clash_free_fraction": 0.0,
-          "heuristic_strict_pocket_fit_score": 0.6749250790744845,
+          "heuristic_strict_pocket_fit_score": 0.6672744706430449,
           "schema_version": 1.0
+        }
+      },
+      "method_comparison": {
+        "active_method": {
+          "method_id": "conditioned_denoising",
+          "method_name": "Conditioned Denoising",
+          "method_family": "conditioned_denoising",
+          "capability": {
+            "trainable": true,
+            "batched_generation": true,
+            "method_native_generation": true,
+            "uses_postprocessors": true,
+            "repair_layer": true,
+            "inferred_bond_layer": true,
+            "reranked_layer": true,
+            "external_wrapper": false,
+            "stub": false
+          },
+          "layered_output_support": [
+            "raw_rollout",
+            "repaired",
+            "inferred_bond",
+            "deterministic_proxy",
+            "reranked"
+          ],
+          "evidence_role": "claim_bearing",
+          "execution_mode": "batched"
+        },
+        "methods": [
+          {
+            "method_id": "conditioned_denoising",
+            "method_name": "Conditioned Denoising",
+            "method_family": "conditioneddenoising",
+            "evidence_role": "claimbearing",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "trainable": true,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 31.109517999999998,
+            "memory_estimate_bytes": 101291,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.003684281122387235,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": 0.0
+          },
+          {
+            "method_id": "heuristic_raw_rollout_no_repair",
+            "method_name": "Heuristic Raw Rollout",
+            "method_family": "heuristic",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 7.964987999999999,
+            "memory_estimate_bytes": 20280,
+            "available_layers": [
+              "raw_rollout"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.003684281122387235,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": null,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "pocket_centroid_repair_proxy",
+            "method_name": "Pocket Centroid Repair Proxy",
+            "method_family": "repaironly",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": null,
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 10.262916,
+            "memory_estimate_bytes": 40704,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates"
+            ],
+            "native_candidate_count": 0,
+            "native_valid_fraction": null,
+            "native_pocket_contact_fraction": null,
+            "native_clash_fraction": null,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "deterministic_proxy_reranker",
+            "method_name": "Deterministic Proxy Reranker",
+            "method_family": "rerankeronly",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": null,
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 15.962725,
+            "memory_estimate_bytes": 89260,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "native_candidate_count": 0,
+            "native_valid_fraction": null,
+            "native_pocket_contact_fraction": null,
+            "native_clash_fraction": null,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "calibrated_reranker",
+            "method_name": "Calibrated Reranker",
+            "method_family": "rerankeronly",
+            "evidence_role": "claimbearing",
+            "available": true,
+            "native_layer": "reranked_candidates",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 31.642563999999997,
+            "memory_estimate_bytes": 101291,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates",
+              "reranked_candidates"
+            ],
+            "native_candidate_count": 8,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.0002498795326259787,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": 0.0
+          },
+          {
+            "method_id": "flow_matching",
+            "method_name": "Flow Matching Transport",
+            "method_family": "flowmatching",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "trainable": true,
+            "parameter_count": null,
+            "sampling_steps": 20,
+            "wall_time_ms": 28.279816999999998,
+            "memory_estimate_bytes": 116152,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.0,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "autoregressive_graph_geometry",
+            "method_name": "Autoregressive Graph Geometry",
+            "method_family": "autoregressive",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": "raw_rollout",
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "trainable": true,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 16.662001,
+            "memory_estimate_bytes": 112088,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates"
+            ],
+            "native_candidate_count": 24,
+            "native_valid_fraction": 1.0,
+            "native_pocket_contact_fraction": 1.0,
+            "native_clash_fraction": 0.0012227458066252578,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          },
+          {
+            "method_id": "energy_guided_refinement",
+            "method_name": "Energy Guided Refinement",
+            "method_family": "repaironly",
+            "evidence_role": "comparisononly",
+            "available": true,
+            "native_layer": null,
+            "supported_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "trainable": false,
+            "parameter_count": null,
+            "sampling_steps": 4,
+            "wall_time_ms": 26.752655999999998,
+            "memory_estimate_bytes": 163840,
+            "available_layers": [
+              "raw_rollout",
+              "repaired_candidates",
+              "inferred_bond_candidates",
+              "deterministic_proxy_candidates"
+            ],
+            "native_candidate_count": 0,
+            "native_valid_fraction": null,
+            "native_pocket_contact_fraction": null,
+            "native_clash_fraction": null,
+            "slot_activation_mean": 0.6197916666666666,
+            "gate_activation_mean": 0.2277559118811041,
+            "leakage_proxy_mean": null,
+            "repair_gain_valid_fraction": 0.0,
+            "rerank_gain_valid_fraction": null
+          }
+        ],
+        "planned_metric_interfaces": [
+          {
+            "interface_id": "chemistry_property_bundle",
+            "description": "Backend-agnostic chemistry property interface reserved for future method comparison.",
+            "backend_agnostic": true
+          },
+          {
+            "interface_id": "scaffold_novelty_bundle",
+            "description": "Backend-agnostic scaffold novelty interface reserved for future method comparison.",
+            "backend_agnostic": true
+          }
+        ],
+        "preference_alignment": {
+          "schema_version": 1,
+          "profile_extraction_enabled": false,
+          "pair_construction_enabled": false,
+          "profile_count": 0,
+          "preference_pair_count": 0,
+          "profile_artifact": null,
+          "preference_pair_artifact": null,
+          "reranker_summary_artifact": null,
+          "missing_artifacts_mean_unavailable": true
+        },
+        "flow_metrics": {
+          "raw_output": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 2.072560856017913,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 0.3333333333333333,
+            "atom_type_sequence_diversity": 0.3333333333333333,
+            "bond_topology_diversity": 0.3333333333333333,
+            "coordinate_shape_diversity": 0.3333333333333333,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "repaired_output": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 0.890286258063817,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 1.0,
+            "atom_type_sequence_diversity": 0.3333333333333333,
+            "bond_topology_diversity": 1.0,
+            "coordinate_shape_diversity": 1.0,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "versus_conditioned_denoising": {
+            "native_valid_fraction_delta": 0.0,
+            "native_pocket_contact_fraction_delta": 0.0,
+            "native_clash_fraction_delta": -0.003684281122387235
+          }
+        }
+      }
+    },
+    "method_comparison": {
+      "active_method": {
+        "method_id": "conditioned_denoising",
+        "method_name": "Conditioned Denoising",
+        "method_family": "conditioned_denoising",
+        "capability": {
+          "trainable": true,
+          "batched_generation": true,
+          "method_native_generation": true,
+          "uses_postprocessors": true,
+          "repair_layer": true,
+          "inferred_bond_layer": true,
+          "reranked_layer": true,
+          "external_wrapper": false,
+          "stub": false
+        },
+        "layered_output_support": [
+          "raw_rollout",
+          "repaired",
+          "inferred_bond",
+          "deterministic_proxy",
+          "reranked"
+        ],
+        "evidence_role": "claim_bearing",
+        "execution_mode": "batched"
+      },
+      "methods": [
+        {
+          "method_id": "conditioned_denoising",
+          "method_name": "Conditioned Denoising",
+          "method_family": "conditioneddenoising",
+          "evidence_role": "claimbearing",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "trainable": true,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 31.109517999999998,
+          "memory_estimate_bytes": 101291,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.003684281122387235,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": 0.0
+        },
+        {
+          "method_id": "heuristic_raw_rollout_no_repair",
+          "method_name": "Heuristic Raw Rollout",
+          "method_family": "heuristic",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 7.964987999999999,
+          "memory_estimate_bytes": 20280,
+          "available_layers": [
+            "raw_rollout"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.003684281122387235,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": null,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "pocket_centroid_repair_proxy",
+          "method_name": "Pocket Centroid Repair Proxy",
+          "method_family": "repaironly",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": null,
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 10.262916,
+          "memory_estimate_bytes": 40704,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates"
+          ],
+          "native_candidate_count": 0,
+          "native_valid_fraction": null,
+          "native_pocket_contact_fraction": null,
+          "native_clash_fraction": null,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "deterministic_proxy_reranker",
+          "method_name": "Deterministic Proxy Reranker",
+          "method_family": "rerankeronly",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": null,
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 15.962725,
+          "memory_estimate_bytes": 89260,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "native_candidate_count": 0,
+          "native_valid_fraction": null,
+          "native_pocket_contact_fraction": null,
+          "native_clash_fraction": null,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "calibrated_reranker",
+          "method_name": "Calibrated Reranker",
+          "method_family": "rerankeronly",
+          "evidence_role": "claimbearing",
+          "available": true,
+          "native_layer": "reranked_candidates",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 31.642563999999997,
+          "memory_estimate_bytes": 101291,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates",
+            "reranked_candidates"
+          ],
+          "native_candidate_count": 8,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.0002498795326259787,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": 0.0
+        },
+        {
+          "method_id": "flow_matching",
+          "method_name": "Flow Matching Transport",
+          "method_family": "flowmatching",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "trainable": true,
+          "parameter_count": null,
+          "sampling_steps": 20,
+          "wall_time_ms": 28.279816999999998,
+          "memory_estimate_bytes": 116152,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.0,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "autoregressive_graph_geometry",
+          "method_name": "Autoregressive Graph Geometry",
+          "method_family": "autoregressive",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": "raw_rollout",
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "trainable": true,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 16.662001,
+          "memory_estimate_bytes": 112088,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates"
+          ],
+          "native_candidate_count": 24,
+          "native_valid_fraction": 1.0,
+          "native_pocket_contact_fraction": 1.0,
+          "native_clash_fraction": 0.0012227458066252578,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        },
+        {
+          "method_id": "energy_guided_refinement",
+          "method_name": "Energy Guided Refinement",
+          "method_family": "repaironly",
+          "evidence_role": "comparisononly",
+          "available": true,
+          "native_layer": null,
+          "supported_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "trainable": false,
+          "parameter_count": null,
+          "sampling_steps": 4,
+          "wall_time_ms": 26.752655999999998,
+          "memory_estimate_bytes": 163840,
+          "available_layers": [
+            "raw_rollout",
+            "repaired_candidates",
+            "inferred_bond_candidates",
+            "deterministic_proxy_candidates"
+          ],
+          "native_candidate_count": 0,
+          "native_valid_fraction": null,
+          "native_pocket_contact_fraction": null,
+          "native_clash_fraction": null,
+          "slot_activation_mean": 0.6197916666666666,
+          "gate_activation_mean": 0.2277559118811041,
+          "leakage_proxy_mean": null,
+          "repair_gain_valid_fraction": 0.0,
+          "rerank_gain_valid_fraction": null
+        }
+      ],
+      "planned_metric_interfaces": [
+        {
+          "interface_id": "chemistry_property_bundle",
+          "description": "Backend-agnostic chemistry property interface reserved for future method comparison.",
+          "backend_agnostic": true
+        },
+        {
+          "interface_id": "scaffold_novelty_bundle",
+          "description": "Backend-agnostic scaffold novelty interface reserved for future method comparison.",
+          "backend_agnostic": true
+        }
+      ],
+      "preference_alignment": {
+        "schema_version": 1,
+        "profile_extraction_enabled": false,
+        "pair_construction_enabled": false,
+        "profile_count": 0,
+        "preference_pair_count": 0,
+        "profile_artifact": null,
+        "preference_pair_artifact": null,
+        "reranker_summary_artifact": null,
+        "missing_artifacts_mean_unavailable": true
+      },
+      "flow_metrics": {
+        "raw_output": {
+          "candidate_count": 24,
+          "valid_fraction": 1.0,
+          "pocket_contact_fraction": 1.0,
+          "mean_centroid_offset": 2.072560856017913,
+          "clash_fraction": 0.0,
+          "mean_displacement": 0.0,
+          "atom_change_fraction": 0.0,
+          "uniqueness_proxy_fraction": 0.3333333333333333,
+          "atom_type_sequence_diversity": 0.3333333333333333,
+          "bond_topology_diversity": 0.3333333333333333,
+          "coordinate_shape_diversity": 0.3333333333333333,
+          "novel_atom_type_sequence_fraction": 1.0,
+          "novel_bond_topology_fraction": 1.0,
+          "novel_coordinate_shape_fraction": 1.0
+        },
+        "repaired_output": {
+          "candidate_count": 24,
+          "valid_fraction": 1.0,
+          "pocket_contact_fraction": 1.0,
+          "mean_centroid_offset": 0.890286258063817,
+          "clash_fraction": 0.0,
+          "mean_displacement": 0.0,
+          "atom_change_fraction": 0.0,
+          "uniqueness_proxy_fraction": 1.0,
+          "atom_type_sequence_diversity": 0.3333333333333333,
+          "bond_topology_diversity": 1.0,
+          "coordinate_shape_diversity": 1.0,
+          "novel_atom_type_sequence_fraction": 1.0,
+          "novel_bond_topology_fraction": 1.0,
+          "novel_coordinate_shape_fraction": 1.0
+        },
+        "versus_conditioned_denoising": {
+          "native_valid_fraction_delta": 0.0,
+          "native_pocket_contact_fraction_delta": 0.0,
+          "native_clash_fraction_delta": -0.003684281122387235
         }
       }
     },
@@ -1729,27 +3319,27 @@
       "candidate_valid_fraction": 1.0,
       "pocket_contact_fraction": 1.0,
       "pocket_compatibility_fraction": 1.0,
-      "mean_centroid_offset": 0.4780055275333885,
-      "strict_pocket_fit_score": 0.6749250790744845,
+      "mean_centroid_offset": 0.49495154007866754,
+      "strict_pocket_fit_score": 0.6672744706430449,
       "unique_smiles_fraction": 1.0,
       "unseen_protein_fraction": 1.0,
-      "topology_specialization_score": 0.4533966686818507,
-      "geometry_specialization_score": 0.39500474768678834,
-      "pocket_specialization_score": 0.3424675113465433,
-      "slot_activation_mean": 0.5714285714285714,
-      "gate_activation_mean": 0.13972260874143733,
-      "leakage_proxy_mean": 0.03603440780990978
+      "topology_specialization_score": 0.6557635409491402,
+      "geometry_specialization_score": 0.1341155646282381,
+      "pocket_specialization_score": 0.387564895884043,
+      "slot_activation_mean": 0.6244588744588743,
+      "gate_activation_mean": 0.22562008520418944,
+      "leakage_proxy_mean": 0.08934762731100704
     },
     "slot_stability": {
-      "topology_activation_mean": 0.6623376623376623,
+      "topology_activation_mean": 0.6655844155844156,
       "geometry_activation_mean": 0.25,
-      "pocket_activation_mean": 0.801948051948052,
-      "topology_signature_similarity": 0.9828383094627264,
-      "geometry_signature_similarity": 0.9602463799615909,
-      "pocket_signature_similarity": 0.927143039383905,
-      "topology_probe_alignment": 0.05667458344009015,
-      "geometry_probe_alignment": 0.05105191058065608,
-      "pocket_probe_alignment": 0.31856731341145317
+      "pocket_activation_mean": 0.9577922077922078,
+      "topology_signature_similarity": 0.9649153920261423,
+      "geometry_signature_similarity": 0.9469061926721039,
+      "pocket_signature_similarity": 0.9186017491159353,
+      "topology_probe_alignment": 0.08197044261864253,
+      "geometry_probe_alignment": 0.09215534422647723,
+      "pocket_probe_alignment": 0.42705063404481586
     },
     "strata": [
       {
@@ -1848,9 +3438,9 @@
   "performance_gates": {
     "passed": true,
     "failed_reasons": [],
-    "validation_examples_per_second": 64.25406542126805,
-    "test_examples_per_second": 66.77340647175434,
+    "validation_examples_per_second": 56.096218355179786,
+    "test_examples_per_second": 59.8118426625088,
     "validation_memory_mb": 0.0,
-    "test_memory_mb": 0.96484375
+    "test_memory_mb": 0.0
   }
 }

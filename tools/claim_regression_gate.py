@@ -13,6 +13,22 @@ import sys
 from pathlib import Path
 
 
+DEFAULT_GATE_THRESHOLDS = {
+    "min_rdkit_available": 1.0,
+    "min_rdkit_sanitized_fraction": 0.95,
+    "min_unique_fraction": 0.5,
+    "max_backend_missing_structure_fraction": 0.0,
+    "max_clash_fraction": 0.1,
+    "min_strict_pocket_fit": 0.35,
+    "min_pocket_contact": 0.8,
+    "min_candidate_valid_fraction": 0.95,
+    "max_leakage_proxy_mean": 0.08,
+    "min_parsed_complexes": 100,
+    "min_retained_label_coverage": 0.8,
+    "min_heldout_family_count": 10,
+}
+
+
 REQUIRED_CLAIM_FIELDS = {
     "validation",
     "test",
@@ -58,6 +74,11 @@ def parse_args(argv):
         help="Cargo executable used by --run.",
     )
     parser.add_argument(
+        "--claim-contract",
+        default="configs/paper_claim_contract.json",
+        help="Claim/threshold contract consumed by claim gate checks.",
+    )
+    parser.add_argument(
         "--enforce-backend-thresholds",
         action="store_true",
         help="Require real-backend chemistry and pocket metrics to satisfy claim thresholds.",
@@ -67,16 +88,46 @@ def parse_args(argv):
         action="store_true",
         help="Require claim-ready real-data size, label coverage, and held-out family counts.",
     )
-    parser.add_argument("--min-rdkit-available", type=float, default=1.0)
-    parser.add_argument("--min-rdkit-sanitized-fraction", type=float, default=0.95)
-    parser.add_argument("--min-unique-fraction", type=float, default=0.5)
-    parser.add_argument("--max-backend-missing-structure-fraction", type=float, default=0.0)
-    parser.add_argument("--max-clash-fraction", type=float, default=0.1)
-    parser.add_argument("--min-strict-pocket-fit", type=float, default=0.35)
-    parser.add_argument("--min-pocket-contact", type=float, default=0.8)
-    parser.add_argument("--min-parsed-complexes", type=int, default=100)
-    parser.add_argument("--min-retained-label-coverage", type=float, default=0.8)
-    parser.add_argument("--min-heldout-family-count", type=int, default=10)
+    parser.add_argument("--min-rdkit-available", type=float, default=DEFAULT_GATE_THRESHOLDS["min_rdkit_available"])
+    parser.add_argument(
+        "--min-rdkit-sanitized-fraction",
+        type=float,
+        default=DEFAULT_GATE_THRESHOLDS["min_rdkit_sanitized_fraction"],
+    )
+    parser.add_argument("--min-unique-fraction", type=float, default=DEFAULT_GATE_THRESHOLDS["min_unique_fraction"])
+    parser.add_argument(
+        "--max-backend-missing-structure-fraction",
+        type=float,
+        default=DEFAULT_GATE_THRESHOLDS["max_backend_missing_structure_fraction"],
+    )
+    parser.add_argument("--max-clash-fraction", type=float, default=DEFAULT_GATE_THRESHOLDS["max_clash_fraction"])
+    parser.add_argument(
+        "--min-strict-pocket-fit",
+        type=float,
+        default=DEFAULT_GATE_THRESHOLDS["min_strict_pocket_fit"],
+    )
+    parser.add_argument("--min-pocket-contact", type=float, default=DEFAULT_GATE_THRESHOLDS["min_pocket_contact"])
+    parser.add_argument(
+        "--min-candidate-valid-fraction",
+        type=float,
+        default=DEFAULT_GATE_THRESHOLDS["min_candidate_valid_fraction"],
+    )
+    parser.add_argument(
+        "--max-leakage-proxy-mean",
+        type=float,
+        default=DEFAULT_GATE_THRESHOLDS["max_leakage_proxy_mean"],
+    )
+    parser.add_argument("--min-parsed-complexes", type=int, default=DEFAULT_GATE_THRESHOLDS["min_parsed_complexes"])
+    parser.add_argument(
+        "--min-retained-label-coverage",
+        type=float,
+        default=DEFAULT_GATE_THRESHOLDS["min_retained_label_coverage"],
+    )
+    parser.add_argument(
+        "--min-heldout-family-count",
+        type=int,
+        default=DEFAULT_GATE_THRESHOLDS["min_heldout_family_count"],
+    )
     parser.add_argument(
         "--strict-preference-gate",
         action="store_true",
@@ -137,6 +188,102 @@ def artifact_dir_from_config(config_path):
         return Path(config["research"]["training"]["checkpoint_dir"])
     except KeyError as exc:
         raise SystemExit(f"claim regression gate failed: config missing checkpoint_dir: {exc}") from exc
+
+
+def _require_contract_number(thresholds, key, integer=False):
+    value = thresholds.get(key)
+    if integer:
+        require(isinstance(value, int), f"claim contract threshold `{key}` must be an integer")
+    else:
+        require(finite_number(value), f"claim contract threshold `{key}` must be finite")
+    return value
+
+
+def load_claim_contract(path):
+    require(path.is_file(), f"missing claim contract file: {path}")
+    contract = load_json(path)
+    require(contract.get("schema_version", 0) >= 1, "claim contract schema_version must be >= 1")
+    claims = contract.get("claims")
+    require(isinstance(claims, list) and claims, "claim contract must include non-empty claims")
+    for index, entry in enumerate(claims):
+        prefix = f"claim contract claims[{index}]"
+        require(isinstance(entry.get("id"), str) and entry["id"], f"{prefix}.id must be a non-empty string")
+        require(
+            isinstance(entry.get("wording"), str) and entry["wording"],
+            f"{prefix}.wording must be a non-empty string",
+        )
+        surfaces = entry.get("surfaces")
+        require(isinstance(surfaces, list) and surfaces, f"{prefix}.surfaces must be non-empty")
+        for surface in surfaces:
+            require(isinstance(surface, str) and surface, f"{prefix}.surfaces must contain non-empty strings")
+        metrics = entry.get("required_metrics")
+        require(isinstance(metrics, list) and metrics, f"{prefix}.required_metrics must be non-empty")
+        for metric_entry in metrics:
+            require(
+                isinstance(metric_entry.get("path"), str) and metric_entry["path"],
+                f"{prefix}.required_metrics.path must be non-empty",
+            )
+            has_bound = any(bound in metric_entry for bound in ("min", "max", "equals"))
+            require(
+                has_bound,
+                f"{prefix}.required_metrics entries must define at least one of min/max/equals",
+            )
+
+    thresholds = contract.get("thresholds")
+    require(isinstance(thresholds, dict), "claim contract missing thresholds section")
+    for key, default_value in DEFAULT_GATE_THRESHOLDS.items():
+        _require_contract_number(thresholds, key, integer=isinstance(default_value, int))
+
+    promotion = contract.get("promotion_decision")
+    require(isinstance(promotion, dict), "claim contract missing promotion_decision")
+    require(
+        isinstance(promotion.get("criteria"), list) and promotion["criteria"],
+        "claim contract promotion_decision.criteria must be non-empty",
+    )
+
+    baseline_matrix = contract.get("baseline_matrix")
+    require(isinstance(baseline_matrix, dict), "claim contract missing baseline_matrix")
+    surfaces = baseline_matrix.get("surfaces")
+    require(isinstance(surfaces, list) and surfaces, "claim contract baseline_matrix.surfaces must be non-empty")
+    for index, surface in enumerate(surfaces):
+        require(
+            isinstance(surface, str) and surface,
+            f"claim contract baseline_matrix.surfaces[{index}] must be a non-empty string",
+        )
+    required_methods = baseline_matrix.get("required_methods")
+    require(
+        isinstance(required_methods, list) and required_methods,
+        "claim contract baseline_matrix.required_methods must be non-empty",
+    )
+    for index, method in enumerate(required_methods):
+        prefix = f"claim contract baseline_matrix.required_methods[{index}]"
+        require(
+            isinstance(method.get("method_id"), str) and method["method_id"],
+            f"{prefix}.method_id must be a non-empty string",
+        )
+        require(
+            isinstance(method.get("evidence_role"), str) and method["evidence_role"],
+            f"{prefix}.evidence_role must be a non-empty string",
+        )
+    required_metric_fields = baseline_matrix.get("required_metric_fields")
+    require(
+        isinstance(required_metric_fields, list) and required_metric_fields,
+        "claim contract baseline_matrix.required_metric_fields must be non-empty",
+    )
+    for index, field in enumerate(required_metric_fields):
+        require(
+            isinstance(field, str) and field,
+            f"claim contract baseline_matrix.required_metric_fields[{index}] must be a non-empty string",
+        )
+    return contract
+
+
+def apply_contract_threshold_overrides(args, contract):
+    thresholds = contract["thresholds"]
+    for field, default_value in DEFAULT_GATE_THRESHOLDS.items():
+        current = getattr(args, field)
+        if current == default_value:
+            setattr(args, field, thresholds[field])
 
 
 def run_experiment(args):
@@ -234,6 +381,22 @@ def validate_backend_thresholds(claim, args):
         "contact_fraction",
         args.min_pocket_contact,
         "pocket_contact_fraction",
+    )
+    test = claim.get("test", {})
+    leakage_proxy = test.get("leakage_proxy_mean")
+    require(finite_number(leakage_proxy), "test.leakage_proxy_mean is missing or non-finite")
+    require(
+        leakage_proxy <= args.max_leakage_proxy_mean,
+        f"test.leakage_proxy_mean={leakage_proxy} above threshold {args.max_leakage_proxy_mean}",
+    )
+    candidate_valid_fraction = test.get("candidate_valid_fraction")
+    require(finite_number(candidate_valid_fraction), "test.candidate_valid_fraction is missing or non-finite")
+    require(
+        candidate_valid_fraction >= args.min_candidate_valid_fraction,
+        (
+            f"test.candidate_valid_fraction={candidate_valid_fraction} "
+            f"below threshold {args.min_candidate_valid_fraction}"
+        ),
     )
 
 
@@ -463,7 +626,107 @@ def validate_preference_readiness(claim, args):
     )
 
 
-def validate_artifact_dir(artifact_dir, args):
+def _value_at_path(payload, dotted_path):
+    current = payload
+    for key in dotted_path.split("."):
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current[key]
+    return current
+
+
+def _contract_surface_labels(artifact_dir):
+    return {
+        str(artifact_dir).replace("\\", "/"),
+        artifact_dir.name,
+        f"checkpoints/{artifact_dir.name}",
+    }
+
+
+def _normalize_token(value):
+    return "".join(ch for ch in str(value).lower() if ch.isalnum())
+
+
+def validate_baseline_matrix(contract, artifact_dir, claim):
+    matrix = contract.get("baseline_matrix", {})
+    configured_surfaces = set(matrix.get("surfaces", []))
+    if configured_surfaces and not (configured_surfaces & _contract_surface_labels(artifact_dir)):
+        return
+    required_methods = matrix.get("required_methods", [])
+    required_metric_fields = matrix.get("required_metric_fields", [])
+    method_comparison = claim.get("method_comparison") or {}
+    methods = method_comparison.get("methods") or []
+    require(isinstance(methods, list) and methods, "claim missing method_comparison.methods")
+    by_id = {row.get("method_id"): row for row in methods if isinstance(row, dict)}
+    active_method = (method_comparison.get("active_method") or {}).get("method_id")
+    require(isinstance(active_method, str) and active_method, "claim missing method_comparison.active_method.method_id")
+    active_row = by_id.get(active_method)
+    require(active_row is not None, "active method is absent from method_comparison.methods")
+
+    required_ids = [entry["method_id"] for entry in required_methods]
+    for entry in required_methods:
+        method_id = entry["method_id"]
+        row = by_id.get(method_id)
+        require(row is not None, f"baseline matrix required method missing: {method_id}")
+        require(row.get("available") is True, f"baseline matrix method `{method_id}` is unavailable")
+        expected_role = _normalize_token(entry["evidence_role"])
+        actual_role = _normalize_token(row.get("evidence_role", ""))
+        require(
+            actual_role == expected_role,
+            f"baseline matrix method `{method_id}` evidence_role `{row.get('evidence_role')}` != `{entry['evidence_role']}`",
+        )
+        if entry.get("trainable") is not None:
+            require(
+                bool(row.get("trainable")) is bool(entry["trainable"]),
+                f"baseline matrix method `{method_id}` trainable mismatch",
+            )
+        for field in required_metric_fields:
+            value = row.get(field)
+            require(
+                value is not None,
+                f"baseline matrix method `{method_id}` missing required metric field `{field}`",
+            )
+
+    if matrix.get("require_matched_sampling_steps", False):
+        target_steps = active_row.get("sampling_steps")
+        require(isinstance(target_steps, int), "active method sampling_steps missing or non-integer")
+        for method_id in required_ids:
+            steps = by_id.get(method_id, {}).get("sampling_steps")
+            require(
+                isinstance(steps, int) and steps == target_steps,
+                f"baseline matrix method `{method_id}` sampling_steps={steps} expected {target_steps}",
+            )
+
+
+def validate_claim_contract_mappings(contract, artifact_dir, claim):
+    surface_labels = _contract_surface_labels(artifact_dir)
+    claims = contract.get("claims", [])
+    for entry in claims:
+        surfaces = set(entry.get("surfaces", []))
+        if not (surfaces & surface_labels):
+            continue
+        for metric_entry in entry.get("required_metrics", []):
+            metric_path = metric_entry["path"]
+            value = _value_at_path(claim, metric_path)
+            require(value is not None, f"claim `{entry['id']}` missing required metric `{metric_path}`")
+            if "equals" in metric_entry:
+                require(
+                    value == metric_entry["equals"],
+                    f"claim `{entry['id']}` metric `{metric_path}` expected {metric_entry['equals']} got {value}",
+                )
+            if "min" in metric_entry:
+                require(
+                    finite_number(value) and value >= metric_entry["min"],
+                    f"claim `{entry['id']}` metric `{metric_path}` below minimum {metric_entry['min']}",
+                )
+            if "max" in metric_entry:
+                require(
+                    finite_number(value) and value <= metric_entry["max"],
+                    f"claim `{entry['id']}` metric `{metric_path}` above maximum {metric_entry['max']}",
+                )
+
+
+def validate_artifact_dir(artifact_dir, args, claim_contract):
     claim_path = artifact_dir / "claim_summary.json"
     experiment_path = artifact_dir / "experiment_summary.json"
     split_path = artifact_dir / "split_report.json"
@@ -576,17 +839,21 @@ def validate_artifact_dir(artifact_dir, args):
         validate_publication_readiness(claim)
     if args.enforce_preference_readiness:
         validate_preference_readiness(claim, args)
+    validate_baseline_matrix(claim_contract, artifact_dir, claim)
+    validate_claim_contract_mappings(claim_contract, artifact_dir, claim)
 
     print(f"claim regression gate passed: {artifact_dir}")
 
 
 def main(argv):
     args = parse_args(argv)
+    claim_contract = load_claim_contract(Path(args.claim_contract))
+    apply_contract_threshold_overrides(args, claim_contract)
     config_path = Path(args.config)
     artifact_dir = Path(args.artifact_dir) if args.artifact_dir else artifact_dir_from_config(config_path)
     if args.run:
         run_experiment(args)
-    validate_artifact_dir(artifact_dir, args)
+    validate_artifact_dir(artifact_dir, args, claim_contract)
 
 
 if __name__ == "__main__":

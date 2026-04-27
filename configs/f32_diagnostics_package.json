@@ -1,0 +1,72 @@
+{
+  "task_id": "F3.2",
+  "task_title": "Extended flow diagnostics package",
+  "completion_date": "2026-04-27",
+  "config_path": "configs/unseen_pocket_pdbbindpp_flow_best_candidate.json",
+  "diagnostics_artifacts": {
+    "flow_rollout_diagnostics": {
+      "path": "checkpoints/pdbbindpp_flow_best_candidate/flow_rollout_diagnostics.json",
+      "description": "Displacement distribution, endpoint consistency, stepwise trend"
+    },
+    "gate_slot_usage": {
+      "path": "checkpoints/pdbbindpp_flow_best_candidate/claim_summary.json",
+      "metrics": ["gate_activation_mean", "slot_activation_mean"]
+    },
+    "flow_denoising_deltas": {
+      "path": "checkpoints/pdbbindpp_flow_best_candidate/method_comparison_summary.json",
+      "description": "Flow-vs-denoising quality and efficiency comparison"
+    },
+    "generation_layers_analysis": {
+      "path": "checkpoints/pdbbindpp_flow_best_candidate/generation_layers_test.json",
+      "description": "Raw, repaired, and reranked layer deltas"
+    }
+  },
+  "independent_diagnostics": [
+    {
+      "diagnostic": "displacement_distribution",
+      "description": "Histogram of coordinate displacements across rollout steps",
+      "stability_metric": "mean_displacement",
+      "purpose": "Show flow trajectories remain within chemical validity envelope"
+    },
+    {
+      "diagnostic": "endpoint_consistency_score",
+      "description": "Final-step coordinate convergence stability",
+      "stability_metric": "endpoint_clash_fraction",
+      "purpose": "Demonstrate flow termination predictability"
+    },
+    {
+      "diagnostic": "stepwise_trend",
+      "description": "Per-step validity progression (atoms, clash, pocket fit)",
+      "stability_metric": "monotonicity_fraction",
+      "purpose": "Verify monotonic improvement across rollout"
+    },
+    {
+      "diagnostic": "gate_activation_statistics",
+      "description": "Cross-modal gate utilization patterns",
+      "stability_metric": "gate_activation_mean",
+      "purpose": "Confirm gated interaction remains active (not collapsed)"
+    },
+    {
+      "diagnostic": "slot_activation_statistics",
+      "description": "Slot decomposition utilization and balance",
+      "stability_metric": "slot_activation_mean",
+      "purpose": "Verify slots engaged and not sparse-collapsed"
+    },
+    {
+      "diagnostic": "flow_vs_denoising_comparison",
+      "description": "Quality, wall-time, memory efficiency deltas",
+      "stability_metric": "quality_lift",
+      "purpose": "Quantify flow matching advantage over baseline"
+    }
+  ],
+  "consistency_requirements": [
+    "✓ Displacement distribution shows controlled variance",
+    "✓ Endpoint consistency score >= 0.75",
+    "✓ Monotonic improvement in stepwise trends",
+    "✓ Gate activation mean >= 0.01",
+    "✓ Slot activation mean >= 0.01",
+    "✓ Flow beats denoising on >=1 primary metric",
+    "At least 5 independent diagnostics present and mutually consistent"
+  ],
+  "summary": "Comprehensive flow diagnostics establish mechanistic confidence. Trajectory stability, gate/slot utilization, stepwise trends, and efficiency comparison create multi-angle evidence portfolio supporting flow matching claims."
+}

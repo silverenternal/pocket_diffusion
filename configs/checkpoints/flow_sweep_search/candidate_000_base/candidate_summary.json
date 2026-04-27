@@ -1,0 +1,959 @@
+{
+  "candidate_id": "candidate_000_base",
+  "overrides": [],
+  "artifact_dir": "configs/./checkpoints/flow_sweep_search/candidate_000_base",
+  "surfaces": [
+    {
+      "surface_label": "flow_sweep_surface",
+      "source_config": "configs/unseen_pocket_flow_sweep_surface.json",
+      "artifact_dir": "configs/./checkpoints/flow_sweep_search/candidate_000_base/flow_sweep_surface",
+      "claim_report": {
+        "artifact_dir": "configs/./checkpoints/flow_sweep_search/candidate_000_base/flow_sweep_surface",
+        "run_label": "base_run",
+        "validation": {
+          "primary_objective": "flow_matching",
+          "variant_label": null,
+          "interaction_mode": "transformer",
+          "candidate_valid_fraction": 1.0,
+          "pocket_contact_fraction": 1.0,
+          "pocket_compatibility_fraction": 1.0,
+          "mean_centroid_offset": 0.16186675720253613,
+          "strict_pocket_fit_score": 0.8606838897841712,
+          "unique_smiles_fraction": 1.0,
+          "unseen_protein_fraction": 1.0,
+          "topology_specialization_score": 0.1088079395038741,
+          "geometry_specialization_score": 0.1507539123219547,
+          "pocket_specialization_score": 0.39545383923064825,
+          "slot_activation_mean": 0.6672077922077922,
+          "gate_activation_mean": 0.5039909439387196,
+          "leakage_proxy_mean": 0.11065332711395852
+        },
+        "test": {
+          "primary_objective": "flow_matching",
+          "variant_label": null,
+          "interaction_mode": "transformer",
+          "candidate_valid_fraction": 1.0,
+          "pocket_contact_fraction": 1.0,
+          "pocket_compatibility_fraction": 1.0,
+          "mean_centroid_offset": 0.1531862835167491,
+          "strict_pocket_fit_score": 0.8671625862132238,
+          "unique_smiles_fraction": 1.0,
+          "unseen_protein_fraction": 1.0,
+          "topology_specialization_score": 0.10433247588671649,
+          "geometry_specialization_score": 0.15470321375294685,
+          "pocket_specialization_score": 0.39374787094169666,
+          "slot_activation_mean": 0.6688311688311688,
+          "gate_activation_mean": 0.5006148941629439,
+          "leakage_proxy_mean": 0.11004941148459615
+        },
+        "backend_metrics": {
+          "chemistry_validity": {
+            "available": true,
+            "backend_name": "external_command_chemistry",
+            "metrics": {
+              "backend_examples_scored": 1.0,
+              "backend_missing_structure_fraction": 0.0,
+              "candidate_metric_rows": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|backend_missing_structure_fraction": 0.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_finite_conformer_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_parseable_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_sanitized_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_unique_smiles_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_valid_fraction": 1.0,
+              "heuristic_structural_pass_fraction": 0.0,
+              "heuristic_valence_sanity_fraction": 1.0,
+              "heuristic_valid_fraction": 1.0,
+              "rdkit_available": 1.0,
+              "rdkit_finite_conformer_fraction": 1.0,
+              "rdkit_parseable_fraction": 1.0,
+              "rdkit_sanitized_fraction": 1.0,
+              "rdkit_unique_smiles_fraction": 1.0,
+              "rdkit_valid_fraction": 1.0,
+              "schema_version": 1.0
+            },
+            "status": "external chemistry-validity backend on modular rollout candidates"
+          },
+          "docking_affinity": {
+            "available": true,
+            "backend_name": "external_command_docking",
+            "metrics": {
+              "backend_examples_scored": 1.0,
+              "backend_missing_structure_fraction": 0.0,
+              "candidate_metric_rows": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|clash_fraction": 0.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|contact_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|docking_like_score": 0.839558634974797,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|mean_min_contact_distance": 2.7714206464680027,
+              "clash_fraction": 0.0,
+              "contact_fraction": 1.0,
+              "docking_like_score": 0.839558634974797,
+              "heuristic_centroid_fit_score": 0.8671625862132238,
+              "heuristic_mean_centroid_offset": 0.1531862835167491,
+              "heuristic_pocket_contact_fraction": 1.0,
+              "mean_min_contact_distance": 2.7714206464680027,
+              "schema_version": 1.0
+            },
+            "status": "external docking backend on modular rollout candidates"
+          },
+          "pocket_compatibility": {
+            "available": true,
+            "backend_name": "external_command_pocket_compatibility",
+            "metrics": {
+              "atom_coverage_fraction": 0.9102564102564102,
+              "backend_examples_scored": 1.0,
+              "backend_missing_structure_fraction": 0.0,
+              "candidate_metric_rows": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|atom_coverage_fraction": 0.9102564102564102,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|centroid_inside_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|clash_fraction": 0.0,
+              "centroid_inside_fraction": 1.0,
+              "clash_fraction": 0.0,
+              "heuristic_atom_coverage_fraction": 1.0,
+              "heuristic_centroid_inside_fraction": 1.0,
+              "heuristic_clash_free_fraction": 1.0,
+              "heuristic_strict_pocket_fit_score": 0.8671625862132238,
+              "schema_version": 1.0
+            },
+            "status": "external pocket-compatibility backend on modular rollout candidates"
+          }
+        },
+        "backend_thresholds": {
+          "backend_missing_structure_fraction": {
+            "value": 0.0,
+            "threshold": 0.0,
+            "passed": true,
+            "direction": "max"
+          },
+          "clash_fraction": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passed": true,
+            "direction": "max"
+          },
+          "pocket_contact_fraction": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passed": true,
+            "direction": "min"
+          },
+          "rdkit_available": {
+            "value": 1.0,
+            "threshold": 1.0,
+            "passed": true,
+            "direction": "min"
+          },
+          "rdkit_sanitized_fraction": {
+            "value": 1.0,
+            "threshold": 0.95,
+            "passed": true,
+            "direction": "min"
+          },
+          "rdkit_unique_smiles_fraction": {
+            "value": 1.0,
+            "threshold": 0.5,
+            "passed": true,
+            "direction": "min"
+          },
+          "strict_pocket_fit_score": {
+            "value": 0.8671625862132238,
+            "threshold": 0.35,
+            "passed": true,
+            "direction": "min"
+          }
+        },
+        "backend_review": {
+          "policy_label": "repository_real_backend_policy",
+          "reviewer_status": "pass",
+          "reviewer_passed": true,
+          "claim_bearing_surface": true,
+          "claim_bearing_ready": true,
+          "claim_bearing_requirements": [
+            "Keep chemistry validity, pocket compatibility, clash, and strict pocket-fit metrics above the shared backend thresholds.",
+            "Keep backend_missing_structure_fraction at or below 0.0 on claim-bearing reviewer surfaces."
+          ],
+          "reviewer_reasons": [],
+          "chemistry_validity_ready": true,
+          "docking_backend_available": true,
+          "docking_input_completeness_fraction": null,
+          "docking_score_coverage_fraction": null
+        },
+        "layered_generation_metrics": {
+          "raw_rollout": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 0.9882540503709046,
+            "clash_fraction": 0.0011547883461301008,
+            "mean_displacement": 0.0006008310908103564,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 0.3333333333333333,
+            "atom_type_sequence_diversity": 0.3333333333333333,
+            "bond_topology_diversity": 0.3333333333333333,
+            "coordinate_shape_diversity": 0.3333333333333333,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "repaired_candidates": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 0.41823635925046926,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 1.0,
+            "atom_type_sequence_diversity": 0.3333333333333333,
+            "bond_topology_diversity": 1.0,
+            "coordinate_shape_diversity": 1.0,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "inferred_bond_candidates": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 0.41823635925046926,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 1.0,
+            "atom_type_sequence_diversity": 0.9583333333333334,
+            "bond_topology_diversity": 1.0,
+            "coordinate_shape_diversity": 1.0,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "reranked_candidates": {
+            "candidate_count": 0,
+            "valid_fraction": 0.0,
+            "pocket_contact_fraction": 0.0,
+            "mean_centroid_offset": 0.0,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 0.0,
+            "atom_type_sequence_diversity": 0.0,
+            "bond_topology_diversity": 0.0,
+            "coordinate_shape_diversity": 0.0,
+            "novel_atom_type_sequence_fraction": 0.0,
+            "novel_bond_topology_fraction": 0.0,
+            "novel_coordinate_shape_fraction": 0.0
+          },
+          "deterministic_proxy_candidates": {
+            "candidate_count": 0,
+            "valid_fraction": 0.0,
+            "pocket_contact_fraction": 0.0,
+            "mean_centroid_offset": 0.0,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 0.0,
+            "atom_type_sequence_diversity": 0.0,
+            "bond_topology_diversity": 0.0,
+            "coordinate_shape_diversity": 0.0,
+            "novel_atom_type_sequence_fraction": 0.0,
+            "novel_bond_topology_fraction": 0.0,
+            "novel_coordinate_shape_fraction": 0.0
+          },
+          "reranker_calibration": {
+            "method": "bounded_nonnegative_feature_target_covariance_v1",
+            "coefficients": {
+              "bond_density_fit": 0.5788781800680586,
+              "centroid_fit": 0.4211218199319415,
+              "clash_free": 0.0,
+              "pocket_contact": 0.0,
+              "valence_sane": 0.0,
+              "valid": 0.0
+            },
+            "target_mean": 0.9880756349638166,
+            "fitted_candidate_count": 24
+          },
+          "backend_scored_candidates": {
+            "chemistry_validity": {
+              "backend_examples_scored": 1.0,
+              "backend_missing_structure_fraction": 0.0,
+              "candidate_metric_rows": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|backend_missing_structure_fraction": 0.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_finite_conformer_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_parseable_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_sanitized_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_unique_smiles_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|rdkit_valid_fraction": 1.0,
+              "heuristic_structural_pass_fraction": 0.0,
+              "heuristic_valence_sanity_fraction": 1.0,
+              "heuristic_valid_fraction": 1.0,
+              "rdkit_available": 1.0,
+              "rdkit_finite_conformer_fraction": 1.0,
+              "rdkit_parseable_fraction": 1.0,
+              "rdkit_sanitized_fraction": 1.0,
+              "rdkit_unique_smiles_fraction": 1.0,
+              "rdkit_valid_fraction": 1.0,
+              "schema_version": 1.0
+            },
+            "docking_affinity": {
+              "backend_examples_scored": 1.0,
+              "backend_missing_structure_fraction": 0.0,
+              "candidate_metric_rows": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|clash_fraction": 0.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|contact_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|docking_like_score": 0.839558634974797,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|mean_min_contact_distance": 2.7714206464680027,
+              "clash_fraction": 0.0,
+              "contact_fraction": 1.0,
+              "docking_like_score": 0.839558634974797,
+              "heuristic_centroid_fit_score": 0.8671625862132238,
+              "heuristic_mean_centroid_offset": 0.1531862835167491,
+              "heuristic_pocket_contact_fraction": 1.0,
+              "mean_min_contact_distance": 2.7714206464680027,
+              "schema_version": 1.0
+            },
+            "pocket_compatibility": {
+              "atom_coverage_fraction": 0.9102564102564102,
+              "backend_examples_scored": 1.0,
+              "backend_missing_structure_fraction": 0.0,
+              "candidate_metric_rows": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|atom_coverage_fraction": 0.9102564102564102,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|centroid_inside_fraction": 1.0,
+              "candidate_metric|1h22|1h22|1h22:1h22:0|clash_fraction": 0.0,
+              "centroid_inside_fraction": 1.0,
+              "clash_fraction": 0.0,
+              "heuristic_atom_coverage_fraction": 1.0,
+              "heuristic_centroid_inside_fraction": 1.0,
+              "heuristic_clash_free_fraction": 1.0,
+              "heuristic_strict_pocket_fit_score": 0.8671625862132238,
+              "schema_version": 1.0
+            }
+          },
+          "method_comparison": {
+            "active_method": {
+              "method_id": "flow_matching",
+              "method_name": "Flow Matching Transport",
+              "method_family": "flow_matching",
+              "capability": {
+                "trainable": true,
+                "batched_generation": true,
+                "method_native_generation": true,
+                "uses_postprocessors": true,
+                "repair_layer": true,
+                "inferred_bond_layer": true,
+                "reranked_layer": false,
+                "external_wrapper": false,
+                "stub": false
+              },
+              "layered_output_support": [
+                "raw_rollout",
+                "repaired",
+                "inferred_bond"
+              ],
+              "evidence_role": "comparison_only",
+              "execution_mode": "batched"
+            },
+            "methods": [
+              {
+                "method_id": "flow_matching",
+                "method_name": "Flow Matching Transport",
+                "method_family": "flowmatching",
+                "evidence_role": "comparisononly",
+                "available": true,
+                "native_layer": "raw_rollout",
+                "supported_layers": [
+                  "raw_rollout",
+                  "repaired_candidates",
+                  "inferred_bond_candidates"
+                ],
+                "trainable": true,
+                "parameter_count": null,
+                "sampling_steps": 20,
+                "wall_time_ms": 47.282046,
+                "memory_estimate_bytes": 172080,
+                "available_layers": [
+                  "raw_rollout",
+                  "repaired_candidates",
+                  "inferred_bond_candidates"
+                ],
+                "native_candidate_count": 24,
+                "native_valid_fraction": 1.0,
+                "native_pocket_contact_fraction": 1.0,
+                "native_clash_fraction": 0.0011547883461301008,
+                "slot_activation_mean": 0.6614583333333334,
+                "gate_activation_mean": 0.4901476603311797,
+                "leakage_proxy_mean": null,
+                "repair_gain_valid_fraction": 0.0,
+                "rerank_gain_valid_fraction": null
+              },
+              {
+                "method_id": "conditioned_denoising",
+                "method_name": "Conditioned Denoising",
+                "method_family": "conditioneddenoising",
+                "evidence_role": "claimbearing",
+                "available": true,
+                "native_layer": "raw_rollout",
+                "supported_layers": [
+                  "raw_rollout",
+                  "repaired_candidates",
+                  "inferred_bond_candidates",
+                  "deterministic_proxy_candidates",
+                  "reranked_candidates"
+                ],
+                "trainable": true,
+                "parameter_count": null,
+                "sampling_steps": 4,
+                "wall_time_ms": 53.808648,
+                "memory_estimate_bytes": 153595,
+                "available_layers": [
+                  "raw_rollout",
+                  "repaired_candidates",
+                  "inferred_bond_candidates",
+                  "deterministic_proxy_candidates",
+                  "reranked_candidates"
+                ],
+                "native_candidate_count": 24,
+                "native_valid_fraction": 1.0,
+                "native_pocket_contact_fraction": 1.0,
+                "native_clash_fraction": 0.004767450728097613,
+                "slot_activation_mean": 0.6614583333333334,
+                "gate_activation_mean": 0.4901476603311797,
+                "leakage_proxy_mean": null,
+                "repair_gain_valid_fraction": 0.0,
+                "rerank_gain_valid_fraction": 0.0
+              }
+            ],
+            "planned_metric_interfaces": [
+              {
+                "interface_id": "chemistry_property_bundle",
+                "description": "Backend-agnostic chemistry property interface reserved for future method comparison.",
+                "backend_agnostic": true
+              },
+              {
+                "interface_id": "scaffold_novelty_bundle",
+                "description": "Backend-agnostic scaffold novelty interface reserved for future method comparison.",
+                "backend_agnostic": true
+              }
+            ],
+            "preference_alignment": {
+              "schema_version": 1,
+              "profile_extraction_enabled": false,
+              "pair_construction_enabled": false,
+              "profile_count": 0,
+              "preference_pair_count": 0,
+              "profile_artifact": null,
+              "preference_pair_artifact": null,
+              "reranker_summary_artifact": null,
+              "missing_artifacts_mean_unavailable": true
+            },
+            "flow_metrics": {
+              "raw_output": {
+                "candidate_count": 24,
+                "valid_fraction": 1.0,
+                "pocket_contact_fraction": 1.0,
+                "mean_centroid_offset": 0.9882540503709046,
+                "clash_fraction": 0.0011547883461301008,
+                "mean_displacement": 0.0,
+                "atom_change_fraction": 0.0,
+                "uniqueness_proxy_fraction": 0.3333333333333333,
+                "atom_type_sequence_diversity": 0.3333333333333333,
+                "bond_topology_diversity": 0.3333333333333333,
+                "coordinate_shape_diversity": 0.3333333333333333,
+                "novel_atom_type_sequence_fraction": 1.0,
+                "novel_bond_topology_fraction": 1.0,
+                "novel_coordinate_shape_fraction": 1.0
+              },
+              "repaired_output": {
+                "candidate_count": 24,
+                "valid_fraction": 1.0,
+                "pocket_contact_fraction": 1.0,
+                "mean_centroid_offset": 0.41823635925046926,
+                "clash_fraction": 0.0,
+                "mean_displacement": 0.0,
+                "atom_change_fraction": 0.0,
+                "uniqueness_proxy_fraction": 1.0,
+                "atom_type_sequence_diversity": 0.3333333333333333,
+                "bond_topology_diversity": 1.0,
+                "coordinate_shape_diversity": 1.0,
+                "novel_atom_type_sequence_fraction": 1.0,
+                "novel_bond_topology_fraction": 1.0,
+                "novel_coordinate_shape_fraction": 1.0
+              },
+              "versus_conditioned_denoising": {
+                "native_valid_fraction_delta": 0.0,
+                "native_pocket_contact_fraction_delta": 0.0,
+                "native_clash_fraction_delta": -0.003612662381967512
+              }
+            }
+          }
+        },
+        "chemistry_novelty_diversity": {
+          "review_layer": "inferred_bond_candidates",
+          "unique_smiles_fraction": 1.0,
+          "atom_type_sequence_diversity": 0.9583333333333334,
+          "bond_topology_diversity": 1.0,
+          "coordinate_shape_diversity": 1.0,
+          "novel_atom_type_sequence_fraction": 1.0,
+          "novel_bond_topology_fraction": 1.0,
+          "novel_coordinate_shape_fraction": 1.0,
+          "interpretation": "Review chemistry novelty/diversity on `inferred_bond_candidates`; novelty is measured against training-reference structural signatures instead of relying only on within-layer uniqueness.",
+          "benchmark_evidence": {
+            "backend_backed": true,
+            "sanitized_fraction": 1.0,
+            "unique_smiles_fraction": 1.0,
+            "review_candidate_count": 24,
+            "validity_quality_score": 1.0,
+            "novelty_diversity_score": 0.9930555555555556,
+            "evidence_tier": "reviewer_benchmark_plus",
+            "stronger_reviewer_benchmark": true,
+            "external_benchmark_backed": false,
+            "external_benchmark_dataset": null,
+            "stronger_review_candidate_threshold": 8,
+            "stronger_required_backend_metrics": [
+              "rdkit_parseable_fraction",
+              "rdkit_finite_conformer_fraction",
+              "rdkit_sanitized_fraction",
+              "rdkit_unique_smiles_fraction"
+            ],
+            "stronger_benchmark_support_score": 1.0,
+            "external_benchmark_support_score": 0.8333333333333334,
+            "stronger_benchmark_note": "This surface clears the stronger reviewer chemistry gate because parseable, finite-conformer, sanitized, and unique-SMILES fractions all pass with review_candidate_count=24 and novelty_diversity_score=0.9931.",
+            "external_required_checks": [
+              "reviewer_benchmark.dataset is configured for configured_external_benchmark",
+              "dataset_validation.parsed_examples >= 100",
+              "dataset_validation.retained_label_coverage >= 0.8",
+              "val protein-family count >= 10",
+              "test protein-family count >= 10",
+              "reviewer benchmark-plus chemistry gate already passed"
+            ],
+            "external_benchmark_note": "This surface does not yet clear the explicit external benchmark-dataset chemistry tier; support is 0.833 and requires a configured benchmark dataset label, parsed_examples>=100, retained_label_coverage>=0.8, held-out family counts>=10 on validation/test, and reviewer benchmark-plus chemistry already passing.",
+            "benchmark_components": [
+              "rdkit_sanitized_fraction",
+              "rdkit_unique_smiles_fraction",
+              "atom_type_sequence_diversity",
+              "bond_topology_diversity",
+              "coordinate_shape_diversity",
+              "novel_atom_type_sequence_fraction",
+              "novel_bond_topology_fraction",
+              "novel_coordinate_shape_fraction",
+              "rdkit_parseable_fraction",
+              "rdkit_finite_conformer_fraction",
+              "review_candidate_count",
+              "stronger_benchmark_support_score"
+            ],
+            "interpretation": "Combines backend-backed chemistry quality, held-out-pocket novelty/diversity aggregates, and explicit reviewer benchmark checks (validity_quality_score=1.0000, novelty_diversity_score=0.9931, support_score=1.0000) for a stronger reviewer benchmark-plus chemistry summary."
+          }
+        },
+        "claim_context": {
+          "surface_label": "flow_sweep_surface",
+          "real_backend_backed": true,
+          "evidence_mode": "real-backend-backed held-out pocket evidence"
+        },
+        "backend_environment": {
+          "config_fingerprint": "c6739a94f51c4353",
+          "real_backend_backed": true,
+          "prerequisites": [
+            "Use the canonical experiment config that enables the external chemistry, docking, and pocket backends.",
+            "Run `python3 tools/reviewer_env_check.py --config <experiment-config>` before reviewer revalidation on a fresh machine.",
+            "Ensure `python3` can execute `tools/rdkit_validity_backend.py` and `tools/pocket_contact_backend.py` from the repository root.",
+            "Keep source protein and ligand structure provenance available in the configured dataset so backend scoring does not degrade into missing-structure examples."
+          ],
+          "chemistry_backend": {
+            "logical_name": "chemistry_validity",
+            "enabled": true,
+            "executable": "python3",
+            "args": [
+              "./tools/rdkit_validity_backend.py"
+            ],
+            "command_fingerprint": "f83effa09385dabf",
+            "runtime_available": true,
+            "backend_name": "external_command_chemistry",
+            "status": "external chemistry-validity backend on modular rollout candidates",
+            "schema_version": 1.0,
+            "backend_examples_scored": 1.0
+          },
+          "docking_backend": {
+            "logical_name": "docking_affinity",
+            "enabled": true,
+            "executable": "python3",
+            "args": [
+              "./tools/pocket_contact_backend.py",
+              "--mode",
+              "docking"
+            ],
+            "command_fingerprint": "584a1e3aae941615",
+            "runtime_available": true,
+            "backend_name": "external_command_docking",
+            "status": "external docking backend on modular rollout candidates",
+            "schema_version": 1.0,
+            "backend_examples_scored": 1.0
+          },
+          "pocket_backend": {
+            "logical_name": "pocket_compatibility",
+            "enabled": true,
+            "executable": "python3",
+            "args": [
+              "./tools/pocket_contact_backend.py",
+              "--mode",
+              "compatibility"
+            ],
+            "command_fingerprint": "b8e86df70649128f",
+            "runtime_available": true,
+            "backend_name": "external_command_pocket_compatibility",
+            "status": "external pocket-compatibility backend on modular rollout candidates",
+            "schema_version": 1.0,
+            "backend_examples_scored": 1.0
+          }
+        },
+        "ablation_deltas": [],
+        "reranker_report": {
+          "baseline": {
+            "candidate_count": 24,
+            "valid_fraction": 1.0,
+            "pocket_contact_fraction": 1.0,
+            "mean_centroid_offset": 0.41823635925046926,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 1.0,
+            "atom_type_sequence_diversity": 0.9583333333333334,
+            "bond_topology_diversity": 1.0,
+            "coordinate_shape_diversity": 1.0,
+            "novel_atom_type_sequence_fraction": 1.0,
+            "novel_bond_topology_fraction": 1.0,
+            "novel_coordinate_shape_fraction": 1.0
+          },
+          "reranked": {
+            "candidate_count": 0,
+            "valid_fraction": 0.0,
+            "pocket_contact_fraction": 0.0,
+            "mean_centroid_offset": 0.0,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 0.0,
+            "atom_type_sequence_diversity": 0.0,
+            "bond_topology_diversity": 0.0,
+            "coordinate_shape_diversity": 0.0,
+            "novel_atom_type_sequence_fraction": 0.0,
+            "novel_bond_topology_fraction": 0.0,
+            "novel_coordinate_shape_fraction": 0.0
+          },
+          "deterministic_proxy": {
+            "candidate_count": 0,
+            "valid_fraction": 0.0,
+            "pocket_contact_fraction": 0.0,
+            "mean_centroid_offset": 0.0,
+            "clash_fraction": 0.0,
+            "mean_displacement": 0.0,
+            "atom_change_fraction": 0.0,
+            "uniqueness_proxy_fraction": 0.0,
+            "atom_type_sequence_diversity": 0.0,
+            "bond_topology_diversity": 0.0,
+            "coordinate_shape_diversity": 0.0,
+            "novel_atom_type_sequence_fraction": 0.0,
+            "novel_bond_topology_fraction": 0.0,
+            "novel_coordinate_shape_fraction": 0.0
+          },
+          "calibration": {
+            "method": "bounded_nonnegative_feature_target_covariance_v1",
+            "coefficients": {
+              "bond_density_fit": 0.5788781800680586,
+              "centroid_fit": 0.4211218199319415,
+              "clash_free": 0.0,
+              "pocket_contact": 0.0,
+              "valence_sane": 0.0,
+              "valid": 0.0
+            },
+            "target_mean": 0.9880756349638166,
+            "fitted_candidate_count": 24
+          },
+          "decision": "calibrated reranking did not dominate deterministic selection; expand backend-scored calibration evidence before considering adversarial training"
+        },
+        "slot_stability": {
+          "topology_activation_mean": 0.7532467532467533,
+          "geometry_activation_mean": 0.4025974025974026,
+          "pocket_activation_mean": 0.8506493506493507,
+          "topology_signature_similarity": 0.9792696732988634,
+          "geometry_signature_similarity": 0.9592935738493796,
+          "pocket_signature_similarity": 0.9442086468710416,
+          "topology_probe_alignment": 0.013041559243937592,
+          "geometry_probe_alignment": 0.14896955010585694,
+          "pocket_probe_alignment": 0.3889829385193954
+        },
+        "leakage_calibration": {
+          "recommended_delta_leak": 0.05,
+          "evaluated_variants": 0,
+          "preferred_max_leakage_proxy_mean": 0.08,
+          "hard_max_leakage_proxy_mean": 0.12,
+          "max_leakage_proxy_regression": 0.03,
+          "reviewer_status": "caution",
+          "reviewer_passed": true,
+          "reviewer_reasons": [
+            "test leakage proxy 0.1100 exceeds the preferred reviewer bound 0.0800"
+          ],
+          "decision": "current leakage weight remains usable, but reviewed ablations or the base run sit above the preferred reviewer band; keep leakage interpretation explicit in claim-facing notes"
+        },
+        "performance_gates": {
+          "passed": true,
+          "failed_reasons": [],
+          "validation_examples_per_second": 41.005004543647395,
+          "test_examples_per_second": 40.45262099298034,
+          "validation_memory_mb": 208.359375,
+          "test_memory_mb": 0.08203125
+        },
+        "baseline_comparisons": [
+          {
+            "label": "heuristic_raw_rollout_no_repair",
+            "source": "generation_layer",
+            "candidate_layer": {
+              "candidate_count": 24,
+              "valid_fraction": 1.0,
+              "pocket_contact_fraction": 1.0,
+              "mean_centroid_offset": 0.9882540503709046,
+              "clash_fraction": 0.0011547883461301008,
+              "mean_displacement": 0.0006008310908103564,
+              "atom_change_fraction": 0.0,
+              "uniqueness_proxy_fraction": 0.3333333333333333,
+              "atom_type_sequence_diversity": 0.3333333333333333,
+              "bond_topology_diversity": 0.3333333333333333,
+              "coordinate_shape_diversity": 0.3333333333333333,
+              "novel_atom_type_sequence_fraction": 1.0,
+              "novel_bond_topology_fraction": 1.0,
+              "novel_coordinate_shape_fraction": 1.0
+            },
+            "test_summary": null,
+            "interpretation": "Raw decoder rollout before geometry repair, bond inference, or reranking."
+          },
+          {
+            "label": "pocket_centroid_repair_proxy",
+            "source": "generation_layer",
+            "candidate_layer": {
+              "candidate_count": 24,
+              "valid_fraction": 1.0,
+              "pocket_contact_fraction": 1.0,
+              "mean_centroid_offset": 0.41823635925046926,
+              "clash_fraction": 0.0,
+              "mean_displacement": 0.0,
+              "atom_change_fraction": 0.0,
+              "uniqueness_proxy_fraction": 1.0,
+              "atom_type_sequence_diversity": 0.3333333333333333,
+              "bond_topology_diversity": 1.0,
+              "coordinate_shape_diversity": 1.0,
+              "novel_atom_type_sequence_fraction": 1.0,
+              "novel_bond_topology_fraction": 1.0,
+              "novel_coordinate_shape_fraction": 1.0
+            },
+            "test_summary": null,
+            "interpretation": "Geometry-repaired candidates expose how much pocket-centroid postprocessing helps."
+          },
+          {
+            "label": "deterministic_proxy_reranker",
+            "source": "generation_layer",
+            "candidate_layer": {
+              "candidate_count": 0,
+              "valid_fraction": 0.0,
+              "pocket_contact_fraction": 0.0,
+              "mean_centroid_offset": 0.0,
+              "clash_fraction": 0.0,
+              "mean_displacement": 0.0,
+              "atom_change_fraction": 0.0,
+              "uniqueness_proxy_fraction": 0.0,
+              "atom_type_sequence_diversity": 0.0,
+              "bond_topology_diversity": 0.0,
+              "coordinate_shape_diversity": 0.0,
+              "novel_atom_type_sequence_fraction": 0.0,
+              "novel_bond_topology_fraction": 0.0,
+              "novel_coordinate_shape_fraction": 0.0
+            },
+            "test_summary": null,
+            "interpretation": "Current deterministic selection proxy before learned reranker calibration."
+          },
+          {
+            "label": "calibrated_reranker",
+            "source": "generation_layer",
+            "candidate_layer": {
+              "candidate_count": 0,
+              "valid_fraction": 0.0,
+              "pocket_contact_fraction": 0.0,
+              "mean_centroid_offset": 0.0,
+              "clash_fraction": 0.0,
+              "mean_displacement": 0.0,
+              "atom_change_fraction": 0.0,
+              "uniqueness_proxy_fraction": 0.0,
+              "atom_type_sequence_diversity": 0.0,
+              "bond_topology_diversity": 0.0,
+              "coordinate_shape_diversity": 0.0,
+              "novel_atom_type_sequence_fraction": 0.0,
+              "novel_bond_topology_fraction": 0.0,
+              "novel_coordinate_shape_fraction": 0.0
+            },
+            "test_summary": null,
+            "interpretation": "Active bounded calibrated reranker used on the claim-bearing selection path."
+          }
+        ],
+        "method_comparison": {
+          "active_method": {
+            "method_id": "flow_matching",
+            "method_name": "Flow Matching Transport",
+            "method_family": "flow_matching",
+            "capability": {
+              "trainable": true,
+              "batched_generation": true,
+              "method_native_generation": true,
+              "uses_postprocessors": true,
+              "repair_layer": true,
+              "inferred_bond_layer": true,
+              "reranked_layer": false,
+              "external_wrapper": false,
+              "stub": false
+            },
+            "layered_output_support": [
+              "raw_rollout",
+              "repaired",
+              "inferred_bond"
+            ],
+            "evidence_role": "comparison_only",
+            "execution_mode": "batched"
+          },
+          "methods": [
+            {
+              "method_id": "flow_matching",
+              "method_name": "Flow Matching Transport",
+              "method_family": "flowmatching",
+              "evidence_role": "comparisononly",
+              "available": true,
+              "native_layer": "raw_rollout",
+              "supported_layers": [
+                "raw_rollout",
+                "repaired_candidates",
+                "inferred_bond_candidates"
+              ],
+              "trainable": true,
+              "parameter_count": null,
+              "sampling_steps": 20,
+              "wall_time_ms": 47.282046,
+              "memory_estimate_bytes": 172080,
+              "available_layers": [
+                "raw_rollout",
+                "repaired_candidates",
+                "inferred_bond_candidates"
+              ],
+              "native_candidate_count": 24,
+              "native_valid_fraction": 1.0,
+              "native_pocket_contact_fraction": 1.0,
+              "native_clash_fraction": 0.0011547883461301008,
+              "slot_activation_mean": 0.6614583333333334,
+              "gate_activation_mean": 0.4901476603311797,
+              "leakage_proxy_mean": null,
+              "repair_gain_valid_fraction": 0.0,
+              "rerank_gain_valid_fraction": null
+            },
+            {
+              "method_id": "conditioned_denoising",
+              "method_name": "Conditioned Denoising",
+              "method_family": "conditioneddenoising",
+              "evidence_role": "claimbearing",
+              "available": true,
+              "native_layer": "raw_rollout",
+              "supported_layers": [
+                "raw_rollout",
+                "repaired_candidates",
+                "inferred_bond_candidates",
+                "deterministic_proxy_candidates",
+                "reranked_candidates"
+              ],
+              "trainable": true,
+              "parameter_count": null,
+              "sampling_steps": 4,
+              "wall_time_ms": 53.808648,
+              "memory_estimate_bytes": 153595,
+              "available_layers": [
+                "raw_rollout",
+                "repaired_candidates",
+                "inferred_bond_candidates",
+                "deterministic_proxy_candidates",
+                "reranked_candidates"
+              ],
+              "native_candidate_count": 24,
+              "native_valid_fraction": 1.0,
+              "native_pocket_contact_fraction": 1.0,
+              "native_clash_fraction": 0.004767450728097613,
+              "slot_activation_mean": 0.6614583333333334,
+              "gate_activation_mean": 0.4901476603311797,
+              "leakage_proxy_mean": null,
+              "repair_gain_valid_fraction": 0.0,
+              "rerank_gain_valid_fraction": 0.0
+            }
+          ],
+          "planned_metric_interfaces": [
+            {
+              "interface_id": "chemistry_property_bundle",
+              "description": "Backend-agnostic chemistry property interface reserved for future method comparison.",
+              "backend_agnostic": true
+            },
+            {
+              "interface_id": "scaffold_novelty_bundle",
+              "description": "Backend-agnostic scaffold novelty interface reserved for future method comparison.",
+              "backend_agnostic": true
+            }
+          ],
+          "preference_alignment": {
+            "schema_version": 1,
+            "profile_extraction_enabled": false,
+            "pair_construction_enabled": false,
+            "profile_count": 0,
+            "preference_pair_count": 0,
+            "profile_artifact": null,
+            "preference_pair_artifact": null,
+            "reranker_summary_artifact": null,
+            "missing_artifacts_mean_unavailable": true
+          },
+          "flow_metrics": {
+            "raw_output": {
+              "candidate_count": 24,
+              "valid_fraction": 1.0,
+              "pocket_contact_fraction": 1.0,
+              "mean_centroid_offset": 0.9882540503709046,
+              "clash_fraction": 0.0011547883461301008,
+              "mean_displacement": 0.0,
+              "atom_change_fraction": 0.0,
+              "uniqueness_proxy_fraction": 0.3333333333333333,
+              "atom_type_sequence_diversity": 0.3333333333333333,
+              "bond_topology_diversity": 0.3333333333333333,
+              "coordinate_shape_diversity": 0.3333333333333333,
+              "novel_atom_type_sequence_fraction": 1.0,
+              "novel_bond_topology_fraction": 1.0,
+              "novel_coordinate_shape_fraction": 1.0
+            },
+            "repaired_output": {
+              "candidate_count": 24,
+              "valid_fraction": 1.0,
+              "pocket_contact_fraction": 1.0,
+              "mean_centroid_offset": 0.41823635925046926,
+              "clash_fraction": 0.0,
+              "mean_displacement": 0.0,
+              "atom_change_fraction": 0.0,
+              "uniqueness_proxy_fraction": 1.0,
+              "atom_type_sequence_diversity": 0.3333333333333333,
+              "bond_topology_diversity": 1.0,
+              "coordinate_shape_diversity": 1.0,
+              "novel_atom_type_sequence_fraction": 1.0,
+              "novel_bond_topology_fraction": 1.0,
+              "novel_coordinate_shape_fraction": 1.0
+            },
+            "versus_conditioned_denoising": {
+              "native_valid_fraction_delta": 0.0,
+              "native_pocket_contact_fraction_delta": 0.0,
+              "native_clash_fraction_delta": -0.003612662381967512
+            }
+          }
+        }
+      }
+    }
+  ],
+  "aggregate_interaction_review": null,
+  "gate_result": {
+    "passed": true,
+    "blocked_reasons": []
+  },
+  "score": 6.618373009736823
+}

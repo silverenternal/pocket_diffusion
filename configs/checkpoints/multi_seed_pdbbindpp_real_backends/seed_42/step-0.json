@@ -6,24 +6,24 @@
     "losses": {
       "primary": {
         "objective_name": "conditioned_denoising",
-        "primary_value": 59.59111022949219,
+        "primary_value": 33.03445053100586,
         "decoder_anchored": true
       },
       "auxiliaries": {
-        "intra_red": 240.0180206298828,
-        "probe": 156.20860290527344,
+        "intra_red": 169.13232421875,
+        "probe": 137.16567993164062,
         "leak": 0.0,
-        "gate": 0.6182399392127991,
-        "slot": 0.14033585786819458,
-        "consistency": 0.42968231439590454,
-        "pocket_contact": 9.96413803100586,
-        "pocket_clash": 0.00018271066073793918
+        "gate": 0.28806695342063904,
+        "slot": 0.15959668159484863,
+        "consistency": 0.521551251411438,
+        "pocket_contact": 2.903186082839966,
+        "pocket_clash": 0.000411198940128088
       },
-      "total": 59.63407897949219
+      "total": 33.086605072021484
     }
   },
-  "config_hash": "d461708fefc579b6",
-  "dataset_validation_fingerprint": "bfc157a6a152e4b9",
+  "config_hash": "860bc21f2ea07730",
+  "dataset_validation_fingerprint": "66d72e47fc3dbee5",
   "metric_schema_version": 5,
   "resume_contract_version": "weights+history+step",
   "optimizer_state": {
@@ -43,5 +43,19 @@
     "consistency_weight": 0.1,
     "pocket_contact_weight": 0.0,
     "pocket_clash_weight": 0.0
+  },
+  "backend_training": {
+    "backend_id": "conditioned_denoising",
+    "backend_family": "conditioneddenoising",
+    "objective_name": "conditioned_denoising",
+    "trainable_backend": true,
+    "shared_auxiliary_objectives": [
+      "L_consistency",
+      "L_intra_red",
+      "L_probe",
+      "L_leak",
+      "L_gate",
+      "L_slot"
+    ]
   }
 }

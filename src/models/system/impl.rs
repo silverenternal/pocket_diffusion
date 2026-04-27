@@ -26,7 +26,11 @@ pub struct Phase1ResearchSystem {
     pub ligand_decoder: ModularLigandDecoder,
     /// Semantic probe heads.
     pub probes: SemanticProbeHeads,
+    /// Geometry-only flow-matching velocity head.
+    pub flow_matching_head: GeometryFlowMatchingHead,
     generation_target: GenerationTargetConfig,
+    generation_backend_family: GenerationBackendFamilyConfig,
+    flow_matching_config: crate::config::FlowMatchingConfig,
     geometry_attention_bias_scale: f64,
 }
 
@@ -111,6 +115,8 @@ impl Phase1ResearchSystem {
             config.model.hidden_dim,
             config.model.pocket_feature_dim,
         );
+        let flow_matching_head =
+            GeometryFlowMatchingHead::new(&(vs / "flow_matching_head"), config.model.hidden_dim);
 
         Self {
             topo_encoder,
@@ -127,7 +133,10 @@ impl Phase1ResearchSystem {
             pocket_from_geo,
             ligand_decoder,
             probes,
+            flow_matching_head,
             generation_target: config.data.generation_target.clone(),
+            generation_backend_family: resolved_generation_backend_family(config),
+            flow_matching_config: config.generation_method.flow_matching.clone(),
             geometry_attention_bias_scale: config
                 .model
                 .interaction_tuning
@@ -270,6 +279,8 @@ impl Phase1ResearchSystem {
         );
         let generation_state = self.build_generation_state(example, &slots, &interactions);
         let decoded = self.ligand_decoder.decode(&generation_state);
+        let flow_matching =
+            self.flow_matching_training_record(example, &generation_state, &interactions);
         let rollout = self.rollout_generation(example, &generation_state);
 
         ResearchForward {
@@ -281,6 +292,7 @@ impl Phase1ResearchSystem {
                 state: generation_state,
                 decoded,
                 rollout,
+                flow_matching,
             },
         }
     }
@@ -347,6 +359,8 @@ impl Phase1ResearchSystem {
         );
         let generation_state = self.build_generation_state(example, &slots, &interactions);
         let decoded = self.ligand_decoder.decode(&generation_state);
+        let flow_matching =
+            self.flow_matching_training_record(example, &generation_state, &interactions);
         let rollout = self.rollout_generation(example, &generation_state);
 
         ResearchForward {
@@ -358,6 +372,7 @@ impl Phase1ResearchSystem {
                 state: generation_state,
                 decoded,
                 rollout,
+                flow_matching,
             },
         }
     }
@@ -401,11 +416,56 @@ impl Phase1ResearchSystem {
         }
     }
 
+    fn flow_matching_training_record(
+        &self,
+        example: &MolecularExample,
+        generation_state: &ConditionedGenerationState,
+        interactions: &CrossModalInteractions,
+    ) -> Option<FlowMatchingTrainingRecord> {
+        if self.generation_backend_family != GenerationBackendFamilyConfig::FlowMatching {
+            return None;
+        }
+        let x1 = example.decoder_supervision.target_coords.shallow_clone();
+        let x0 = flow_matching_x0(
+            example,
+            self.flow_matching_config.noise_scale,
+            self.flow_matching_config.use_corrupted_x0,
+        );
+        if x1.size() != x0.size() {
+            return None;
+        }
+        let t = flow_matching_t_from_example(example);
+        let xt = &x0 * (1.0 - t) + &x1 * t;
+        let flow_state = FlowState {
+            coords: xt.shallow_clone(),
+            x0_coords: x0.shallow_clone(),
+            target_coords: Some(x1.shallow_clone()),
+            t,
+        };
+        let conditioning =
+            flow_conditioning_state(generation_state, gate_summary_from_interactions(interactions));
+        let predicted_velocity = self
+            .flow_matching_head
+            .predict_velocity(&flow_state, &conditioning)
+            .ok()?
+            .velocity;
+        Some(FlowMatchingTrainingRecord {
+            predicted_velocity,
+            target_velocity: x1 - x0,
+            sampled_coords: xt,
+            t,
+            atom_mask: generation_state.partial_ligand.atom_mask.shallow_clone(),
+        })
+    }
+
     fn rollout_generation(
         &self,
         example: &MolecularExample,
         initial_state: &ConditionedGenerationState,
     ) -> GenerationRolloutRecord {
+        if self.generation_backend_family == GenerationBackendFamilyConfig::FlowMatching {
+            return self.rollout_flow_matching(example, initial_state);
+        }
         let mut state = initial_state.clone();
         let mut steps = Vec::with_capacity(self.generation_target.rollout_steps);
         let mut stopped_early = false;
@@ -492,6 +552,87 @@ impl Phase1ResearchSystem {
             configured_steps: self.generation_target.rollout_steps,
             executed_steps: steps.len(),
             stopped_early,
+            steps,
+        }
+    }
+
+    fn rollout_flow_matching(
+        &self,
+        example: &MolecularExample,
+        initial_state: &ConditionedGenerationState,
+    ) -> GenerationRolloutRecord {
+        let configured_steps = self.flow_matching_config.steps.max(1);
+        let mut coords = flow_matching_x0(
+            example,
+            self.flow_matching_config.noise_scale,
+            self.flow_matching_config.use_corrupted_x0,
+        );
+        let atom_types = tensor_to_i64_vec(&initial_state.partial_ligand.atom_types);
+        let conditioning =
+            flow_conditioning_state(initial_state, GenerationGateSummary::default());
+        let x0_coords = coords.shallow_clone();
+        let dt = 1.0 / configured_steps as f64;
+        let mut steps = Vec::with_capacity(configured_steps);
+        let mut previous = coords.shallow_clone();
+
+        for step_index in 0..configured_steps {
+            let t = step_index as f64 / configured_steps as f64;
+            let flow_state = FlowState {
+                coords: coords.shallow_clone(),
+                x0_coords: x0_coords.shallow_clone(),
+                target_coords: None,
+                t,
+            };
+            let velocity_1 = self
+                .flow_matching_head
+                .predict_velocity(&flow_state, &conditioning)
+                .map(|field| field.velocity)
+                .unwrap_or_else(|_| Tensor::zeros_like(&coords));
+            let update = match self.flow_matching_config.integration_method {
+                FlowMatchingIntegrationMethod::Euler => velocity_1 * dt,
+                FlowMatchingIntegrationMethod::Heun => {
+                    let predictor = &coords + &(velocity_1.shallow_clone() * dt);
+                    let predictor_state = FlowState {
+                        coords: predictor,
+                        x0_coords: x0_coords.shallow_clone(),
+                        target_coords: None,
+                        t: (t + dt).min(1.0),
+                    };
+                    let velocity_2 = self
+                        .flow_matching_head
+                        .predict_velocity(&predictor_state, &conditioning)
+                        .map(|field| field.velocity)
+                        .unwrap_or_else(|_| Tensor::zeros_like(&coords));
+                    (velocity_1 + velocity_2) * (0.5 * dt)
+                }
+            };
+            coords += update;
+            coords = constrain_to_pocket_envelope(
+                &coords,
+                &example.pocket.coords,
+                self.generation_target.pocket_guidance_scale,
+            );
+            let delta = &coords - &previous;
+            let mean_displacement = per_atom_displacement_mean(&delta);
+            previous = coords.shallow_clone();
+            steps.push(GenerationStepRecord {
+                step_index,
+                stop_probability: 0.0,
+                stopped: false,
+                atom_types: atom_types.clone(),
+                coords: tensor_to_coords(&coords),
+                mean_displacement,
+                atom_change_fraction: 0.0,
+                coordinate_step_scale: dt,
+            });
+        }
+
+        GenerationRolloutRecord {
+            example_id: initial_state.example_id.clone(),
+            protein_id: initial_state.protein_id.clone(),
+            configured_steps,
+            executed_steps: steps.len(),
+            stopped_early: false,
             steps,
         }
     }
@@ -615,4 +756,3 @@ impl Phase1ResearchSystem {
         )
     }
 }
-

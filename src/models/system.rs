@@ -7,14 +7,18 @@ use tch::{nn, Kind, Tensor};
 
 use super::{
     BatchedCrossAttentionOutput, BatchedModalityEncoding, BatchedSlotEncoding,
-    ConditionedGenerationState, ConditionedLigandDecoder, CrossAttentionOutput, DecoderOutput,
-    Encoder, GatedCrossAttention, GenerationRolloutRecord, GenerationStepRecord,
-    GeometryEncoderImpl, ModalityEncoding, ModularLigandDecoder, PartialLigandState,
+    ConditionedGenerationState, ConditionedLigandDecoder, ConditioningState, CrossAttentionOutput,
+    DecoderOutput, Encoder, FlowMatchingHead, FlowState, GatedCrossAttention,
+    GenerationGateSummary, GenerationRolloutRecord, GenerationStepRecord, GeometryEncoderImpl,
+    GeometryFlowMatchingHead, ModalityEncoding, ModularLigandDecoder, PartialLigandState,
     PocketEncoderImpl, ProbeOutputs, SemanticProbeHeads, SlotDecomposer, SlotEncoding,
     SoftSlotDecomposer, TopologyEncoderImpl,
 };
 use crate::{
-    config::{GenerationRolloutMode, GenerationTargetConfig, ResearchConfig},
+    config::{
+        FlowMatchingIntegrationMethod, GenerationBackendFamilyConfig, GenerationRolloutMode,
+        GenerationTargetConfig, ResearchConfig,
+    },
     data::{MolecularBatch, MolecularExample},
 };
 

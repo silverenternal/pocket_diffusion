@@ -1,0 +1,61 @@
+{
+  "step": 0,
+  "metrics": {
+    "step": 0,
+    "stage": "Stage1",
+    "losses": {
+      "primary": {
+        "objective_name": "flow_matching",
+        "primary_value": 3.350557327270508,
+        "decoder_anchored": true
+      },
+      "auxiliaries": {
+        "intra_red": 59.07520294189453,
+        "probe": 109.05633544921875,
+        "leak": 0.0,
+        "gate": 0.45833244919776917,
+        "slot": 0.13491907715797424,
+        "consistency": 0.2679603099822998,
+        "pocket_contact": 0.05982872471213341,
+        "pocket_clash": 0.000358613848220557
+      },
+      "total": 3.3773534297943115
+    }
+  },
+  "config_hash": "a015a2658dfb81b3",
+  "dataset_validation_fingerprint": "66d72e47fc3dbee5",
+  "metric_schema_version": 5,
+  "resume_contract_version": "weights+history+step",
+  "optimizer_state": {
+    "optimizer_kind": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "internal_state_persisted": false
+  },
+  "scheduler_state": {
+    "stage": "Stage1",
+    "primary_weight": 1.0,
+    "intra_red_weight": 0.0,
+    "probe_weight": 0.0,
+    "leak_weight": 0.0,
+    "gate_weight": 0.0,
+    "slot_weight": 0.0,
+    "consistency_weight": 0.1,
+    "pocket_contact_weight": 0.0,
+    "pocket_clash_weight": 0.0
+  },
+  "backend_training": {
+    "backend_id": "flow_matching",
+    "backend_family": "flowmatching",
+    "objective_name": "flow_matching",
+    "trainable_backend": true,
+    "shared_auxiliary_objectives": [
+      "L_consistency",
+      "L_intra_red",
+      "L_probe",
+      "L_leak",
+      "L_gate",
+      "L_slot"
+    ]
+  }
+}

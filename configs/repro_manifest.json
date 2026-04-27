@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-27",
+  "scope": "paper_readiness_next_phase",
+  "one_command_reproduction": {
+    "description": "Canonical reviewer refresh path that rebuilds claim/evidence artifacts from repository scripts.",
+    "command": "REVIEWER_PYTHON=.reviewer-env/bin/python ./tools/revalidate_reviewer_bundle.sh",
+    "fallback_command": "./tools/revalidate_reviewer_bundle.sh"
+  },
+  "command_list": [
+    "cargo run --bin pocket_diffusion -- research experiment --config configs/unseen_pocket_pdbbindpp_real_backends.json",
+    "cargo run --bin pocket_diffusion -- research ablate --config configs/unseen_pocket_pdbbindpp_real_backends.json",
+    "cargo run --bin pocket_diffusion -- research multi-seed --config configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json",
+    "python3 tools/claim_regression_gate.py checkpoints/pdbbindpp_real_backends --enforce-backend-thresholds --enforce-data-thresholds",
+    "python3 tools/method_comparison_summary.py checkpoints/pdbbindpp_real_backends",
+    "python3 tools/ablation_delta_table.py checkpoints/pdbbindpp_real_backends",
+    "python3 tools/flow_rollout_diagnostics.py checkpoints/pdbbindpp_real_backends"
+  ],
+  "artifact_manifest": {
+    "main_claim_surface": {
+      "claim_summary": "checkpoints/pdbbindpp_real_backends/claim_summary.json",
+      "experiment_summary": "checkpoints/pdbbindpp_real_backends/experiment_summary.json",
+      "split_report": "checkpoints/pdbbindpp_real_backends/split_report.json",
+      "dataset_validation": "checkpoints/pdbbindpp_real_backends/dataset_validation_report.json",
+      "generation_layers_validation": "checkpoints/pdbbindpp_real_backends/generation_layers_validation.json",
+      "generation_layers_test": "checkpoints/pdbbindpp_real_backends/generation_layers_test.json",
+      "method_comparison_summary": "checkpoints/pdbbindpp_real_backends/method_comparison_summary.json",
+      "ablation_matrix_summary": "checkpoints/pdbbindpp_real_backends/ablation_matrix_summary.json",
+      "ablation_delta_table": "checkpoints/pdbbindpp_real_backends/ablation_delta_table.json",
+      "flow_rollout_diagnostics": "checkpoints/pdbbindpp_real_backends/flow_rollout_diagnostics.json"
+    },
+    "multi_seed_surface": {
+      "summary": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/multi_seed_summary.json",
+      "seed_17_claim": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_17/claim_summary.json",
+      "seed_42_claim": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_42/claim_summary.json",
+      "seed_101_claim": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_101/claim_summary.json"
+    },
+    "reviewer_bundle_outputs": {
+      "evidence_bundle": "docs/evidence_bundle.json",
+      "paper_claim_bundle": "docs/paper_claim_bundle.md",
+      "reviewer_refresh_report": "docs/reviewer_refresh_report.json",
+      "reviewer_efficiency_report": "docs/reviewer_efficiency_report.md",
+      "generator_decision": "checkpoints/generator_decision/generator_decision.json"
+    }
+  }
+}

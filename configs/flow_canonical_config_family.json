@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-27",
+  "family_id": "flow_canonical_larger_data_v1",
+  "description": "Pinned canonical flow-matching config family for larger-data unseen-pocket surfaces with deterministic controls and matched-budget method comparison.",
+  "determinism_controls": {
+    "split_seed": 42,
+    "corruption_seed": 1337,
+    "sampling_seed": 4242,
+    "data_workers": 0,
+    "device": "cpu"
+  },
+  "matched_budget_policy": {
+    "sampling_steps": 20,
+    "required_methods": [
+      "conditioned_denoising",
+      "flow_matching",
+      "calibrated_reranker"
+    ],
+    "require_shared_sampling_steps": true
+  },
+  "canonical_configs": [
+    {
+      "surface_label": "pdbbindpp_flow_canonical",
+      "config_path": "configs/unseen_pocket_pdbbindpp_flow_canonical.json",
+      "checkpoint_dir": "checkpoints/pdbbindpp_flow_canonical",
+      "sha256": "09f6ff7a8c940ea05aaa3d3b78194c9a2e347d468ecc2c69c90ea5846bc828f5"
+    },
+    {
+      "surface_label": "lp_pdbbind_refined_flow_canonical",
+      "config_path": "configs/unseen_pocket_lp_pdbbind_refined_flow_canonical.json",
+      "checkpoint_dir": "checkpoints/lp_pdbbind_refined_flow_canonical",
+      "sha256": "c11363797df9717cb81fe6d35a36c1ed614d0bb0f1a3d988b1bf826a1c2a1db2"
+    },
+    {
+      "surface_label": "multi_seed_pdbbindpp_flow_canonical",
+      "config_path": "configs/unseen_pocket_multi_seed_pdbbindpp_flow_canonical.json",
+      "checkpoint_dir": "checkpoints/multi_seed_pdbbindpp_flow_canonical",
+      "sha256": "e675623a2e08f2620f909ed68e1ea1d0b61b3ce098833e03f0f0e8a1fe7a26e9"
+    }
+  ],
+  "runtime_fingerprint_references": [
+    {
+      "surface_label": "pdbbindpp_flow_canonical",
+      "expected_fields": [
+        "claim_summary.metadata.determinism_controls",
+        "experiment_summary.execution.runtime.device",
+        "experiment_summary.performance.report"
+      ]
+    },
+    {
+      "surface_label": "lp_pdbbind_refined_flow_canonical",
+      "expected_fields": [
+        "claim_summary.metadata.determinism_controls",
+        "experiment_summary.execution.runtime.device",
+        "experiment_summary.performance.report"
+      ]
+    },
+    {
+      "surface_label": "multi_seed_pdbbindpp_flow_canonical",
+      "expected_fields": [
+        "multi_seed_summary.aggregate",
+        "multi_seed_summary.seeds",
+        "multi_seed_summary.determinism_controls"
+      ]
+    }
+  ]
+}

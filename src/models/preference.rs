@@ -128,7 +128,10 @@ impl PreferencePairArtifact {
             .get("backend_based")
             .copied()
             .unwrap_or_default() as f64;
-        let rule_pairs = source_coverage.get("rule_based").copied().unwrap_or_default() as f64;
+        let rule_pairs = source_coverage
+            .get("rule_based")
+            .copied()
+            .unwrap_or_default() as f64;
         Self {
             schema_version: PREFERENCE_PAIR_SCHEMA_VERSION,
             split: split.into(),

@@ -98,6 +98,8 @@ fn build_method_comparison_summary(
         .map(|context| context.with_conditioned_request(&research.data.generation_target))
         .collect::<Vec<_>>();
 
+    let mut flow_raw: Option<CandidateLayerMetrics> = None;
+    let mut flow_repaired: Option<CandidateLayerMetrics> = None;
     let methods = method_ids
         .iter()
         .filter_map(|method_id| PocketGenerationMethodRegistry::build(method_id).ok())
@@ -105,7 +107,22 @@ fn build_method_comparison_summary(
             let metadata = method.metadata();
             let started = std::time::Instant::now();
             let outputs = method.generate_batch(contexts.clone());
-            let mut row = summarize_method_output(&merge_method_outputs(metadata, outputs));
+            let merged = merge_method_outputs(metadata, outputs);
+            if merged.metadata.method_id == "flow_matching" {
+                if let Some(raw) = merged.raw_rollout.as_ref() {
+                    flow_raw = Some(summarize_candidate_layer(
+                        &raw.candidates,
+                        &NoveltyReferenceSignatures::default(),
+                    ));
+                }
+                if let Some(repaired) = merged.repaired.as_ref() {
+                    flow_repaired = Some(summarize_candidate_layer(
+                        &repaired.candidates,
+                        &NoveltyReferenceSignatures::default(),
+                    ));
+                }
+            }
+            let mut row = summarize_method_output(&merged);
             row.wall_time_ms = Some(started.elapsed().as_secs_f64() * 1000.0);
             row.sampling_steps = sampling_steps_for_method(research, &row.method_id);
             row.slot_activation_mean = shared_slot_activation_mean(&contexts);
@@ -113,6 +130,7 @@ fn build_method_comparison_summary(
             row
         })
         .collect::<Vec<_>>();
+    let flow_vs_denoising = flow_vs_denoising_delta(&methods);
 
     MethodComparisonSummary {
         active_method: PocketGenerationMethodRegistry::metadata(
@@ -122,6 +140,11 @@ fn build_method_comparison_summary(
         methods,
         planned_metric_interfaces: planned_metric_interfaces(),
         preference_alignment: PreferenceAlignmentSummary::default(),
+        flow_metrics: FlowMethodMetrics {
+            raw_output: flow_raw,
+            repaired_output: flow_repaired,
+            versus_conditioned_denoising: flow_vs_denoising,
+        },
     }
 }
 
@@ -166,7 +189,27 @@ fn mean_finite(values: &[f64]) -> Option<f64> {
     (!finite.is_empty()).then(|| finite.iter().sum::<f64>() / finite.len() as f64)
 }
 
+fn flow_vs_denoising_delta(
+    methods: &[MethodComparisonRow],
+) -> Option<FlowVsDenoisingDelta> {
+    let flow = methods.iter().find(|row| row.method_id == "flow_matching")?;
+    let denoising = methods
+        .iter()
+        .find(|row| row.method_id == "conditioned_denoising")?;
+    Some(FlowVsDenoisingDelta {
+        native_valid_fraction_delta: flow.native_valid_fraction.unwrap_or(0.0)
+            - denoising.native_valid_fraction.unwrap_or(0.0),
+        native_pocket_contact_fraction_delta: flow.native_pocket_contact_fraction.unwrap_or(0.0)
+            - denoising.native_pocket_contact_fraction.unwrap_or(0.0),
+        native_clash_fraction_delta: flow.native_clash_fraction.unwrap_or(0.0)
+            - denoising.native_clash_fraction.unwrap_or(0.0),
+    })
+}
+
 fn sampling_steps_for_method(research: &ResearchConfig, method_id: &str) -> Option<usize> {
+    if method_id == "flow_matching" {
+        return Some(research.generation_method.flow_matching.steps.max(1));
+    }
     if research.generation_method.primary_backend_id() == method_id {
         return research
             .generation_method

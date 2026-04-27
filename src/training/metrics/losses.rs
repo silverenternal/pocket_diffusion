@@ -10,7 +10,7 @@ pub struct PrimaryObjectiveMetrics {
 }
 
 /// Auxiliary losses emitted by each training step.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuxiliaryLossMetrics {
     /// Intra-modality redundancy objective.
     pub intra_red: f64,
@@ -30,6 +30,15 @@ pub struct AuxiliaryLossMetrics {
     /// Pocket-ligand steric-clash penalty objective.
     #[serde(default)]
     pub pocket_clash: f64,
+    /// Mutual information between topology and geometry (decoupling indicator).
+    #[serde(default)]
+    pub mi_topo_geo: f64,
+    /// Mutual information between topology and pocket (decoupling indicator).
+    #[serde(default)]
+    pub mi_topo_pocket: f64,
+    /// Mutual information between geometry and pocket (decoupling indicator).
+    #[serde(default)]
+    pub mi_geo_pocket: f64,
 }
 
 /// Named loss values emitted by each training step.

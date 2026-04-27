@@ -72,6 +72,7 @@ That means the repository is no longer blocked on "can this stack run the strong
 
 The current hard gate thresholds are intentionally conservative local-review defaults, not publication thresholds:
 
+- Canonical threshold + claim mapping contract: [`configs/paper_claim_contract.json`](../configs/paper_claim_contract.json). `tools/claim_regression_gate.py` now consumes this contract by default (including strict pocket-fit, leakage, chemistry-validity, and clash-related thresholds plus promotion criteria text).
 - Minimum dataset size for claim-ready language: `>= 100` parsed, provenance-retained complexes with `>= 0.8` retained label coverage.
 - Minimum retained source-structure provenance coverage for claim-ready language: `>= 0.95`.
 - Minimum retained normalization-provenance coverage for claim-ready language: `>= 0.95` across labeled examples.
@@ -106,6 +107,8 @@ Reviewer-facing validation should use the single canonical revalidation path:
 ```bash
 ./tools/revalidate_reviewer_bundle.sh
 ```
+
+Canonical command/artifact index for reproducing paper-facing outputs is tracked in [`configs/repro_manifest.json`](../configs/repro_manifest.json).
 
 That script validates the compact regression surface, the repository real-backend gate, the canonical larger-data real-backend surface, the LP-PDBBind refined larger-data benchmark surface, the matching tight-geometry surface, runs `tools/reviewer_env_check.py`, records replay drift reports, rebuilds `docs/evidence_bundle.json`, regenerates `docs/paper_claim_bundle.md`, writes `checkpoints/generator_decision/generator_decision.json`, and persists `docs/reviewer_refresh_report.json`. The generated bundle records backend-threshold results, data-threshold results, split-quality warnings, reranker coefficients, baseline labels, config hashes, reviewer-surface anchors, multi-seed summaries, first-class leakage review verdicts, explicit proxy-vs-benchmark chemistry summaries, stronger-backend companion summaries, claim context, backend-environment fingerprints, determinism controls, replay tolerances, packaged-environment anchors, benchmark-breadth summaries, and the canonical revalidation anchors. Training and experiment summaries now persist deterministic controls plus bounded replay tolerances so reviewer artifacts can distinguish strict replay from tolerated bounded reruns; the repository documents bounded replay as the permanent reviewer guarantee, with `continuity_mode=metadata_only_continuation` and `supports_strict_replay=false`, unless a future implementation adds true optimizer-state replay. The larger-data reviewer path should now point to `checkpoints/pdbbindpp_real_backends`, `checkpoints/lp_pdbbind_refined_real_backends`, and `configs/checkpoints/multi_seed_pdbbindpp_real_backends`. If any threshold fails, keep that blocker explicit in reviewer-facing wording.
 

@@ -1,0 +1,183 @@
+{
+  "artifact_root": "configs/./checkpoints/multi_seed_pdbbindpp_flow",
+  "source_config": "configs/unseen_pocket_multi_seed_pdbbindpp_flow.json",
+  "seed_runs": [
+    {
+      "seed": 17,
+      "artifact_dir": "configs/./checkpoints/multi_seed_pdbbindpp_flow/seed_17",
+      "config_hash": "a015a2658dfb81b3",
+      "candidate_valid_fraction": 1.0,
+      "strict_pocket_fit_score": 0.7194224364091764,
+      "unique_smiles_fraction": 1.0,
+      "rdkit_unique_smiles_fraction": 1.0,
+      "slot_activation_mean": 0.6396103896103893,
+      "gate_activation_mean": 0.279901200613144,
+      "leakage_proxy_mean": 0.01988649754588717,
+      "topology_signature_similarity": 0.9947236711808133,
+      "geometry_signature_similarity": 0.9614688310921018,
+      "pocket_signature_similarity": 0.9487187996488585,
+      "examples_per_second": 42.49223817600785,
+      "test_examples_per_second": 42.49223817600785,
+      "real_backend_backed": true
+    },
+    {
+      "seed": 42,
+      "artifact_dir": "configs/./checkpoints/multi_seed_pdbbindpp_flow/seed_42",
+      "config_hash": "e73ee14a8e46f19e",
+      "candidate_valid_fraction": 1.0,
+      "strict_pocket_fit_score": 0.8966118436532244,
+      "unique_smiles_fraction": 1.0,
+      "rdkit_unique_smiles_fraction": 1.0,
+      "slot_activation_mean": 0.5741341991341989,
+      "gate_activation_mean": 0.41106020607703336,
+      "leakage_proxy_mean": 0.04593745082138627,
+      "topology_signature_similarity": 0.9818093695973439,
+      "geometry_signature_similarity": 0.9612568192461542,
+      "pocket_signature_similarity": 0.9493624700257423,
+      "examples_per_second": 39.864706001073024,
+      "test_examples_per_second": 39.864706001073024,
+      "real_backend_backed": true
+    },
+    {
+      "seed": 101,
+      "artifact_dir": "configs/./checkpoints/multi_seed_pdbbindpp_flow/seed_101",
+      "config_hash": "b7e5521bc0612d28",
+      "candidate_valid_fraction": 1.0,
+      "strict_pocket_fit_score": 0.9357866802285677,
+      "unique_smiles_fraction": 1.0,
+      "rdkit_unique_smiles_fraction": 1.0,
+      "slot_activation_mean": 0.5492424242424243,
+      "gate_activation_mean": 0.44735806121075644,
+      "leakage_proxy_mean": 0.05575277894861599,
+      "topology_signature_similarity": 0.9705361549499077,
+      "geometry_signature_similarity": 0.9602300476006554,
+      "pocket_signature_similarity": 0.923902313576248,
+      "examples_per_second": 42.26978167853741,
+      "test_examples_per_second": 42.26978167853741,
+      "real_backend_backed": true
+    }
+  ],
+  "aggregates": {
+    "candidate_valid_fraction": {
+      "count": 3,
+      "mean": 1.0,
+      "std": 0.0,
+      "standard_error": 0.0,
+      "confidence95_low": 1.0,
+      "confidence95_high": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "strict_pocket_fit_score": {
+      "count": 3,
+      "mean": 0.8506069867636562,
+      "std": 0.09413007540616866,
+      "standard_error": 0.06656001463330292,
+      "confidence95_low": 0.5641992437965537,
+      "confidence95_high": 1.1370147297307587,
+      "min": 0.7194224364091764,
+      "max": 0.9357866802285677
+    },
+    "unique_smiles_fraction": {
+      "count": 3,
+      "mean": 1.0,
+      "std": 0.0,
+      "standard_error": 0.0,
+      "confidence95_low": 1.0,
+      "confidence95_high": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "rdkit_unique_smiles_fraction": {
+      "count": 3,
+      "mean": 1.0,
+      "std": 0.0,
+      "standard_error": 0.0,
+      "confidence95_low": 1.0,
+      "confidence95_high": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "slot_activation_mean": {
+      "count": 3,
+      "mean": 0.5876623376623376,
+      "std": 0.038112554276456906,
+      "standard_error": 0.026949645577223034,
+      "confidence95_low": 0.47169801274354684,
+      "confidence95_high": 0.7036266625811283,
+      "min": 0.5492424242424243,
+      "max": 0.6396103896103893
+    },
+    "gate_activation_mean": {
+      "count": 3,
+      "mean": 0.3794398226336446,
+      "std": 0.07192744736715488,
+      "standard_error": 0.050860385786753705,
+      "confidence95_low": 0.16058758259324343,
+      "confidence95_high": 0.5982920626740458,
+      "min": 0.279901200613144,
+      "max": 0.44735806121075644
+    },
+    "leakage_proxy_mean": {
+      "count": 3,
+      "mean": 0.04052557577196314,
+      "std": 0.015134151866509495,
+      "standard_error": 0.010701461412315911,
+      "confidence95_low": -0.005522812685232227,
+      "confidence95_high": 0.0865739642291585,
+      "min": 0.01988649754588717,
+      "max": 0.05575277894861599
+    },
+    "topology_signature_similarity": {
+      "count": 3,
+      "mean": 0.9823563985760216,
+      "std": 0.009882085336024802,
+      "standard_error": 0.00698768955336728,
+      "confidence95_low": 0.9522883704278823,
+      "confidence95_high": 1.012424426724161,
+      "min": 0.9705361549499077,
+      "max": 0.9947236711808133
+    },
+    "geometry_signature_similarity": {
+      "count": 3,
+      "mean": 0.9609852326463039,
+      "std": 0.0005409655537916966,
+      "standard_error": 0.0003825204114744447,
+      "confidence95_low": 0.9593392473157293,
+      "confidence95_high": 0.9626312179768785,
+      "min": 0.9602300476006554,
+      "max": 0.9614688310921018
+    },
+    "pocket_signature_similarity": {
+      "count": 3,
+      "mean": 0.9406611944169496,
+      "std": 0.011853231434596113,
+      "standard_error": 0.00838150032637646,
+      "confidence95_low": 0.9045955985125517,
+      "confidence95_high": 0.9767267903213476,
+      "min": 0.923902313576248,
+      "max": 0.9493624700257423
+    },
+    "examples_per_second": {
+      "count": 3,
+      "mean": 41.54224195187276,
+      "std": 1.1896685457123177,
+      "standard_error": 0.8412226960375182,
+      "confidence95_low": 37.92246069082332,
+      "confidence95_high": 45.1620232129222,
+      "min": 39.864706001073024,
+      "max": 42.49223817600785
+    },
+    "test_examples_per_second": {
+      "count": 3,
+      "mean": 41.54224195187276,
+      "std": 1.1896685457123177,
+      "standard_error": 0.8412226960375182,
+      "confidence95_low": 37.92246069082332,
+      "confidence95_high": 45.1620232129222,
+      "min": 39.864706001073024,
+      "max": 42.49223817600785
+    }
+  },
+  "stability_decision": "stable enough for larger-data real-backend claim review on the held-out pocket surface"
+}

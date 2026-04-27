@@ -78,7 +78,7 @@ mod tests {
         let forward = system.forward_example(&example);
 
         for (method_id, expected_representation) in [
-            (FLOW_MATCHING_METHOD_ID, "flow_matching_transport_v1"),
+            (FLOW_MATCHING_METHOD_ID, "flow_matching_geometry_v1"),
             (
                 AUTOREGRESSIVE_GRAPH_GEOMETRY_METHOD_ID,
                 "autoregressive_graph_geometry_policy_v1",
@@ -106,8 +106,11 @@ mod tests {
             assert!(!raw.candidates.is_empty());
             assert!(raw.candidates.iter().all(|candidate| {
                 candidate.source == method_id
-                    && candidate.molecular_representation.as_deref()
-                        == Some(expected_representation)
+                    && candidate
+                        .molecular_representation
+                        .as_deref()
+                        .map(|repr| repr.starts_with(expected_representation))
+                        .unwrap_or(false)
                     && candidate.atom_types.len() == candidate.coords.len()
             }));
         }

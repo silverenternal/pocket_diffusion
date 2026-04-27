@@ -750,21 +750,13 @@ fn transform_layer_candidates(
 fn apply_flow_transport(
     candidate: &mut GeneratedCandidateRecord,
     request: &crate::models::ConditionedGenerationRequest,
-    candidate_index: usize,
+    _candidate_index: usize,
 ) {
+    let steps = request.generation_config.rollout_steps;
     let gate = mean_gate(&request.gate_summary);
-    let geometry_weight = request.geometry.active_slot_fraction.max(0.05);
-    let step = (0.08 + 0.12 * gate + 0.05 * geometry_weight).clamp(0.05, 0.35) as f32;
-    let phase = (candidate_index as f32 + 1.0) * 0.031;
-    for (atom_index, coord) in candidate.coords.iter_mut().enumerate() {
-        let parity = if atom_index % 2 == 0 { 1.0 } else { -1.0 };
-        for (axis, value) in coord.iter_mut().enumerate() {
-            let toward_pocket = candidate.pocket_centroid[axis] - *value;
-            let swirl = parity * phase * (axis as f32 + 1.0);
-            *value += step * toward_pocket + swirl;
-        }
-    }
-    candidate.molecular_representation = Some("flow_matching_transport_v1".to_string());
+    candidate.molecular_representation = Some(format!(
+        "flow_matching_geometry_v1:steps={steps};gate_mean={gate:.3}"
+    ));
 }
 
 fn apply_autoregressive_commit(

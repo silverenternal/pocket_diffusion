@@ -1,0 +1,153 @@
+{
+  "research": {
+    "data": {
+      "root_dir": ".",
+      "dataset_format": "manifest_json",
+      "manifest_path": "./data/pdbbindpp-2020/manifest.json",
+      "label_table_path": "./data/pdbbindpp-2020/affinity_labels.csv",
+      "max_ligand_atoms": 96,
+      "max_pocket_atoms": 512,
+      "pocket_cutoff_angstrom": 7.5,
+      "max_examples": 512,
+      "batch_size": 8,
+      "split_seed": 42,
+      "val_fraction": 0.15,
+      "test_fraction": 0.15,
+      "stratify_by_measurement": true,
+      "quality_filters": {
+        "min_label_coverage": null,
+        "max_fallback_fraction": 0.0,
+        "max_ligand_atoms": 96,
+        "max_pocket_atoms": 512,
+        "require_source_structure_provenance": true
+      },
+      "generation_target": {
+        "atom_mask_ratio": 0.15,
+        "coordinate_noise_std": 0.08,
+        "corruption_seed": 1337,
+        "rollout_steps": 4,
+        "min_rollout_steps": 2,
+        "stop_probability_threshold": 0.82,
+        "coordinate_step_scale": 0.8,
+        "training_step_weight_decay": 0.9,
+        "rollout_mode": "momentum_refine",
+        "coordinate_momentum": 0.55,
+        "atom_momentum": 0.4,
+        "atom_commit_temperature": 0.9,
+        "max_coordinate_delta_norm": 1.5,
+        "stop_delta_threshold": 0.02,
+        "stop_patience": 2,
+        "sampling_seed": 4242
+      }
+    },
+    "model": {
+      "hidden_dim": 128,
+      "num_slots": 8,
+      "atom_vocab_size": 32,
+      "bond_vocab_size": 8,
+      "pocket_feature_dim": 24,
+      "pair_feature_dim": 8
+    },
+    "generation_method": {
+      "active_method": "flow_matching",
+      "primary_backend": {
+        "backend_id": "flow_matching",
+        "family": "flow_matching",
+        "trainable": true,
+        "sampling_steps": 20
+      },
+      "comparison_methods": [
+        "conditioned_denoising",
+        "flow_matching",
+        "calibrated_reranker"
+      ],
+      "candidate_count": 3,
+      "enable_comparison_runner": true,
+      "flow_matching": {
+        "steps": 20,
+        "noise_scale": 0.15,
+        "integration_method": "euler",
+        "geometry_only": true,
+        "use_corrupted_x0": true
+      }
+    },
+    "preference_alignment": {
+      "enable_profile_extraction": true,
+      "enable_pair_construction": true,
+      "enable_preference_reranking": true,
+      "max_pairs_per_example": 256,
+      "min_soft_margin": 0.0,
+      "max_clash_fraction": 0.1,
+      "min_strict_pocket_fit_score": 0.35,
+      "missing_artifacts_mean_unavailable": true
+    },
+    "training": {
+      "learning_rate": 0.001,
+      "max_steps": 8,
+      "schedule": {
+        "stage1_steps": 2,
+        "stage2_steps": 4,
+        "stage3_steps": 6
+      },
+      "loss_weights": {
+        "alpha_task": 1.0,
+        "beta_intra_red": 0.1,
+        "gamma_probe": 0.2,
+        "delta_leak": 0.05,
+        "eta_gate": 0.05,
+        "mu_slot": 0.05,
+        "nu_consistency": 0.1
+      },
+      "checkpoint_dir": "./checkpoints/pdbbindpp_flow_canonical",
+      "checkpoint_every": 100,
+      "log_every": 1,
+      "primary_objective": "flow_matching",
+      "flow_matching_loss_weight": 1.0,
+      "affinity_weighting": "inverse_frequency"
+    },
+    "runtime": {
+      "device": "cpu",
+      "data_workers": 0
+    }
+  },
+  "surface_label": "pdbbindpp_flow_canonical",
+  "ablation": {
+    "disable_slots": false,
+    "disable_cross_attention": false,
+    "disable_probes": false,
+    "disable_leakage": false
+  },
+  "external_evaluation": {
+    "chemistry_backend": {
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/rdkit_validity_backend.py"
+      ]
+    },
+    "docking_backend": {
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/pocket_contact_backend.py",
+        "--mode",
+        "docking"
+      ]
+    },
+    "pocket_backend": {
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/pocket_contact_backend.py",
+        "--mode",
+        "compatibility"
+      ]
+    }
+  },
+  "performance_gates": {
+    "min_validation_examples_per_second": 1.0,
+    "min_test_examples_per_second": 1.0,
+    "max_validation_memory_mb": 4096.0,
+    "max_test_memory_mb": 4096.0
+  }
+}
