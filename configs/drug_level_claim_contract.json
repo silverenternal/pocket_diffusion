@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "contract_name": "drug_level_claim_contract",
+  "status_values": [
+    "observed",
+    "planned",
+    "unavailable"
+  ],
+  "layers": [
+    "raw_flow",
+    "constrained_flow",
+    "repaired",
+    "reranked"
+  ],
+  "capability_groups": {
+    "raw_model_capability": [
+      "raw_flow",
+      "constrained_flow"
+    ],
+    "postprocessed_performance": [
+      "repaired",
+      "reranked"
+    ]
+  },
+  "required_metric_groups": [
+    "binding",
+    "drug_likeness",
+    "scaffold_diversity",
+    "interaction_profile",
+    "geometry"
+  ],
+  "required_backend_fields": [
+    "backend_name",
+    "backend_version_or_command",
+    "input_count",
+    "scored_count",
+    "coverage_fraction",
+    "failure_count",
+    "status"
+  ],
+  "metric_groups": {
+    "binding": {
+      "required_metrics": [
+        "vina_score_mean",
+        "vina_score_median",
+        "vina_score_best",
+        "vina_score_std",
+        "docking_score_coverage_fraction"
+      ],
+      "optional_metrics": [
+        "gnina_score_mean",
+        "gnina_score_best"
+      ]
+    },
+    "drug_likeness": {
+      "required_metrics": [
+        "qed",
+        "sa_score",
+        "logp",
+        "tpsa",
+        "molecular_weight",
+        "hbd",
+        "hba",
+        "rotatable_bonds",
+        "lipinski_violations"
+      ],
+      "optional_metrics": []
+    },
+        "scaffold_diversity": {
+            "required_metrics": [
+                "scaffold_novelty_fraction",
+                "unique_scaffold_fraction",
+                "pairwise_tanimoto_mean",
+                "nearest_train_similarity",
+                "scaffold_metric_coverage_fraction"
+            ],
+            "optional_metrics": []
+        },
+    "interaction_profile": {
+      "required_metrics": [
+        "hydrogen_bond_proxy",
+        "hydrophobic_contact_proxy",
+        "residue_contact_count",
+        "key_residue_contact_coverage",
+        "clash_burden",
+        "contact_balance"
+      ],
+      "optional_metrics": [
+        "residue_level_details"
+      ]
+    },
+    "geometry": {
+      "required_metrics": [
+        "valid_fraction",
+        "pocket_contact_fraction",
+        "mean_centroid_offset",
+        "clash_fraction"
+      ],
+      "optional_metrics": [
+        "mean_displacement",
+        "atom_change_fraction"
+      ]
+    }
+  }
+}

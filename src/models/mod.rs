@@ -3,8 +3,10 @@
 pub mod cross_attention;
 pub mod decoder;
 pub mod evaluation;
+pub mod flow;
 pub mod flow_matching;
 pub mod geo_encoder;
+pub mod geometry;
 pub mod methods;
 pub mod pocket_encoder;
 pub mod preference;
@@ -24,8 +26,12 @@ pub use evaluation::{
     CommandPocketCompatibilityEvaluator, HeuristicChemistryValidityEvaluator,
     HeuristicDockingEvaluator, HeuristicPocketCompatibilityEvaluator,
 };
+pub use flow::{AtomPocketCrossAttentionVelocityConfig, AtomPocketCrossAttentionVelocityHead};
 pub use flow_matching::GeometryFlowMatchingHead;
 pub use geo_encoder::GeometryEncoderImpl;
+pub use geometry::{
+    PairwiseGeometryConfig, PairwiseGeometryMessage, PairwiseGeometryMessagePassing,
+};
 pub use methods::{
     flatten_layered_output, summarize_method_output, MethodComparisonRow,
     PocketGenerationMethodRegistry,

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "partial_internal_available_public_baselines_blocked",
+  "completed_internal_seed_artifacts": [
+    "configs/checkpoints/multi_seed/seed_17/claim_summary.json",
+    "configs/checkpoints/multi_seed/seed_42/claim_summary.json",
+    "configs/checkpoints/multi_seed/seed_101/claim_summary.json"
+  ],
+  "required_public_baseline_seed_count": 3,
+  "public_baseline_status": "blocked_pending_external_runs",
+  "claim_guardrail": "Internal three-seed summaries can support engineering stability, but Q1 method superiority requires the same seed count for public baselines."
+}

@@ -1,6 +1,7 @@
 //! Interaction preference contracts built on top of generated candidate layers.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 
 use serde::{Deserialize, Serialize};
 
@@ -255,6 +256,12 @@ impl InteractionFeatureValue {
     }
 }
 
+impl Default for InteractionFeatureValue {
+    fn default() -> Self {
+        Self::unavailable()
+    }
+}
+
 /// Per-candidate interaction profile used by preference construction.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct InteractionProfile {
@@ -306,6 +313,36 @@ pub struct InteractionProfile {
     pub hydrogen_bond_proxy: InteractionFeatureValue,
     /// Reserved key-residue-contact proxy.
     pub key_residue_contact_proxy: InteractionFeatureValue,
+    /// Residue-level contact count when residue identities are available.
+    #[serde(default)]
+    pub residue_contact_count: InteractionFeatureValue,
+    /// Contact coverage over key residues in the pocket when residue identity is available.
+    #[serde(default)]
+    pub key_residue_contact_coverage: InteractionFeatureValue,
+    /// Clash burden under the interaction-profile naming convention.
+    #[serde(default)]
+    pub clash_burden: InteractionFeatureValue,
+    /// Balanced proxy rewarding contact breadth while penalizing clashes.
+    #[serde(default)]
+    pub contact_balance: InteractionFeatureValue,
+    /// Residue-level details when parsed from a source pocket structure.
+    #[serde(default)]
+    pub residue_level_details: Vec<ResidueContactDetail>,
+}
+
+/// Residue-level contact summary attached when source pocket residue identity is available.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ResidueContactDetail {
+    /// Stable residue identifier, usually chain:name:number.
+    pub residue_id: String,
+    /// Three-letter residue name when parsed from the pocket PDB.
+    pub residue_name: String,
+    /// Number of ligand atom contacts assigned to this residue.
+    pub contact_count: usize,
+    /// Minimum ligand-residue atom distance in Angstrom.
+    pub min_distance: f64,
+    /// Whether this residue is part of the configured key-residue proxy set.
+    pub key_residue: bool,
 }
 
 impl InteractionProfile {
@@ -396,6 +433,23 @@ impl InteractionProfileExtractor for HeuristicInteractionProfileExtractor {
                 )
             })
             .unwrap_or_else(InteractionFeatureValue::unavailable);
+        let residue_level_details = residue_contacts(candidate);
+        let residue_contact_count = residue_level_details.len() as f64;
+        let key_residue_total = residue_level_details
+            .iter()
+            .filter(|detail| detail.key_residue)
+            .count();
+        let key_residue_contact_coverage = if key_residue_total == 0 {
+            0.0
+        } else {
+            key_residue_total as f64 / residue_level_details.len().max(1) as f64
+        };
+        let hydrogen_bond_proxy = hydrogen_bond_proxy(candidate, &residue_level_details);
+        let hydrophobic_contact_proxy =
+            hydrophobic_contact_proxy(candidate, &residue_level_details);
+        let contact_balance = (hydrogen_bond_proxy.max(hydrophobic_contact_proxy)
+            * (1.0 - clash_fraction(candidate)))
+        .clamp(0.0, 1.0);
         InteractionProfile {
             schema_version: INTERACTION_PROFILE_SCHEMA_VERSION,
             candidate_id: context.candidate_id.to_string(),
@@ -438,9 +492,43 @@ impl InteractionProfileExtractor for HeuristicInteractionProfileExtractor {
                 if valence_sane(candidate) { 1.0 } else { 0.0 },
                 InteractionFeatureProvenance::HeuristicProxy,
             ),
-            hydrophobic_contact_proxy: InteractionFeatureValue::unavailable(),
-            hydrogen_bond_proxy: InteractionFeatureValue::unavailable(),
-            key_residue_contact_proxy: InteractionFeatureValue::unavailable(),
+            hydrophobic_contact_proxy: InteractionFeatureValue::available(
+                hydrophobic_contact_proxy,
+                InteractionFeatureProvenance::HeuristicProxy,
+            ),
+            hydrogen_bond_proxy: InteractionFeatureValue::available(
+                hydrogen_bond_proxy,
+                InteractionFeatureProvenance::HeuristicProxy,
+            ),
+            key_residue_contact_proxy: InteractionFeatureValue::available(
+                key_residue_contact_coverage,
+                InteractionFeatureProvenance::HeuristicProxy,
+            ),
+            residue_contact_count: if residue_level_details.is_empty() {
+                InteractionFeatureValue::unavailable()
+            } else {
+                InteractionFeatureValue::available(
+                    residue_contact_count,
+                    InteractionFeatureProvenance::HeuristicProxy,
+                )
+            },
+            key_residue_contact_coverage: if residue_level_details.is_empty() {
+                InteractionFeatureValue::unavailable()
+            } else {
+                InteractionFeatureValue::available(
+                    key_residue_contact_coverage,
+                    InteractionFeatureProvenance::HeuristicProxy,
+                )
+            },
+            clash_burden: InteractionFeatureValue::available(
+                clash_fraction(candidate),
+                InteractionFeatureProvenance::HeuristicProxy,
+            ),
+            contact_balance: InteractionFeatureValue::available(
+                contact_balance,
+                InteractionFeatureProvenance::HeuristicProxy,
+            ),
+            residue_level_details,
         }
     }
 }
@@ -893,6 +981,30 @@ fn profile_feature_map(profile: &InteractionProfile) -> BTreeMap<String, f64> {
             "valence_sane".to_string(),
             feature_or_zero(&profile.valence_sane),
         ),
+        (
+            "hydrogen_bond_proxy".to_string(),
+            feature_or_zero(&profile.hydrogen_bond_proxy),
+        ),
+        (
+            "hydrophobic_contact_proxy".to_string(),
+            feature_or_zero(&profile.hydrophobic_contact_proxy),
+        ),
+        (
+            "residue_contact_count".to_string(),
+            feature_or_zero(&profile.residue_contact_count),
+        ),
+        (
+            "key_residue_contact_coverage".to_string(),
+            feature_or_zero(&profile.key_residue_contact_coverage),
+        ),
+        (
+            "clash_burden".to_string(),
+            feature_or_zero(&profile.clash_burden),
+        ),
+        (
+            "contact_balance".to_string(),
+            feature_or_zero(&profile.contact_balance),
+        ),
     ])
 }
 
@@ -1128,6 +1240,182 @@ fn strict_pocket_fit_score(candidate: &GeneratedCandidateRecord) -> f64 {
         * (1.0 - clash_fraction(candidate).clamp(0.0, 1.0))
 }
 
+#[derive(Debug, Clone)]
+struct PocketAtomRecord {
+    coord: [f32; 3],
+    residue_id: String,
+    residue_name: String,
+    atom_element: String,
+    key_residue: bool,
+}
+
+fn hydrogen_bond_proxy(
+    candidate: &GeneratedCandidateRecord,
+    residue_details: &[ResidueContactDetail],
+) -> f64 {
+    if candidate.coords.is_empty() {
+        return 0.0;
+    }
+    if !residue_details.is_empty() {
+        let key_or_polar = residue_details
+            .iter()
+            .filter(|detail| {
+                detail.key_residue
+                    || matches!(
+                        detail.residue_name.as_str(),
+                        "ASN" | "GLN" | "SER" | "THR" | "TYR" | "ASP" | "GLU" | "LYS" | "ARG"
+                    )
+            })
+            .count();
+        return (key_or_polar as f64 / residue_details.len() as f64).clamp(0.0, 1.0);
+    }
+    let polar_contacts = candidate
+        .atom_types
+        .iter()
+        .zip(candidate.coords.iter())
+        .filter(|(atom_type, coord)| {
+            ligand_atom_is_polar(**atom_type)
+                && coord_distance(coord, &candidate.pocket_centroid)
+                    <= (candidate.pocket_radius + 1.8) as f64
+        })
+        .count();
+    (polar_contacts as f64 / candidate.coords.len() as f64).clamp(0.0, 1.0)
+}
+
+fn hydrophobic_contact_proxy(
+    candidate: &GeneratedCandidateRecord,
+    residue_details: &[ResidueContactDetail],
+) -> f64 {
+    if candidate.coords.is_empty() {
+        return 0.0;
+    }
+    if !residue_details.is_empty() {
+        let hydrophobic = residue_details
+            .iter()
+            .filter(|detail| {
+                matches!(
+                    detail.residue_name.as_str(),
+                    "ALA" | "VAL" | "LEU" | "ILE" | "MET" | "PHE" | "TRP" | "PRO"
+                )
+            })
+            .count();
+        return (hydrophobic as f64 / residue_details.len() as f64).clamp(0.0, 1.0);
+    }
+    let hydrophobic_contacts = candidate
+        .atom_types
+        .iter()
+        .zip(candidate.coords.iter())
+        .filter(|(atom_type, coord)| {
+            ligand_atom_is_hydrophobic(**atom_type)
+                && coord_distance(coord, &candidate.pocket_centroid)
+                    <= (candidate.pocket_radius + 2.2) as f64
+        })
+        .count();
+    (hydrophobic_contacts as f64 / candidate.coords.len() as f64).clamp(0.0, 1.0)
+}
+
+fn residue_contacts(candidate: &GeneratedCandidateRecord) -> Vec<ResidueContactDetail> {
+    let Some(path) = candidate.source_pocket_path.as_deref() else {
+        return Vec::new();
+    };
+    let Some(pocket_atoms) = parse_pocket_atoms(path) else {
+        return Vec::new();
+    };
+    let ligand_coords = candidate_absolute_coords(candidate);
+    if pocket_atoms.is_empty() || ligand_coords.is_empty() {
+        return Vec::new();
+    }
+
+    let mut residues: BTreeMap<String, ResidueContactDetail> = BTreeMap::new();
+    for ligand in &ligand_coords {
+        for pocket in &pocket_atoms {
+            let distance = coord_distance(ligand, &pocket.coord);
+            if distance > residue_contact_distance(&pocket.atom_element) {
+                continue;
+            }
+            let entry = residues
+                .entry(pocket.residue_id.clone())
+                .or_insert_with(|| ResidueContactDetail {
+                    residue_id: pocket.residue_id.clone(),
+                    residue_name: pocket.residue_name.clone(),
+                    contact_count: 0,
+                    min_distance: distance,
+                    key_residue: pocket.key_residue,
+                });
+            entry.contact_count += 1;
+            entry.min_distance = entry.min_distance.min(distance);
+        }
+    }
+    residues.into_values().collect()
+}
+
+fn candidate_absolute_coords(candidate: &GeneratedCandidateRecord) -> Vec<[f32; 3]> {
+    candidate
+        .coords
+        .iter()
+        .map(|coord| {
+            [
+                coord[0] + candidate.coordinate_frame_origin[0],
+                coord[1] + candidate.coordinate_frame_origin[1],
+                coord[2] + candidate.coordinate_frame_origin[2],
+            ]
+        })
+        .collect()
+}
+
+fn parse_pocket_atoms(path: &str) -> Option<Vec<PocketAtomRecord>> {
+    let content = fs::read_to_string(path).ok()?;
+    let mut atoms = Vec::new();
+    for line in content.lines() {
+        if !(line.starts_with("ATOM") || line.starts_with("HETATM")) {
+            continue;
+        }
+        let x = line.get(30..38)?.trim().parse::<f32>().ok()?;
+        let y = line.get(38..46)?.trim().parse::<f32>().ok()?;
+        let z = line.get(46..54)?.trim().parse::<f32>().ok()?;
+        let residue_name = line.get(17..20).unwrap_or("").trim().to_string();
+        let chain = line.get(21..22).unwrap_or("").trim();
+        let residue_number = line.get(22..26).unwrap_or("").trim();
+        let atom_element = line
+            .get(76..78)
+            .unwrap_or_else(|| line.get(12..16).unwrap_or(""))
+            .trim()
+            .to_ascii_uppercase();
+        let residue_id = format!("{chain}:{residue_name}:{residue_number}");
+        atoms.push(PocketAtomRecord {
+            coord: [x, y, z],
+            residue_id,
+            key_residue: key_residue_name(&residue_name),
+            residue_name,
+            atom_element,
+        });
+    }
+    Some(atoms)
+}
+
+fn residue_contact_distance(element: &str) -> f64 {
+    if matches!(element, "N" | "O" | "S") {
+        3.5
+    } else {
+        4.5
+    }
+}
+
+fn key_residue_name(residue_name: &str) -> bool {
+    matches!(
+        residue_name,
+        "ASP" | "GLU" | "LYS" | "ARG" | "HIS" | "SER" | "THR" | "TYR" | "ASN" | "GLN"
+    )
+}
+
+fn ligand_atom_is_polar(atom_type: i64) -> bool {
+    matches!(atom_type, 1 | 2 | 3)
+}
+
+fn ligand_atom_is_hydrophobic(atom_type: i64) -> bool {
+    atom_type == 0
+}
+
 fn coord_distance(left: &[f32; 3], right: &[f32; 3]) -> f64 {
     let dx = left[0] as f64 - right[0] as f64;
     let dy = left[1] as f64 - right[1] as f64;
@@ -1172,6 +1460,34 @@ mod tests {
             InteractionFeatureProvenance::ExternalBackend
         );
         assert_eq!(profile.backend_missing_structure_fraction.value, Some(0.0));
+        assert!(profile.hydrogen_bond_proxy.value.is_some());
+        assert!(profile.hydrophobic_contact_proxy.value.is_some());
+        assert_eq!(profile.clash_burden.value, profile.clash_fraction.value);
+        assert!(profile.contact_balance.value.is_some());
+    }
+
+    #[test]
+    fn profile_extraction_attaches_residue_level_details_when_available() {
+        let pocket_path = "/tmp/interaction_profile_residue_contacts.pdb";
+        std::fs::write(
+            pocket_path,
+            "ATOM      1  NZ  LYS A   7       0.500   0.000   0.000  1.00 20.00           N\n",
+        )
+        .unwrap();
+        let mut candidate = candidate(vec![[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]]);
+        candidate.atom_types = vec![1, 0];
+        candidate.source_pocket_path = Some(pocket_path.to_string());
+
+        let profile =
+            extract_interaction_profiles(&[candidate], CandidateLayerKind::Reranked, None, &[])
+                .remove(0);
+        assert_eq!(profile.residue_level_details.len(), 1);
+        assert_eq!(profile.residue_level_details[0].residue_name, "LYS");
+        assert_eq!(
+            profile.residue_contact_count.provenance,
+            InteractionFeatureProvenance::HeuristicProxy
+        );
+        assert!(profile.key_residue_contact_coverage.value.unwrap_or(0.0) > 0.0);
     }
 
     #[test]
@@ -1223,6 +1539,27 @@ mod tests {
         assert_eq!(artifact.backend_supported_pair_fraction, 0.0);
         assert_eq!(artifact.missing_backend_evidence_fraction, 1.0);
         assert!(artifact.mean_preference_strength > 0.0);
+    }
+
+    #[test]
+    fn preference_reranker_orders_profiles_by_observed_features() {
+        let good = extract_interaction_profiles(
+            &[candidate(vec![[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]])],
+            CandidateLayerKind::Reranked,
+            None,
+            &[],
+        )
+        .remove(0);
+        let bad = extract_interaction_profiles(
+            &[candidate(vec![[8.0, 0.0, 0.0], [8.1, 0.0, 0.0]])],
+            CandidateLayerKind::Reranked,
+            None,
+            &[],
+        )
+        .remove(0);
+        let profiles = vec![bad.clone(), good.clone()];
+        let ranked = RuleBasedPreferenceReranker::default().rerank_profiles(&profiles);
+        assert_eq!(ranked[0].candidate_id, good.candidate_id);
     }
 
     fn candidate(coords: Vec<[f32; 3]>) -> GeneratedCandidateRecord {

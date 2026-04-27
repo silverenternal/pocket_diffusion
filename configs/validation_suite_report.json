@@ -1,0 +1,220 @@
+{
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "duration_seconds": 0.106,
+      "name": "cargo fmt",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--no-run"
+      ],
+      "duration_seconds": 0.086,
+      "name": "cargo test no-run",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s\n  Executable unittests src/lib.rs (target/debug/deps/pocket_diffusion-0f28936c81b80c14)\n  Executable unittests src/bin/disentangle_demo.rs (target/debug/deps/disentangle_demo-38adf413e4605218)\n  Executable unittests src/main.rs (target/debug/deps/pocket_diffusion-88b8126f63e5e260)\n  Executable tests/artifact_compatibility.rs (target/debug/deps/artifact_compatibility-fddb2f96b879b7af)\n  Executable tests/generation_method_platform.rs (target/debug/deps/generation_method_platform-ec78e3ae8b73dde6)\n  Executable tests/integration_mi_monitor.rs (target/debug/deps/integration_mi_monitor-2520597359a76057)\n  Executable tests/reviewer_tooling.rs (target/debug/deps/reviewer_tooling-294a8bfe3c4dabba)\n  Executable tests/smoke_trainer_mi_integration.rs (target/debug/deps/smoke_trainer_mi_integration-f223ce5d9f0eec28)\n",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "/usr/bin/python",
+        "-m",
+        "py_compile",
+        "tools/q1_readiness_audit.py",
+        "tools/prepare_docking_inputs.py",
+        "tools/vina_score_backend.py",
+        "tools/gnina_score_backend.py",
+        "tools/merge_candidate_metric_backends.py",
+        "tools/correlation_table.py",
+        "tools/correlation_plot_markdown.py",
+        "tools/claim_regression_gate.py",
+        "tools/evidence_bundle.py",
+        "tools/reviewer_env_check.py",
+        "tools/replay_drift_check.py",
+        "tools/rdkit_validity_backend.py",
+        "tools/pocket_contact_backend.py",
+        "tools/stress_benchmark.py",
+        "tools/public_baseline_method_comparison.py",
+        "tools/public_baseline_postprocess_layers.py",
+        "tools/run_diffsbdd_public_testset.py",
+        "tools/baseline_output_adapters/sdf_generation_layers_adapter.py",
+        "tools/baseline_output_adapters/targetdiff_meta_generation_layers_adapter.py"
+      ],
+      "duration_seconds": 0.072,
+      "name": "python syntax",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "/usr/bin/python",
+        "-c",
+        "import json,sys; [json.load(open(p)) for p in sys.argv[1:]]",
+        "todo.json",
+        "configs/q1_readiness_audit.json",
+        "configs/q1_claim_contract.json",
+        "configs/candidate_metric_coverage.json",
+        "configs/vina_protocol.json",
+        "configs/gnina_protocol.json",
+        "configs/q1_primary_benchmark_manifest.json",
+        "configs/q1_primary_split_report.json",
+        "configs/q1_stress_benchmark_manifest.json",
+        "configs/q1_stress_benchmark_metrics.json",
+        "configs/q1_public_baseline_run_status.json",
+        "configs/q1_public_baseline_metric_coverage.json",
+        "configs/q1_public_baseline_full100_metric_coverage.json",
+        "configs/q1_public_baseline_full100_layered_metric_coverage.json",
+        "configs/q1_public_baseline_full100_postprocess_report.json",
+        "configs/q1_diffsbdd_public_full100_generation_report.json",
+        "configs/q1_method_comparison_summary.json",
+        "configs/correlation_table.json"
+      ],
+      "duration_seconds": 0.015,
+      "name": "json artifacts",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "/usr/bin/python",
+        "tools/q1_readiness_audit.py"
+      ],
+      "duration_seconds": 0.386,
+      "name": "q1 readiness audit",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "/usr/bin/python",
+        "tools/q1_readiness_audit.py",
+        "--gate"
+      ],
+      "duration_seconds": 0.388,
+      "name": "q1 readiness gate",
+      "required": false,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "cargo",
+        "run",
+        "--bin",
+        "pocket_diffusion",
+        "--",
+        "validate",
+        "--kind",
+        "experiment",
+        "--config",
+        "configs/unseen_pocket_pdbbindpp_real_backends.json"
+      ],
+      "duration_seconds": 0.244,
+      "name": "validate unseen_pocket_pdbbindpp_real_backends.json",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s\n     Running `target/debug/pocket_diffusion validate --kind experiment --config configs/unseen_pocket_pdbbindpp_real_backends.json`\n",
+      "stdout_tail": "experiment config is valid: configs/unseen_pocket_pdbbindpp_real_backends.json\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "run",
+        "--bin",
+        "pocket_diffusion",
+        "--",
+        "validate",
+        "--kind",
+        "experiment",
+        "--config",
+        "configs/unseen_pocket_lp_pdbbind_refined_real_backends.json"
+      ],
+      "duration_seconds": 0.24,
+      "name": "validate unseen_pocket_lp_pdbbind_refined_real_backends.json",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s\n     Running `target/debug/pocket_diffusion validate --kind experiment --config configs/unseen_pocket_lp_pdbbind_refined_real_backends.json`\n",
+      "stdout_tail": "experiment config is valid: configs/unseen_pocket_lp_pdbbind_refined_real_backends.json\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "run",
+        "--bin",
+        "pocket_diffusion",
+        "--",
+        "validate",
+        "--kind",
+        "experiment",
+        "--config",
+        "configs/unseen_pocket_tight_geometry_pressure.json"
+      ],
+      "duration_seconds": 0.246,
+      "name": "validate unseen_pocket_tight_geometry_pressure.json",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s\n     Running `target/debug/pocket_diffusion validate --kind experiment --config configs/unseen_pocket_tight_geometry_pressure.json`\n",
+      "stdout_tail": "experiment config is valid: configs/unseen_pocket_tight_geometry_pressure.json\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "run",
+        "--bin",
+        "pocket_diffusion",
+        "--",
+        "validate",
+        "--kind",
+        "experiment",
+        "--config",
+        "configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json"
+      ],
+      "duration_seconds": 0.242,
+      "name": "validate unseen_pocket_multi_seed_pdbbindpp_real_backends.json",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s\n     Running `target/debug/pocket_diffusion validate --kind experiment --config configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json`\n",
+      "stdout_tail": "experiment config is valid: configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json\n"
+    }
+  ],
+  "mode": "quick",
+  "schema_version": 1,
+  "strict": false,
+  "summary": {
+    "failed_optional": 0,
+    "failed_required": 0,
+    "optional_checks": 1,
+    "required_checks": 9,
+    "status": "pass",
+    "total_checks": 10
+  },
+  "tool": "validation_suite"
+}

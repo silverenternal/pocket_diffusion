@@ -1,0 +1,3064 @@
+{
+  "ablation_reports": [
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "checkpoints/claim_matrix/ablation_matrix_summary.json",
+      "tokens": [
+        "ablation",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "checkpoints/flow_ablation_matrix/ablation_matrix_summary.json",
+      "tokens": [
+        "ablation",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "checkpoints/harder_pressure/ablation_matrix_summary.json",
+      "tokens": [
+        "ablation",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "checkpoints/pdbbindpp_real_backends/ablation_delta_table.json",
+      "tokens": [
+        "delta",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "checkpoints/pdbbindpp_real_backends/ablation_matrix_summary.json",
+      "tokens": [
+        "ablation",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "checkpoints/pdbbindpp_real_backends_interaction_review/ablation_matrix_summary.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "checkpoints/tight_geometry_pressure/ablation_matrix_summary.json",
+      "tokens": [
+        "ablation",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/ablation_delta_table.json",
+      "tokens": [
+        "delta",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/f31_ablation_bundle.json",
+      "tokens": [
+        "ablation",
+        "delta",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q1_ablation_matrix.json",
+      "tokens": [
+        "ablation",
+        "delta"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q1_cross_attention_head_ablation.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q1_pairwise_geometry_ablation.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/unseen_pocket_flow_ablation_matrix.json",
+      "tokens": [
+        "ablation",
+        "delta",
+        "disable_slots",
+        "disable_cross_attention"
+      ]
+    }
+  ],
+  "audit_name": "q1_submission_readiness",
+  "baseline_reports": [
+    {
+      "has_expected_tokens": true,
+      "label": "baseline",
+      "path": "checkpoints/pdbbindpp_real_backends/method_comparison_summary.json",
+      "tokens": [
+        "method_id",
+        "sampling_steps",
+        "wall_time_ms"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "baseline",
+      "path": "configs/f42_method_comparison.json",
+      "tokens": [
+        "method_id",
+        "matched_budget",
+        "sampling_steps",
+        "wall_time_ms"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "baseline",
+      "path": "configs/f42_method_comparison_plan.json",
+      "tokens": [
+        "baseline",
+        "matched_budget",
+        "sampling_steps"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "baseline",
+      "path": "configs/method_comparison_summary.json",
+      "tokens": [
+        "method_id",
+        "matched_budget",
+        "sampling_steps",
+        "wall_time_ms"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "baseline",
+      "path": "configs/q1_method_comparison_summary.json",
+      "tokens": [
+        "method_id",
+        "baseline",
+        "matched_budget",
+        "sampling_steps"
+      ]
+    }
+  ],
+  "candidate_metrics": [
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/diffsbdd_public_smoke/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 1,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 88,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 88,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_real_backends.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 176,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 88,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_test_stress.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 66,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 88,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 88,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 88,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines/candidate_metrics_base_all.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 39,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 39,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 39,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines/diffsbdd_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 13,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines/merged/candidate_metrics_q1_public_overlap13_budget1.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 39,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines/pocket2mol_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 13,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines/targetdiff_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 13,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100/candidate_metrics_base_all.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 300,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 300,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 300,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100/diffsbdd_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 100,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 300,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100/pocket2mol_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 100,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100/targetdiff_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 100,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100_layered/candidate_metrics_base_all.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 900,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100_layered/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 900,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100_layered/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 900,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100_layered/diffsbdd_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 300,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 900,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 300,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q1_public_baselines_full100_layered/targetdiff_public/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 300,
+      "status": "excluded_non_claim_facing"
+    }
+  ],
+  "checks": {
+    "ablation_reports_present": true,
+    "baseline_reports_have_budget_tokens": true,
+    "baseline_reports_present": true,
+    "candidate_metrics_separate_raw_and_postprocessed_layers": true,
+    "claim_summaries_present": true,
+    "multi_seed_reports_present": true,
+    "no_proxy_only_binding_claim_surfaces": true,
+    "real_backend_candidate_metrics_at_90pct": true,
+    "real_backend_candidate_metrics_present": true,
+    "statistical_reports_present": true
+  },
+  "claim_summaries": [
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/interaction_transformer/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/objective_conditioned_denoising/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_matrix/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/backend_energy_guided_refinement/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/disable_probes/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/gate_sparsity_disabled/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/leakage_penalty_disabled/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/slot_count_reduced/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/lp_pdbbind_refined_real_backends/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/medium_profile/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/multi_seed/seed_101/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/multi_seed/seed_17/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/multi_seed/seed_42/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/multi_seed_medium/seed_101/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/multi_seed_medium/seed_17/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/multi_seed_medium/seed_42/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_denoising_matched/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_flow_best_candidate/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_flow_best_candidate_paper/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_profile/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/backend_energy_guided_refinement/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/backend_flow_matching/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/disable_probes/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/gate_sparsity_disabled/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/leakage_penalty_disabled/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/slot_count_reduced/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_reranker_matched/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {
+        "docking_score_coverage_fraction": 0.0
+      },
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": true,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/vina_backend/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/flow_sweep_search/candidate_000_base/flow_sweep_surface/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/flow_sweep_search/candidate_001/flow_sweep_surface/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/flow_sweep_search/candidate_002/flow_sweep_surface/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/flow_sweep_search/candidate_003/flow_sweep_surface/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/flow_sweep_search/candidate_004/flow_sweep_surface/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed/seed_101/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed/seed_17/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed/seed_42/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_medium/seed_101/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_medium/seed_17/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_medium/seed_42/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp/seed_101/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp/seed_17/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp/seed_42/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp_flow/seed_101/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp_flow/seed_17/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp_flow/seed_42/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_101/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_17/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_42/claim_summary.json",
+      "reviewer_backend_pass": true,
+      "status": "traceable"
+    }
+  ],
+  "excluded_claim_summaries": [
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/backend_autoregressive_graph_geometry/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/flow_ablation_matrix/ablations/objective_conditioned_denoising/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/interaction_transformer/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/objective_conditioned_denoising/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/harder_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/backend_autoregressive_graph_geometry/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends_interaction_review/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/pdbbindpp_real_backends_interaction_review/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/real_backends/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "proxy_only_checkpoint_claim_summary_not_referenced_by_q1_claim_artifacts",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_004/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_005/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_006/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_007/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_008/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_009/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_010/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_011/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_012/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_013/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_014/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_015/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_016/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/ablations/disable_slots/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "backend_coverage": {},
+      "exclusion_reason": "archived_automated_search_candidate_not_current_q1_claim_surface",
+      "has_proxy_binding_metric": true,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "configs/checkpoints/automated_search/tight_geometry_pressure/candidate_017/tight_geometry_pressure/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "excluded_non_claim_facing"
+    }
+  ],
+  "gate_failures": [],
+  "interpretation": "candidate_for_manuscript_tables",
+  "multi_seed_reports": [
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "checkpoints/multi_seed/multi_seed_summary.json",
+      "tokens": [
+        "seed",
+        "std",
+        "confidence",
+        "mean"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "checkpoints/multi_seed_medium/multi_seed_summary.json",
+      "tokens": [
+        "seed",
+        "std",
+        "confidence",
+        "mean"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/f41_multi_seed_summary.json",
+      "tokens": [
+        "seed",
+        "std",
+        "confidence",
+        "mean"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/multi_seed_drug_level_summary.json",
+      "tokens": [
+        "seed",
+        "std",
+        "mean"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/q1_multi_seed_drug_level_summary.json",
+      "tokens": [
+        "seed",
+        "std",
+        "mean"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/q1_multi_seed_manifest.json",
+      "tokens": [
+        "seed"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/unseen_pocket_multi_seed.json",
+      "tokens": [
+        "seed",
+        "std"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/unseen_pocket_multi_seed_medium.json",
+      "tokens": [
+        "seed",
+        "std"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/unseen_pocket_multi_seed_pdbbindpp.json",
+      "tokens": [
+        "seed",
+        "std"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/unseen_pocket_multi_seed_pdbbindpp_flow.json",
+      "tokens": [
+        "seed",
+        "std"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/unseen_pocket_multi_seed_pdbbindpp_flow_canonical.json",
+      "tokens": [
+        "seed",
+        "std"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "multi_seed",
+      "path": "configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json",
+      "tokens": [
+        "seed",
+        "std"
+      ]
+    }
+  ],
+  "readiness_score": 1.0,
+  "schema_version": 1,
+  "statistical_reports": [
+    {
+      "has_expected_tokens": true,
+      "label": "statistics",
+      "path": "configs/q1_statistical_tests.json",
+      "tokens": [
+        "ci95",
+        "std",
+        "bootstrap"
+      ]
+    },
+    {
+      "has_expected_tokens": false,
+      "label": "statistics",
+      "path": "docs/q1_statistical_tests.md",
+      "tokens": []
+    }
+  ]
+}

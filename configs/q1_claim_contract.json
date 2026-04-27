@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "contract_name": "q1_claim_contract",
+  "updated_at": "2026-04-27",
+  "purpose": "Restrict manuscript vocabulary to metric sources that can be traced to machine-generated artifacts.",
+  "global_rules": [
+    "Do not fabricate or manually enter claim-bearing metrics.",
+    "Do not promote docking_like_score, pocket_fit_proxy, or docking_score_proxy as Vina, GNINA, binding affinity, or real docking.",
+    "Raw-flow claims must be computed from raw_flow, raw_rollout, or constrained_flow layers only.",
+    "Repaired, inferred_bond, deterministic_proxy, and reranked layers must be labeled as postprocessed evidence.",
+    "Every claim-facing table must list the source artifact paths."
+  ],
+  "layer_groups": {
+    "raw_model_capability": [
+      "raw_flow",
+      "raw_rollout",
+      "constrained_flow"
+    ],
+    "postprocessed_performance": [
+      "repaired",
+      "inferred_bond",
+      "deterministic_proxy",
+      "reranked"
+    ]
+  },
+  "claim_terms": {
+    "binding": {
+      "allowed_metric_sources": [
+        "vina_score",
+        "vina_score_mean",
+        "vina_score_median",
+        "vina_score_best",
+        "gnina_affinity",
+        "gnina_score",
+        "gnina_cnn_score"
+      ],
+      "required_provenance": [
+        "backend_name",
+        "backend_version_or_command",
+        "input_count",
+        "scored_count",
+        "coverage_fraction",
+        "failure_count"
+      ],
+      "forbidden_as_primary_sources": [
+        "docking_like_score",
+        "docking_score_proxy",
+        "pocket_fit_proxy"
+      ],
+      "minimum_claim_coverage_fraction": 0.9
+    },
+    "docking": {
+      "allowed_metric_sources": [
+        "vina_score",
+        "gnina_affinity",
+        "gnina_cnn_score"
+      ],
+      "required_provenance": [
+        "candidate_id",
+        "receptor_input_path",
+        "ligand_input_path",
+        "backend_name",
+        "backend_version_or_command"
+      ],
+      "forbidden_as_primary_sources": [
+        "docking_like_score"
+      ],
+      "minimum_claim_coverage_fraction": 0.9
+    },
+    "validity": {
+      "allowed_metric_sources": [
+        "rdkit_sanitized_fraction",
+        "candidate_valid_fraction",
+        "valid_fraction"
+      ],
+      "required_provenance": [
+        "backend_name",
+        "backend_version_or_command",
+        "input_count",
+        "scored_count"
+      ]
+    },
+    "novelty": {
+      "allowed_metric_sources": [
+        "scaffold_novelty_fraction",
+        "nearest_train_similarity",
+        "unique_smiles_fraction"
+      ],
+      "required_provenance": [
+        "training_reference_artifact",
+        "candidate_metric_artifact"
+      ]
+    },
+    "diversity": {
+      "allowed_metric_sources": [
+        "unique_scaffold_fraction",
+        "pairwise_tanimoto_mean",
+        "unique_smiles_fraction"
+      ],
+      "required_provenance": [
+        "candidate_metric_artifact"
+      ]
+    },
+    "interaction": {
+      "allowed_metric_sources": [
+        "hydrogen_bond_proxy",
+        "hydrophobic_contact_proxy",
+        "residue_contact_count",
+        "key_residue_contact_coverage",
+        "contact_balance"
+      ],
+      "required_provenance": [
+        "candidate_id",
+        "pocket_id",
+        "candidate_metric_artifact"
+      ],
+      "limitations": "Interaction proxies support mechanistic analysis, not binding-affinity claims without Vina or GNINA coverage."
+    },
+    "raw_model_capability": {
+      "allowed_layers": [
+        "raw_flow",
+        "raw_rollout",
+        "constrained_flow"
+      ],
+      "forbidden_layers": [
+        "repaired",
+        "inferred_bond",
+        "deterministic_proxy",
+        "reranked"
+      ],
+      "required_provenance": [
+        "generation_layers_artifact",
+        "candidate_metrics_artifact"
+      ]
+    }
+  },
+  "gate_commands": [
+    "python tools/q1_readiness_audit.py --gate",
+    "python tools/artifact_audit.py --gate"
+  ]
+}

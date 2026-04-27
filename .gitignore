@@ -8,3 +8,4 @@
 .claude/
 __pycache__/
 data/pdbbindpp-2020/
+external_baselines/

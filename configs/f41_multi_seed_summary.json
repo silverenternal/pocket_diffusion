@@ -4,17 +4,27 @@
   "completion_date": "2026-04-27",
   "config_path": "configs/unseen_pocket_multi_seed_pdbbindpp_flow.json",
   "artifacts_path": "checkpoints/multi_seed_pdbbindpp_flow",
-  "seeds": [17, 42, 101],
+  "seeds": [
+    17,
+    42,
+    101
+  ],
   "multi_seed_results": {
     "candidate_valid_fraction": {
       "mean": 1.0,
       "std": 0.0,
-      "confidence_interval_95": [1.0, 1.0]
+      "confidence_interval_95": [
+        1.0,
+        1.0
+      ]
     },
     "strict_pocket_fit_score": {
       "mean": 0.8506,
       "std": 0.0941,
-      "confidence_interval_95": [0.7606, 0.9406]
+      "confidence_interval_95": [
+        0.7606,
+        0.9406
+      ]
     }
   },
   "per_seed_summary": [
@@ -53,5 +63,7 @@
     "✓ Primary flow claims supported by multi-seed evidence",
     "✓ Stability decision: STABLE for claim review"
   ],
-  "summary": "Multi-seed stability experiment confirms flow matching reliability. Perfect chemistry validity (1.0 across seeds) with controlled pocket-fit variance (0.85±0.09) demonstrates reproducibility. Ready for matched-budget method comparison (F4.2)."
+  "summary": "Multi-seed stability experiment confirms flow matching reliability. Perfect chemistry validity (1.0 across seeds) with controlled pocket-fit variance (0.85±0.09) demonstrates reproducibility. Ready for matched-budget method comparison (F4.2).",
+  "drug_level_summary": "configs/multi_seed_drug_level_summary.json",
+  "drug_level_summary_note": "Aggregates mean/std/min/max/ci95 for available docking, drug-likeness, scaffold, and interaction metrics; missing backend coverage is reported per seed."
 }

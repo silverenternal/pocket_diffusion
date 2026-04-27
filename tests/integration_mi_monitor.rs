@@ -14,7 +14,7 @@ fn test_mi_identical_variables() {
     let monitor = MutualInformationMonitor::new(32);
     let x = rand_tensor(&[256]);
     let mi = monitor.compute_mi(&x, &x);
-    
+
     // MI should be significantly positive
     assert!(mi > 0.0, "MI(X;X) should be positive, got {}", mi);
 }
@@ -26,10 +26,14 @@ fn test_mi_independent_variables() {
     let x = rand_tensor(&[512]);
     let y = rand_tensor(&[512]);
     let mi = monitor.compute_mi(&x, &y);
-    
+
     // MI should be small (not exactly 0 due to estimation noise)
     assert!(mi >= 0.0, "MI should be non-negative, got {}", mi);
-    assert!(mi < 1.0, "MI for independent vars should be small, got {}", mi);
+    assert!(
+        mi < 1.0,
+        "MI for independent vars should be small, got {}",
+        mi
+    );
 }
 
 #[test]
@@ -64,10 +68,10 @@ fn test_mi_symmetric() {
     let monitor = MutualInformationMonitor::new(32);
     let x = rand_tensor(&[256]);
     let y = rand_tensor(&[256]);
-    
+
     let mi_xy = monitor.compute_mi(&x, &y);
     let mi_yx = monitor.compute_mi(&y, &x);
-    
+
     assert!(
         (mi_xy - mi_yx).abs() < 1e-6,
         "MI should be symmetric: MI(X;Y)={}, MI(Y;X)={}",
@@ -79,7 +83,7 @@ fn test_mi_symmetric() {
 #[test]
 fn test_decoupling_report() {
     use pocket_diffusion::losses::mutual_information::DecouplingQualityReport;
-    
+
     let report = DecouplingQualityReport::new(0.1, 0.2, 0.3);
     assert_eq!(report.mi_topo_geo, 0.1);
     assert_eq!(report.mi_topo_pocket, 0.2);

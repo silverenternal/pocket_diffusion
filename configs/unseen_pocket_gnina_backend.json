@@ -1,0 +1,14 @@
+{
+  "inherits_note": "Optional GNINA rescoring companion. Use the same experiment shape as configs/unseen_pocket_vina_backend.json, replacing only the docking backend command.",
+  "external_evaluation_patch": {
+    "docking_backend": {
+      "enabled": true,
+      "executable": "python3",
+      "args": [
+        "./tools/gnina_score_backend.py"
+      ]
+    }
+  },
+  "claim_status": "optional_unavailable_until_configured",
+  "required_runtime": "GNINA executable plus receptor/ligand inputs compatible with score-only mode"
+}

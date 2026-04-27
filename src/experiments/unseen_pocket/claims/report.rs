@@ -74,7 +74,7 @@ fn build_claim_report(summary: &UnseenPocketExperimentSummary) -> ClaimReport {
         chemistry_novelty_diversity: build_chemistry_novelty_diversity(summary),
         claim_context: build_claim_context(summary),
         backend_environment: Some(build_backend_environment_report(summary)),
-        reranker_report: build_reranker_report(&summary.test.layered_generation_metrics),
+        reranker_report: build_reranker_report(summary),
         slot_stability: summary.test.slot_stability.clone(),
         leakage_calibration: build_leakage_calibration_report(summary, &ablation_deltas),
         performance_gates: summary.performance_gates.clone(),
@@ -360,4 +360,3 @@ fn backend_config_enabled(config: &ExternalBackendCommandConfig) -> bool {
             .map(str::trim)
             .is_some_and(|value| !value.is_empty())
 }
-

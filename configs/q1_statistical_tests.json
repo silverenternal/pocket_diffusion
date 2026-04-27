@@ -1,0 +1,203 @@
+{
+  "bootstrap_samples": 500,
+  "claim_guardrail": "Layer or same-file comparisons are diagnostic; public-baseline superiority requires paired external baseline artifacts.",
+  "comparisons": [
+    {
+      "bootstrap_ci95": [
+        51.71912500000001,
+        176.246375
+      ],
+      "bootstrap_two_sided_p": 0.0,
+      "mean_delta_a_minus_b": 109.914375,
+      "method_a": {
+        "ci95": 63.25968545237659,
+        "count": 8,
+        "mean": 161.488125,
+        "std": 91.28847461041526
+      },
+      "method_b": {
+        "ci95": 16.998234751988214,
+        "count": 8,
+        "mean": 51.57375,
+        "std": 24.529728696595306
+      },
+      "metric": "vina_score",
+      "paired_pocket_count": 8,
+      "status": "ok",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    },
+    {
+      "bootstrap_ci95": [
+        46.3487375,
+        171.46924875
+      ],
+      "bootstrap_two_sided_p": 0.0,
+      "mean_delta_a_minus_b": 109.84603249999999,
+      "method_a": {
+        "ci95": 63.26468566181872,
+        "count": 8,
+        "mean": 161.4703475,
+        "std": 91.29569028797421
+      },
+      "method_b": {
+        "ci95": 17.01380970621368,
+        "count": 8,
+        "mean": 51.624315,
+        "std": 24.552204524655508
+      },
+      "metric": "gnina_score",
+      "paired_pocket_count": 8,
+      "status": "ok",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    },
+    {
+      "bootstrap_ci95": [
+        -0.1727655248987705,
+        -0.049881207028462625
+      ],
+      "bootstrap_two_sided_p": 0.0,
+      "mean_delta_a_minus_b": -0.11108210456983977,
+      "method_a": {
+        "ci95": 0.09084787446438097,
+        "count": 8,
+        "mean": 0.1820521550712631,
+        "std": 0.1311003022247918
+      },
+      "method_b": {
+        "ci95": 0.04421661994673901,
+        "count": 8,
+        "mean": 0.29313425964110285,
+        "std": 0.06380790164385208
+      },
+      "metric": "qed",
+      "paired_pocket_count": 8,
+      "status": "ok",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    },
+    {
+      "bootstrap_ci95": [
+        null,
+        null
+      ],
+      "bootstrap_two_sided_p": null,
+      "mean_delta_a_minus_b": null,
+      "method_a": {
+        "ci95": null,
+        "count": 0,
+        "mean": null,
+        "std": null
+      },
+      "method_b": {
+        "ci95": null,
+        "count": 0,
+        "mean": null,
+        "std": null
+      },
+      "metric": "strict_pocket_fit_score",
+      "paired_pocket_count": 0,
+      "status": "insufficient_paired_pockets",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    },
+    {
+      "bootstrap_ci95": [
+        55.91662500000001,
+        163.583875
+      ],
+      "bootstrap_two_sided_p": 0.0,
+      "mean_delta_a_minus_b": 109.914375,
+      "method_a": {
+        "ci95": 63.25968545237659,
+        "count": 8,
+        "mean": 161.488125,
+        "std": 91.28847461041526
+      },
+      "method_b": {
+        "ci95": 16.998234751988214,
+        "count": 8,
+        "mean": 51.57375,
+        "std": 24.529728696595306
+      },
+      "metric": "vina_score",
+      "paired_pocket_count": 8,
+      "status": "ok",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    },
+    {
+      "bootstrap_ci95": [
+        53.729516249999996,
+        171.8972
+      ],
+      "bootstrap_two_sided_p": 0.0,
+      "mean_delta_a_minus_b": 109.84603249999999,
+      "method_a": {
+        "ci95": 63.26468566181872,
+        "count": 8,
+        "mean": 161.4703475,
+        "std": 91.29569028797421
+      },
+      "method_b": {
+        "ci95": 17.01380970621368,
+        "count": 8,
+        "mean": 51.624315,
+        "std": 24.552204524655508
+      },
+      "metric": "gnina_score",
+      "paired_pocket_count": 8,
+      "status": "ok",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    },
+    {
+      "bootstrap_ci95": [
+        -0.178666434723,
+        -0.05366792382519596
+      ],
+      "bootstrap_two_sided_p": 0.0,
+      "mean_delta_a_minus_b": -0.11108210456983977,
+      "method_a": {
+        "ci95": 0.09084787446438097,
+        "count": 8,
+        "mean": 0.1820521550712631,
+        "std": 0.1311003022247918
+      },
+      "method_b": {
+        "ci95": 0.04421661994673901,
+        "count": 8,
+        "mean": 0.29313425964110285,
+        "std": 0.06380790164385208
+      },
+      "metric": "qed",
+      "paired_pocket_count": 8,
+      "status": "ok",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    },
+    {
+      "bootstrap_ci95": [
+        null,
+        null
+      ],
+      "bootstrap_two_sided_p": null,
+      "mean_delta_a_minus_b": null,
+      "method_a": {
+        "ci95": null,
+        "count": 0,
+        "mean": null,
+        "std": null
+      },
+      "method_b": {
+        "ci95": null,
+        "count": 0,
+        "mean": null,
+        "std": null
+      },
+      "metric": "strict_pocket_fit_score",
+      "paired_pocket_count": 0,
+      "status": "insufficient_paired_pockets",
+      "test_unit": "protein_id_or_example_id_pocket_aggregate"
+    }
+  ],
+  "method_a_layer": "reranked",
+  "method_a_source": "checkpoints/pdbbindpp_real_backends/candidate_metrics_test.jsonl",
+  "method_b_layer": "raw_rollout",
+  "method_b_source": "checkpoints/pdbbindpp_real_backends/candidate_metrics_test.jsonl",
+  "schema_version": 1
+}

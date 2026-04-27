@@ -1,0 +1,93 @@
+{
+  "baselines": [
+    {
+      "adapter": "tools/baseline_output_adapters/targetdiff_meta_generation_layers_adapter.py",
+      "claim_guardrail": "raw_rollout is native baseline evidence; repaired/reranked are shared deterministic postprocessing evidence.",
+      "family": "autoregressive_pocket_conditioned_generation",
+      "input_requirements": [
+        "protein pocket structure",
+        "ligand seed or dataset-specific preprocessing as required by upstream code"
+      ],
+      "method_id": "pocket2mol_public",
+      "method_name": "Pocket2Mol",
+      "observed_candidate_metrics": "checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "observed_generation_layers": "checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/generation_layers_test.json",
+      "observed_scope": "100 official public-test pockets; 1 candidate per pocket for raw_rollout, repaired, and reranked layers; unified RDKit/Vina/GNINA rescoring complete.",
+      "source": "public implementation and/or official public sampling results",
+      "source_notes": "Official repository includes sampling scripts and a ckpt directory reference; generated outputs must be adapted into generation_layers_test.json before claim use.",
+      "source_url": "https://github.com/pengxingang/Pocket2Mol",
+      "status": "available_for_q1_public_full100_layered_budget1",
+      "unsupported_cases": []
+    },
+    {
+      "adapter": "tools/baseline_output_adapters/targetdiff_meta_generation_layers_adapter.py",
+      "claim_guardrail": "raw_rollout is native baseline evidence; repaired/reranked are shared deterministic postprocessing evidence.",
+      "family": "diffusion_structure_based_drug_design",
+      "input_requirements": [
+        "protein pocket structure",
+        "upstream atom typing and preprocessing"
+      ],
+      "method_id": "targetdiff_public",
+      "method_name": "TargetDiff",
+      "observed_candidate_metrics": "checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "observed_generation_layers": "checkpoints/q1_public_baselines_full100_layered/targetdiff_public/generation_layers_test.json",
+      "observed_scope": "100 official public-test pockets; 1 candidate per pocket for raw_rollout, repaired, and reranked layers; unified RDKit/Vina/GNINA rescoring complete.",
+      "source": "public implementation and/or official public sampling results",
+      "source_notes": "Official repository includes pretrained_models and sampling_results directories and documents evaluation from generated or docked meta files.",
+      "source_url": "https://github.com/guanjq/targetdiff",
+      "status": "available_for_q1_public_full100_layered_budget1",
+      "unsupported_cases": []
+    },
+    {
+      "adapter": "tools/baseline_output_adapters/sdf_generation_layers_adapter.py",
+      "checkpoint_url": "https://zenodo.org/record/8183747/files/crossdocked_fullatom_cond.ckpt",
+      "claim_guardrail": "raw_rollout is native baseline evidence; repaired/reranked are shared deterministic postprocessing evidence.",
+      "family": "3d_diffusion_structure_based_drug_design",
+      "input_requirements": [
+        "protein pocket structure",
+        "upstream feature extraction"
+      ],
+      "method_id": "diffsbdd_public",
+      "method_name": "DiffSBDD",
+      "observed_candidate_metrics": "checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "observed_generation_layers": "checkpoints/q1_public_baselines_full100_layered/diffsbdd_public/generation_layers_test.json",
+      "observed_scope": "100 official public-test pockets; 1 candidate per pocket for raw_rollout, repaired, and reranked layers; unified RDKit/Vina/GNINA rescoring complete.",
+      "source": "public implementation and/or official public sampling results",
+      "source_notes": "Official repository documents Zenodo checkpoints and generate_ligands.py inference; output SDF files must be adapted into generation_layers_test.json before claim use.",
+      "source_url": "https://github.com/arneschneuing/DiffSBDD",
+      "status": "available_for_q1_public_full100_layered_budget1",
+      "unsupported_cases": []
+    },
+    {
+      "adapter": "native_generation_layers",
+      "family": "simple_shape_control",
+      "input_requirements": [
+        "protein pocket centroid",
+        "candidate count"
+      ],
+      "method_id": "pocket_centroid_heuristic",
+      "method_name": "Pocket centroid heuristic",
+      "source": "internal deterministic low bar",
+      "status": "available_internal_comparison_only",
+      "unsupported_cases": [
+        "not a strong public baseline",
+        "not claim-bearing against Q1 novelty"
+      ]
+    }
+  ],
+  "budget_contract": {
+    "candidate_count_per_pocket": "must_match_main_method",
+    "layer_contract": "raw baseline output is adapted to raw_rollout; any repair or reranking must be separate layers",
+    "sampling_steps": "record_exact_value_or_not_applicable",
+    "scoring_backends": [
+      "RDKit",
+      "Vina",
+      "GNINA",
+      "pocket_contact_backend",
+      "interaction_profile"
+    ]
+  },
+  "claim_guardrail": "Public baselines are available for q1_public_full100_budget1 layer-separated comparison. raw_rollout rows are native baseline evidence; repaired/reranked rows are shared deterministic postprocessing evidence and must not be interpreted as native generation improvements.",
+  "registry_id": "q1_public_baseline_registry_v1",
+  "schema_version": 1
+}

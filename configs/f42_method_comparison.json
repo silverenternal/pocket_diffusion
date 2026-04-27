@@ -1,63 +1,230 @@
 {
-  "task_id": "F4.2",
-  "task_title": "Matched-budget method comparison refresh",
-  "completion_date": "2026-04-27",
-  "comparison_scope": "flow_matching vs conditioned_denoising vs calibrated_reranker",
-  "budget_constraint": "matched_sampling_steps=50",
-  "evaluation_surface": "unseen_pocket_pdbbindpp",
-  "method_configs": [
-    {
-      "method": "flow_matching",
-      "config": "configs/unseen_pocket_pdbbindpp_flow_best_candidate.json",
-      "sampling_steps": 50,
-      "validation_status": "valid"
+  "active_method": {
+    "capability": {
+      "batched_generation": true,
+      "external_wrapper": false,
+      "inferred_bond_layer": true,
+      "method_native_generation": true,
+      "repair_layer": true,
+      "reranked_layer": true,
+      "stub": false,
+      "trainable": true,
+      "uses_postprocessors": true
     },
-    {
-      "method": "conditioned_denoising",
-      "config": "configs/unseen_pocket_pdbbindpp_denoising_matched.json",
-      "sampling_steps": 50,
-      "validation_status": "valid"
-    },
-    {
-      "method": "calibrated_reranker",
-      "config": "configs/unseen_pocket_pdbbindpp_reranker_matched.json",
-      "sampling_steps": 50,
-      "validation_status": "valid"
-    }
-  ],
-  "expected_delta_metrics": {
-    "flow_vs_denoising": {
-      "pocket_fit_delta": "flow should improve pocket_fit by >=5%",
-      "validity_delta": "flow should maintain or improve validity"
-    },
-    "flow_vs_reranker": {
-      "pocket_fit_delta": "flow should improve pocket_fit by >=8%",
-      "sampling_efficiency": "flow should match or exceed reranker efficiency with fewer candidates"
-    }
-  },
-  "comparison_architecture": {
-    "rationale": "At matched_sampling_steps=50, flow_matching optimized with F2.1 loss weights (beta_intra_red=0.05, gamma_probe=0.15) competes against ablated denoising (standard weights) and reranker baseline. This tests whether flow claim (FC1: modular representation learning improves unseen-pocket generation) transfers to performance advantage.",
-    "flow_advantages": [
-      "Optimized loss weights from F2.1 sweep",
-      "Slot decomposition + gated cross-attention",
-      "Semantic probes + leakage control",
-      "Staged training enables controlled interaction"
+    "evidence_role": "claim_bearing",
+    "execution_mode": "batched",
+    "layered_output_support": [
+      "raw_rollout",
+      "repaired",
+      "inferred_bond",
+      "deterministic_proxy",
+      "reranked"
     ],
-    "baseline_advantages": [
-      "Denoising: Simple, proven noise schedule; longer diffusion steps",
-      "Reranker: Post-hoc selection from candidate pool; no trainable parameters for reranker component"
-    ]
+    "method_family": "conditioned_denoising",
+    "method_id": "conditioned_denoising",
+    "method_name": "Conditioned Denoising"
   },
-  "metrics_to_collect": [
-    "candidate_valid_fraction (chemistry validity)",
-    "strict_pocket_fit_score (unseen pocket compatibility)",
-    "efficiency_tokens_per_sample (computational cost)",
-    "diversity_coverage (candidate set diversity)"
+  "budget_constraint": "observed sampling_steps copied per method; inspect rows before claiming matched 50-step budget",
+  "claim_guardrail": "Do not promote flow-vs-denoising binding gains unless backend coverage is observed and raw_flow gains are separated from repaired/reranked gains.",
+  "comparison_scope": "observed method rows from checkpoints/pdbbindpp_real_backends",
+  "completion_date": "2026-04-27",
+  "evaluation_surface": "pdbbindpp_real_backends",
+  "flow_vs_denoising_binding_analysis": {
+    "artifact_dir": "checkpoints/pdbbindpp_real_backends",
+    "backend_coverage": {
+      "docking_score_coverage_fraction": null,
+      "drug_likeness_coverage_fraction": null,
+      "interaction_profile_coverage_fraction": null,
+      "scaffold_metric_coverage_fraction": null
+    },
+    "comparison": "flow_matching_vs_conditioned_denoising_binding_metrics",
+    "flow_native_raw_flow": {
+      "clash_fraction": 0.004735982545365767,
+      "flow_native_quality": null,
+      "pocket_contact_fraction": 1.0,
+      "valid_fraction": 1.0
+    },
+    "flow_vs_denoising_native_deltas": {
+      "native_clash_fraction_delta": -0.002777163397749851,
+      "native_pocket_contact_fraction_delta": 0.0,
+      "native_valid_fraction_delta": 0.0
+    },
+    "interpretation": "Binding deltas are separated between raw_flow and reranked layers. Do not promote flow matching when gains exist only after repair or reranking.",
+    "matched_budget_required": true,
+    "promotion_decision": "unsupported_backend_coverage",
+    "reranked_layer": {
+      "clash_fraction": 0.00026423602705983413,
+      "contact_balance": null,
+      "hydrogen_bond_proxy": null,
+      "hydrophobic_contact_proxy": null,
+      "pocket_contact_fraction": 1.0,
+      "qed": null,
+      "sa_score": null,
+      "scaffold_novelty_fraction": null,
+      "unique_scaffold_fraction": null,
+      "valid_fraction": 1.0
+    },
+    "schema_version": 1
+  },
+  "layered_generation_artifacts": {
+    "test": "checkpoints/pdbbindpp_real_backends/generation_layers_test.json",
+    "validation": "checkpoints/pdbbindpp_real_backends/generation_layers_validation.json"
+  },
+  "method_count": 9,
+  "methods": [
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates",
+        "inferred_bond_candidates",
+        "deterministic_proxy_candidates",
+        "reranked_candidates"
+      ],
+      "evidence_role": "claimbearing",
+      "method_id": "conditioned_denoising",
+      "method_name": "Conditioned Denoising",
+      "native_clash_fraction": 0.004735982545365767,
+      "native_pocket_contact_fraction": 1.0,
+      "native_valid_fraction": 1.0,
+      "sampling_steps": 4,
+      "trainable": true,
+      "wall_time_ms": 56.686901999999996
+    },
+    {
+      "available_layers": [
+        "raw_rollout"
+      ],
+      "evidence_role": "comparisononly",
+      "method_id": "heuristic_raw_rollout_no_repair",
+      "method_name": "Heuristic Raw Rollout",
+      "native_clash_fraction": 0.004735982545365767,
+      "native_pocket_contact_fraction": 1.0,
+      "native_valid_fraction": 1.0,
+      "sampling_steps": 4,
+      "trainable": false,
+      "wall_time_ms": 9.828155
+    },
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates"
+      ],
+      "evidence_role": "comparisononly",
+      "method_id": "pocket_centroid_repair_proxy",
+      "method_name": "Pocket Centroid Repair Proxy",
+      "native_clash_fraction": null,
+      "native_pocket_contact_fraction": null,
+      "native_valid_fraction": null,
+      "sampling_steps": 4,
+      "trainable": false,
+      "wall_time_ms": 13.298343000000001
+    },
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates",
+        "inferred_bond_candidates",
+        "deterministic_proxy_candidates"
+      ],
+      "evidence_role": "comparisononly",
+      "method_id": "deterministic_proxy_reranker",
+      "method_name": "Deterministic Proxy Reranker",
+      "native_clash_fraction": null,
+      "native_pocket_contact_fraction": null,
+      "native_valid_fraction": null,
+      "sampling_steps": 4,
+      "trainable": false,
+      "wall_time_ms": 24.880442
+    },
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates",
+        "inferred_bond_candidates",
+        "deterministic_proxy_candidates",
+        "reranked_candidates"
+      ],
+      "evidence_role": "claimbearing",
+      "method_id": "calibrated_reranker",
+      "method_name": "Calibrated Reranker",
+      "native_clash_fraction": 0.00026423602705983413,
+      "native_pocket_contact_fraction": 1.0,
+      "native_valid_fraction": 1.0,
+      "sampling_steps": 4,
+      "trainable": false,
+      "wall_time_ms": 58.272361000000004
+    },
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates",
+        "inferred_bond_candidates"
+      ],
+      "evidence_role": "comparisononly",
+      "method_id": "flow_matching",
+      "method_name": "Flow Matching Transport",
+      "native_clash_fraction": 0.001958819147615916,
+      "native_pocket_contact_fraction": 1.0,
+      "native_valid_fraction": 1.0,
+      "sampling_steps": 4,
+      "trainable": true,
+      "wall_time_ms": 48.641524
+    },
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates",
+        "inferred_bond_candidates"
+      ],
+      "evidence_role": "comparisononly",
+      "method_id": "autoregressive_graph_geometry",
+      "method_name": "Autoregressive Graph Geometry",
+      "native_clash_fraction": 0.001298122856976149,
+      "native_pocket_contact_fraction": 1.0,
+      "native_valid_fraction": 1.0,
+      "sampling_steps": 4,
+      "trainable": true,
+      "wall_time_ms": 26.306874
+    },
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates",
+        "inferred_bond_candidates",
+        "deterministic_proxy_candidates"
+      ],
+      "evidence_role": "comparisononly",
+      "method_id": "energy_guided_refinement",
+      "method_name": "Energy Guided Refinement",
+      "native_clash_fraction": null,
+      "native_pocket_contact_fraction": null,
+      "native_valid_fraction": null,
+      "sampling_steps": 4,
+      "trainable": false,
+      "wall_time_ms": 44.244998
+    },
+    {
+      "available_layers": [
+        "raw_rollout",
+        "repaired_candidates",
+        "inferred_bond_candidates",
+        "deterministic_proxy_candidates",
+        "reranked_candidates"
+      ],
+      "evidence_role": "comparisononly",
+      "method_id": "preference_aware_reranker",
+      "method_name": "Preference-Aware Reranker",
+      "native_clash_fraction": 0.00026423602705983413,
+      "native_pocket_contact_fraction": 1.0,
+      "native_valid_fraction": 1.0,
+      "sampling_steps": 4,
+      "trainable": false,
+      "wall_time_ms": 43.355087
+    }
   ],
-  "result_summary": {
-    "all_configs_validated": true,
-    "ready_for_execution": true,
-    "expected_outcome": "Flow-matching demonstrates >=5% pocket fit improvement over denoising and >=8% over reranker, supporting FC1 (modular representation learning claim)"
-  },
-  "next_phase": "Baseline results (F4.2 async execution complete); proceed to F5 reproducibility and narrative"
+  "schema_version": 1,
+  "source_artifact": "checkpoints/pdbbindpp_real_backends",
+  "status": "observed_from_claim_artifact",
+  "task_id": "F4.2",
+  "task_title": "Observed matched-budget method comparison summary"
 }

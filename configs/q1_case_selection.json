@@ -1,0 +1,154 @@
+{
+  "cases": {
+    "failure": [
+      {
+        "candidate_id": "conditioned_denoising:inferred_bond:1a4w:14",
+        "case_type": "failure",
+        "example_id": "1a4w",
+        "layer": "inferred_bond",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1a4w",
+        "selection_score": 0.9948724766544097,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:inferred_bond:1c1r:23",
+        "case_type": "failure",
+        "example_id": "1c1r",
+        "layer": "inferred_bond",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1c1r",
+        "selection_score": 1.0286410109559447,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:inferred_bond:1aaq:4",
+        "case_type": "failure",
+        "example_id": "1aaq",
+        "layer": "inferred_bond",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1aaq",
+        "selection_score": 1.0287245670248477,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:inferred_bond:1g2k:8",
+        "case_type": "failure",
+        "example_id": "1g2k",
+        "layer": "inferred_bond",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1g2k",
+        "selection_score": 1.0558409398509045,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:inferred_bond:1h22:17",
+        "case_type": "failure",
+        "example_id": "1h22",
+        "layer": "inferred_bond",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1h22",
+        "selection_score": 1.0601480350682682,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      }
+    ],
+    "postprocessing_improved": [],
+    "success": [
+      {
+        "candidate_id": "conditioned_denoising:raw_rollout:1g53:0",
+        "case_type": "success",
+        "example_id": "1g53",
+        "layer": "raw_rollout",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1g53",
+        "selection_score": 1.3591262595124527,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:repaired:1g74:18",
+        "case_type": "success",
+        "example_id": "1g74",
+        "layer": "repaired",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1g74",
+        "selection_score": 1.342826050734565,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:repaired:1aaq:3",
+        "case_type": "success",
+        "example_id": "1aaq",
+        "layer": "repaired",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1aaq",
+        "selection_score": 1.3242424108458826,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:raw_rollout:1bnq:9",
+        "case_type": "success",
+        "example_id": "1bnq",
+        "layer": "raw_rollout",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1bnq",
+        "selection_score": 1.3135138659290035,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      },
+      {
+        "candidate_id": "conditioned_denoising:raw_rollout:1c1r:21",
+        "case_type": "success",
+        "example_id": "1c1r",
+        "layer": "raw_rollout",
+        "method_id": "conditioned_denoising",
+        "protein_id": "1c1r",
+        "selection_score": 1.2728507356824836,
+        "source_artifacts": [
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl",
+          "checkpoints/pdbbindpp_real_backends/generation_layers_test.json"
+        ]
+      }
+    ]
+  },
+  "schema_version": 1,
+  "selection_rule": "per-pocket score = valid + contact + qed - clash; deterministic sorted pockets",
+  "source_files": [
+    "checkpoints/pdbbindpp_real_backends/candidate_metrics_test.jsonl"
+  ]
+}

@@ -1,0 +1,447 @@
+{
+  "benchmark_id": "q1_stress_unseen_pocket_v1",
+  "claim_guardrail": "Stress results are diagnostic and must be reported separately from primary benchmark metrics.",
+  "layer_metrics": {
+    "deterministic_proxy": {
+      "candidate_rows": 6,
+      "metrics": {
+        "clash_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 0.051120448179271714
+        },
+        "gnina_cnn_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 0.0006366666666666667
+        },
+        "gnina_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 143.90936333333335
+        },
+        "interaction_profile_coverage_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "mean_centroid_offset": {
+          "available_count": 0,
+          "coverage_fraction": 0.0,
+          "mean": null
+        },
+        "pocket_contact_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "qed": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 0.22516372647147775
+        },
+        "rdkit_valid_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "sa_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 7.776666666666666
+        },
+        "vina_best_affinity_kcal_mol": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 143.88283333333334
+        },
+        "vina_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 143.88283333333334
+        }
+      },
+      "unique_examples": 6
+    },
+    "inferred_bond": {
+      "candidate_rows": 18,
+      "metrics": {
+        "clash_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.05525131400874957
+        },
+        "gnina_cnn_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.0020094444444444443
+        },
+        "gnina_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 152.238045
+        },
+        "interaction_profile_coverage_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "mean_centroid_offset": {
+          "available_count": 0,
+          "coverage_fraction": 0.0,
+          "mean": null
+        },
+        "pocket_contact_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "qed": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.1870111763522981
+        },
+        "rdkit_valid_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "sa_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 7.813333333333333
+        },
+        "vina_best_affinity_kcal_mol": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 152.24994444444445
+        },
+        "vina_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 152.24994444444445
+        }
+      },
+      "unique_examples": 6
+    },
+    "raw_rollout": {
+      "candidate_rows": 18,
+      "metrics": {
+        "clash_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.03052583753178598
+        },
+        "gnina_cnn_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.14953666666666668
+        },
+        "gnina_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 51.869976666666666
+        },
+        "interaction_profile_coverage_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "mean_centroid_offset": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 2.77217333819795
+        },
+        "pocket_contact_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "qed": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.2971033598801411
+        },
+        "rdkit_valid_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "sa_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 3.723333333333333
+        },
+        "vina_best_affinity_kcal_mol": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 51.81083333333333
+        },
+        "vina_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 51.81083333333333
+        }
+      },
+      "unique_examples": 6
+    },
+    "repaired": {
+      "candidate_rows": 18,
+      "metrics": {
+        "clash_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.05525131400874957
+        },
+        "gnina_cnn_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.12438444444444446
+        },
+        "gnina_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 73.13861722222222
+        },
+        "interaction_profile_coverage_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "mean_centroid_offset": {
+          "available_count": 0,
+          "coverage_fraction": 0.0,
+          "mean": null
+        },
+        "pocket_contact_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "qed": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 0.2971033598801411
+        },
+        "rdkit_valid_fraction": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "sa_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 3.723333333333333
+        },
+        "vina_best_affinity_kcal_mol": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 73.13038888888889
+        },
+        "vina_score": {
+          "available_count": 18,
+          "coverage_fraction": 1.0,
+          "mean": 73.13038888888889
+        }
+      },
+      "unique_examples": 6
+    },
+    "reranked": {
+      "candidate_rows": 6,
+      "metrics": {
+        "clash_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 0.06466968809995909
+        },
+        "gnina_cnn_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 0.0013616666666666666
+        },
+        "gnina_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 157.25324333333333
+        },
+        "interaction_profile_coverage_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "mean_centroid_offset": {
+          "available_count": 0,
+          "coverage_fraction": 0.0,
+          "mean": null
+        },
+        "pocket_contact_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "qed": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 0.19429799931573202
+        },
+        "rdkit_valid_fraction": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 1.0
+        },
+        "sa_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 7.696666666666666
+        },
+        "vina_best_affinity_kcal_mol": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 157.27933333333334
+        },
+        "vina_score": {
+          "available_count": 6,
+          "coverage_fraction": 1.0,
+          "mean": 157.27933333333334
+        }
+      },
+      "unique_examples": 6
+    }
+  },
+  "output_candidate_metrics": "checkpoints/pdbbindpp_real_backends/candidate_metrics_test_stress.jsonl",
+  "schema_version": 1,
+  "selected_candidate_rows": 66,
+  "selected_example_count": 6,
+  "selected_examples": [
+    {
+      "example_id": "1aaq",
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "ligand_atom_count": 89,
+      "pocket_atom_count": 552,
+      "protein_family_proxy": "1aaq",
+      "protein_id": "1aaq",
+      "source_pocket_path": "./data/pdbbindpp-2020/extracted/pbpp-2020/1aaq/1aaq_pocket.pdb",
+      "triggered_rules": [
+        "low_homology_proxy",
+        "ligand_atom_count_extreme"
+      ]
+    },
+    {
+      "example_id": "1bnq",
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "ligand_atom_count": 42,
+      "pocket_atom_count": 505,
+      "protein_family_proxy": "1bnq",
+      "protein_id": "1bnq",
+      "source_pocket_path": "./data/pdbbindpp-2020/extracted/pbpp-2020/1bnq/1bnq_pocket.pdb",
+      "triggered_rules": [
+        "low_homology_proxy",
+        "pocket_atom_count_extreme"
+      ]
+    },
+    {
+      "example_id": "1c1r",
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "ligand_atom_count": 34,
+      "pocket_atom_count": 453,
+      "protein_family_proxy": "1c1r",
+      "protein_id": "1c1r",
+      "source_pocket_path": "./data/pdbbindpp-2020/extracted/pbpp-2020/1c1r/1c1r_pocket.pdb",
+      "triggered_rules": [
+        "low_homology_proxy",
+        "pocket_atom_count_extreme",
+        "ligand_atom_count_extreme"
+      ]
+    },
+    {
+      "example_id": "1g2k",
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "ligand_atom_count": 82,
+      "pocket_atom_count": 624,
+      "protein_family_proxy": "1g2k",
+      "protein_id": "1g2k",
+      "source_pocket_path": "./data/pdbbindpp-2020/extracted/pbpp-2020/1g2k/1g2k_pocket.pdb",
+      "triggered_rules": [
+        "low_homology_proxy",
+        "pocket_atom_count_extreme",
+        "ligand_atom_count_extreme"
+      ]
+    },
+    {
+      "example_id": "1g53",
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "ligand_atom_count": 34,
+      "pocket_atom_count": 521,
+      "protein_family_proxy": "1g53",
+      "protein_id": "1g53",
+      "source_pocket_path": "./data/pdbbindpp-2020/extracted/pbpp-2020/1g53/1g53_pocket.pdb",
+      "triggered_rules": [
+        "low_homology_proxy",
+        "ligand_atom_count_extreme"
+      ]
+    },
+    {
+      "example_id": "1h22",
+      "layers": [
+        "deterministic_proxy",
+        "inferred_bond",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "ligand_atom_count": 78,
+      "pocket_atom_count": 740,
+      "protein_family_proxy": "1h22",
+      "protein_id": "1h22",
+      "source_pocket_path": "./data/pdbbindpp-2020/extracted/pbpp-2020/1h22/1h22_pocket.pdb",
+      "triggered_rules": [
+        "low_homology_proxy",
+        "pocket_atom_count_extreme"
+      ]
+    }
+  ],
+  "selection_thresholds": {
+    "ligand_atom_count_high": 82,
+    "ligand_atom_count_low": 34,
+    "min_rules": 2,
+    "pocket_atom_count_high": 624,
+    "pocket_atom_count_low": 505,
+    "quantile": 0.15
+  },
+  "source_artifacts": {
+    "candidate_metrics": "checkpoints/pdbbindpp_real_backends/candidate_metrics_test.jsonl",
+    "generation_layers": "checkpoints/pdbbindpp_real_backends/generation_layers_test.json",
+    "split_report": "checkpoints/pdbbindpp_real_backends/split_report.json"
+  },
+  "status": "materialized"
+}

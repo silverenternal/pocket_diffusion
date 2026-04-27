@@ -1,0 +1,242 @@
+{
+  "aggregates": {
+    "candidate_valid_fraction": {
+      "ci95_half_width": 0.0,
+      "count": 3,
+      "max": 1.0,
+      "mean": 1.0,
+      "min": 1.0,
+      "missing_seed_count": 0,
+      "missing_seeds": [],
+      "std": 0.0
+    },
+    "contact_balance": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "docking_score_coverage_fraction": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "drug_likeness_coverage_fraction": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "hydrogen_bond_proxy": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "hydrophobic_contact_proxy": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "qed": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "sa_score": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "scaffold_novelty_fraction": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "strict_pocket_fit_score": {
+      "ci95_half_width": 0.17567538508784997,
+      "count": 3,
+      "max": 0.6672744706430449,
+      "mean": 0.4880633056790824,
+      "min": 0.3948121780481144,
+      "missing_seed_count": 0,
+      "missing_seeds": [],
+      "std": 0.15524423092417552
+    },
+    "unique_scaffold_fraction": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    },
+    "unique_smiles_fraction": {
+      "ci95_half_width": 0.0,
+      "count": 3,
+      "max": 1.0,
+      "mean": 1.0,
+      "min": 1.0,
+      "missing_seed_count": 0,
+      "missing_seeds": [],
+      "std": 0.0
+    },
+    "vina_score_mean": {
+      "ci95_half_width": null,
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null,
+      "missing_seed_count": 3,
+      "missing_seeds": [
+        "101",
+        "17",
+        "42"
+      ],
+      "std": null
+    }
+  },
+  "multi_seed_dir": "configs/checkpoints/multi_seed_pdbbindpp_real_backends",
+  "schema_version": 1,
+  "seed_count": 3,
+  "seeds": [
+    {
+      "artifact": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_101/claim_summary.json",
+      "metrics": {
+        "candidate_valid_fraction": 1.0,
+        "strict_pocket_fit_score": 0.6672744706430449,
+        "unique_smiles_fraction": 1.0
+      },
+      "missing_metrics": [
+        "qed",
+        "sa_score",
+        "drug_likeness_coverage_fraction",
+        "docking_score_coverage_fraction",
+        "vina_score_mean",
+        "scaffold_novelty_fraction",
+        "unique_scaffold_fraction",
+        "hydrogen_bond_proxy",
+        "hydrophobic_contact_proxy",
+        "contact_balance"
+      ],
+      "seed": "101"
+    },
+    {
+      "artifact": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_17/claim_summary.json",
+      "metrics": {
+        "candidate_valid_fraction": 1.0,
+        "strict_pocket_fit_score": 0.3948121780481144,
+        "unique_smiles_fraction": 1.0
+      },
+      "missing_metrics": [
+        "qed",
+        "sa_score",
+        "drug_likeness_coverage_fraction",
+        "docking_score_coverage_fraction",
+        "vina_score_mean",
+        "scaffold_novelty_fraction",
+        "unique_scaffold_fraction",
+        "hydrogen_bond_proxy",
+        "hydrophobic_contact_proxy",
+        "contact_balance"
+      ],
+      "seed": "17"
+    },
+    {
+      "artifact": "configs/checkpoints/multi_seed_pdbbindpp_real_backends/seed_42/claim_summary.json",
+      "metrics": {
+        "candidate_valid_fraction": 1.0,
+        "strict_pocket_fit_score": 0.40210326834608784,
+        "unique_smiles_fraction": 1.0
+      },
+      "missing_metrics": [
+        "qed",
+        "sa_score",
+        "drug_likeness_coverage_fraction",
+        "docking_score_coverage_fraction",
+        "vina_score_mean",
+        "scaffold_novelty_fraction",
+        "unique_scaffold_fraction",
+        "hydrogen_bond_proxy",
+        "hydrophobic_contact_proxy",
+        "contact_balance"
+      ],
+      "seed": "42"
+    }
+  ]
+}

@@ -79,5 +79,7 @@
     "✓ Probes directly ablated (disable_probes variant)",
     "✓ Each core flow component has at least one direct ablation result"
   ],
-  "summary": "All core flow matching components demonstrated necessity and contribution. Cross-attention and slots are critical infrastructure; probes provide semantic control. Flow-specific knobs (steps, noise, integration) optimized in F2.1 sweep. Ablation matrix establishes mechanistic evidence for flow improvements."
+  "summary": "All core flow matching components demonstrated necessity and contribution. Cross-attention and slots are critical infrastructure; probes provide semantic control. Flow-specific knobs (steps, noise, integration) optimized in F2.1 sweep. Ablation matrix establishes mechanistic evidence for flow improvements. Drug-level delta rows are now emitted separately in configs/ablation_delta_table.json; missing backend metrics are omitted rather than imputed.",
+  "drug_level_ablation_delta_table": "configs/ablation_delta_table.json",
+  "delta_table_schema": "metric_name/base_value/variant_value/delta/direction_is_better/layer/evidence_source"
 }

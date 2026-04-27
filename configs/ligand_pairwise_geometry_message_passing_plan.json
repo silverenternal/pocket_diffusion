@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "component": "ligand_pairwise_geometry_message_passing",
+  "status": "implementation_plan",
+  "target_modules": [
+    "src/models/flow_matching.rs",
+    "src/models/geo_encoder.rs",
+    "src/models/system/rollout.rs"
+  ],
+  "bounded_complexity": {
+    "neighbor_policy": "radius_then_topk",
+    "max_neighbors_per_atom": 16,
+    "complexity": "O(Nk)",
+    "avoid_unbounded_o_n2": true
+  },
+  "features": [
+    "pair_distance",
+    "distance_rbf",
+    "relative_direction",
+    "bond_prior_if_available",
+    "clash_margin"
+  ],
+  "equivariance_requirements": [
+    "translation invariant pair features",
+    "rotation handling through relative distances and directions",
+    "no absolute coordinate frame leakage into scalar message features"
+  ],
+  "ablation_requirements": [
+    "baseline flow head",
+    "pairwise_geometry_messages_disabled",
+    "radius_only_neighbors",
+    "topk_only_neighbors"
+  ],
+  "tests_to_add_before_implementation": [
+    "bounded_neighbor_count_for_large_ligand",
+    "translation_invariance_smoke",
+    "rotation_consistency_smoke",
+    "empty_ligand_and_single_atom_paths"
+  ]
+}

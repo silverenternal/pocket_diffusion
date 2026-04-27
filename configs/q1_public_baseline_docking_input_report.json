@@ -1,0 +1,1418 @@
+{
+  "artifact_name": "docking_input_preparation_report",
+  "backend_candidate_json": "checkpoints/q1_public_baselines/docking_inputs/docking_candidates.json",
+  "conversion_policy": {
+    "charge_assumption": "0.000 partial charge for minimal conversions",
+    "ligand_policy": "write generated candidate coordinates to minimal PDBQT while preserving candidate_id",
+    "protonation_assumption": "preserve source receptor hydrogens; do not add ligand hydrogens",
+    "receptor_policy": "copy existing PDBQT when present; otherwise convert parseable PDB ATOM/HETATM records to minimal PDBQT",
+    "sanitization_assumption": "finite-coordinate validation only; RDKit sanitization remains a separate metric backend"
+  },
+  "counts": {
+    "candidate_count": 39,
+    "failure_count": 0,
+    "prepared_count": 39,
+    "prepared_fraction": 1.0
+  },
+  "failure_reasons": {},
+  "records": [
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:1wn6:0",
+      "example_id": "1wn6",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 7,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 4,
+          "N": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_1wn6_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1wn6/1wn6_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "1wn6",
+      "receptor": {
+        "atom_count": 564,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1wn6.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1wn6/1wn6_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:1dy4:0",
+      "example_id": "1dy4",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 11,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 8,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_1dy4_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1dy4/1dy4_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "1dy4",
+      "receptor": {
+        "atom_count": 560,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1dy4.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1dy4/1dy4_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:2oxn:0",
+      "example_id": "2oxn",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 6,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 3,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_2oxn_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2oxn/2oxn_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "2oxn",
+      "receptor": {
+        "atom_count": 454,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2oxn.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2oxn/2oxn_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:1r1h:0",
+      "example_id": "1r1h",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 6,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 6
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_1r1h_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1r1h/1r1h_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "1r1h",
+      "receptor": {
+        "atom_count": 601,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1r1h.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1r1h/1r1h_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:2afx:0",
+      "example_id": "2afx",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 4,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 1,
+          "N": 1,
+          "O": 2
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_2afx_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2afx/2afx_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "2afx",
+      "receptor": {
+        "atom_count": 353,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2afx.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2afx/2afx_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:5ngz:0",
+      "example_id": "5ngz",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 6,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 4,
+          "N": 1,
+          "O": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_5ngz_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/5ngz/5ngz_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "5ngz",
+      "receptor": {
+        "atom_count": 213,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/5ngz.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/5ngz/5ngz_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:4u54:0",
+      "example_id": "4u54",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 7,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 4,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_4u54_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4u54/4u54_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "4u54",
+      "receptor": {
+        "atom_count": 245,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4u54.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4u54/4u54_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:4qer:0",
+      "example_id": "4qer",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 8,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 7,
+          "O": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_4qer_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qer/4qer_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "4qer",
+      "receptor": {
+        "atom_count": 410,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4qer.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qer/4qer_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:1ai5:0",
+      "example_id": "1ai5",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 9,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 7,
+          "O": 2
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_1ai5_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1ai5/1ai5_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "1ai5",
+      "receptor": {
+        "atom_count": 454,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1ai5.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1ai5/1ai5_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:4rlu:0",
+      "example_id": "4rlu",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 4,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 2,
+          "O": 2
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_4rlu_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4rlu/4rlu_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "4rlu",
+      "receptor": {
+        "atom_count": 554,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4rlu.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4rlu/4rlu_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:4qlk:0",
+      "example_id": "4qlk",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 7,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 7
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_4qlk_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qlk/4qlk_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "4qlk",
+      "receptor": {
+        "atom_count": 765,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4qlk.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qlk/4qlk_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:2wlz:0",
+      "example_id": "2wlz",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 4,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 2,
+          "O": 2
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_2wlz_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2wlz/2wlz_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "2wlz",
+      "receptor": {
+        "atom_count": 582,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2wlz.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2wlz/2wlz_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "pocket2mol_public:raw_rollout:2gvv:0",
+      "example_id": "2gvv",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 6,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 6
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/pocket2mol_public/raw_rollout/pocket2mol_public_raw_rollout_2gvv_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2gvv/2gvv_ligand.sdf"
+      },
+      "method_id": "pocket2mol_public",
+      "protein_id": "2gvv",
+      "receptor": {
+        "atom_count": 449,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2gvv.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2gvv/2gvv_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:1wn6:0",
+      "example_id": "1wn6",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 34,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 25,
+          "N": 3,
+          "O": 6
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_1wn6_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1wn6/1wn6_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "1wn6",
+      "receptor": {
+        "atom_count": 564,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1wn6.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1wn6/1wn6_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:1dy4:0",
+      "example_id": "1dy4",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 15,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 10,
+          "N": 2,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_1dy4_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1dy4/1dy4_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "1dy4",
+      "receptor": {
+        "atom_count": 560,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1dy4.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1dy4/1dy4_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:2oxn:0",
+      "example_id": "2oxn",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 25,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 16,
+          "N": 5,
+          "O": 3,
+          "S": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_2oxn_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2oxn/2oxn_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "2oxn",
+      "receptor": {
+        "atom_count": 454,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2oxn.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2oxn/2oxn_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:1r1h:0",
+      "example_id": "1r1h",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 34,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 21,
+          "H": 1,
+          "N": 1,
+          "O": 11
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_1r1h_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1r1h/1r1h_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "1r1h",
+      "receptor": {
+        "atom_count": 601,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1r1h.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1r1h/1r1h_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:2afx:0",
+      "example_id": "2afx",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 8,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 4,
+          "O": 4
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_2afx_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2afx/2afx_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "2afx",
+      "receptor": {
+        "atom_count": 353,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2afx.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2afx/2afx_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:5ngz:0",
+      "example_id": "5ngz",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 12,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 10,
+          "N": 1,
+          "O": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_5ngz_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/5ngz/5ngz_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "5ngz",
+      "receptor": {
+        "atom_count": 213,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/5ngz.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/5ngz/5ngz_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:4u54:0",
+      "example_id": "4u54",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 12,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 6,
+          "O": 6
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_4u54_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4u54/4u54_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "4u54",
+      "receptor": {
+        "atom_count": 245,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4u54.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4u54/4u54_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:4qer:0",
+      "example_id": "4qer",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 8,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 7,
+          "N": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_4qer_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qer/4qer_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "4qer",
+      "receptor": {
+        "atom_count": 410,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4qer.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qer/4qer_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:1ai5:0",
+      "example_id": "1ai5",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 23,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 19,
+          "N": 1,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_1ai5_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1ai5/1ai5_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "1ai5",
+      "receptor": {
+        "atom_count": 454,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1ai5.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1ai5/1ai5_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:4rlu:0",
+      "example_id": "4rlu",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 34,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 27,
+          "N": 3,
+          "O": 4
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_4rlu_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4rlu/4rlu_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "4rlu",
+      "receptor": {
+        "atom_count": 554,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4rlu.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4rlu/4rlu_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:4qlk:0",
+      "example_id": "4qlk",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 40,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 33,
+          "N": 3,
+          "O": 4
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_4qlk_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qlk/4qlk_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "4qlk",
+      "receptor": {
+        "atom_count": 765,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4qlk.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qlk/4qlk_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:2wlz:0",
+      "example_id": "2wlz",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 8,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 6,
+          "O": 2
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_2wlz_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2wlz/2wlz_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "2wlz",
+      "receptor": {
+        "atom_count": 582,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2wlz.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2wlz/2wlz_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "targetdiff_public:raw_rollout:2gvv:0",
+      "example_id": "2gvv",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 20,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 13,
+          "O": 6,
+          "S": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/targetdiff_public/raw_rollout/targetdiff_public_raw_rollout_2gvv_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2gvv/2gvv_ligand.sdf"
+      },
+      "method_id": "targetdiff_public",
+      "protein_id": "2gvv",
+      "receptor": {
+        "atom_count": 449,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2gvv.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2gvv/2gvv_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:1ai5:0",
+      "example_id": "1ai5",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 25,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 19,
+          "N": 1,
+          "O": 4,
+          "S": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_1ai5_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1ai5/1ai5_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "1ai5",
+      "receptor": {
+        "atom_count": 454,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1ai5.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1ai5/1ai5_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:1dy4:0",
+      "example_id": "1dy4",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 30,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 21,
+          "N": 5,
+          "O": 4
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_1dy4_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1dy4/1dy4_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "1dy4",
+      "receptor": {
+        "atom_count": 560,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1dy4.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1dy4/1dy4_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:1r1h:0",
+      "example_id": "1r1h",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 31,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 18,
+          "H": 1,
+          "N": 3,
+          "O": 9
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_1r1h_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1r1h/1r1h_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "1r1h",
+      "receptor": {
+        "atom_count": 601,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1r1h.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1r1h/1r1h_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:1wn6:0",
+      "example_id": "1wn6",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 22,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 14,
+          "N": 2,
+          "O": 6
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_1wn6_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1wn6/1wn6_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "1wn6",
+      "receptor": {
+        "atom_count": 564,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/1wn6.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/1wn6/1wn6_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:2afx:0",
+      "example_id": "2afx",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 7,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 4,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_2afx_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2afx/2afx_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "2afx",
+      "receptor": {
+        "atom_count": 353,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2afx.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2afx/2afx_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:2gvv:0",
+      "example_id": "2gvv",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 15,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 10,
+          "N": 2,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_2gvv_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2gvv/2gvv_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "2gvv",
+      "receptor": {
+        "atom_count": 449,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2gvv.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2gvv/2gvv_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:2oxn:0",
+      "example_id": "2oxn",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 18,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 5,
+          "H": 3,
+          "N": 1,
+          "O": 9
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_2oxn_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2oxn/2oxn_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "2oxn",
+      "receptor": {
+        "atom_count": 454,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2oxn.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2oxn/2oxn_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:2wlz:0",
+      "example_id": "2wlz",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 24,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 19,
+          "N": 2,
+          "O": 3
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_2wlz_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2wlz/2wlz_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "2wlz",
+      "receptor": {
+        "atom_count": 582,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/2wlz.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/2wlz/2wlz_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:4qer:0",
+      "example_id": "4qer",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 20,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 17,
+          "N": 1,
+          "O": 2
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_4qer_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qer/4qer_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "4qer",
+      "receptor": {
+        "atom_count": 410,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4qer.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qer/4qer_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:4qlk:0",
+      "example_id": "4qlk",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 34,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 22,
+          "N": 5,
+          "O": 6,
+          "S": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_4qlk_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qlk/4qlk_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "4qlk",
+      "receptor": {
+        "atom_count": 765,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4qlk.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4qlk/4qlk_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:4rlu:0",
+      "example_id": "4rlu",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 35,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 22,
+          "N": 5,
+          "O": 7,
+          "S": 1
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_4rlu_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4rlu/4rlu_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "4rlu",
+      "receptor": {
+        "atom_count": 554,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4rlu.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4rlu/4rlu_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:4u54:0",
+      "example_id": "4u54",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 10,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 4,
+          "N": 4,
+          "O": 2
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_4u54_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4u54/4u54_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "4u54",
+      "receptor": {
+        "atom_count": 245,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/4u54.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/4u54/4u54_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    },
+    {
+      "candidate_id": "diffsbdd_public:raw_rollout:5ngz:0",
+      "example_id": "5ngz",
+      "failure_reasons": [],
+      "layer": "raw_rollout",
+      "ligand": {
+        "atom_count": 21,
+        "bond_assumption": "no torsion tree beyond ROOT; inferred_bonds retained only in metadata",
+        "charge_assumption": "all partial charges set to 0.000",
+        "conformer_assumption": "single generated conformer from candidate coords plus coordinate_frame_origin",
+        "element_counts": {
+          "C": 13,
+          "N": 2,
+          "O": 6
+        },
+        "hydrogen_assumption": "uses generated atom_types as-is; no hydrogens added",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/ligands/q1_public_overlap13_budget1/diffsbdd_public/raw_rollout/diffsbdd_public_raw_rollout_5ngz_0.pdbqt",
+        "preparation_method": "generated_coords_minimal_pdbqt",
+        "sanitization_assumption": "candidate coordinates accepted if finite; no chemistry sanitization performed here",
+        "source_ligand_reference_path": "data/pdbbindpp-2020/extracted/pbpp-2020/5ngz/5ngz_ligand.sdf"
+      },
+      "method_id": "diffsbdd_public",
+      "protein_id": "5ngz",
+      "receptor": {
+        "atom_count": 213,
+        "atom_type_assumption": "PDB element mapped to simple AutoDock-style atom type",
+        "charge_assumption": "all partial charges set to 0.000",
+        "output_path": "checkpoints/q1_public_baselines/docking_inputs/receptors/5ngz.pdbqt",
+        "preparation_method": "minimal_pdb_to_pdbqt",
+        "protonation_assumption": "input PDB protonation preserved; no hydrogens added",
+        "source_path": "data/pdbbindpp-2020/extracted/pbpp-2020/5ngz/5ngz_pocket.pdb"
+      },
+      "source_artifact": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+      "split_label": "q1_public_overlap13_budget1",
+      "status": "prepared"
+    }
+  ],
+  "schema_version": 1,
+  "source_artifacts": [
+    "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+    "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json",
+    "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json"
+  ]
+}

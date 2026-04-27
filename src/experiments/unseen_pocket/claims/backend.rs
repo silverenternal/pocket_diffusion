@@ -160,14 +160,51 @@ fn subtract_optional(candidate: Option<f64>, baseline: Option<f64>) -> Option<f6
         .map(|(candidate, baseline)| candidate - baseline)
 }
 
-fn build_reranker_report(metrics: &LayeredGenerationMetrics) -> RerankerReport {
+fn build_reranker_report(summary: &UnseenPocketExperimentSummary) -> RerankerReport {
+    let metrics = &summary.test.layered_generation_metrics;
     let baseline = metrics.inferred_bond_candidates.clone();
     let reranked = metrics.reranked_candidates.clone();
     let deterministic_proxy = metrics.deterministic_proxy_candidates.clone();
     let calibration = metrics.reranker_calibration.clone();
+    let raw_quality = layer_native_quality(&metrics.raw_flow);
+    let repaired_quality = layer_native_quality(&metrics.repaired);
+    let reranked_quality = layer_native_quality(&reranked);
     let validity_delta = reranked.valid_fraction - baseline.valid_fraction;
     let pocket_delta = reranked.pocket_contact_fraction - baseline.pocket_contact_fraction;
     let clash_delta = baseline.clash_fraction - reranked.clash_fraction;
+    let repair_dependency_score = (repaired_quality - raw_quality).max(0.0).clamp(0.0, 1.0);
+    let mut reranker_gain = BTreeMap::from([
+        ("valid_fraction".to_string(), validity_delta),
+        ("pocket_contact_fraction".to_string(), pocket_delta),
+        ("clash_reduction".to_string(), clash_delta),
+        (
+            "flow_native_quality".to_string(),
+            reranked_quality - layer_native_quality(&baseline),
+        ),
+    ]);
+    if let Some(qed) = summary
+        .test
+        .real_generation_metrics
+        .chemistry_validity
+        .metrics
+        .get("qed")
+        .copied()
+    {
+        reranker_gain.insert("qed_observed_final_layer".to_string(), qed);
+    }
+    if let Some(sa) = summary
+        .test
+        .real_generation_metrics
+        .chemistry_validity
+        .metrics
+        .get("sa_score")
+        .copied()
+    {
+        reranker_gain.insert("sa_observed_final_layer".to_string(), sa);
+    }
+    if let Some(docking) = docking_score_metric(&summary.test.real_generation_metrics) {
+        reranker_gain.insert("docking_observed_final_layer".to_string(), docking);
+    }
     let decision = if validity_delta >= -1e-6 && pocket_delta >= -1e-6 && clash_delta >= -1e-6 {
         "bounded calibrated reranking is sufficient to keep adversarial training out of the mainline for this surface; confirm coefficients on larger backend-scored held-out pockets".to_string()
     } else {
@@ -178,7 +215,32 @@ fn build_reranker_report(metrics: &LayeredGenerationMetrics) -> RerankerReport {
         deterministic_proxy,
         reranked,
         calibration,
+        raw_strict_pocket_fit: Some(raw_quality),
+        raw_docking_score: None,
+        raw_qed: None,
+        raw_sa: None,
+        repair_dependency_score,
+        reranker_gain,
+        flow_native_quality: Some(raw_quality),
+        layer_attribution_note: "raw_* fields are attributed only to raw_flow; backend QED/SA/docking entries are left unavailable unless a future run scores every canonical layer separately; reranker_gain is computed from constrained_flow to reranked under the persisted candidate budget.".to_string(),
         decision,
     }
 }
 
+fn layer_native_quality(layer: &CandidateLayerMetrics) -> f64 {
+    if layer.candidate_count == 0 {
+        return 0.0;
+    }
+    let centroid_fit = 1.0 / (1.0 + layer.mean_centroid_offset.max(0.0));
+    (layer.valid_fraction
+        * layer.pocket_contact_fraction
+        * centroid_fit
+        * (1.0 - layer.clash_fraction.clamp(0.0, 1.0)))
+    .clamp(0.0, 1.0)
+}
+
+fn docking_score_metric(metrics: &RealGenerationMetrics) -> Option<f64> {
+    ["vina_score_mean", "gnina_score_mean", "docking_score_mean"]
+        .iter()
+        .find_map(|name| metrics.docking_affinity.metrics.get(*name).copied())
+}

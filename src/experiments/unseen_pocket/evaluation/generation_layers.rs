@@ -22,18 +22,16 @@ fn disabled_real_generation_metrics() -> RealGenerationMetrics {
 }
 
 fn empty_layered_generation_metrics() -> LayeredGenerationMetrics {
+    let empty = summarize_candidate_layer(&[], &NoveltyReferenceSignatures::default());
     LayeredGenerationMetrics {
-        raw_rollout: summarize_candidate_layer(&[], &NoveltyReferenceSignatures::default()),
-        repaired_candidates: summarize_candidate_layer(&[], &NoveltyReferenceSignatures::default()),
-        inferred_bond_candidates: summarize_candidate_layer(
-            &[],
-            &NoveltyReferenceSignatures::default(),
-        ),
-        reranked_candidates: summarize_candidate_layer(&[], &NoveltyReferenceSignatures::default()),
-        deterministic_proxy_candidates: summarize_candidate_layer(
-            &[],
-            &NoveltyReferenceSignatures::default(),
-        ),
+        raw_flow: empty.clone(),
+        constrained_flow: empty.clone(),
+        repaired: empty.clone(),
+        raw_rollout: empty.clone(),
+        repaired_candidates: empty.clone(),
+        inferred_bond_candidates: empty.clone(),
+        reranked_candidates: empty.clone(),
+        deterministic_proxy_candidates: empty,
         reranker_calibration: RerankerCalibrationReport::default(),
         backend_scored_candidates: BTreeMap::new(),
         method_comparison: MethodComparisonSummary::default(),
@@ -67,12 +65,7 @@ fn build_method_comparison_summary(
     example_limit: usize,
 ) -> MethodComparisonSummary {
     let mut configured_method_ids = Vec::new();
-    configured_method_ids.push(
-        research
-            .generation_method
-            .primary_backend_id()
-            .to_string(),
-    );
+    configured_method_ids.push(research.generation_method.primary_backend_id().to_string());
     if research.generation_method.enable_comparison_runner {
         configured_method_ids.extend(research.generation_method.comparison_backend_ids());
     }
@@ -189,10 +182,10 @@ fn mean_finite(values: &[f64]) -> Option<f64> {
     (!finite.is_empty()).then(|| finite.iter().sum::<f64>() / finite.len() as f64)
 }
 
-fn flow_vs_denoising_delta(
-    methods: &[MethodComparisonRow],
-) -> Option<FlowVsDenoisingDelta> {
-    let flow = methods.iter().find(|row| row.method_id == "flow_matching")?;
+fn flow_vs_denoising_delta(methods: &[MethodComparisonRow]) -> Option<FlowVsDenoisingDelta> {
+    let flow = methods
+        .iter()
+        .find(|row| row.method_id == "flow_matching")?;
     let denoising = methods
         .iter()
         .find(|row| row.method_id == "conditioned_denoising")?;
@@ -273,13 +266,12 @@ fn evaluate_real_generation_metrics(
     MethodComparisonSummary,
 ) {
     let candidate_limit = research.generation_method.candidate_count.max(1);
-    let active_method = PocketGenerationMethodRegistry::build(
-        research.generation_method.primary_backend_id(),
-    )
-    .unwrap_or_else(|_| {
-        PocketGenerationMethodRegistry::build("conditioned_denoising")
-            .expect("conditioned_denoising registry entry must exist")
-    });
+    let active_method =
+        PocketGenerationMethodRegistry::build(research.generation_method.primary_backend_id())
+            .unwrap_or_else(|_| {
+                PocketGenerationMethodRegistry::build("conditioned_denoising")
+                    .expect("conditioned_denoising registry entry must exist")
+            });
     let method_outputs = active_method.generate_batch(
         examples
             .iter()
@@ -329,20 +321,27 @@ fn evaluate_real_generation_metrics(
         external_evaluation.generation_artifact_example_limit,
     );
 
+    let raw_flow_metrics = summarize_candidate_layer(&raw_rollout, &novelty_reference);
+    let repaired_metrics = summarize_candidate_layer(&repaired, &novelty_reference);
+    let constrained_flow_metrics = summarize_candidate_layer(&candidates, &novelty_reference);
+    let reranked_metrics = summarize_candidate_layer(&reranked, &novelty_reference);
+    let deterministic_proxy_metrics =
+        summarize_candidate_layer(&proxy_reranked, &novelty_reference);
     let mut layered = LayeredGenerationMetrics {
-        raw_rollout: summarize_candidate_layer(&raw_rollout, &novelty_reference),
-        repaired_candidates: summarize_candidate_layer(&repaired, &novelty_reference),
-        inferred_bond_candidates: summarize_candidate_layer(&candidates, &novelty_reference),
-        reranked_candidates: summarize_candidate_layer(&reranked, &novelty_reference),
-        deterministic_proxy_candidates: summarize_candidate_layer(
-            &proxy_reranked,
-            &novelty_reference,
-        ),
+        raw_flow: raw_flow_metrics.clone(),
+        constrained_flow: constrained_flow_metrics.clone(),
+        repaired: repaired_metrics.clone(),
+        raw_rollout: raw_flow_metrics,
+        repaired_candidates: repaired_metrics,
+        inferred_bond_candidates: constrained_flow_metrics,
+        reranked_candidates: reranked_metrics,
+        deterministic_proxy_candidates: deterministic_proxy_metrics,
         reranker_calibration: calibrated_reranker.report(),
         backend_scored_candidates: BTreeMap::new(),
         method_comparison: method_comparison.clone(),
     };
     apply_raw_rollout_stability(&mut layered.raw_rollout, forwards);
+    layered.raw_flow = layered.raw_rollout.clone();
 
     if candidates.is_empty() {
         let disabled = disabled_real_generation_metrics();
@@ -590,6 +589,18 @@ fn summarize_candidate_layer(
             novel_atom_type_sequence_fraction: 0.0,
             novel_bond_topology_fraction: 0.0,
             novel_coordinate_shape_fraction: 0.0,
+            scaffold_novelty_fraction: 0.0,
+            unique_scaffold_fraction: 0.0,
+            pairwise_tanimoto_mean: 0.0,
+            nearest_train_similarity: 0.0,
+            scaffold_metric_coverage_fraction: 0.0,
+            hydrogen_bond_proxy: 0.0,
+            hydrophobic_contact_proxy: 0.0,
+            residue_contact_count: 0.0,
+            key_residue_contact_coverage: 0.0,
+            clash_burden: 0.0,
+            contact_balance: 0.0,
+            interaction_profile_coverage_fraction: 0.0,
         };
     }
     let total = candidates.len() as f64;
@@ -634,6 +645,52 @@ fn summarize_candidate_layer(
         candidate_shape_signature,
         &novelty_reference.shape_signatures,
     );
+    let scaffold_novelty_fraction = novelty_fraction(
+        candidates,
+        candidate_scaffold_signature,
+        &novelty_reference.scaffold_signatures,
+    );
+    let unique_scaffold_fraction = diversity_fraction(candidates, candidate_scaffold_signature);
+    let candidate_fingerprints = candidates
+        .iter()
+        .filter_map(candidate_structural_fingerprint)
+        .collect::<Vec<_>>();
+    let scaffold_metric_coverage_fraction = candidate_fingerprints.len() as f64 / total;
+    let pairwise_tanimoto_mean = mean_pairwise_tanimoto(&candidate_fingerprints).unwrap_or(0.0);
+    let nearest_train_similarity =
+        mean_nearest_train_similarity(&candidate_fingerprints, &novelty_reference.fingerprints)
+            .unwrap_or(0.0);
+    let hydrogen_bond_proxy = candidates
+        .iter()
+        .map(candidate_hydrogen_bond_proxy)
+        .sum::<f64>()
+        / total;
+    let hydrophobic_contact_proxy = candidates
+        .iter()
+        .map(candidate_hydrophobic_contact_proxy)
+        .sum::<f64>()
+        / total;
+    let residue_contact_count = candidates
+        .iter()
+        .map(candidate_residue_contact_count_proxy)
+        .sum::<f64>()
+        / total;
+    let key_residue_contact_coverage = candidates
+        .iter()
+        .map(candidate_key_residue_contact_coverage_proxy)
+        .sum::<f64>()
+        / total;
+    let clash_burden = clash_fraction;
+    let contact_balance = candidates
+        .iter()
+        .map(candidate_contact_balance)
+        .sum::<f64>()
+        / total;
+    let interaction_profile_coverage_fraction = candidates
+        .iter()
+        .filter(|candidate| candidate_is_valid(candidate))
+        .count() as f64
+        / total;
 
     CandidateLayerMetrics {
         candidate_count: candidates.len(),
@@ -650,6 +707,18 @@ fn summarize_candidate_layer(
         novel_atom_type_sequence_fraction,
         novel_bond_topology_fraction,
         novel_coordinate_shape_fraction,
+        scaffold_novelty_fraction,
+        unique_scaffold_fraction,
+        pairwise_tanimoto_mean,
+        nearest_train_similarity,
+        scaffold_metric_coverage_fraction,
+        hydrogen_bond_proxy,
+        hydrophobic_contact_proxy,
+        residue_contact_count,
+        key_residue_contact_coverage,
+        clash_burden,
+        contact_balance,
+        interaction_profile_coverage_fraction,
     }
 }
 
@@ -673,6 +742,8 @@ struct NoveltyReferenceSignatures {
     atom_signatures: std::collections::BTreeSet<String>,
     bond_signatures: std::collections::BTreeSet<String>,
     shape_signatures: std::collections::BTreeSet<String>,
+    scaffold_signatures: std::collections::BTreeSet<String>,
+    fingerprints: Vec<std::collections::BTreeSet<String>>,
 }
 
 fn novelty_reference_signatures(
@@ -682,6 +753,14 @@ fn novelty_reference_signatures(
         atom_signatures: train_examples.iter().map(example_atom_signature).collect(),
         bond_signatures: train_examples.iter().map(example_bond_signature).collect(),
         shape_signatures: train_examples.iter().map(example_shape_signature).collect(),
+        scaffold_signatures: train_examples
+            .iter()
+            .map(example_scaffold_signature)
+            .collect(),
+        fingerprints: train_examples
+            .iter()
+            .filter_map(example_structural_fingerprint)
+            .collect(),
     }
 }
 
@@ -699,4 +778,281 @@ fn novelty_fraction(
         .filter(|value| !references.contains(value))
         .count() as f64
         / candidates.len() as f64
+}
+
+fn candidate_scaffold_signature(candidate: &GeneratedCandidateRecord) -> String {
+    let atom_count = candidate.atom_types.len();
+    if atom_count == 0 {
+        return "empty".to_string();
+    }
+    let core_atoms = scaffold_core_atoms(atom_count, candidate.inferred_bonds.iter().copied());
+    let mut atom_labels = core_atoms
+        .iter()
+        .filter_map(|atom_ix| {
+            candidate
+                .atom_types
+                .get(*atom_ix)
+                .map(|atom_type| format!("{atom_ix}:{atom_type}"))
+        })
+        .collect::<Vec<_>>();
+    atom_labels.sort();
+    let mut core_bonds = candidate
+        .inferred_bonds
+        .iter()
+        .filter(|(left, right)| core_atoms.contains(left) && core_atoms.contains(right))
+        .map(|(left, right)| ordered_bond_label(*left, *right))
+        .collect::<Vec<_>>();
+    core_bonds.sort();
+    format!(
+        "atoms={};bonds={}",
+        atom_labels.join(","),
+        core_bonds.join("|")
+    )
+}
+
+fn example_scaffold_signature(example: &crate::data::MolecularExample) -> String {
+    let atom_count = ligand_atom_count(example);
+    if atom_count == 0 {
+        return "empty".to_string();
+    }
+    let bonds = example_bond_pairs(example);
+    let core_atoms = scaffold_core_atoms(atom_count, bonds.iter().copied());
+    let mut atom_labels = core_atoms
+        .iter()
+        .map(|atom_ix| {
+            let atom_type = example.topology.atom_types.int64_value(&[*atom_ix as i64]);
+            format!("{atom_ix}:{atom_type}")
+        })
+        .collect::<Vec<_>>();
+    atom_labels.sort();
+    let mut core_bonds = bonds
+        .iter()
+        .filter(|(left, right)| core_atoms.contains(left) && core_atoms.contains(right))
+        .map(|(left, right)| ordered_bond_label(*left, *right))
+        .collect::<Vec<_>>();
+    core_bonds.sort();
+    format!(
+        "atoms={};bonds={}",
+        atom_labels.join(","),
+        core_bonds.join("|")
+    )
+}
+
+fn scaffold_core_atoms<I>(atom_count: usize, bonds: I) -> std::collections::BTreeSet<usize>
+where
+    I: IntoIterator<Item = (usize, usize)>,
+{
+    let mut degrees = vec![0_usize; atom_count];
+    for (left, right) in bonds {
+        if left < atom_count && right < atom_count && left != right {
+            degrees[left] += 1;
+            degrees[right] += 1;
+        }
+    }
+    let core = degrees
+        .iter()
+        .enumerate()
+        .filter_map(|(atom_ix, degree)| (*degree > 1).then_some(atom_ix))
+        .collect::<std::collections::BTreeSet<_>>();
+    if core.is_empty() {
+        (0..atom_count).collect()
+    } else {
+        core
+    }
+}
+
+fn candidate_structural_fingerprint(
+    candidate: &GeneratedCandidateRecord,
+) -> Option<std::collections::BTreeSet<String>> {
+    if !candidate_is_valid(candidate) {
+        return None;
+    }
+    let mut fp = std::collections::BTreeSet::new();
+    for atom_type in &candidate.atom_types {
+        fp.insert(format!("atom:{atom_type}"));
+    }
+    for (left, right) in &candidate.inferred_bonds {
+        let left_type = candidate.atom_types.get(*left).copied().unwrap_or_default();
+        let right_type = candidate
+            .atom_types
+            .get(*right)
+            .copied()
+            .unwrap_or_default();
+        let (low, high) = if left_type <= right_type {
+            (left_type, right_type)
+        } else {
+            (right_type, left_type)
+        };
+        fp.insert(format!("bond_atom_pair:{low}-{high}"));
+    }
+    fp.insert(format!(
+        "scaffold:{}",
+        candidate_scaffold_signature(candidate)
+    ));
+    Some(fp)
+}
+
+fn example_structural_fingerprint(
+    example: &crate::data::MolecularExample,
+) -> Option<std::collections::BTreeSet<String>> {
+    let atom_count = ligand_atom_count(example);
+    if atom_count == 0 {
+        return None;
+    }
+    let mut fp = std::collections::BTreeSet::new();
+    for index in 0..atom_count {
+        let atom_type = example.topology.atom_types.int64_value(&[index as i64]);
+        fp.insert(format!("atom:{atom_type}"));
+    }
+    for (left, right) in example_bond_pairs(example) {
+        let left_type = example.topology.atom_types.int64_value(&[left as i64]);
+        let right_type = example.topology.atom_types.int64_value(&[right as i64]);
+        let (low, high) = if left_type <= right_type {
+            (left_type, right_type)
+        } else {
+            (right_type, left_type)
+        };
+        fp.insert(format!("bond_atom_pair:{low}-{high}"));
+    }
+    fp.insert(format!("scaffold:{}", example_scaffold_signature(example)));
+    Some(fp)
+}
+
+fn example_bond_pairs(example: &crate::data::MolecularExample) -> Vec<(usize, usize)> {
+    let atom_count = ligand_atom_count(example);
+    let mut bonds = Vec::new();
+    for left in 0..atom_count {
+        for right in (left + 1)..atom_count {
+            if example
+                .topology
+                .adjacency
+                .double_value(&[left as i64, right as i64])
+                > 0.5
+            {
+                bonds.push((left, right));
+            }
+        }
+    }
+    bonds
+}
+
+fn ordered_bond_label(left: usize, right: usize) -> String {
+    let (low, high) = if left <= right {
+        (left, right)
+    } else {
+        (right, left)
+    };
+    format!("{low}-{high}")
+}
+
+fn mean_pairwise_tanimoto(fingerprints: &[std::collections::BTreeSet<String>]) -> Option<f64> {
+    if fingerprints.len() < 2 {
+        return None;
+    }
+    let mut total = 0.0;
+    let mut count = 0_usize;
+    for left in 0..fingerprints.len() {
+        for right in (left + 1)..fingerprints.len() {
+            total += tanimoto(&fingerprints[left], &fingerprints[right]);
+            count += 1;
+        }
+    }
+    (count > 0).then(|| total / count as f64)
+}
+
+fn mean_nearest_train_similarity(
+    candidates: &[std::collections::BTreeSet<String>],
+    references: &[std::collections::BTreeSet<String>],
+) -> Option<f64> {
+    if candidates.is_empty() || references.is_empty() {
+        return None;
+    }
+    let total = candidates
+        .iter()
+        .map(|candidate| {
+            references
+                .iter()
+                .map(|reference| tanimoto(candidate, reference))
+                .fold(0.0_f64, f64::max)
+        })
+        .sum::<f64>();
+    Some(total / candidates.len() as f64)
+}
+
+fn tanimoto(
+    left: &std::collections::BTreeSet<String>,
+    right: &std::collections::BTreeSet<String>,
+) -> f64 {
+    let intersection = left.intersection(right).count();
+    let union = left.union(right).count();
+    if union == 0 {
+        0.0
+    } else {
+        intersection as f64 / union as f64
+    }
+}
+
+fn candidate_hydrogen_bond_proxy(candidate: &GeneratedCandidateRecord) -> f64 {
+    if candidate.coords.is_empty() {
+        return 0.0;
+    }
+    let polar_contacts = candidate
+        .atom_types
+        .iter()
+        .zip(candidate.coords.iter())
+        .filter(|(atom_type, coord)| {
+            ligand_atom_is_polar(**atom_type)
+                && coord_distance(coord, &candidate.pocket_centroid)
+                    <= (candidate.pocket_radius + 1.8) as f64
+        })
+        .count();
+    (polar_contacts as f64 / candidate.coords.len() as f64).clamp(0.0, 1.0)
+}
+
+fn candidate_hydrophobic_contact_proxy(candidate: &GeneratedCandidateRecord) -> f64 {
+    if candidate.coords.is_empty() {
+        return 0.0;
+    }
+    let hydrophobic_contacts = candidate
+        .atom_types
+        .iter()
+        .zip(candidate.coords.iter())
+        .filter(|(atom_type, coord)| {
+            ligand_atom_is_hydrophobic(**atom_type)
+                && coord_distance(coord, &candidate.pocket_centroid)
+                    <= (candidate.pocket_radius + 2.2) as f64
+        })
+        .count();
+    (hydrophobic_contacts as f64 / candidate.coords.len() as f64).clamp(0.0, 1.0)
+}
+
+fn candidate_residue_contact_count_proxy(candidate: &GeneratedCandidateRecord) -> f64 {
+    if candidate.coords.is_empty() || !candidate_has_pocket_contact(candidate) {
+        0.0
+    } else {
+        1.0
+    }
+}
+
+fn candidate_key_residue_contact_coverage_proxy(candidate: &GeneratedCandidateRecord) -> f64 {
+    candidate_hydrogen_bond_proxy(candidate)
+        .max(candidate_hydrophobic_contact_proxy(candidate))
+        .clamp(0.0, 1.0)
+}
+
+fn candidate_contact_balance(candidate: &GeneratedCandidateRecord) -> f64 {
+    let contact = if candidate_has_pocket_contact(candidate) {
+        candidate_hydrogen_bond_proxy(candidate).max(candidate_hydrophobic_contact_proxy(candidate))
+    } else {
+        0.0
+    };
+    (contact * (1.0 - candidate_clash_fraction(candidate).clamp(0.0, 1.0))).clamp(0.0, 1.0)
+}
+
+fn ligand_atom_is_polar(atom_type: i64) -> bool {
+    matches!(atom_type, 1 | 2 | 3)
+}
+
+fn ligand_atom_is_hydrophobic(atom_type: i64) -> bool {
+    atom_type == 0
 }

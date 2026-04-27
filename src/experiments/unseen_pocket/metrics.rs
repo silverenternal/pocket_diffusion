@@ -22,6 +22,37 @@ pub struct ReservedBackendMetrics {
     pub status: String,
 }
 
+/// Versioned contract that defines claim-facing drug-discovery metric evidence.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DrugLevelClaimContract {
+    /// Schema version for compatibility checks.
+    pub schema_version: u32,
+    /// Stable contract identifier.
+    pub contract_name: String,
+    /// Allowed status labels for metric evidence.
+    pub status_values: Vec<String>,
+    /// Canonical generation layers used by drug-level claim reports.
+    pub layers: Vec<String>,
+    /// Mapping from capability class to layer names.
+    pub capability_groups: BTreeMap<String, Vec<String>>,
+    /// Required claim metric groups.
+    pub required_metric_groups: Vec<String>,
+    /// Required provenance fields for every backend-scored metric group.
+    pub required_backend_fields: Vec<String>,
+    /// Metric requirements keyed by group name.
+    pub metric_groups: BTreeMap<String, DrugLevelMetricGroupContract>,
+}
+
+/// Required and optional metrics for one drug-level evidence group.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DrugLevelMetricGroupContract {
+    /// Metrics that must be present when the group is observed.
+    pub required_metrics: Vec<String>,
+    /// Metrics that may be emitted when the corresponding backend is available.
+    #[serde(default)]
+    pub optional_metrics: Vec<String>,
+}
+
 /// Aggregate evaluation metrics for one split.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepresentationDiagnostics {
@@ -171,6 +202,15 @@ pub struct SlotStabilityMetrics {
 /// Candidate metrics split by raw model state and downstream postprocessing stages.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LayeredGenerationMetrics {
+    /// Canonical raw model output before repair, bond constraints, and reranking.
+    #[serde(default)]
+    pub raw_flow: CandidateLayerMetrics,
+    /// Canonical constrained flow layer after bond/valence constraints but before final selection.
+    #[serde(default)]
+    pub constrained_flow: CandidateLayerMetrics,
+    /// Canonical repaired layer after geometry repair but before bond-constrained selection.
+    #[serde(default)]
+    pub repaired: CandidateLayerMetrics,
     /// Direct final rollout state before repair and bond inference.
     pub raw_rollout: CandidateLayerMetrics,
     /// Geometry-repaired candidate state before bond inference.
@@ -330,6 +370,42 @@ pub struct CandidateLayerMetrics {
     /// Fraction of coarse coordinate-shape signatures not present in the training-reference set.
     #[serde(default)]
     pub novel_coordinate_shape_fraction: f64,
+    /// Fraction of scaffold signatures not present in the split-local training references.
+    #[serde(default)]
+    pub scaffold_novelty_fraction: f64,
+    /// Fraction of unique scaffold signatures in this layer.
+    #[serde(default)]
+    pub unique_scaffold_fraction: f64,
+    /// Mean pairwise fingerprint Tanimoto similarity within this layer.
+    #[serde(default)]
+    pub pairwise_tanimoto_mean: f64,
+    /// Mean nearest-neighbor fingerprint similarity to split-local training references.
+    #[serde(default)]
+    pub nearest_train_similarity: f64,
+    /// Fraction of candidates with usable scaffold/fingerprint evidence.
+    #[serde(default)]
+    pub scaffold_metric_coverage_fraction: f64,
+    /// Proxy hydrogen-bond interaction score for this layer.
+    #[serde(default)]
+    pub hydrogen_bond_proxy: f64,
+    /// Proxy hydrophobic-contact interaction score for this layer.
+    #[serde(default)]
+    pub hydrophobic_contact_proxy: f64,
+    /// Mean residue-level contact count when residue identities are available.
+    #[serde(default)]
+    pub residue_contact_count: f64,
+    /// Fraction of contacted key residues over key residues observed in the pocket.
+    #[serde(default)]
+    pub key_residue_contact_coverage: f64,
+    /// Clash burden aligned to interaction-profile naming; lower is better.
+    #[serde(default)]
+    pub clash_burden: f64,
+    /// Balance between broad pocket contact and overpacked clash avoidance.
+    #[serde(default)]
+    pub contact_balance: f64,
+    /// Fraction of candidates with usable interaction-profile proxy evidence.
+    #[serde(default)]
+    pub interaction_profile_coverage_fraction: f64,
 }
 
 /// Comparison-friendly summary values extracted from a split evaluation.
@@ -568,6 +644,30 @@ pub struct RerankerReport {
     /// Bounded linear calibration used by the active reranker.
     #[serde(default)]
     pub calibration: RerankerCalibrationReport,
+    /// Raw-flow strict pocket-fit proxy before repair or reranking.
+    #[serde(default)]
+    pub raw_strict_pocket_fit: Option<f64>,
+    /// Raw-flow docking score when layer-attributed backend scoring is available.
+    #[serde(default)]
+    pub raw_docking_score: Option<f64>,
+    /// Raw-flow QED when layer-attributed chemistry scoring is available.
+    #[serde(default)]
+    pub raw_qed: Option<f64>,
+    /// Raw-flow synthetic accessibility score when layer-attributed chemistry scoring is available.
+    #[serde(default)]
+    pub raw_sa: Option<f64>,
+    /// Positive quality lift from raw_flow to repaired, bounded to [0, 1].
+    #[serde(default)]
+    pub repair_dependency_score: f64,
+    /// Metric-wise gains from constrained_flow to reranked under the same candidate pool.
+    #[serde(default)]
+    pub reranker_gain: BTreeMap<String, f64>,
+    /// Native quality attributed only to raw_flow.
+    #[serde(default)]
+    pub flow_native_quality: Option<f64>,
+    /// Interpretation note identifying whether gains come from repair, selection, or backend scoring.
+    #[serde(default)]
+    pub layer_attribution_note: String,
     /// Decision text for whether reranking remains sufficient.
     pub decision: String,
 }

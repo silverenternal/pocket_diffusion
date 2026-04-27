@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "component": "atom_to_pocket_cross_attention_velocity_head",
+  "implementation": "src/models/flow/cross_attention_velocity_head.rs",
+  "baseline": "src/models/flow_matching.rs::GeometryFlowMatchingHead",
+  "status": "prototype_implemented_disabled_by_default",
+  "ablation_rows": [
+    "baseline_geometry_flow_head",
+    "cross_attention_enabled_gate_l1_zero",
+    "cross_attention_enabled_gate_l1_positive",
+    "no_pocket_attention_control"
+  ],
+  "promotion_rule": "Promote only if raw-flow pocket-fit or backend metrics improve under matched settings before repair/reranking."
+}

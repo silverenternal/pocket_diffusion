@@ -1,6 +1,8 @@
 # pocket_diffusion
 
-Rust-first modular research framework for pocket-conditioned representation learning and method-aware molecular generation comparison, with a legacy generation demo kept for compatibility.
+Rust-first modular research framework for pocket-conditioned representation learning and method-aware molecular generation comparison.
+
+The repository now has claim-facing, candidate-level RDKit, AutoDock Vina `score_only`, and GNINA `score_only` artifacts for a fixed 100-pocket public-baseline comparison. Reported docking backend values are backend scores, not experimental binding affinities. Proxy metrics such as `docking_like_score` are retained only as heuristic diagnostics.
 
 ## Core capabilities
 
@@ -15,27 +17,60 @@ Rust-first modular research framework for pocket-conditioned representation lear
 | Unseen-pocket split experiments | ✅ Protein-level train/val/test with external backends |
 | Affinity supervision | ✅ Mixed Kd/Ki/IC50 with normalization provenance |
 
-## Latest results (2026-04-27)
+## Current Evidence Status (2026-04-28)
 
-**Paper-quality training** on PDBbind++ (5316 examples, unseen-pocket split) with flow-matching objective and Transformer interaction:
+The strongest current public-baseline artifact is the layer-separated matched-budget run:
 
-| Metric | Value |
-| --- | --- |
-| `candidate_valid_fraction` | 1.0000 |
-| `strict_pocket_fit_score` | **0.8396** |
-| `pocket_contact_fraction` | 1.0000 |
-| `unique_smiles_fraction` | 1.0000 |
-| `mean_centroid_offset` | 0.1910 |
-| **Semantic specialization** | |
-| topology | 0.0570 |
-| geometry | **0.8242** |
-| pocket | **0.7936** |
-| **Utilization diagnostics** | |
-| slot activation | 0.5414 |
-| gate activation | 0.3477 |
-| leakage proxy | 0.0836 |
+- Summary: [`configs/q1_method_comparison_summary.json`](configs/q1_method_comparison_summary.json)
+- Table: [`docs/q1_method_comparison_table.md`](docs/q1_method_comparison_table.md)
+- Runtime: [`docs/q1_runtime_efficiency_table.md`](docs/q1_runtime_efficiency_table.md)
+- Run status: [`docs/q1_public_baseline_run_status.md`](docs/q1_public_baseline_run_status.md)
+- Merged candidate metrics: `checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl`
 
-Config: `configs/unseen_pocket_pdbbindpp_flow_best_candidate_paper.json`
+Scope:
+
+- 100 official public-test pockets.
+- Three public baselines: Pocket2Mol, TargetDiff, DiffSBDD.
+- Matched budget: 1 candidate per pocket, per method, per layer.
+- Layers: `raw_rollout`, `repaired`, `reranked`.
+- Total candidate rows: 900.
+- Coverage: RDKit 1.0000, GNINA 1.0000, Vina 0.9656.
+
+Raw public-baseline backend scores:
+
+| Method | Layer | Candidates | Vina mean | Vina coverage | GNINA affinity mean | GNINA CNN score mean | QED mean |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| DiffSBDD | `raw_rollout` | 100 | -0.3601 | 0.89 | -0.8585 | 0.3738 | 0.4398 |
+| Pocket2Mol | `raw_rollout` | 100 | -2.1086 | 0.91 | -2.1092 | 0.5881 | 0.4411 |
+| TargetDiff | `raw_rollout` | 100 | -4.1380 | 0.89 | -3.9248 | 0.3862 | 0.4166 |
+
+Layer attribution:
+
+- `raw_rollout` rows are native public-baseline evidence.
+- `repaired` and `reranked` rows are shared deterministic postprocessing evidence generated from raw outputs by [`tools/public_baseline_postprocess_layers.py`](tools/public_baseline_postprocess_layers.py).
+- Current repaired/reranked docking scores are often much worse than raw scores, with large positive Vina/GNINA score values. These rows should be used to audit postprocessing effects, not to claim model-native improvement.
+
+Runtime:
+
+| Component | Measured runtime |
+| --- | ---: |
+| DiffSBDD generation, 100 candidates at 1000 timesteps | 4637.9 s |
+| Vina layered rescoring, 900 candidates | 602.8 s, 869 scored |
+| GNINA layered rescoring, 900 candidates | 939.9 s, 900 scored |
+| Shared Vina + GNINA layered backend batch | 1542.7 s |
+
+The validation gate passes on the current artifact set:
+
+```bash
+python tools/q1_readiness_audit.py --gate
+python tools/validation_suite.py --mode quick --timeout 240
+```
+
+Residual publication caveats:
+
+- Public-baseline multi-seed evidence is still not complete.
+- Vina has 31 command failures in the 900-row layered run, all in `raw_rollout`; coverage is reported rather than imputed.
+- Backend scores are produced by local score-only adapters and should not be described as experimental binding affinity.
 
 ## Quick start
 
@@ -75,6 +110,9 @@ Key configurations under [`configs/`](configs):
 | `unseen_pocket_claim_matrix.json` | Compact ablation matrix (regression gate) |
 | `flow_matching_experiment.json` | Flow-matching as primary objective |
 | `unseen_pocket_pdbbindpp_flow_best_candidate_paper.json` | Paper-quality flow-matching run |
+| `q1_method_comparison_summary.json` | Current layer-separated public-baseline performance summary |
+| `q1_public_baseline_run_status.json` | Current public-baseline status, coverage, and runtime provenance |
+| `q1_baseline_registry.json` | Public baseline source/status registry |
 
 See [Config files](#config-files-1) below for full list and field documentation.
 
@@ -121,6 +159,15 @@ Unseen-pocket experiments report:
 External backends (executables reading candidate JSON, emitting metrics JSON):
 - [`tools/rdkit_validity_backend.py`](tools/rdkit_validity_backend.py) — chemistry validity via RDKit
 - [`tools/pocket_contact_backend.py`](tools/pocket_contact_backend.py) — pocket-aware scoring
+- [`tools/vina_score_backend.py`](tools/vina_score_backend.py) — AutoDock Vina `score_only` candidate scores with coverage/runtime metadata
+- [`tools/gnina_score_backend.py`](tools/gnina_score_backend.py) — GNINA `score_only` affinity/CNN metrics with coverage/runtime metadata
+
+Public-baseline comparison helpers:
+
+- [`tools/baseline_output_adapters/targetdiff_meta_generation_layers_adapter.py`](tools/baseline_output_adapters/targetdiff_meta_generation_layers_adapter.py) adapts official Pocket2Mol/TargetDiff public sampling metadata.
+- [`tools/run_diffsbdd_public_testset.py`](tools/run_diffsbdd_public_testset.py) generates DiffSBDD candidates from the public checkpoint on the same 100-pocket set.
+- [`tools/public_baseline_postprocess_layers.py`](tools/public_baseline_postprocess_layers.py) creates explicit repaired/reranked postprocessing layers from raw public-baseline outputs.
+- [`tools/public_baseline_method_comparison.py`](tools/public_baseline_method_comparison.py) renders the current layer-separated comparison tables from candidate JSONL artifacts.
 
 ## Artifacts
 
@@ -136,6 +183,16 @@ Config-driven runs write to `training.checkpoint_dir`:
 | `claim_summary.json` | Compact publishability view |
 | `run_artifacts.json` | Stable pointer bundle |
 | `latest.ot` / `step-N.ot` | Checkpoint weights |
+
+Q1 public-baseline artifacts:
+
+| Artifact | Purpose |
+| --- | --- |
+| [`configs/q1_method_comparison_summary.json`](configs/q1_method_comparison_summary.json) | Machine-readable 100-pocket layer-separated public-baseline summary |
+| [`docs/q1_method_comparison_table.md`](docs/q1_method_comparison_table.md) | Human-readable method/layer performance table |
+| [`configs/q1_public_baseline_full100_layered_metric_coverage.json`](configs/q1_public_baseline_full100_layered_metric_coverage.json) | RDKit/Vina/GNINA coverage for 900 layered candidates |
+| [`configs/q1_public_baseline_full100_postprocess_report.json`](configs/q1_public_baseline_full100_postprocess_report.json) | Provenance for repaired/reranked public-baseline rows |
+| [`configs/q1_public_baseline_run_status.json`](configs/q1_public_baseline_run_status.json) | Canonical public-baseline run registry/status |
 
 ## Reproducibility
 
@@ -214,13 +271,13 @@ Legacy namespace (deprecated):
 use pocket_diffusion::legacy;
 ```
 
-## Capability boundaries
+## Capability Boundaries
 
-**Present**: modular encoders, slot decomposition, gated cross-modal interaction, staged training with auxiliary losses, MI monitoring, flow-matching generator, unseen-pocket experiments with external backends.
+**Present**: modular encoders, slot decomposition, gated cross-modal interaction, staged training with auxiliary losses, MI monitoring, flow-matching generator, unseen-pocket experiments, RDKit chemistry metrics, AutoDock Vina score-only rescoring, GNINA score-only rescoring, public-baseline adaptation, and layer-separated raw/repaired/reranked audit tables.
 
-**Not present**: active diffusion loss, iterative sampler beyond demo candidate emitter, production docking backend, external chemistry toolkit beyond heuristic adapters.
+**Not present**: wet-lab validation, MD validation, production-grade docking protocol validation, public-baseline multi-seed closure, or evidence that repaired/reranked postprocessing improves native generation quality. Current Vina/GNINA rows are score-only backend evidence, not experimental binding-affinity measurements.
 
-The word `diffusion` remains in the crate name for compatibility. The config-driven path is a modular representation-learning framework with conditioned denoising and deterministic rollout supervision.
+The word `diffusion` remains in the crate name for compatibility. The config-driven path is a modular representation-learning framework with conditioned denoising, flow matching, deterministic rollout supervision, and explicit evidence attribution.
 
 ## Full config list
 
@@ -257,3 +314,7 @@ The word `diffusion` remains in the crate name for compatibility. The config-dri
 | `configs/f51_reproducibility_manifest.json` | Reproducibility manifest (F5.1) |
 | `configs/f52_paper_narrative.json` | Paper narrative (F5.2) |
 | `configs/unseen_pocket_vina_backend.json` | Vina backend companion |
+| `configs/q1_baseline_registry.json` | Public baseline registry and claim guardrails |
+| `configs/q1_method_comparison_summary.json` | Current public-baseline layer-separated performance summary |
+| `configs/q1_public_baseline_run_status.json` | Current public-baseline run status, coverage, and runtime |
+| `configs/q1_public_baseline_full100_layered_metric_coverage.json` | Coverage report for the 900-row layered public-baseline run |

@@ -1,0 +1,197 @@
+# Q1 Readiness Audit
+
+- readiness_score: 1.00
+- gate_failure_count: 0
+- claim_summary_artifacts: 66
+- excluded_claim_summary_artifacts: 169
+- candidate_metric_artifacts: 30
+- baseline_reports: 5
+- ablation_reports: 13
+- multi_seed_reports: 12
+- statistical_reports: 2
+
+## Checks
+- ablation_reports_present: pass
+- baseline_reports_have_budget_tokens: pass
+- baseline_reports_present: pass
+- candidate_metrics_separate_raw_and_postprocessed_layers: pass
+- claim_summaries_present: pass
+- multi_seed_reports_present: pass
+- no_proxy_only_binding_claim_surfaces: pass
+- real_backend_candidate_metrics_at_90pct: pass
+- real_backend_candidate_metrics_present: pass
+- statistical_reports_present: pass
+
+## Evidence Paths
+### claim_summaries
+- `checkpoints/claim_matrix/ablations/disable_candidate_repair/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/disable_cross_attention/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/disable_geometry_interaction_bias/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/disable_rollout_pocket_guidance/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/disable_slots/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/interaction_lightweight/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/interaction_transformer/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/objective_conditioned_denoising/claim_summary.json`
+- `checkpoints/claim_matrix/ablations/objective_surrogate/claim_summary.json`
+- `checkpoints/claim_matrix/claim_summary.json`
+- `checkpoints/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/backend_energy_guided_refinement/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/disable_cross_attention/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/disable_probes/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/disable_slots/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/gate_sparsity_disabled/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/leakage_penalty_disabled/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/slot_count_reduced/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/claim_summary.json`
+- `checkpoints/lp_pdbbind_refined_real_backends/claim_summary.json`
+- `checkpoints/medium_profile/claim_summary.json`
+- `checkpoints/multi_seed/seed_101/claim_summary.json`
+- `checkpoints/multi_seed/seed_17/claim_summary.json`
+- `checkpoints/multi_seed/seed_42/claim_summary.json`
+- `checkpoints/multi_seed_medium/seed_101/claim_summary.json`
+- `checkpoints/multi_seed_medium/seed_17/claim_summary.json`
+- `checkpoints/multi_seed_medium/seed_42/claim_summary.json`
+- `checkpoints/pdbbindpp_denoising_matched/claim_summary.json`
+- `checkpoints/pdbbindpp_flow_best_candidate/claim_summary.json`
+- `checkpoints/pdbbindpp_flow_best_candidate_paper/claim_summary.json`
+- `checkpoints/pdbbindpp_profile/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/backend_energy_guided_refinement/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/backend_flow_matching/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/disable_cross_attention/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/disable_geometry_interaction_bias/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/disable_probes/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/disable_rollout_pocket_guidance/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/disable_slots/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/gate_sparsity_disabled/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/interaction_lightweight/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/leakage_penalty_disabled/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/objective_surrogate/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/slot_count_reduced/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/claim_summary.json`
+- `checkpoints/pdbbindpp_reranker_matched/claim_summary.json`
+- `checkpoints/vina_backend/claim_summary.json`
+- `configs/checkpoints/flow_sweep_search/candidate_000_base/flow_sweep_surface/claim_summary.json`
+- `configs/checkpoints/flow_sweep_search/candidate_001/flow_sweep_surface/claim_summary.json`
+- `configs/checkpoints/flow_sweep_search/candidate_002/flow_sweep_surface/claim_summary.json`
+- `configs/checkpoints/flow_sweep_search/candidate_003/flow_sweep_surface/claim_summary.json`
+### excluded_claim_summaries
+- `checkpoints/flow_ablation_matrix/ablations/backend_autoregressive_graph_geometry/claim_summary.json`
+- `checkpoints/flow_ablation_matrix/ablations/objective_conditioned_denoising/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/disable_candidate_repair/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/disable_cross_attention/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/disable_slots/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/interaction_lightweight/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/interaction_transformer/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/objective_conditioned_denoising/claim_summary.json`
+- `checkpoints/harder_pressure/ablations/objective_surrogate/claim_summary.json`
+- `checkpoints/harder_pressure/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/backend_autoregressive_graph_geometry/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablations/disable_candidate_repair/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends_interaction_review/ablations/interaction_lightweight/claim_summary.json`
+- `checkpoints/pdbbindpp_real_backends_interaction_review/claim_summary.json`
+- `checkpoints/real_backends/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/ablations/disable_slots/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json`
+- `checkpoints/tight_geometry_pressure/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/disable_slots/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_000_base/tight_geometry_pressure/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/disable_slots/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_001/tight_geometry_pressure/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_cross_attention/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_geometry_interaction_bias/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_rollout_pocket_guidance/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/disable_slots/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/interaction_lightweight/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/ablations/objective_surrogate/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/claim_summary.json`
+- `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json`
+### candidate_metrics
+- `checkpoints/diffsbdd_public_smoke/candidate_metrics_test.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_validation.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_real_backends.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_test.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_test_stress.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_validation.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl`
+- `checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_validation.jsonl`
+- `checkpoints/q1_public_baselines/candidate_metrics_base_all.jsonl`
+- `checkpoints/q1_public_baselines/candidate_metrics_gnina.jsonl`
+- `checkpoints/q1_public_baselines/candidate_metrics_vina.jsonl`
+- `checkpoints/q1_public_baselines/diffsbdd_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines/merged/candidate_metrics_q1_public_overlap13_budget1.jsonl`
+- `checkpoints/q1_public_baselines/pocket2mol_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines/targetdiff_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines_full100/candidate_metrics_base_all.jsonl`
+- `checkpoints/q1_public_baselines_full100/candidate_metrics_gnina.jsonl`
+- `checkpoints/q1_public_baselines_full100/candidate_metrics_vina.jsonl`
+- `checkpoints/q1_public_baselines_full100/diffsbdd_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines_full100/merged/candidate_metrics_q1_public_full100_budget1.jsonl`
+- `checkpoints/q1_public_baselines_full100/pocket2mol_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines_full100/targetdiff_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines_full100_layered/candidate_metrics_base_all.jsonl`
+- `checkpoints/q1_public_baselines_full100_layered/candidate_metrics_gnina.jsonl`
+- `checkpoints/q1_public_baselines_full100_layered/candidate_metrics_vina.jsonl`
+- `checkpoints/q1_public_baselines_full100_layered/diffsbdd_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl`
+- `checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/candidate_metrics_base.jsonl`
+- `checkpoints/q1_public_baselines_full100_layered/targetdiff_public/candidate_metrics_base.jsonl`
+### baseline_reports
+- `checkpoints/pdbbindpp_real_backends/method_comparison_summary.json`
+- `configs/f42_method_comparison.json`
+- `configs/f42_method_comparison_plan.json`
+- `configs/method_comparison_summary.json`
+- `configs/q1_method_comparison_summary.json`
+### ablation_reports
+- `checkpoints/claim_matrix/ablation_matrix_summary.json`
+- `checkpoints/flow_ablation_matrix/ablation_matrix_summary.json`
+- `checkpoints/harder_pressure/ablation_matrix_summary.json`
+- `checkpoints/pdbbindpp_real_backends/ablation_delta_table.json`
+- `checkpoints/pdbbindpp_real_backends/ablation_matrix_summary.json`
+- `checkpoints/pdbbindpp_real_backends_interaction_review/ablation_matrix_summary.json`
+- `checkpoints/tight_geometry_pressure/ablation_matrix_summary.json`
+- `configs/ablation_delta_table.json`
+- `configs/f31_ablation_bundle.json`
+- `configs/q1_ablation_matrix.json`
+- `configs/q1_cross_attention_head_ablation.json`
+- `configs/q1_pairwise_geometry_ablation.json`
+- `configs/unseen_pocket_flow_ablation_matrix.json`
+### multi_seed_reports
+- `checkpoints/multi_seed/multi_seed_summary.json`
+- `checkpoints/multi_seed_medium/multi_seed_summary.json`
+- `configs/f41_multi_seed_summary.json`
+- `configs/multi_seed_drug_level_summary.json`
+- `configs/q1_multi_seed_drug_level_summary.json`
+- `configs/q1_multi_seed_manifest.json`
+- `configs/unseen_pocket_multi_seed.json`
+- `configs/unseen_pocket_multi_seed_medium.json`
+- `configs/unseen_pocket_multi_seed_pdbbindpp.json`
+- `configs/unseen_pocket_multi_seed_pdbbindpp_flow.json`
+- `configs/unseen_pocket_multi_seed_pdbbindpp_flow_canonical.json`
+- `configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json`
+### statistical_reports
+- `configs/q1_statistical_tests.json`
+- `docs/q1_statistical_tests.md`
+
+## Gate Failures
+- none

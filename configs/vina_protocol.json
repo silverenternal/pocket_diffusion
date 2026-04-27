@@ -1,0 +1,81 @@
+{
+  "backend_name": "AutoDock Vina",
+  "backend_version_or_command": "AutoDock Vina 6a621d4",
+  "candidate_inputs": {
+    "test": "checkpoints/pdbbindpp_real_backends/docking_inputs/docking_candidates_test.json",
+    "validation": "checkpoints/pdbbindpp_real_backends/docking_inputs/docking_candidates_validation.json"
+  },
+  "grid_policy": "candidate_enclosing_score_only_box",
+  "grid_policy_details": {
+    "center": "axis-wise midpoint of generated ligand coordinates and pocket center when pocket centroid is available; otherwise ligand centroid",
+    "purpose": "avoid score_only failures when generated candidates fall outside the nominal pocket-radius box while preserving deterministic candidate-level scoring",
+    "size": "max(8.0, min(80.0, max(2*pocket_radius, ligand_axis_span + 8.0))) for each axis using a cubic box"
+  },
+  "input_preparation_report": "configs/docking_input_preparation_report.json",
+  "mode": "score_only",
+  "schema_version": 1,
+  "score_outputs": {
+    "test": {
+      "json": "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.json",
+      "jsonl": "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl"
+    },
+    "validation": {
+      "json": "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_validation.json",
+      "jsonl": "checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_validation.jsonl"
+    }
+  },
+  "split_summaries": {
+    "test": {
+      "backend_examples_scored": 88.0,
+      "backend_missing_structure_fraction": 0.0,
+      "candidate_count": 88.0,
+      "candidate_with_complete_vina_inputs_fraction": 1.0,
+      "docking_score_coverage_fraction": 1.0,
+      "failure_count": 0.0,
+      "failure_reasons": {},
+      "input_count": 88.0,
+      "ligand_payload_pdbqt_like_fraction": 0.0,
+      "ligand_payload_present_fraction": 1.0,
+      "ligand_source_pdbqt_fraction": 1.0,
+      "receptor_path_exists_fraction": 1.0,
+      "receptor_path_present_fraction": 1.0,
+      "receptor_pdbqt_fraction": 1.0,
+      "schema_version": 1.0,
+      "scored_count": 88.0,
+      "vina_available": 1.0,
+      "vina_best_affinity_kcal_mol": -10.852,
+      "vina_mean_affinity_kcal_mol": 105.8949090909091,
+      "vina_score_best": -10.852,
+      "vina_score_mean": 105.8949090909091,
+      "vina_score_median": 73.543,
+      "vina_score_std": 84.3308071021008,
+      "vina_score_success_fraction": 1.0
+    },
+    "validation": {
+      "backend_examples_scored": 88.0,
+      "backend_missing_structure_fraction": 0.0,
+      "candidate_count": 88.0,
+      "candidate_with_complete_vina_inputs_fraction": 1.0,
+      "docking_score_coverage_fraction": 1.0,
+      "failure_count": 0.0,
+      "failure_reasons": {},
+      "input_count": 88.0,
+      "ligand_payload_pdbqt_like_fraction": 0.0,
+      "ligand_payload_present_fraction": 1.0,
+      "ligand_source_pdbqt_fraction": 1.0,
+      "receptor_path_exists_fraction": 1.0,
+      "receptor_path_present_fraction": 1.0,
+      "receptor_pdbqt_fraction": 1.0,
+      "schema_version": 1.0,
+      "scored_count": 88.0,
+      "vina_available": 1.0,
+      "vina_best_affinity_kcal_mol": -5.333,
+      "vina_mean_affinity_kcal_mol": 152.06425000000002,
+      "vina_score_best": -5.333,
+      "vina_score_mean": 152.06425000000002,
+      "vina_score_median": 48.223,
+      "vina_score_std": 196.55417017223672,
+      "vina_score_success_fraction": 1.0
+    }
+  }
+}

@@ -1,0 +1,240 @@
+{
+  "baseline_repositories": [
+    {
+      "checkpoint_status": "blocked_google_drive_manual_or_gdown_download_required",
+      "clone_status": "cloned",
+      "local_path": "external_baselines/Pocket2Mol",
+      "method_id": "pocket2mol_public",
+      "repository": "https://github.com/pengxingang/Pocket2Mol"
+    },
+    {
+      "checkpoint_status": "blocked_google_drive_manual_or_gdown_download_required",
+      "clone_status": "cloned",
+      "local_path": "external_baselines/targetdiff",
+      "method_id": "targetdiff_public",
+      "repository": "https://github.com/guanjq/targetdiff"
+    },
+    {
+      "checkpoint_path": "external_baselines/DiffSBDD/checkpoints/crossdocked_fullatom_cond.ckpt",
+      "checkpoint_source": "https://zenodo.org/record/8183747/files/crossdocked_fullatom_cond.ckpt",
+      "checkpoint_status": "downloaded",
+      "clone_status": "cloned",
+      "local_path": "external_baselines/DiffSBDD",
+      "method_id": "diffsbdd_public",
+      "repository": "https://github.com/arneschneuing/DiffSBDD",
+      "runtime_environment": "external_baselines/envs/diffsbdd_base",
+      "runtime_shim": "external_baselines/runtime_shims/libittnotify_stub.so"
+    }
+  ],
+  "claim_guardrail": "Full 100-pocket public-baseline matched-budget comparison is complete for raw_rollout, repaired, and reranked layers with unified RDKit, AutoDock Vina score_only, and GNINA score_only rescoring. raw_rollout rows are native public-baseline evidence; repaired/reranked rows are shared deterministic postprocessing evidence.",
+  "executed_at_local_date": "2026-04-28",
+  "last_updated_local_date": "2026-04-28",
+  "matched_budget_runs": [
+    {
+      "base_candidate_metrics": {
+        "diffsbdd_public": "checkpoints/q1_public_baselines_full100_layered/diffsbdd_public/candidate_metrics_base.jsonl",
+        "pocket2mol_public": "checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/candidate_metrics_base.jsonl",
+        "targetdiff_public": "checkpoints/q1_public_baselines_full100_layered/targetdiff_public/candidate_metrics_base.jsonl"
+      },
+      "candidate_count_per_pocket": 1,
+      "candidate_count_total": 900,
+      "claim_bearing": true,
+      "coverage": {
+        "candidate_count": 900,
+        "gnina_affinity_coverage_fraction": 1.0,
+        "gnina_cnn_score_coverage_fraction": 1.0,
+        "output_path": "checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "proxy_docking_like_fraction": 1.0,
+        "rdkit_metric_coverage_fraction": 1.0,
+        "vina_score_coverage_fraction": 0.9655555555555555
+      },
+      "diffsbdd_timesteps": 1000,
+      "generation_layers": {
+        "diffsbdd_public": "checkpoints/q1_public_baselines_full100_layered/diffsbdd_public/generation_layers_test.json",
+        "pocket2mol_public": "checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/generation_layers_test.json",
+        "targetdiff_public": "checkpoints/q1_public_baselines_full100_layered/targetdiff_public/generation_layers_test.json"
+      },
+      "layer": "raw_rollout_repaired_reranked",
+      "limitation": "Raw_rollout rows are native public-baseline outputs; repaired/reranked rows are explicit shared deterministic postprocessing evidence.",
+      "methods": [
+        "pocket2mol_public",
+        "targetdiff_public",
+        "diffsbdd_public"
+      ],
+      "postprocess_report": "configs/q1_public_baseline_full100_postprocess_report.json",
+      "runtime": {
+        "backend_runtime": {
+          "backends": {
+            "gnina": {
+              "candidate_count": 900.0,
+              "candidates_per_second": 0.9575311967159574,
+              "scored_count": 900.0,
+              "seconds": 939.9171568370075,
+              "status": "measured_by_backend_adapter"
+            },
+            "vina": {
+              "candidate_count": 900.0,
+              "candidates_per_second": 1.493144988050712,
+              "scored_count": 869.0,
+              "seconds": 602.7545932930079,
+              "status": "measured_by_backend_adapter"
+            }
+          },
+          "candidate_count": 900.0,
+          "candidates_per_second": 0.5834034362294821,
+          "status": "measured_by_backend_adapters",
+          "total_seconds": 1542.6717501300154
+        },
+        "backend_runtime_status": "measured_by_backend_adapters",
+        "docking_input_prepared_count": 900,
+        "postprocess_totals": {
+          "raw_candidate_count": 300,
+          "repaired_candidate_count": 300,
+          "reranked_candidate_count": 300
+        },
+        "rows": [
+          {
+            "backend_scoring_runtime_seconds": 1542.6717501300154,
+            "backend_scoring_runtime_status": "measured_by_backend_adapters",
+            "generation_runtime_seconds": 4637.8560299790115,
+            "generation_runtime_status": "measured_local_public_checkpoint",
+            "method_id": "diffsbdd_public"
+          },
+          {
+            "backend_scoring_runtime_seconds": 1542.6717501300154,
+            "backend_scoring_runtime_status": "measured_by_backend_adapters",
+            "generation_runtime_seconds": null,
+            "generation_runtime_status": "not_available_official_precomputed_meta",
+            "method_id": "pocket2mol_public"
+          },
+          {
+            "backend_scoring_runtime_seconds": 1542.6717501300154,
+            "backend_scoring_runtime_status": "measured_by_backend_adapters",
+            "generation_runtime_seconds": null,
+            "generation_runtime_status": "not_available_official_precomputed_meta",
+            "method_id": "targetdiff_public"
+          }
+        ]
+      },
+      "scope": "100 official public-test pockets from TargetDiff/Pocket2Mol public meta files and official test_set receptor/ligand files",
+      "split_label": "q1_public_full100_budget1",
+      "status": "observed_matched_budget_public_full100_layered_complete",
+      "unified_rescoring": {
+        "coverage_report": "configs/q1_public_baseline_full100_layered_metric_coverage.json",
+        "docking_candidates": "checkpoints/q1_public_baselines_full100_layered/docking_inputs/docking_candidates.json",
+        "gnina": "checkpoints/q1_public_baselines_full100_layered/candidate_metrics_gnina.jsonl",
+        "gnina_json": "checkpoints/q1_public_baselines_full100_layered/candidate_metrics_gnina.json",
+        "merged_candidate_metrics": "checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "vina": "checkpoints/q1_public_baselines_full100_layered/candidate_metrics_vina.jsonl",
+        "vina_json": "checkpoints/q1_public_baselines_full100_layered/candidate_metrics_vina.json"
+      }
+    },
+    {
+      "base_candidate_metrics": {
+        "diffsbdd_public": "checkpoints/q1_public_baselines/diffsbdd_public/candidate_metrics_base.jsonl",
+        "pocket2mol_public": "checkpoints/q1_public_baselines/pocket2mol_public/candidate_metrics_base.jsonl",
+        "targetdiff_public": "checkpoints/q1_public_baselines/targetdiff_public/candidate_metrics_base.jsonl"
+      },
+      "candidate_count_per_pocket": 1,
+      "candidate_count_total": 39,
+      "claim_bearing": true,
+      "coverage": {
+        "candidate_count": 39,
+        "gnina_affinity_coverage_fraction": 1.0,
+        "gnina_cnn_score_coverage_fraction": 1.0,
+        "output_path": "checkpoints/q1_public_baselines/merged/candidate_metrics_q1_public_overlap13_budget1.jsonl",
+        "proxy_docking_like_fraction": 1.0,
+        "rdkit_metric_coverage_fraction": 1.0,
+        "vina_score_coverage_fraction": 1.0
+      },
+      "diffsbdd_timesteps": 1000,
+      "generation_layers": {
+        "diffsbdd_public": "checkpoints/q1_public_baselines/diffsbdd_public/generation_layers_test.json",
+        "pocket2mol_public": "checkpoints/q1_public_baselines/pocket2mol_public/generation_layers_test.json",
+        "targetdiff_public": "checkpoints/q1_public_baselines/targetdiff_public/generation_layers_test.json"
+      },
+      "layer": "raw_rollout",
+      "limitation": "Full 100-pocket unified rescoring remains pending because only 13 official public-test pockets currently map to local receptor/ligand files. The official Pocket2Mol and TargetDiff 100-pocket generated meta files are downloaded.",
+      "methods": [
+        "pocket2mol_public",
+        "targetdiff_public",
+        "diffsbdd_public"
+      ],
+      "scope": "13 official public-test pockets with local pdbbindpp-2020 receptor/ligand mappings",
+      "split_label": "q1_public_overlap13_budget1",
+      "unified_rescoring": {
+        "coverage_report": "configs/q1_public_baseline_metric_coverage.json",
+        "docking_candidates": "checkpoints/q1_public_baselines/docking_inputs/docking_candidates.json",
+        "gnina": "checkpoints/q1_public_baselines/candidate_metrics_gnina.jsonl",
+        "merged_candidate_metrics": "checkpoints/q1_public_baselines/merged/candidate_metrics_q1_public_overlap13_budget1.jsonl",
+        "vina": "checkpoints/q1_public_baselines/candidate_metrics_vina.jsonl"
+      }
+    }
+  ],
+  "pilot_examples": [
+    "1aaq",
+    "1bnq",
+    "1c1r",
+    "1g2k",
+    "1g53",
+    "1h22"
+  ],
+  "prepared_adapters": [
+    "tools/baseline_output_adapters/generic_generation_layers_adapter.py",
+    "tools/baseline_output_adapters/sdf_generation_layers_adapter.py",
+    "tools/run_diffsbdd_public_testset.py",
+    "tools/public_baseline_method_comparison.py"
+  ],
+  "public_sampling_results": {
+    "downloaded_files": {
+      "pocket2mol_public": "external_baselines/targetdiff/sampling_results/pocket2mol_vina_docked.pt",
+      "targetdiff_public": "external_baselines/targetdiff/sampling_results/targetdiff_vina_docked.pt"
+    },
+    "locally_rescoreable_overlap_pocket_count": 100,
+    "official_public_pocket_count": 100,
+    "source": "https://drive.google.com/drive/folders/19imu-mlwrjnQhgbXpwsLgA17s1Rv70YS?usp=share_link",
+    "test_set_root": "external_baselines/targetdiff/data/test_set",
+    "test_set_zip": "external_baselines/targetdiff/data/test_set.zip"
+  },
+  "runtime_environment_attempts": [
+    {
+      "baseline": "diffsbdd_public",
+      "command": "micromamba create -y -p external_baselines/envs/diffsbdd -f external_baselines/DiffSBDD/environment.yaml",
+      "failure_reason": "conda package download timeout while fetching large CUDA/MKL dependencies",
+      "status": "failed"
+    },
+    {
+      "baseline": "diffsbdd_public",
+      "command": "micromamba create -y -p external_baselines/envs/diffsbdd_cpu -c conda-forge python=3.10 openbabel rdkit biopython scipy networkx pandas pytorch-lightning=1.8.4 tqdm pyyaml numpy",
+      "failure_reason": "conda package download timeout while fetching python/libtorch packages",
+      "status": "failed"
+    },
+    {
+      "baseline": "diffsbdd_public",
+      "command": "micromamba create/install hybrid conda+pip environment under external_baselines/envs/diffsbdd_base",
+      "notes": [
+        "Used repository-local micromamba root and package cache.",
+        "Installed conda OpenBabel/BioPython/NumPy/SciPy/Pandas plus conda PyTorch CPU and PyG torch-scatter.",
+        "Downgraded Biopython to 1.79 and NumPy to 1.26.4 for DiffSBDD compatibility.",
+        "Used a local LD_PRELOAD ITT notification stub to satisfy PyTorch CPU MKL profiling symbols."
+      ],
+      "status": "pass"
+    }
+  ],
+  "schema_version": 1,
+  "smoke_runs": [
+    {
+      "candidate_metrics": "checkpoints/diffsbdd_public_smoke/candidate_metrics_test.jsonl",
+      "claim_bearing": false,
+      "example_id": "1aaq",
+      "generated_sdf": "checkpoints/diffsbdd_public_smoke/1aaq_raw.sdf",
+      "generation_layers": "checkpoints/diffsbdd_public_smoke/generation_layers_test.json",
+      "method_id": "diffsbdd_public",
+      "n_samples": 1,
+      "reason_not_claim_bearing": "Smoke run uses one example, one candidate, and reduced denoising steps; matched-budget full public-baseline runs remain pending.",
+      "status": "pass",
+      "timesteps": 5
+    }
+  ],
+  "status": "observed_matched_budget_public_full100_layered_complete"
+}

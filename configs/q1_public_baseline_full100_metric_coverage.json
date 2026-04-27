@@ -1,0 +1,21 @@
+{
+  "artifact_name": "candidate_metric_coverage",
+  "backend_row_counts": {
+    "gnina": 300,
+    "vina": 300
+  },
+  "collision_count": 0,
+  "collisions": [],
+  "schema_version": 1,
+  "split_reports": {
+    "q1_public_full100_budget1": {
+      "candidate_count": 300,
+      "gnina_affinity_coverage_fraction": 1.0,
+      "gnina_cnn_score_coverage_fraction": 1.0,
+      "output_path": "checkpoints/q1_public_baselines_full100/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "proxy_docking_like_fraction": 1.0,
+      "rdkit_metric_coverage_fraction": 1.0,
+      "vina_score_coverage_fraction": 1.0
+    }
+  }
+}

@@ -256,6 +256,7 @@ struct LayeredGenerationArtifact<'a> {
     schema_version: u32,
     split_label: &'a str,
     active_method: &'a PocketGenerationMethodMetadata,
+    candidate_metrics_artifact: String,
     backend_selection: BackendSelectionArtifact,
     layered_metrics: &'a LayeredGenerationMetrics,
     raw_rollout_candidates: &'a [GeneratedCandidateRecord],
@@ -402,6 +403,7 @@ fn maybe_persist_generation_artifacts(
         schema_version: 2,
         split_label,
         active_method: &method_layer_outputs.metadata,
+        candidate_metrics_artifact: format!("candidate_metrics_{split_label}.jsonl"),
         backend_selection: BackendSelectionArtifact::from_research(research),
         layered_metrics,
         raw_rollout_candidates: raw_rollout,
@@ -426,6 +428,149 @@ fn maybe_persist_generation_artifacts(
             );
         }
     }
+    persist_candidate_metrics_jsonl(
+        &research
+            .training
+            .checkpoint_dir
+            .join(format!("candidate_metrics_{split_label}.jsonl")),
+        split_label,
+        method_layer_outputs.metadata.method_id.as_str(),
+        [
+            ("raw_flow", raw_rollout),
+            ("repaired", repaired),
+            ("constrained_flow", inferred_bond),
+            ("deterministic_proxy", deterministic_proxy),
+            ("reranked", reranked),
+        ],
+        backend_metrics,
+    );
+}
+
+#[derive(Debug, Serialize)]
+struct CandidateMetricRecord<'a> {
+    schema_version: u32,
+    candidate_id: String,
+    example_id: &'a str,
+    protein_id: &'a str,
+    split_label: &'a str,
+    layer: &'a str,
+    method_id: &'a str,
+    candidate_source: &'a str,
+    metrics: BTreeMap<String, f64>,
+    backend_statuses: BTreeMap<String, String>,
+    source_artifacts: BTreeMap<String, String>,
+}
+
+fn persist_candidate_metrics_jsonl<'a>(
+    path: &Path,
+    split_label: &'a str,
+    method_id: &'a str,
+    layers: impl IntoIterator<Item = (&'a str, &'a [GeneratedCandidateRecord])>,
+    backend_metrics: &RealGenerationMetrics,
+) {
+    let backend_statuses = BTreeMap::from([
+        (
+            "chemistry_validity".to_string(),
+            backend_metrics.chemistry_validity.status.clone(),
+        ),
+        (
+            "docking_affinity".to_string(),
+            backend_metrics.docking_affinity.status.clone(),
+        ),
+        (
+            "pocket_compatibility".to_string(),
+            backend_metrics.pocket_compatibility.status.clone(),
+        ),
+    ]);
+    let mut lines = Vec::new();
+    for (layer, candidates) in layers {
+        for (index, candidate) in candidates.iter().enumerate() {
+            let candidate_id = format!("{method_id}:{layer}:{}:{}", candidate.example_id, index);
+            let record = CandidateMetricRecord {
+                schema_version: 1,
+                candidate_id,
+                example_id: &candidate.example_id,
+                protein_id: &candidate.protein_id,
+                split_label,
+                layer,
+                method_id,
+                candidate_source: &candidate.source,
+                metrics: candidate_metric_map(candidate),
+                backend_statuses: backend_statuses.clone(),
+                source_artifacts: candidate_source_artifacts(candidate),
+            };
+            if let Ok(line) = serde_json::to_string(&record) {
+                lines.push(line);
+            }
+        }
+    }
+    if let Err(error) = fs::write(path, lines.join("\n") + "\n") {
+        log::warn!(
+            "failed to persist candidate metric artifact {}: {}",
+            path.display(),
+            error
+        );
+    }
+}
+
+fn candidate_metric_map(candidate: &GeneratedCandidateRecord) -> BTreeMap<String, f64> {
+    BTreeMap::from([
+        (
+            "valid_fraction".to_string(),
+            if candidate_is_valid(candidate) {
+                1.0
+            } else {
+                0.0
+            },
+        ),
+        (
+            "pocket_contact_fraction".to_string(),
+            if candidate_has_pocket_contact(candidate) {
+                1.0
+            } else {
+                0.0
+            },
+        ),
+        (
+            "mean_centroid_offset".to_string(),
+            candidate_centroid_offset(candidate),
+        ),
+        (
+            "clash_fraction".to_string(),
+            candidate_clash_fraction(candidate),
+        ),
+        (
+            "hydrogen_bond_proxy".to_string(),
+            candidate_hydrogen_bond_proxy(candidate),
+        ),
+        (
+            "hydrophobic_contact_proxy".to_string(),
+            candidate_hydrophobic_contact_proxy(candidate),
+        ),
+        (
+            "contact_balance".to_string(),
+            candidate_contact_balance(candidate),
+        ),
+        (
+            "scaffold_metric_coverage_fraction".to_string(),
+            if candidate_structural_fingerprint(candidate).is_some() {
+                1.0
+            } else {
+                0.0
+            },
+        ),
+    ])
+}
+
+fn candidate_source_artifacts(candidate: &GeneratedCandidateRecord) -> BTreeMap<String, String> {
+    let mut artifacts = BTreeMap::new();
+    if let Some(path) = &candidate.source_pocket_path {
+        artifacts.insert("source_pocket_path".to_string(), path.clone());
+    }
+    if let Some(path) = &candidate.source_ligand_path {
+        artifacts.insert("source_ligand_path".to_string(), path.clone());
+    }
+    artifacts
 }
 
 fn build_and_persist_preference_artifacts(
@@ -492,7 +637,10 @@ fn build_and_persist_preference_artifacts(
     summary.profile_count = profile_artifact.profile_count;
     summary.profile_artifact = Some(profile_artifact_name.clone());
     persist_json_artifact(
-        &research.training.checkpoint_dir.join(&profile_artifact_name),
+        &research
+            .training
+            .checkpoint_dir
+            .join(&profile_artifact_name),
         &profile_artifact,
         "preference profile",
     );
@@ -526,10 +674,18 @@ fn build_and_persist_preference_artifacts(
             .len()
             .min((profiles.len() / 2).max(1));
         let reranker_summary_name = "preference_reranker_summary.json".to_string();
-        let reranker_summary = preference_reranker_summary(config.enable_preference_reranking, profiles.len(), selected_count, &pairs);
+        let reranker_summary = preference_reranker_summary(
+            config.enable_preference_reranking,
+            profiles.len(),
+            selected_count,
+            &pairs,
+        );
         summary.reranker_summary_artifact = Some(reranker_summary_name.clone());
         persist_json_artifact(
-            &research.training.checkpoint_dir.join(&reranker_summary_name),
+            &research
+                .training
+                .checkpoint_dir
+                .join(&reranker_summary_name),
             &reranker_summary,
             "preference reranker summary",
         );
@@ -542,7 +698,10 @@ fn preference_backend_reports(metrics: &RealGenerationMetrics) -> Vec<ExternalEv
     [
         ("chemistry_validity", &metrics.chemistry_validity.metrics),
         ("docking_affinity", &metrics.docking_affinity.metrics),
-        ("pocket_compatibility", &metrics.pocket_compatibility.metrics),
+        (
+            "pocket_compatibility",
+            &metrics.pocket_compatibility.metrics,
+        ),
     ]
     .into_iter()
     .map(|(backend_name, metrics)| ExternalEvaluationReport {
@@ -582,7 +741,11 @@ fn preference_reranker_summary(
         .filter(|pair| pair.soft_preference_flags.values().any(|value| *value))
         .count();
     let mean_preference_strength = if pair_count > 0.0 {
-        pairs.iter().map(|pair| pair.preference_strength).sum::<f64>() / pair_count
+        pairs
+            .iter()
+            .map(|pair| pair.preference_strength)
+            .sum::<f64>()
+            / pair_count
     } else {
         0.0
     };
@@ -622,11 +785,19 @@ fn persist_json_artifact<T: Serialize>(path: &Path, value: &T, label: &str) {
     match serde_json::to_string_pretty(value) {
         Ok(content) => {
             if let Err(error) = fs::write(path, content) {
-                log::warn!("failed to persist {label} artifact {}: {}", path.display(), error);
+                log::warn!(
+                    "failed to persist {label} artifact {}: {}",
+                    path.display(),
+                    error
+                );
             }
         }
         Err(error) => {
-            log::warn!("failed to serialize {label} artifact {}: {}", path.display(), error);
+            log::warn!(
+                "failed to serialize {label} artifact {}: {}",
+                path.display(),
+                error
+            );
         }
     }
 }

@@ -1,0 +1,93 @@
+{
+  "backend_name": "GNINA",
+  "backend_version_or_command": "gnina v1.3.2 master:f23dd2b   Built Jul  8 2025.",
+  "candidate_inputs": {
+    "test": "checkpoints/pdbbindpp_real_backends/docking_inputs/docking_candidates_test.json",
+    "validation": "checkpoints/pdbbindpp_real_backends/docking_inputs/docking_candidates_validation.json"
+  },
+  "input_preparation_report": "configs/docking_input_preparation_report.json",
+  "mode": "score_only",
+  "reported_metrics": [
+    "gnina_affinity",
+    "gnina_cnn_score",
+    "gnina_cnn_affinity",
+    "gnina_cnn_variance"
+  ],
+  "schema_version": 1,
+  "score_outputs": {
+    "test": {
+      "json": "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.json",
+      "jsonl": "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl"
+    },
+    "validation": {
+      "json": "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_validation.json",
+      "jsonl": "checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_validation.jsonl"
+    }
+  },
+  "split_summaries": {
+    "test": {
+      "backend_examples_scored": 88.0,
+      "backend_missing_structure_fraction": 0.0,
+      "candidate_count": 88.0,
+      "failure_count": 0.0,
+      "failure_reasons": {},
+      "gnina_affinity_best": -10.87002,
+      "gnina_affinity_mean": 105.90711602272727,
+      "gnina_affinity_median": 73.56018,
+      "gnina_affinity_std": 84.3195724145228,
+      "gnina_available": 1.0,
+      "gnina_cnn_affinity_best": 2.80946,
+      "gnina_cnn_affinity_mean": 5.1498625,
+      "gnina_cnn_affinity_median": 5.05042,
+      "gnina_cnn_affinity_std": 1.2188159866632957,
+      "gnina_cnn_score_best": 0.42436,
+      "gnina_cnn_score_mean": 0.07131852272727274,
+      "gnina_cnn_score_median": 0.017235,
+      "gnina_cnn_score_std": 0.1056551494737368,
+      "gnina_score_best": -10.87002,
+      "gnina_score_coverage_fraction": 1.0,
+      "gnina_score_mean": 105.90711602272727,
+      "gnina_score_success_fraction": 1.0,
+      "input_count": 88.0,
+      "ligand_payload_present_fraction": 1.0,
+      "ligand_source_path_exists_fraction": 1.0,
+      "ligand_source_path_present_fraction": 1.0,
+      "receptor_path_exists_fraction": 1.0,
+      "receptor_path_present_fraction": 1.0,
+      "schema_version": 1.0,
+      "scored_count": 88.0
+    },
+    "validation": {
+      "backend_examples_scored": 88.0,
+      "backend_missing_structure_fraction": 0.0,
+      "candidate_count": 88.0,
+      "failure_count": 0.0,
+      "failure_reasons": {},
+      "gnina_affinity_best": -5.34503,
+      "gnina_affinity_mean": 152.05501045454545,
+      "gnina_affinity_median": 48.23241,
+      "gnina_affinity_std": 196.54517501978114,
+      "gnina_available": 1.0,
+      "gnina_cnn_affinity_best": 2.29286,
+      "gnina_cnn_affinity_mean": 4.105659999999999,
+      "gnina_cnn_affinity_median": 3.9662699999999997,
+      "gnina_cnn_affinity_std": 1.35568326242962,
+      "gnina_cnn_score_best": 0.70808,
+      "gnina_cnn_score_mean": 0.2101775,
+      "gnina_cnn_score_median": 0.06678500000000001,
+      "gnina_cnn_score_std": 0.2469643212419099,
+      "gnina_score_best": -5.34503,
+      "gnina_score_coverage_fraction": 1.0,
+      "gnina_score_mean": 152.05501045454545,
+      "gnina_score_success_fraction": 1.0,
+      "input_count": 88.0,
+      "ligand_payload_present_fraction": 1.0,
+      "ligand_source_path_exists_fraction": 1.0,
+      "ligand_source_path_present_fraction": 1.0,
+      "receptor_path_exists_fraction": 1.0,
+      "receptor_path_present_fraction": 1.0,
+      "schema_version": 1.0,
+      "scored_count": 88.0
+    }
+  }
+}

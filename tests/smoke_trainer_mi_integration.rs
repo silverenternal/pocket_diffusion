@@ -2,7 +2,7 @@
 
 use pocket_diffusion::{
     config::ResearchConfig,
-    data::{InMemoryDataset, synthetic_phase1_examples},
+    data::{synthetic_phase1_examples, InMemoryDataset},
     models::Phase1ResearchSystem,
     training::ResearchTrainer,
 };
@@ -19,7 +19,7 @@ fn trainer_computes_mi_during_training() {
 
     let dataset = InMemoryDataset::new(synthetic_phase1_examples())
         .with_pocket_feature_dim(config.model.pocket_feature_dim);
-    
+
     let var_store = nn::VarStore::new(Device::Cpu);
     let system = Phase1ResearchSystem::new(&var_store.root(), &config);
     let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();
@@ -30,10 +30,10 @@ fn trainer_computes_mi_during_training() {
 
     // Verify MI metrics are present and finite
     assert!(!metrics.is_empty(), "Should have training metrics");
-    
+
     for step_metrics in &metrics {
         let mi = &step_metrics.losses.auxiliaries;
-        
+
         // MI values should be present (not NaN)
         assert!(
             mi.mi_topo_geo.is_finite(),
@@ -50,12 +50,9 @@ fn trainer_computes_mi_during_training() {
             "mi_geo_pocket should be finite, got {}",
             mi.mi_geo_pocket
         );
-        
+
         // MI should be non-negative
-        assert!(
-            mi.mi_topo_geo >= 0.0,
-            "mi_topo_geo should be non-negative"
-        );
+        assert!(mi.mi_topo_geo >= 0.0, "mi_topo_geo should be non-negative");
         assert!(
             mi.mi_topo_pocket >= 0.0,
             "mi_topo_pocket should be non-negative"
@@ -78,7 +75,7 @@ fn trainer_loss_finite_with_mi() {
 
     let dataset = InMemoryDataset::new(synthetic_phase1_examples())
         .with_pocket_feature_dim(config.model.pocket_feature_dim);
-    
+
     let var_store = nn::VarStore::new(Device::Cpu);
     let system = Phase1ResearchSystem::new(&var_store.root(), &config);
     let mut trainer = ResearchTrainer::new(&var_store, config).unwrap();

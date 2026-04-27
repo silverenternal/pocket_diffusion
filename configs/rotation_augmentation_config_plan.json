@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "component": "rotation_augmentation",
+  "status": "smoke_path_plan",
+  "default_enabled": false,
+  "config": {
+    "apply_to_ligand": true,
+    "apply_to_pocket": true,
+    "apply_to_flow_targets": true,
+    "same_rotation_for_complex": true,
+    "rotation_distribution": "uniform_so3",
+    "smoke_batch_size": 2
+  },
+  "placement_decision": {
+    "preferred_stage": "data_collation",
+    "reason": "keeps ligand, pocket, and target frames synchronized before flow objective evaluation",
+    "alternative": "flow_objective_wrapper"
+  },
+  "compatibility_requirements": [
+    "preserve existing translation-invariance tests",
+    "do not change claim surfaces until drug-level metrics improve",
+    "record augmentation seed in reproducibility metadata",
+    "keep augmentation disableable for ablations"
+  ],
+  "tests_to_add": [
+    "augmented_ligand_and_pocket_share_rotation",
+    "flow_target_rotates_with_ligand",
+    "translation_invariance_still_passes",
+    "augmentation_disabled_reproduces_baseline_batch"
+  ]
+}

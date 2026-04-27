@@ -1,406 +1,133 @@
 {
-  "version": "2.0",
-  "project": "Topology Specialization 提升计划",
-  "description": "解决 topology specialization 仅 0.057 的问题，通过架构调整和训练策略提升拓扑编码器的独立语义表示能力",
-  "problem_statement": {
-    "current_metrics": {
-      "topology_specialization": 0.057,
-      "geometry_specialization": 0.824,
-      "pocket_specialization": 0.794,
-      "strict_pocket_fit_score": 0.840,
-      "leakage_proxy_mean": 0.084,
-      "slot_activation_mean": 0.541,
-      "gate_activation_mean": 0.348
-    },
-    "diagnosis": [
-      "Topology encoder 几乎没有学到独立表示（0.057 远低于 geometry 0.824 和 pocket 0.794）",
-      "Leakage 已经很低（0.084），说明解耦约束本身生效，但 topology 信息量不足",
-      "Slot utilization 仅 0.54，说明拓扑路的 slot 没有充分激活",
-      "这不是收敛问题（多训练几轮无效），也不是容量问题（增大模型无效）",
-      "根本原因：拓扑编码器被 geometry/pocket 淹没，缺乏足够的独立监督信号"
+  "current_state_summary": {
+    "main_gap": "The project is not yet Q1-SCI-ready because the strongest biological and drug-discovery claims still need large-scale real backend scoring, strong public baselines, matched-budget comparisons, statistical significance, raw-model attribution, and paper-level narrative/figures.",
+    "risk_assessment": "A Q1 medicinal chemistry, bioinformatics, or computational biology journal will likely reject the work if docking evidence remains proxy-only, if baselines are weak, if improvements are mostly repair/reranker-driven, or if experiments are too small for unseen-pocket generalization claims.",
+    "strengths": [
+      "Rust-first modular framework with explicit topology, geometry, and pocket/context boundaries.",
+      "Layered generation artifacts now separate raw rollout, constrained/repaired outputs, and reranked candidates.",
+      "Candidate-level metric JSONL, correlation tables, artifact audit, claim contract, ablation summaries, and multi-seed summaries exist.",
+      "Vina and GNINA executables are installed locally, and RDKit-backed chemistry metrics are available.",
+      "Current evidence surface is more auditable than a typical prototype and avoids fabricated claim values."
     ]
   },
+  "global_rules": [
+    "Do not fabricate or manually enter claim-bearing metrics.",
+    "Do not promote docking_like_score as Vina, GNINA, or binding affinity.",
+    "Do not claim raw generative-model improvement from repaired or reranked layers unless raw-layer evidence independently supports it.",
+    "Prefer Rust for core modeling and experiment infrastructure; Python tools are acceptable for backend adapters, artifact conversion, and paper table rendering.",
+    "Keep topology, geometry, and pocket/context encoders structurally separate.",
+    "Preserve gated cross-modality interaction; do not introduce naive unrestricted fusion.",
+    "Every task must leave a machine-readable artifact and a short human-readable summary when applicable.",
+    "After completing any task, remove that task from todo.json."
+  ],
+  "goal": "Move the project from an internally auditable research prototype to a Q1-SCI-ready study with strong method novelty, rigorous unseen-pocket experiments, real backend evidence, matched baselines, statistically defensible claims, and publication-grade artifacts.",
+  "journal_positioning_advice": {
+    "harder_targets_requiring_stronger_validation": [
+      "Nature Machine Intelligence style venues require much broader novelty and external validation.",
+      "Medicinal chemistry Q1 journals may require stronger docking protocol validation, pose analysis, or wet-lab/MD support."
+    ],
+    "likely_fit_if_evidence_is_strong": [
+      "Bioinformatics",
+      "Briefings in Bioinformatics",
+      "Journal of Chemical Information and Modeling",
+      "IEEE/ACM Transactions on Computational Biology and Bioinformatics",
+      "Computers in Biology and Medicine"
+    ],
+    "recommended_angle": "Position the paper as a modular, ablation-friendly, pocket-conditioned molecular generation framework with controlled cross-modal interaction and evidence-aware claim attribution, rather than only as another molecule generator."
+  },
+  "minimum_publishable_package": [
+    "Primary unseen-pocket benchmark with leakage checks.",
+    "Main method plus at least three credible baselines.",
+    "Three seeds for main method and primary baselines.",
+    "Candidate-level RDKit, Vina, GNINA, geometry, interaction, scaffold, and diversity metrics.",
+    "Layer-separated raw/repaired/reranked tables.",
+    "Core ablations and postprocessing ablations.",
+    "Statistical tests and effect sizes.",
+    "Artifact-generated paper tables and reproducibility manifest."
+  ],
   "phases": [
     {
-      "phase": "Phase 1: 诊断和基线",
-      "description": "确认问题根因，建立可量化的改进目标",
-      "tasks": [
-        {
-          "id": "P1T1",
-          "title": "分析拓扑编码器梯度流",
-          "description": "检查 topology encoder 是否接收到足够的梯度信号",
-          "work": [
-            "在 training loop 中添加梯度范数日志（topology vs geometry vs pocket encoder）",
-            "验证 topology encoder 的梯度是否远小于其他两路",
-            "检查是否存在梯度消失或爆炸"
-          ],
-          "files": ["src/training/trainer.rs", "src/models/system/impl.rs"],
-          "deliverable": "梯度范数对比报告（topology/geometry/pocket 的比例）",
-          "status": "pending"
-        },
-        {
-          "id": "P1T2",
-          "title": "分析拓扑 probe 任务的监督强度",
-          "description": "评估当前 topology 路的 probe 头是否提供足够的学习信号",
-          "work": [
-            "检查现有的 topology probe 头（如果有）",
-            "评估 probe loss 相对于 primary loss 的权重",
-            "确认 probe 头是否有独立的 optimizer 更新"
-          ],
-          "files": ["src/losses/probe.rs", "src/models/probes.rs"],
-          "deliverable": "Probe 监督强度评估报告",
-          "status": "pending"
-        },
-        {
-          "id": "P1T3",
-          "title": "建立改进目标",
-          "description": "设定量化的 specialization 提升目标",
-          "work": [
-            "短期目标：topology specialization 从 0.057 提升到 0.2-0.3",
-            "中期目标：达到 0.4-0.5（与 geometry/pocket 同数量级）",
-            "约束：不降低 pocket_fit_score（保持 >= 0.80）",
-            "约束：leakage 保持 <= 0.10"
-          ],
-          "deliverable": "目标写入本文件",
-          "status": "pending"
-        }
-      ]
+      "goal": "Create an honest, continuously updated gap report between current artifacts and Q1-SCI evidence requirements.",
+      "id": "P0",
+      "name": "Submission Readiness Audit",
+      "priority": "critical",
+      "tasks": []
     },
     {
-      "phase": "Phase 2: 加强拓扑监督（核心）",
-      "description": "为 topology encoder 添加更强的语义 probe 任务",
-      "tasks": [
-        {
-          "id": "P2T1",
-          "title": "添加 Bond Type 预测 Probe",
-          "description": "从 topology slots 预测分子的键类型分布",
-          "work": [
-            "创建 BondTypeProbe 头（MLP -> softmax over bond types）",
-            "输入：topology slots",
-            "输出：bond type 分布（single, double, triple, aromatic）",
-            "损失：cross-entropy with ground truth from SDF",
-            "在 ProbeLoss 中添加 bond_type 项"
-          ],
-          "files": ["src/models/probes.rs", "src/losses/probe.rs", "src/data/mol_features.rs"],
-          "dependencies": ["P1T1", "P1T2"],
-          "status": "pending"
-        },
-        {
-          "id": "P2T2",
-          "title": "添加环结构检测 Probe",
-          "description": "从 topology slots 预测环的存在和大小",
-          "work": [
-            "创建 RingDetectionProbe 头",
-            "输出：环计数 + 环大小分布（3-ring, 4-ring, 5-ring, 6-ring）",
-            "损失：MSE for ring counts + cross-entropy for size distribution",
-            "从 SDF 提取 ring 信息作为 ground truth"
-          ],
-          "files": ["src/models/probes.rs", "src/losses/probe.rs"],
-          "dependencies": ["P2T1"],
-          "status": "pending"
-        },
-        {
-          "id": "P2T3",
-          "title": "添加原子杂化状态预测 Probe",
-          "description": "从 topology slots 预测原子杂化类型",
-          "work": [
-            "创建 HybridizationProbe 头",
-            "输出：sp, sp2, sp3 分布",
-            "损失：cross-entropy",
-            "这是拓扑特有的语义，geometry 不应该能预测"
-          ],
-          "files": ["src/models/probes.rs", "src/losses/probe.rs"],
-          "dependencies": ["P2T1"],
-          "status": "pending"
-        },
-        {
-          "id": "P2T4",
-          "title": "调整 Probe 损失权重",
-          "description": "提高 topology probe 在总损失中的比重",
-          "work": [
-            "在配置中添加 topology_probe_weight 参数（默认 1.0 -> 提升到 3.0-5.0）",
-            "确保 topology probe loss 在 Stage 1 就开始生效",
-            "验证权重调整不会导致训练不稳定"
-          ],
-          "files": ["src/config/types/training.rs", "src/losses/probe.rs"],
-          "dependencies": ["P2T1", "P2T2", "P2T3"],
-          "status": "pending"
-        }
-      ]
+      "goal": "Replace proxy-only biological evidence with real, reproducible Vina/GNINA/RDKit candidate-level scoring.",
+      "id": "P1",
+      "name": "Real Backend Evidence",
+      "priority": "critical",
+      "tasks": []
     },
     {
-      "phase": "Phase 3: 隔离训练策略",
-      "description": "在早期训练阶段隔离 topology encoder，防止被 geometry/pocket 淹没",
-      "tasks": [
-        {
-          "id": "P3T1",
-          "title": "实现 Stage 0：Topology-Only Warmup",
-          "description": "前 N 步只训练 topology encoder + 其 probe 任务",
-          "work": [
-            "在 StageScheduler 中添加 Stage0 变体",
-            "Stage 0 配置：",
-            "  - 冻结 geometry 和 pocket encoder 的梯度",
-            "  - 只优化 topology encoder + topology probe heads",
-            "  - 损失：L_task(topology) + L_probe(topology) + L_consistency",
-            "  - 默认步数：10-20 步",
-            "在 scheduler.rs 中实现梯度冻结逻辑"
-          ],
-          "files": ["src/training/scheduler.rs", "src/training/trainer.rs", "src/config/types/training.rs"],
-          "dependencies": ["P2T4"],
-          "status": "pending"
-        },
-        {
-          "id": "P3T2",
-          "title": "实现渐进式解冻",
-          "description": "Stage 0 -> Stage 1 时逐步解冻 geometry/pocket",
-          "work": [
-            "Stage 1 前 50%：解冻 geometry encoder，但降低其学习率（0.5x）",
-            "Stage 1 后 50%：解冻 pocket encoder，学习率 0.5x",
-            "Stage 2+：正常学习率",
-            "在 optimizer 中实现 per-parameter learning rate"
-          ],
-          "files": ["src/training/scheduler.rs", "src/training/trainer.rs"],
-          "dependencies": ["P3T1"],
-          "status": "pending"
-        },
-        {
-          "id": "P3T3",
-          "title": "添加拓扑泄漏惩罚",
-          "description": "在 Stage 0 期间惩罚 geometry→topology 的信息流",
-          "work": [
-            "在 cross-modal interaction 中，添加 topology <- geometry 的方向性惩罚",
-            "损失项：L_leak_topo = mean(|gate(geo->topo)|)",
-            "这强制 topology 不依赖 geometry 的信息",
-            "在 Stage 1+ 逐渐放松此约束"
-          ],
-          "files": ["src/models/interaction.rs", "src/losses/leakage.rs"],
-          "dependencies": ["P3T1"],
-          "status": "pending",
-          "note": "可选，如果 P3T1 已足够则跳过"
-        }
-      ]
+      "goal": "Define benchmark scope tightly enough for reproducible unseen-pocket claims.",
+      "id": "P2",
+      "name": "Benchmark And Splits",
+      "priority": "critical",
+      "tasks": []
     },
     {
-      "phase": "Phase 4: 配置和测试",
-      "description": "创建实验配置，验证改进效果",
-      "tasks": [
-        {
-          "id": "P4T1",
-          "title": "创建 Debug 配置",
-          "description": "用于快速验证的简化配置",
-          "work": [
-            "创建 configs/topology_specialization_debug.json：",
-            "  max_steps: 30",
-            "  max_examples: 256",
-            "  batch_size: 32",
-            "  stage0_steps: 10 (topology-only)",
-            "  stage1_steps: 20",
-            "  topology_probe_weight: 5.0",
-            "  log_every: 1, checkpoint_every: 5"
-          ],
-          "files": ["configs/topology_specialization_debug.json"],
-          "dependencies": ["P3T2"],
-          "status": "pending"
-        },
-        {
-          "id": "P4T2",
-          "title": "创建 Paper 配置（含拓扑改进）",
-          "description": "完整的论文质量训练配置",
-          "work": [
-            "基于 configs/unseen_pocket_pdbbindpp_flow_best_candidate_paper.json 修改：",
-            "  添加 stage0_steps: 15",
-            "  调整 stage 边界：stage0=15, stage1=25, stage2=50, stage3=100",
-            "  topology_probe_weight: 3.0",
-            "  其他参数保持不变"
-          ],
-          "files": ["configs/unseen_pocket_pdbbindpp_flow_best_candidate_v2.json"],
-          "dependencies": ["P3T2"],
-          "status": "pending"
-        },
-        {
-          "id": "P4T3",
-          "title": "编译和单元测试",
-          "description": "确保所有改动可编译并通过测试",
-          "work": [
-            "cargo build --release",
-            "cargo test --lib",
-            "验证新的 probe 头有正确的形状和梯度",
-            "验证 stage 0 的梯度冻结正确"
-          ],
-          "dependencies": ["P4T1", "P4T2"],
-          "status": "pending"
-        },
-        {
-          "id": "P4T4",
-          "title": "Debug 训练验证",
-          "description": "用 debug config 运行 30 步验证",
-          "work": [
-            "运行：cargo run --release --bin pocket_diffusion -- research experiment --config configs/topology_specialization_debug.json",
-            "验证：",
-            "  1. Stage 0 期间只有 topology encoder 更新",
-            "  2. Topology specialization 在 Stage 0 结束时 > 0.1",
-            "  3. Stage 1+ specialization 继续增长到 > 0.2",
-            "  4. Pocket fit score 保持 >= 0.75",
-            "  5. Leakage 保持 <= 0.10"
-          ],
-          "dependencies": ["P4T3"],
-          "status": "pending"
-        },
-        {
-          "id": "P4T5",
-          "title": "Paper 质量训练",
-          "description": "用完整配置运行 100 步",
-          "work": [
-            "运行：cargo run --release --bin pocket_diffusion -- research experiment --config configs/unseen_pocket_pdbbindpp_flow_best_candidate_v2.json",
-            "目标指标：",
-            "  topology_specialization >= 0.30",
-            "  strict_pocket_fit_score >= 0.80",
-            "  leakage_proxy_mean <= 0.10",
-            "  candidate_valid_fraction = 1.0"
-          ],
-          "dependencies": ["P4T4"],
-          "status": "pending"
-        }
-      ]
+      "goal": "Show that the method is competitive against credible alternatives under identical evaluation conditions.",
+      "id": "P3",
+      "name": "Strong Baselines And Matched Budgets",
+      "priority": "critical",
+      "tasks": []
     },
     {
-      "phase": "Phase 5: 分析和报告",
-      "description": "分析改进效果，生成对比报告",
-      "tasks": [
-        {
-          "id": "P5T1",
-          "title": "生成 Specialization 对比报告",
-          "description": "对比 v1（旧）和 v2（新）的 specialization 指标",
-          "work": [
-            "从 checkpoint/summary JSON 提取指标",
-            "生成对比表格：",
-            "  | 指标 | v1 | v2 | 变化 |",
-            "  | topology_spec | 0.057 | ? | +?% |",
-            "  | geometry_spec | 0.824 | ? | ? |",
-            "  | pocket_spec | 0.794 | ? | ? |",
-            "  | pocket_fit | 0.840 | ? | ? |",
-            "  | leakage | 0.084 | ? | ? |",
-            "生成 specialization 随训练步数变化的曲线图"
-          ],
-          "files": ["tools/specialization_comparison.py"],
-          "dependencies": ["P4T5"],
-          "status": "pending"
-        },
-        {
-          "id": "P5T2",
-          "title": "消融实验",
-          "description": "验证各组件的贡献",
-          "work": [
-            "运行以下消融配置：",
-            "  A. 完整方案（Stage 0 + 新 Probes + 权重调整）",
-            "  B. 无 Stage 0（直接从 Stage 1 开始）",
-            "  C. 无新 Probes（只有旧 probe）",
-            "  D. 无权重调整（topology_probe_weight=1.0）",
-            "对比各配置的 topology specialization",
-            "识别哪个组件贡献最大"
-          ],
-          "dependencies": ["P4T5"],
-          "status": "pending",
-          "note": "可选，时间不足可跳过"
-        },
-        {
-          "id": "P5T3",
-          "title": "更新 README 指标",
-          "description": "用最新指标更新 README",
-          "work": [
-            "更新 Latest results 表格",
-            "添加 v1 vs v2 对比",
-            "说明改进方法和效果"
-          ],
-          "files": ["README.md"],
-          "dependencies": ["P5T1"],
-          "status": "pending"
-        }
-      ]
+      "goal": "Make improvements statistically defensible instead of anecdotal.",
+      "id": "P4",
+      "name": "Multi-Seed Statistics",
+      "priority": "critical",
+      "tasks": []
+    },
+    {
+      "goal": "Prove the research ideas matter: slot decomposition, redundancy reduction, semantic probes, leakage control, and gated cross-modal interaction.",
+      "id": "P5",
+      "name": "Ablations And Mechanistic Evidence",
+      "priority": "critical",
+      "tasks": []
+    },
+    {
+      "goal": "Explain what the model gets right and wrong, especially where proxy metrics disagree with docking or chemistry.",
+      "id": "P6",
+      "name": "Correlation, Failure, And Case Analysis",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "goal": "Improve the model only where evidence shows a real bottleneck.",
+      "id": "P7",
+      "name": "Method Improvement Only After Evidence",
+      "priority": "medium",
+      "tasks": []
+    },
+    {
+      "goal": "Turn artifacts into a coherent submission package.",
+      "id": "P8",
+      "name": "Manuscript And Reproducibility Package",
+      "priority": "high",
+      "tasks": []
     }
   ],
-  "dependencies": {
-    "P1T2": ["P1T1"],
-    "P1T3": ["P1T1"],
-    "P2T1": ["P1T1", "P1T2"],
-    "P2T2": ["P2T1"],
-    "P2T3": ["P2T1"],
-    "P2T4": ["P2T1", "P2T2", "P2T3"],
-    "P3T1": ["P2T4"],
-    "P3T2": ["P3T1"],
-    "P3T3": ["P3T1"],
-    "P4T1": ["P3T2"],
-    "P4T2": ["P3T2"],
-    "P4T3": ["P4T1", "P4T2"],
-    "P4T4": ["P4T3"],
-    "P4T5": ["P4T4"],
-    "P5T1": ["P4T5"],
-    "P5T2": ["P4T5"],
-    "P5T3": ["P5T1"]
-  },
-  "critical_path": [
-    "P1T1", "P1T2", "P1T3",
-    "P2T1", "P2T2", "P2T3", "P2T4",
-    "P3T1", "P3T2",
-    "P4T1", "P4T2", "P4T3", "P4T4", "P4T5",
-    "P5T1", "P5T3"
+  "project": "pocket_diffusion",
+  "recommended_execution_order": [],
+  "stop_conditions": [
+    "If real Vina/GNINA coverage remains below 70 percent after input preparation, do not submit Q1 claims about binding.",
+    "If strong baselines outperform the method on raw-flow and final-layer metrics, reposition the paper around auditability/modularity or improve the model before submission.",
+    "If gains disappear across seeds, downgrade the claim and focus on analysis or framework contribution.",
+    "If repair/reranking accounts for most improvement, state that explicitly and avoid claiming model-native generation superiority."
   ],
-  "optional_tasks": ["P3T3", "P5T2"],
-  "success_criteria": {
-    "minimum": {
-      "topology_specialization": 0.20,
-      "strict_pocket_fit_score": 0.75,
-      "leakage_proxy_mean": 0.10
-    },
-    "target": {
-      "topology_specialization": 0.30,
-      "strict_pocket_fit_score": 0.80,
-      "leakage_proxy_mean": 0.09
-    },
-    "stretch": {
-      "topology_specialization": 0.40,
-      "strict_pocket_fit_score": 0.82,
-      "leakage_proxy_mean": 0.08
-    }
-  },
-  "estimated_effort": {
-    "phase1": "1-2 小时（诊断分析）",
-    "phase2": "3-5 小时（添加 probe 头）",
-    "phase3": "2-3 小时（Stage 0 实现）",
-    "phase4": "2-4 小时（配置 + 训练运行）",
-    "phase5": "1-2 小时（分析报告）",
-    "total": "9-16 小时",
-    "note": "主要时间在 Phase 2 的 probe 实现和 Phase 4 的训练运行"
-  },
-  "execution_strategy": {
-    "approach": "incremental",
-    "description": "每阶段保持代码可编译，优先验证核心假设再加功能",
-    "milestones": [
-      {
-        "name": "诊断完成",
-        "tasks": ["P1T1", "P1T2", "P1T3"],
-        "deliverable": "确认 topology encoder 梯度不足的问题"
-      },
-      {
-        "name": "Probe 头完成",
-        "tasks": ["P2T1", "P2T2", "P2T3", "P2T4"],
-        "deliverable": "3 个新 topology probe 头可编译并输出正确形状"
-      },
-      {
-        "name": "Stage 0 完成",
-        "tasks": ["P3T1", "P3T2"],
-        "deliverable": "Stage 0 梯度冻结和渐进式解冻工作正常"
-      },
-      {
-        "name": "验证通过",
-        "tasks": ["P4T1", "P4T2", "P4T3", "P4T4", "P4T5"],
-        "deliverable": "Paper v2 训练达到 target specialization >= 0.30"
-      },
-      {
-        "name": "报告完成",
-        "tasks": ["P5T1", "P5T3"],
-        "deliverable": "对比报告和更新的 README"
-      }
-    ]
-  }
+  "success_criteria_for_q1_submission_candidate": [
+    "At least one fixed unseen-pocket benchmark has complete generation, Vina/GNINA, RDKit, scaffold, interaction, and geometry artifacts.",
+    "At least three independent seeds are reported for the main method and all primary baselines.",
+    "At least three strong public baselines are compared under matched sampling budgets and identical evaluation backends.",
+    "Raw-flow, repaired, and reranked layer metrics are reported separately in every main result table.",
+    "Main claims include confidence intervals or hypothesis-test/effect-size statistics.",
+    "Correlation and failure analyses explain when geometry or pocket-fit proxies do or do not predict docking or drug-likeness.",
+    "Ablations isolate slot decomposition, redundancy reduction, semantic probes/leakage control, gated cross-attention, repair, and reranking.",
+    "The manuscript explicitly distinguishes model contribution from postprocessing contribution.",
+    "All reported tables and figures are generated from versioned artifacts by scripts."
+  ],
+  "version": "q1_sci_submission_gap_closure_plan"
 }

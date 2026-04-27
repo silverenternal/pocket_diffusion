@@ -36,7 +36,16 @@
     "candidate_valid_fraction",
     "strict_pocket_fit_score",
     "efficiency_tokens_per_sample",
-    "diversity_coverage"
+    "diversity_coverage",
+    "raw_flow.docking_score_coverage_fraction",
+    "reranked.docking_score_coverage_fraction",
+    "qed",
+    "sa_score",
+    "scaffold_novelty_fraction",
+    "unique_scaffold_fraction",
+    "hydrogen_bond_proxy",
+    "hydrophobic_contact_proxy",
+    "contact_balance"
   ],
   "acceptance_criteria": [
     "✓ All three methods complete successfully",

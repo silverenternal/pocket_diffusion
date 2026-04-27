@@ -1,0 +1,36 @@
+{
+  "artifact_name": "q1_public_baseline_postprocess_report",
+  "claim_boundary": "Generated repaired/reranked rows are postprocessing evidence, not native raw baseline evidence.",
+  "records": [
+    {
+      "input_artifact": "checkpoints/q1_public_baselines_full100/pocket2mol_public/generation_layers_test.json",
+      "method_id": "pocket2mol_public",
+      "output_artifact": "checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/generation_layers_test.json",
+      "raw_candidate_count": 100,
+      "repaired_candidate_count": 100,
+      "reranked_candidate_count": 100
+    },
+    {
+      "input_artifact": "checkpoints/q1_public_baselines_full100/targetdiff_public/generation_layers_test.json",
+      "method_id": "targetdiff_public",
+      "output_artifact": "checkpoints/q1_public_baselines_full100_layered/targetdiff_public/generation_layers_test.json",
+      "raw_candidate_count": 100,
+      "repaired_candidate_count": 100,
+      "reranked_candidate_count": 100
+    },
+    {
+      "input_artifact": "checkpoints/q1_public_baselines_full100/diffsbdd_public/generation_layers_test.json",
+      "method_id": "diffsbdd_public",
+      "output_artifact": "checkpoints/q1_public_baselines_full100_layered/diffsbdd_public/generation_layers_test.json",
+      "raw_candidate_count": 100,
+      "repaired_candidate_count": 100,
+      "reranked_candidate_count": 100
+    }
+  ],
+  "schema_version": 1,
+  "totals": {
+    "raw_candidate_count": 300,
+    "repaired_candidate_count": 300,
+    "reranked_candidate_count": 300
+  }
+}

@@ -166,6 +166,9 @@ fn run_generation_demo_from_config(
         },
         real_generation_metrics: summary.real_generation_metrics,
         layered_generation_metrics: experiments::LayeredGenerationMetrics {
+            raw_flow: experiments::CandidateLayerMetrics::default(),
+            constrained_flow: experiments::CandidateLayerMetrics::default(),
+            repaired: experiments::CandidateLayerMetrics::default(),
             raw_rollout: experiments::CandidateLayerMetrics {
                 candidate_count: 0,
                 valid_fraction: 0.0,
@@ -181,6 +184,7 @@ fn run_generation_demo_from_config(
                 novel_atom_type_sequence_fraction: 0.0,
                 novel_bond_topology_fraction: 0.0,
                 novel_coordinate_shape_fraction: 0.0,
+                ..Default::default()
             },
             repaired_candidates: experiments::CandidateLayerMetrics {
                 candidate_count: 0,
@@ -197,6 +201,7 @@ fn run_generation_demo_from_config(
                 novel_atom_type_sequence_fraction: 0.0,
                 novel_bond_topology_fraction: 0.0,
                 novel_coordinate_shape_fraction: 0.0,
+                ..Default::default()
             },
             inferred_bond_candidates: experiments::CandidateLayerMetrics {
                 candidate_count: 0,
@@ -213,6 +218,7 @@ fn run_generation_demo_from_config(
                 novel_atom_type_sequence_fraction: 0.0,
                 novel_bond_topology_fraction: 0.0,
                 novel_coordinate_shape_fraction: 0.0,
+                ..Default::default()
             },
             reranked_candidates: experiments::CandidateLayerMetrics::default(),
             deterministic_proxy_candidates: experiments::CandidateLayerMetrics::default(),

@@ -294,6 +294,7 @@ mod tests {
             novel_atom_type_sequence_fraction: 0.2,
             novel_bond_topology_fraction: 0.2,
             novel_coordinate_shape_fraction: 0.2,
+            ..Default::default()
         };
         let gates = AutomatedSearchHardGateConfig {
             maximum_raw_centroid_offset: Some(3.0),
@@ -321,7 +322,9 @@ mod tests {
     fn chemistry_benchmark_evidence_uses_configured_external_dataset() {
         let mut summary: UnseenPocketExperimentSummary = serde_json::from_str(
             &std::fs::read_to_string("checkpoints/pdbbindpp_real_backends/experiment_summary.json")
-                .expect("existing experiment summary should be readable for benchmark-evidence tests"),
+                .expect(
+                    "existing experiment summary should be readable for benchmark-evidence tests",
+                ),
         )
         .expect("existing experiment summary should deserialize");
         summary.config.surface_label = Some("lp_pdbbind_refined_real_backends".to_string());
@@ -330,12 +333,10 @@ mod tests {
             PathBuf::from("./checkpoints/lp_pdbbind_refined_real_backends");
         summary.dataset_validation.parsed_examples = 5048;
         summary.dataset_validation.retained_label_coverage = 1.0;
-        summary.split_report.val.protein_family_proxy_histogram = BTreeMap::from_iter(
-            (0..12).map(|ix| (format!("val_family_{ix}"), 1usize)),
-        );
-        summary.split_report.test.protein_family_proxy_histogram = BTreeMap::from_iter(
-            (0..12).map(|ix| (format!("test_family_{ix}"), 1usize)),
-        );
+        summary.split_report.val.protein_family_proxy_histogram =
+            BTreeMap::from_iter((0..12).map(|ix| (format!("val_family_{ix}"), 1usize)));
+        summary.split_report.test.protein_family_proxy_histogram =
+            BTreeMap::from_iter((0..12).map(|ix| (format!("test_family_{ix}"), 1usize)));
         summary.test.comparison_summary.candidate_valid_fraction = Some(1.0);
         summary.test.comparison_summary.unique_smiles_fraction = Some(1.0);
         summary.test.comparison_summary.strict_pocket_fit_score = Some(0.6);
@@ -356,8 +357,13 @@ mod tests {
             novel_atom_type_sequence_fraction: 1.0,
             novel_bond_topology_fraction: 1.0,
             novel_coordinate_shape_fraction: 1.0,
+            ..Default::default()
         };
-        summary.test.real_generation_metrics.chemistry_validity.metrics = BTreeMap::from([
+        summary
+            .test
+            .real_generation_metrics
+            .chemistry_validity
+            .metrics = BTreeMap::from([
             ("rdkit_parseable_fraction".to_string(), 1.0),
             ("rdkit_finite_conformer_fraction".to_string(), 1.0),
             ("rdkit_sanitized_fraction".to_string(), 1.0),

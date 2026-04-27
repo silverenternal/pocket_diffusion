@@ -1,4 +1,6 @@
-use pocket_diffusion::experiments::{CandidateLayerMetrics, ClaimReport, EvaluationMetrics};
+use pocket_diffusion::experiments::{
+    CandidateLayerMetrics, ClaimReport, EvaluationMetrics, LayeredGenerationMetrics,
+};
 use pocket_diffusion::models::{
     extract_interaction_profiles, CandidateLayerKind, GeneratedCandidateRecord,
     PreferenceDatasetBuilder, PreferencePair, PreferencePairArtifact, PreferenceProfileArtifact,
@@ -62,6 +64,92 @@ fn older_claim_artifact_defaults_recent_optional_sections() {
     assert!(report.backend_thresholds.is_empty());
     assert_eq!(report.backend_review.reviewer_status, "");
     assert!(report.method_comparison.methods.is_empty());
+}
+
+#[test]
+fn drug_level_claim_contract_declares_layered_backend_provenance() {
+    let payload = std::fs::read_to_string("configs/drug_level_claim_contract.json").unwrap();
+    let contract: pocket_diffusion::experiments::DrugLevelClaimContract =
+        serde_json::from_str(&payload).unwrap();
+    assert!(contract.schema_version >= 1);
+    for layer in ["raw_flow", "constrained_flow", "repaired", "reranked"] {
+        assert!(contract.layers.iter().any(|entry| entry == layer));
+    }
+    for field in [
+        "backend_name",
+        "backend_version_or_command",
+        "input_count",
+        "scored_count",
+        "coverage_fraction",
+        "failure_count",
+        "status",
+    ] {
+        assert!(contract
+            .required_backend_fields
+            .iter()
+            .any(|entry| entry == field));
+    }
+    assert!(contract
+        .capability_groups
+        .get("raw_model_capability")
+        .unwrap()
+        .contains(&"raw_flow".to_string()));
+    assert!(contract
+        .capability_groups
+        .get("postprocessed_performance")
+        .unwrap()
+        .contains(&"reranked".to_string()));
+    assert!(contract
+        .metric_groups
+        .get("binding")
+        .unwrap()
+        .required_metrics
+        .contains(&"docking_score_coverage_fraction".to_string()));
+}
+
+#[test]
+fn layered_generation_metrics_emit_canonical_and_legacy_layers() {
+    let mut layers = LayeredGenerationMetrics::default();
+    layers.raw_flow.candidate_count = 2;
+    layers.raw_rollout = layers.raw_flow.clone();
+    layers.constrained_flow.candidate_count = 3;
+    layers.inferred_bond_candidates = layers.constrained_flow.clone();
+    layers.repaired.candidate_count = 4;
+    layers.repaired_candidates = layers.repaired.clone();
+    layers.reranked_candidates.candidate_count = 1;
+
+    let payload = serde_json::to_string(&layers).unwrap();
+    assert!(payload.contains("\"raw_flow\""));
+    assert!(payload.contains("\"constrained_flow\""));
+    assert!(payload.contains("\"repaired\""));
+    assert!(payload.contains("\"raw_rollout\""));
+    assert!(payload.contains("\"repaired_candidates\""));
+    assert!(payload.contains("\"inferred_bond_candidates\""));
+}
+
+#[test]
+fn reranker_report_exposes_layer_attribution_metrics() {
+    let json = r#"{
+      "baseline": {"candidate_count": 1, "valid_fraction": 0.8, "pocket_contact_fraction": 0.7, "mean_centroid_offset": 1.0, "clash_fraction": 0.2, "uniqueness_proxy_fraction": 0.5},
+      "reranked": {"candidate_count": 1, "valid_fraction": 0.9, "pocket_contact_fraction": 0.8, "mean_centroid_offset": 0.8, "clash_fraction": 0.1, "uniqueness_proxy_fraction": 0.6},
+      "deterministic_proxy": {"candidate_count": 1, "valid_fraction": 0.85, "pocket_contact_fraction": 0.75, "mean_centroid_offset": 0.9, "clash_fraction": 0.15, "uniqueness_proxy_fraction": 0.55},
+      "calibration": {"method": "test", "coefficients": {}, "target_mean": 0.0, "fitted_candidate_count": 0},
+      "raw_strict_pocket_fit": 0.2,
+      "raw_docking_score": null,
+      "raw_qed": null,
+      "raw_sa": null,
+      "repair_dependency_score": 0.3,
+      "reranker_gain": {"valid_fraction": 0.1, "clash_reduction": 0.1},
+      "flow_native_quality": 0.2,
+      "layer_attribution_note": "test attribution",
+      "decision": "test"
+    }"#;
+    let report: pocket_diffusion::experiments::RerankerReport = serde_json::from_str(json).unwrap();
+    assert_eq!(report.raw_strict_pocket_fit, Some(0.2));
+    assert_eq!(report.raw_docking_score, None);
+    assert_eq!(report.repair_dependency_score, 0.3);
+    assert!(report.reranker_gain.contains_key("valid_fraction"));
+    assert!(report.layer_attribution_note.contains("attribution"));
 }
 
 #[test]

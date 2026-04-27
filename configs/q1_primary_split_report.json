@@ -1,0 +1,111 @@
+{
+  "benchmark_id": "q1_primary_pdbbindpp_unseen_pocket_v1",
+  "candidate_level_ligand_scaffold_overlap_proxies": {
+    "test": {
+      "candidate_metric_rows": 88,
+      "nearest_train_similarity_max": 0.0,
+      "nearest_train_similarity_mean": 0.0,
+      "note": "candidate-level scaffold/ligand overlap proxy from generated candidate metrics; split-level source-ligand scaffold IDs are not persisted in the legacy split_report artifact",
+      "scaffold_novelty_fraction_mean": 1.0,
+      "unique_candidate_proteins": 8
+    },
+    "validation": {
+      "candidate_metric_rows": 88,
+      "nearest_train_similarity_max": 0.0,
+      "nearest_train_similarity_mean": 0.0,
+      "note": "candidate-level scaffold/ligand overlap proxy from generated candidate metrics; split-level source-ligand scaffold IDs are not persisted in the legacy split_report artifact",
+      "scaffold_novelty_fraction_mean": 1.0,
+      "unique_candidate_proteins": 8
+    }
+  },
+  "dataset_validation_summary": {
+    "affinity_normalization_warnings": 0,
+    "approximate_affinity_labels": 0,
+    "attached_labels": 495,
+    "discovered_complexes": 5316,
+    "duplicate_example_id_label_rows": 0,
+    "duplicate_protein_id_label_rows": 0,
+    "example_id_label_matches": 5048,
+    "fallback_pocket_extractions": 0,
+    "label_table_blank_rows": 0,
+    "label_table_comment_rows": 0,
+    "label_table_rows_seen": 5048,
+    "loaded_label_measurement_family_histogram": {
+      "Kd": 2683,
+      "Ki": 2365
+    },
+    "loaded_label_normalization_provenance_values": [
+      "Kd_mM_to_delta_g_via_molar",
+      "Kd_nM_to_delta_g_via_molar",
+      "Kd_pM_to_delta_g_via_molar",
+      "Kd_uM_to_delta_g_via_molar",
+      "Ki_fM_to_delta_g_via_molar",
+      "Ki_mM_to_delta_g_via_molar",
+      "Ki_nM_to_delta_g_via_molar",
+      "Ki_pM_to_delta_g_via_molar",
+      "Ki_uM_to_delta_g_via_molar"
+    ],
+    "loaded_label_rows": 5048,
+    "normalization_warning_messages": [],
+    "observed_fallback_fraction": 0.0,
+    "parsed_examples": 5316,
+    "parsed_ligands": 5316,
+    "parsed_pockets": 5316,
+    "parsing_mode": "lightweight",
+    "protein_id_label_matches": 0,
+    "quality_filtered_examples": 262,
+    "quality_filtered_ligand_atom_limit": 262,
+    "quality_filtered_missing_affinity_metadata": 0,
+    "quality_filtered_missing_source_provenance": 0,
+    "quality_filtered_pocket_atom_limit": 0,
+    "quality_filtered_unlabeled_examples": 0,
+    "retained_approximate_affinity_labels": 0,
+    "retained_approximate_label_fraction": 0.0,
+    "retained_label_coverage": 0.9667969,
+    "retained_measurement_family_count": 2,
+    "retained_measurement_family_histogram": {
+      "Kd": 194,
+      "Ki": 301
+    },
+    "retained_missing_measurement_type": 0,
+    "retained_missing_normalization_provenance": 0,
+    "retained_normalization_provenance_coverage": 1.0,
+    "retained_normalization_provenance_values": [
+      "Kd_mM_to_delta_g_via_molar",
+      "Kd_nM_to_delta_g_via_molar",
+      "Kd_pM_to_delta_g_via_molar",
+      "Kd_uM_to_delta_g_via_molar",
+      "Ki_mM_to_delta_g_via_molar",
+      "Ki_nM_to_delta_g_via_molar",
+      "Ki_pM_to_delta_g_via_molar",
+      "Ki_uM_to_delta_g_via_molar"
+    ],
+    "retained_source_provenance_coverage": 1.0,
+    "truncated_examples": 4542,
+    "unlabeled_examples": 17,
+    "unmatched_example_id_label_rows": 0,
+    "unmatched_protein_id_label_rows": 0
+  },
+  "protein_level_leakage_checks": {
+    "duplicate_example_ids_detected": false,
+    "duplicated_example_ids": 0,
+    "protein_overlap_detected": false,
+    "train_test_protein_overlap": 0,
+    "train_val_protein_overlap": 0,
+    "val_test_protein_overlap": 0
+  },
+  "schema_version": 1,
+  "source_artifacts": [
+    "checkpoints/pdbbindpp_real_backends/split_report.json",
+    "checkpoints/pdbbindpp_real_backends/dataset_validation_report.json",
+    "checkpoints/pdbbindpp_real_backends/candidate_metrics_validation.jsonl",
+    "checkpoints/pdbbindpp_real_backends/candidate_metrics_test.jsonl"
+  ],
+  "split_quality_checks": {
+    "measurement_family_skew_detected": false,
+    "severe_atom_count_skew_detected": false,
+    "warnings": [],
+    "weak_test_family_count": false,
+    "weak_val_family_count": false
+  }
+}

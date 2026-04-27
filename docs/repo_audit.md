@@ -193,7 +193,7 @@ The modular stack has three pieces that are worth preserving for future generati
 - no diffusion objective
 - no high-capacity learned sampler beyond a now stronger but still research-grade iterative decoder rollout
 - no chemistry-native toolkit bundled in-process
-- no production docking backend bundled in-process, although a repository-supported pocket-aware external scoring workflow now exists
+- no production docking protocol validation is bundled in-process; repository-supported external AutoDock Vina and GNINA score-only adapters now produce candidate-level coverage, runtime, and failure metadata
 
 The intended migration path is therefore:
 

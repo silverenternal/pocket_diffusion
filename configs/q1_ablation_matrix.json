@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "source_internal_bundle": "configs/f31_ablation_bundle.json",
+  "source_delta_table": "configs/ablation_delta_table.json",
+  "required_ablation_axes": [
+    "slots",
+    "gate_sparsity",
+    "cross_attention",
+    "redundancy_losses",
+    "semantic_probes",
+    "leakage_penalty",
+    "repair",
+    "reranking"
+  ],
+  "status": "available_internal_with_backend_coverage_guardrails",
+  "claim_guardrail": "Ablation deltas are descriptive unless real backend coverage is present for the compared rows."
+}

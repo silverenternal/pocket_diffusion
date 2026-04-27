@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "artifact_dir": "checkpoints/pdbbindpp_real_backends",
+  "comparison": "flow_matching_vs_conditioned_denoising_binding_metrics",
+  "matched_budget_required": true,
+  "flow_native_raw_flow": {
+    "valid_fraction": 1.0,
+    "pocket_contact_fraction": 1.0,
+    "clash_fraction": 0.004735982545365767,
+    "flow_native_quality": null
+  },
+  "reranked_layer": {
+    "valid_fraction": 1.0,
+    "pocket_contact_fraction": 1.0,
+    "clash_fraction": 0.00026423602705983413,
+    "qed": null,
+    "sa_score": null,
+    "scaffold_novelty_fraction": null,
+    "unique_scaffold_fraction": null,
+    "hydrogen_bond_proxy": null,
+    "hydrophobic_contact_proxy": null,
+    "contact_balance": null
+  },
+  "backend_coverage": {
+    "docking_score_coverage_fraction": null,
+    "drug_likeness_coverage_fraction": null,
+    "scaffold_metric_coverage_fraction": null,
+    "interaction_profile_coverage_fraction": null
+  },
+  "flow_vs_denoising_native_deltas": {
+    "native_valid_fraction_delta": 0.0,
+    "native_pocket_contact_fraction_delta": 0.0,
+    "native_clash_fraction_delta": -0.002777163397749851
+  },
+  "promotion_decision": "unsupported_backend_coverage",
+  "interpretation": "Binding deltas are separated between raw_flow and reranked layers. Do not promote flow matching when gains exist only after repair or reranking."
+}

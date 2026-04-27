@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "q1_stress_unseen_pocket_v1",
+  "source_benchmark": "configs/q1_primary_benchmark_manifest.json",
+  "status": "materialized",
+  "mechanical_selection_rules": [
+    {
+      "rule_id": "low_homology_proxy",
+      "definition": "select test pockets whose protein_family_proxy is absent from train split histogram"
+    },
+    {
+      "rule_id": "large_or_small_pocket_extremes",
+      "definition": "select pockets in the lowest 15% or highest 15% pocket_atom_count quantiles within the test split"
+    },
+    {
+      "rule_id": "challenging_ligand_chemotype",
+      "definition": "select ligands in lowest 15% or highest 15% ligand_atom_count quantiles, preserving all failures"
+    }
+  ],
+  "reporting_contract": {
+    "separate_from_primary_benchmark": true,
+    "include_failures": true,
+    "no_hand_picking": true,
+    "required_outputs": [
+      "checkpoints/pdbbindpp_real_backends/candidate_metrics_test_stress.jsonl",
+      "configs/q1_stress_benchmark_metrics.json",
+      "docs/q1_stress_benchmark.md"
+    ]
+  },
+  "materialized_outputs": {
+    "candidate_metrics": "checkpoints/pdbbindpp_real_backends/candidate_metrics_test_stress.jsonl",
+    "metrics_summary": "configs/q1_stress_benchmark_metrics.json",
+    "human_summary": "docs/q1_stress_benchmark.md",
+    "selection_tool": "tools/stress_benchmark.py"
+  },
+  "claim_guardrail": "Stress results are diagnostic and should not replace primary benchmark metrics."
+}

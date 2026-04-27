@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "component": "atom_to_pocket_cross_attention_velocity_head",
+  "status": "design_spec",
+  "baseline_preserved": "GeometryFlowMatchingHead",
+  "config_switches": {
+    "enabled": false,
+    "attention_hidden_dim": 128,
+    "attention_heads": 4,
+    "gate_initial_bias": -1.0,
+    "gate_l1_weight": 0.001,
+    "fallback_to_baseline_on_empty_pocket": true
+  },
+  "controlled_interaction_contract": {
+    "pattern": "gate(atom,pocket) * Attention(Q_atom, K_pocket, V_pocket)",
+    "modality_specific_projections": true,
+    "learned_gate_range": "[0, 1]",
+    "sparse_gate_regularization": true,
+    "forbidden": "unrestricted full fusion"
+  },
+  "expected_metric_improvements": [
+    "raw_flow.strict_pocket_fit_score",
+    "raw_flow.hydrogen_bond_proxy",
+    "raw_flow.hydrophobic_contact_proxy",
+    "raw_flow.contact_balance",
+    "raw_flow.docking_score_coverage_fraction"
+  ],
+  "ablation_requirements": [
+    "baseline GeometryFlowMatchingHead",
+    "cross_attention_enabled_without_gate_l1",
+    "cross_attention_enabled_with_gate_l1",
+    "no_pocket_attention_control"
+  ]
+}

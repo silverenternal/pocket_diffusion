@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "component": "ligand_pairwise_geometry_message_passing",
+  "implementation": "src/models/geometry/pairwise_message_passing.rs",
+  "status": "prototype_implemented_not_wired_into_default_flow",
+  "complexity": "O(Nk) after radius filtering",
+  "ablation_rows": [
+    "baseline_flow_head",
+    "pairwise_geometry_messages_enabled",
+    "radius_only_neighbors",
+    "topk_only_neighbors"
+  ],
+  "promotion_rule": "Report runtime and memory overhead before enabling in claim-bearing runs."
+}

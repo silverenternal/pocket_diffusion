@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "reproducibility_package_initialized",
+  "environment": {
+    "language": "Rust 2021",
+    "python_tools": "backend adapters and table rendering",
+    "required_external_backends": [
+      "RDKit",
+      "Vina",
+      "GNINA"
+    ]
+  },
+  "key_artifact_graph": [
+    "configs/q1_primary_benchmark_manifest.json",
+    "configs/q1_baseline_registry.json",
+    "configs/q1_method_comparison_summary.json",
+    "configs/q1_statistical_tests.json",
+    "configs/q1_slot_gate_analysis.json",
+    "paper/tables/main_results.md"
+  ],
+  "commands": [
+    "cargo test",
+    "python tools/validation_suite.py --mode smoke",
+    "python tools/render_paper_tables.py"
+  ],
+  "known_blockers": [
+    "Public baseline external runs are not yet materialized.",
+    "Q1 statistical tests require paired candidate_metrics JSONL for main and baseline methods.",
+    "Stress subset is protocol-defined but not yet materialized."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "artifact_rows": [
+    {
+      "artifact": "configs/checkpoints/multi_seed/seed_17/claim_summary.json",
+      "metrics": {
+        "gate_activation_mean": 0.45740578447779023,
+        "leakage_proxy_mean": 0.07282952391591054,
+        "slot_activation_mean": 0.7291666666666667
+      }
+    },
+    {
+      "artifact": "configs/checkpoints/multi_seed/seed_42/claim_summary.json",
+      "metrics": {
+        "gate_activation_mean": 0.36865248158574104,
+        "leakage_proxy_mean": 0.0549333605535777,
+        "slot_activation_mean": 0.8125
+      }
+    },
+    {
+      "artifact": "configs/checkpoints/multi_seed/seed_101/claim_summary.json",
+      "metrics": {
+        "gate_activation_mean": 0.3583108286062876,
+        "leakage_proxy_mean": 0.01827875046465244,
+        "slot_activation_mean": 0.7708333333333333
+      }
+    }
+  ],
+  "interpretation_guardrail": "Slot/gate/leakage statistics are descriptive unless tied to matched ablations and backend metrics.",
+  "schema_version": 1,
+  "source_artifacts": [
+    "configs/checkpoints/multi_seed/seed_17/claim_summary.json",
+    "configs/checkpoints/multi_seed/seed_42/claim_summary.json",
+    "configs/checkpoints/multi_seed/seed_101/claim_summary.json"
+  ],
+  "summary": {
+    "gate_activation_mean": {
+      "count": 6,
+      "max": 0.48330820972720784,
+      "mean": 0.394789698223273,
+      "min": 0.2862064689397812
+    },
+    "gate_sparsity_loss": {
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null
+    },
+    "leakage_proxy_mean": {
+      "count": 6,
+      "max": 0.0943738368309343,
+      "mean": 0.048680544978046886,
+      "min": 0.008358368300950332
+    },
+    "slot_activation_mean": {
+      "count": 6,
+      "max": 0.8333333333333334,
+      "mean": 0.7708333333333334,
+      "min": 0.7083333333333334
+    },
+    "slot_balance_loss": {
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null
+    },
+    "slot_collapse_fraction": {
+      "count": 0,
+      "max": null,
+      "mean": null,
+      "min": null
+    }
+  }
+}

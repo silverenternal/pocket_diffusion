@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "claims": [
+    {
+      "claim_id": "controlled_cross_modal_interaction",
+      "claim_text": "The method uses gated, explicit cross-modal interaction rather than unrestricted fusion.",
+      "evidence_artifacts": [
+        "src/models/cross_attention.rs",
+        "src/models/flow/cross_attention_velocity_head.rs",
+        "configs/q1_cross_attention_head_ablation.json"
+      ],
+      "status": "implementation_supported_ablation_pending"
+    },
+    {
+      "claim_id": "layer_attribution",
+      "claim_text": "Raw generation, repair, and reranking contributions are reported separately.",
+      "evidence_artifacts": [
+        "configs/method_comparison_summary.json",
+        "paper/tables/main_results.md"
+      ],
+      "status": "artifact_supported"
+    },
+    {
+      "claim_id": "public_baseline_competitiveness",
+      "claim_text": "The method is competitive with public SBDD baselines under matched budgets.",
+      "evidence_artifacts": [
+        "configs/q1_baseline_registry.json",
+        "configs/q1_method_comparison_summary.json"
+      ],
+      "status": "blocked_pending_external_public_baselines"
+    },
+    {
+      "claim_id": "statistical_defensibility",
+      "claim_text": "Main improvements have paired uncertainty estimates and effect sizes.",
+      "evidence_artifacts": [
+        "tools/statistical_comparison.py",
+        "configs/q1_statistical_tests.json"
+      ],
+      "status": "tooling_supported_data_pending"
+    }
+  ]
+}
