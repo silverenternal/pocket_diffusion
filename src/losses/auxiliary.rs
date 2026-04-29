@@ -599,8 +599,9 @@ fn active_slot_modality_penalty(
     {
         return None;
     }
-    let (sparsity, balance) = slot_penalties(&slots.slot_activations);
-    Some(sparsity * sparsity_weight + balance * balance_weight)
+    let (sparsity, activation_balance) = slot_penalties(&slots.slot_activations);
+    let mass_balance = slot_mass_balance_penalty(&slots.slot_weights);
+    Some(sparsity * sparsity_weight + (activation_balance + mass_balance) * balance_weight)
 }
 
 impl Default for SlotControlLoss {
@@ -1075,6 +1076,25 @@ fn slot_penalties(slot_activations: &Tensor) -> (Tensor, Tensor) {
     (sparsity, balance)
 }
 
+fn slot_mass_balance_penalty(slot_weights: &Tensor) -> Tensor {
+    if slot_weights.numel() == 0 {
+        return Tensor::zeros([1], (Kind::Float, slot_weights.device()));
+    }
+    let weights = slot_weights.flatten(0, -1).clamp_min(0.0);
+    let total_mass = weights.sum(Kind::Float);
+    if total_mass.double_value(&[]) <= 1.0e-12 {
+        return Tensor::zeros([1], (Kind::Float, slot_weights.device()));
+    }
+    let slot_count = weights.size().first().copied().unwrap_or(0).max(0);
+    if slot_count <= 1 {
+        return Tensor::zeros([1], (Kind::Float, slot_weights.device()));
+    }
+    let normalized = &weights / total_mass.clamp_min(1.0e-6);
+    let entropy = -(&normalized * normalized.clamp_min(1.0e-8).log()).sum(Kind::Float);
+    let max_entropy = (slot_count as f64).ln().max(1.0e-6);
+    (Tensor::from(1.0).to_device(slot_weights.device()) - entropy / max_entropy).clamp(0.0, 1.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1086,7 +1106,7 @@ mod tests {
     use crate::{
         config::{AffinityWeighting, PrimaryObjectiveConfig, ResearchConfig},
         data::InMemoryDataset,
-        models::Phase1ResearchSystem,
+        models::{Phase1ResearchSystem, SlotEncoding},
         training::EffectiveLossWeights,
     };
 
@@ -1512,6 +1532,9 @@ mod tests {
         ));
         let (pocket_sparsity, pocket_balance) =
             slot_penalties(&(Tensor::ones_like(&forwards[0].slots.pocket.slot_activations) * 0.5));
+        let topo_mass_balance = slot_mass_balance_penalty(&forward.slots.topology.slot_weights);
+        let geo_mass_balance = slot_mass_balance_penalty(&forward.slots.geometry.slot_weights);
+        let pocket_mass_balance = slot_mass_balance_penalty(&forward.slots.pocket.slot_weights);
 
         let sparse_only = SlotControlLoss::with_weights(1.0, 0.0).compute(&forward);
         let balance_only = SlotControlLoss::with_weights(0.0, 1.0).compute(&forward);
@@ -1523,15 +1546,27 @@ mod tests {
         let geo_balance_v = geo_balance.double_value(&[]);
         let pocket_sparsity_v = pocket_sparsity.double_value(&[]);
         let pocket_balance_v = pocket_balance.double_value(&[]);
+        let topo_mass_balance_v = topo_mass_balance.double_value(&[]);
+        let geo_mass_balance_v = geo_mass_balance.double_value(&[]);
+        let pocket_mass_balance_v = pocket_mass_balance.double_value(&[]);
 
         let expected_sparse = (topo_sparsity_v + geo_sparsity_v + pocket_sparsity_v) / 3.0;
-        let expected_balance = (topo_balance_v + geo_balance_v + pocket_balance_v) / 3.0;
+        let expected_balance = (topo_balance_v
+            + geo_balance_v
+            + pocket_balance_v
+            + topo_mass_balance_v
+            + geo_mass_balance_v
+            + pocket_mass_balance_v)
+            / 3.0;
         let expected_combined = (topo_sparsity_v
             + geo_sparsity_v
             + pocket_sparsity_v
             + topo_balance_v
             + geo_balance_v
-            + pocket_balance_v)
+            + pocket_balance_v
+            + topo_mass_balance_v
+            + geo_mass_balance_v
+            + pocket_mass_balance_v)
             / 3.0;
 
         let expected_sparse = Tensor::from(expected_sparse);
@@ -1563,6 +1598,9 @@ mod tests {
             Tensor::ones_like(&full.slots.geometry.slot_activations) * 0.5;
         full.slots.pocket.slot_activations =
             Tensor::ones_like(&full.slots.pocket.slot_activations) * 0.5;
+        set_uniform_slot_weights(&mut full.slots.topology);
+        set_uniform_slot_weights(&mut full.slots.geometry);
+        set_uniform_slot_weights(&mut full.slots.pocket);
 
         let mut topology_only = full.clone();
         zero_test_slot_modality(&mut topology_only.slots.geometry);
@@ -1602,6 +1640,18 @@ mod tests {
         assert_eq!(moderate_balance.double_value(&[]), 0.0);
     }
 
+    #[test]
+    fn slot_mass_balance_penalty_detects_concentrated_assignment_mass() {
+        let concentrated = Tensor::from_slice(&[1.0_f32, 0.0, 0.0, 0.0]);
+        let balanced = Tensor::ones([4], (Kind::Float, Device::Cpu)) / 4.0;
+
+        assert!(
+            slot_mass_balance_penalty(&concentrated).double_value(&[])
+                > slot_mass_balance_penalty(&balanced).double_value(&[])
+        );
+        assert!(slot_mass_balance_penalty(&balanced).double_value(&[]) <= 1.0e-7);
+    }
+
     fn assert_close(left: &Tensor, right: &Tensor) {
         let delta = (left - right).abs().double_value(&[]);
         assert!(
@@ -1621,6 +1671,17 @@ mod tests {
         slots.active_slot_mask = Tensor::zeros_like(&slots.active_slot_mask);
         slots.active_slot_count = 0.0;
         slots.reconstructed_tokens = Tensor::zeros_like(&slots.reconstructed_tokens);
+    }
+
+    fn set_uniform_slot_weights(slots: &mut SlotEncoding) {
+        let slot_count = slots
+            .slot_weights
+            .size()
+            .first()
+            .copied()
+            .unwrap_or(0)
+            .max(1) as f64;
+        slots.slot_weights = Tensor::ones_like(&slots.slot_weights) / slot_count;
     }
 
     fn measurement_weights_for_test(

@@ -191,7 +191,7 @@ impl StageScheduler {
         };
         let progress =
             step.saturating_sub(start) as f64 / (end.saturating_sub(start).max(1) as f64);
-        progress.clamp(0.1, 1.0)
+        progress.clamp(self.schedule.warmup_floor, 1.0)
     }
 }
 
@@ -205,6 +205,7 @@ mod tests {
             stage2_steps: 2,
             stage3_steps: 3,
             stage4_warmup_steps: 2,
+            warmup_floor: 0.0,
         }
     }
 
@@ -230,15 +231,15 @@ mod tests {
         assert_eq!(stage1.pharmacophore_leakage, 0.0);
 
         let stage2 = scheduler.weights_for_step(1);
-        assert!(stage2.pocket_envelope > 0.0);
-        assert!(stage2.valence_guardrail > 0.0);
-        assert!(stage2.bond_length_guardrail > 0.0);
+        assert_eq!(stage2.pocket_envelope, 0.0);
+        assert_eq!(stage2.valence_guardrail, 0.0);
+        assert_eq!(stage2.bond_length_guardrail, 0.0);
         assert_eq!(stage2.pharmacophore_probe, 0.0);
         assert_eq!(stage2.pharmacophore_leakage, 0.0);
 
         let stage3 = scheduler.weights_for_step(2);
-        assert!(stage3.pharmacophore_probe > 0.0);
-        assert!(stage3.pharmacophore_leakage > 0.0);
+        assert_eq!(stage3.pharmacophore_probe, 0.0);
+        assert_eq!(stage3.pharmacophore_leakage, 0.0);
     }
 
     #[test]
@@ -264,12 +265,18 @@ mod tests {
             assert_eq!(weights.pharmacophore_leakage, 0.0);
         }
 
-        let stage4 = scheduler.weights_for_step(3);
-        assert!(stage4.pocket_envelope > 0.0);
-        assert!(stage4.valence_guardrail > 0.0);
-        assert!(stage4.bond_length_guardrail > 0.0);
-        assert!(stage4.pharmacophore_probe > 0.0);
-        assert!(stage4.pharmacophore_leakage > 0.0);
+        let stage4_start = scheduler.weights_for_step(3);
+        assert_eq!(stage4_start.pocket_envelope, 0.0);
+        assert_eq!(stage4_start.valence_guardrail, 0.0);
+        assert_eq!(stage4_start.bond_length_guardrail, 0.0);
+        assert_eq!(stage4_start.pharmacophore_probe, 0.0);
+        assert_eq!(stage4_start.pharmacophore_leakage, 0.0);
+        let stage4_warmed = scheduler.weights_for_step(4);
+        assert!(stage4_warmed.pocket_envelope > 0.0);
+        assert!(stage4_warmed.valence_guardrail > 0.0);
+        assert!(stage4_warmed.bond_length_guardrail > 0.0);
+        assert!(stage4_warmed.pharmacophore_probe > 0.0);
+        assert!(stage4_warmed.pharmacophore_leakage > 0.0);
     }
 
     #[test]
@@ -287,7 +294,7 @@ mod tests {
         let mid = scheduler.weights_for_step(8);
         let end = scheduler.weights_for_step(13);
 
-        assert!(start.gate > 0.0);
+        assert_eq!(start.gate, 0.0);
         assert!(start.gate < mid.gate);
         assert!(mid.gate < end.gate);
         assert_eq!(end.gate, eta_gate);

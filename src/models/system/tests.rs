@@ -986,9 +986,60 @@ mod tests {
             forward.generation.rollout.flow_x0_source.as_deref(),
             Some("target_ligand_corrupted_geometry")
         );
+        let flow = forward.generation.flow_matching.as_ref().unwrap();
         assert_eq!(
-            forward.generation.flow_matching.unwrap().x0_source,
+            flow.x0_source,
             "target_ligand_corrupted_geometry"
+        );
+        assert_tensor_close(
+            "target-ligand corrupted x0",
+            &flow_x0_coords(flow),
+            &example.decoder_supervision.noisy_coords,
+            1.0e-6,
+        );
+    }
+
+    #[test]
+    fn flow_matching_labels_reference_fallback_when_corrupted_x0_shape_mismatches() {
+        let config = ResearchConfig::default();
+        let example = synthetic_phase1_examples()
+            .into_iter()
+            .next()
+            .unwrap()
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let reference_coords = example.decoder_supervision.target_coords.shallow_clone();
+        let mut mismatched = example.clone();
+        let reference_atom_count = reference_coords.size()[0];
+        assert!(
+            reference_atom_count > 1,
+            "synthetic example must have enough atoms for a mismatched noisy coordinate tensor"
+        );
+        mismatched.decoder_supervision.noisy_coords = example
+            .decoder_supervision
+            .noisy_coords
+            .narrow(0, 0, reference_atom_count - 1);
+
+        let x0 = super::flow_training::flow_matching_x0_for_state(
+            &mismatched,
+            &reference_coords,
+            0.25,
+            true,
+            true,
+        );
+        assert_tensor_close(
+            "shape-mismatched corrupted x0 fallback",
+            &x0,
+            &reference_coords,
+            1.0e-6,
+        );
+        assert_eq!(
+            super::flow_training::flow_matching_x0_source_label_for_state(
+                &mismatched,
+                &reference_coords,
+                true,
+                true
+            ),
+            "reference_geometry_shape_mismatch_fallback"
         );
     }
 
@@ -1017,10 +1068,112 @@ mod tests {
             forward.generation.rollout.flow_x0_source.as_deref(),
             Some("deterministic_gaussian_noise")
         );
+        let flow = forward.generation.flow_matching.as_ref().unwrap();
         assert_eq!(
-            forward.generation.flow_matching.unwrap().x0_source,
+            flow.x0_source,
             "deterministic_gaussian_noise"
         );
+        let x0 = flow_x0_coords(flow);
+        let pocket_centroid = example
+            .pocket
+            .coords
+            .mean_dim([0].as_slice(), false, Kind::Float);
+        let max_axis_offset = (x0 - pocket_centroid.unsqueeze(0))
+            .abs()
+            .max()
+            .double_value(&[]);
+        assert!(
+            max_axis_offset <= config.generation_method.flow_matching.noise_scale + 1.0e-6,
+            "deterministic x0 offset {max_axis_offset} exceeded configured one-pass noise scale"
+        );
+    }
+
+    #[test]
+    fn flow_matching_reuses_context_flow_time_without_resampling() {
+        let mut config = ResearchConfig::default();
+        config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
+        config.generation_method.active_method = "flow_matching".to_string();
+        config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+            backend_id: "flow_matching".to_string(),
+            family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..crate::config::GenerationBackendConfig::default()
+        };
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let example = synthetic_phase1_examples()
+            .into_iter()
+            .next()
+            .unwrap()
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let requested_t = 0.37;
+
+        let forward = system.forward_example_with_interaction_context(
+            &example,
+            InteractionExecutionContext {
+                flow_t: Some(requested_t),
+                ..InteractionExecutionContext::default()
+            },
+        );
+        let flow = forward.generation.flow_matching.as_ref().unwrap();
+
+        assert!((flow.t - requested_t).abs() < 1.0e-12);
+        assert_eq!(forward.sync_context.flow_t, Some(requested_t));
+        assert_eq!(
+            forward.interaction_diagnostics.geo_from_pocket.flow_t,
+            Some(requested_t)
+        );
+    }
+
+    #[test]
+    fn hungarian_flow_matching_aligns_targets_against_actual_x0() {
+        let mut config = ResearchConfig::default();
+        config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
+        config.generation_method.active_method = "flow_matching".to_string();
+        config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+            backend_id: "flow_matching".to_string(),
+            family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..crate::config::GenerationBackendConfig::default()
+        };
+        config.generation_method.flow_matching.use_corrupted_x0 = false;
+        config
+            .generation_method
+            .flow_matching
+            .multi_modal
+            .target_alignment_policy =
+            crate::config::FlowTargetAlignmentPolicy::HungarianDistance;
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut example = synthetic_phase1_examples()
+            .into_iter()
+            .next()
+            .unwrap()
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let deterministic_x0 = super::flow_training::flow_matching_x0_for_state(
+            &example,
+            &example.decoder_supervision.noisy_coords,
+            config.generation_method.flow_matching.noise_scale,
+            false,
+            true,
+        );
+        let atom_count = deterministic_x0.size()[0];
+        assert!(atom_count > 1);
+        let reverse_indices =
+            Tensor::from_slice(&(0..atom_count).rev().collect::<Vec<_>>()).to_kind(Kind::Int64);
+        let reversed_x0 = deterministic_x0.index_select(0, &reverse_indices);
+        example.decoder_supervision.noisy_coords = reversed_x0.shallow_clone();
+        example.decoder_supervision.target_coords = reversed_x0;
+
+        let forward = system.forward_example(&example);
+        let flow = forward.generation.flow_matching.as_ref().unwrap();
+        let max_target_velocity = flow.target_velocity.abs().max().double_value(&[]);
+
+        assert!(
+            max_target_velocity < 1.0e-6,
+            "target matching should be exact when targets are a permutation of actual x0; max velocity {max_target_velocity}"
+        );
+        assert_eq!(flow.target_matching_mean_cost, 0.0);
     }
 
     #[test]

@@ -356,6 +356,9 @@ pub struct StageScheduleConfig {
     /// Number of Stage 4 steps used to ramp gate and slot objectives.
     #[serde(default = "default_stage4_warmup_steps")]
     pub stage4_warmup_steps: usize,
+    /// Lower bound for per-stage linear warmup ramps.
+    #[serde(default = "default_stage_warmup_floor")]
+    pub warmup_floor: f64,
 }
 
 impl Default for StageScheduleConfig {
@@ -365,6 +368,7 @@ impl Default for StageScheduleConfig {
             stage2_steps: 4,
             stage3_steps: 6,
             stage4_warmup_steps: default_stage4_warmup_steps(),
+            warmup_floor: default_stage_warmup_floor(),
         }
     }
 }
@@ -382,12 +386,21 @@ impl StageScheduleConfig {
                 self.stage3_steps
             )));
         }
+        if !self.warmup_floor.is_finite() || !(0.0..=1.0).contains(&self.warmup_floor) {
+            return Err(ConfigValidationError::new(
+                "training.schedule.warmup_floor must be finite and in [0, 1]",
+            ));
+        }
         Ok(())
     }
 }
 
 fn default_stage4_warmup_steps() -> usize {
     2
+}
+
+fn default_stage_warmup_floor() -> f64 {
+    0.0
 }
 
 /// Reporting-only primary objective scale diagnostics.
@@ -493,6 +506,9 @@ pub struct ObjectiveGradientDiagnosticsConfig {
     /// `<auxiliary_family>`, or `auxiliary:<auxiliary_family>`.
     #[serde(default)]
     pub included_families: Vec<String>,
+    /// Maximum objective families evaluated with exact retained-graph autograd per sampled step.
+    #[serde(default = "default_objective_gradient_max_exact_families")]
+    pub max_exact_families: usize,
 }
 
 impl Default for ObjectiveGradientDiagnosticsConfig {
@@ -503,6 +519,7 @@ impl Default for ObjectiveGradientDiagnosticsConfig {
             sampling_mode: ObjectiveGradientSamplingMode::ExactSampled,
             include_auxiliary: default_objective_gradient_include_auxiliary(),
             included_families: Vec::new(),
+            max_exact_families: default_objective_gradient_max_exact_families(),
         }
     }
 }
@@ -522,6 +539,14 @@ impl ObjectiveGradientDiagnosticsConfig {
                 )));
             }
         }
+        if self.enabled
+            && self.sampling_mode == ObjectiveGradientSamplingMode::ExactSampled
+            && self.max_exact_families == 0
+        {
+            return Err(ConfigValidationError::new(
+                "training.objective_gradient_diagnostics.max_exact_families must be greater than zero when exact sampling is enabled",
+            ));
+        }
         Ok(())
     }
 }
@@ -532,6 +557,10 @@ fn default_objective_gradient_sample_every_steps() -> usize {
 
 fn default_objective_gradient_include_auxiliary() -> bool {
     true
+}
+
+fn default_objective_gradient_max_exact_families() -> usize {
+    4
 }
 
 fn is_supported_objective_gradient_family(family: &str) -> bool {
@@ -598,6 +627,9 @@ pub struct AdaptiveStageGuardConfig {
     /// Maximum allowed slot collapse warning count on the latest step.
     #[serde(default = "default_adaptive_stage_max_slot_collapse_warnings")]
     pub max_slot_collapse_warnings: usize,
+    /// Maximum allowed slot assignment-mass concentration warning count on the latest step.
+    #[serde(default = "default_adaptive_stage_max_slot_mass_concentration_warnings")]
+    pub max_slot_mass_concentration_warnings: usize,
     /// Maximum allowed mean gate saturation fraction on the latest step.
     #[serde(default = "default_adaptive_stage_max_gate_saturation_fraction")]
     pub max_gate_saturation_fraction: f64,
@@ -622,6 +654,8 @@ impl Default for AdaptiveStageGuardConfig {
             max_nonfinite_gradient_tensors: 0,
             require_no_optimizer_skip: default_adaptive_stage_require_no_optimizer_skip(),
             max_slot_collapse_warnings: default_adaptive_stage_max_slot_collapse_warnings(),
+            max_slot_mass_concentration_warnings:
+                default_adaptive_stage_max_slot_mass_concentration_warnings(),
             max_gate_saturation_fraction: default_adaptive_stage_max_gate_saturation_fraction(),
             min_slot_signature_matching_score: None,
             max_leakage_diagnostic: None,
@@ -689,6 +723,10 @@ fn default_adaptive_stage_require_no_optimizer_skip() -> bool {
 }
 
 fn default_adaptive_stage_max_slot_collapse_warnings() -> usize {
+    0
+}
+
+fn default_adaptive_stage_max_slot_mass_concentration_warnings() -> usize {
     0
 }
 

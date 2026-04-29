@@ -89,19 +89,20 @@ impl super::Phase1ResearchSystem {
             .flow_matching_config
             .multi_modal
             .target_alignment_policy;
-        let Some(matched_x1) = matched_target_coords(
-            &generation_state.partial_ligand.coords,
-            &example.decoder_supervision.target_coords,
-            policy,
-        ) else {
-            return None;
-        };
         let x0 = self.flow_matching_x0_for_generation_state(
             example,
             &generation_state.partial_ligand.coords,
         );
+        let Some(matched_x1) =
+            matched_target_coords(&x0, &example.decoder_supervision.target_coords, policy)
+        else {
+            return None;
+        };
         let x1 = fill_unmatched_target_coords(&matched_x1.values, &x0, &matched_x1.matching.mask);
-        let x0_source = self.flow_matching_x0_source_label();
+        let x0_source = self.flow_matching_x0_source_label_for_state(
+            example,
+            &generation_state.partial_ligand.coords,
+        );
         if x1.size() != x0.size() {
             return None;
         }
@@ -159,7 +160,8 @@ impl super::Phase1ResearchSystem {
         let configured_steps = self.flow_matching_config.steps.max(1);
         let mut coords = self
             .flow_matching_x0_for_generation_state(example, &initial_state.partial_ligand.coords);
-        let x0_source = self.flow_matching_x0_source_label();
+        let x0_source = self
+            .flow_matching_x0_source_label_for_state(example, &initial_state.partial_ligand.coords);
         let mut atom_types_tensor = initial_state.partial_ligand.atom_types.shallow_clone();
         let mut atom_types = tensor_to_i64_vec(&atom_types_tensor);
         let mut native_bonds = Vec::new();
@@ -466,16 +468,17 @@ impl super::Phase1ResearchSystem {
         )
     }
 
-    fn flow_matching_x0_source_label(&self) -> &'static str {
-        if self.flow_matching_config.use_corrupted_x0
-            && self.generation_mode.uses_target_ligand_initialization()
-        {
-            flow_matching_x0_source_label(true)
-        } else if self.flow_matching_config.use_corrupted_x0 {
-            "conditioning_scaffold_deterministic_noise_no_target_ligand"
-        } else {
-            flow_matching_x0_source_label(false)
-        }
+    fn flow_matching_x0_source_label_for_state(
+        &self,
+        example: &MolecularExample,
+        reference_coords: &Tensor,
+    ) -> &'static str {
+        flow_matching_x0_source_label_for_state(
+            example,
+            reference_coords,
+            self.flow_matching_config.use_corrupted_x0,
+            self.generation_mode.uses_target_ligand_initialization(),
+        )
     }
 }
 
@@ -484,6 +487,25 @@ pub(crate) fn flow_matching_x0_source_label(use_corrupted_x0: bool) -> &'static 
         "target_ligand_corrupted_geometry"
     } else {
         "deterministic_gaussian_noise"
+    }
+}
+
+pub(crate) fn flow_matching_x0_source_label_for_state(
+    example: &MolecularExample,
+    reference_coords: &Tensor,
+    use_corrupted_x0: bool,
+    allow_target_ligand_corrupted_x0: bool,
+) -> &'static str {
+    if use_corrupted_x0 && allow_target_ligand_corrupted_x0 {
+        if example.decoder_supervision.noisy_coords.size() == reference_coords.size() {
+            flow_matching_x0_source_label(true)
+        } else {
+            "reference_geometry_shape_mismatch_fallback"
+        }
+    } else if use_corrupted_x0 {
+        "conditioning_scaffold_deterministic_noise_no_target_ligand"
+    } else {
+        flow_matching_x0_source_label(false)
     }
 }
 
@@ -605,63 +627,67 @@ pub(crate) fn flow_matching_x0_for_state(
     use_corrupted_x0: bool,
     allow_target_ligand_corrupted_x0: bool,
 ) -> Tensor {
-    let base = if use_corrupted_x0 && allow_target_ligand_corrupted_x0 {
+    if use_corrupted_x0 && allow_target_ligand_corrupted_x0 {
         if example.decoder_supervision.noisy_coords.size() == reference_coords.size() {
-            example.decoder_supervision.noisy_coords.shallow_clone()
+            return example.decoder_supervision.noisy_coords.shallow_clone();
         } else {
-            reference_coords.shallow_clone()
+            return reference_coords.shallow_clone();
         }
-    } else if use_corrupted_x0 {
-        reference_coords.shallow_clone()
-    } else {
-        let atom_count = reference_coords.size()[0].max(0) as usize;
-        let mut pocket_centroid = if example.pocket.coords.numel() == 0 {
-            [0.0_f64, 0.0, 0.0]
-        } else {
-            let centroid = example
-                .pocket
-                .coords
-                .mean_dim([0].as_slice(), false, Kind::Float);
-            [
-                centroid.double_value(&[0]),
-                centroid.double_value(&[1]),
-                centroid.double_value(&[2]),
-            ]
-        };
-        let mut values = Vec::with_capacity(atom_count * 3);
-        for atom_ix in 0..atom_count {
-            for (axis, value) in pocket_centroid.iter_mut().enumerate() {
-                let unit = deterministic_flow_unit(
-                    example
-                        .decoder_supervision
-                        .corruption_metadata
-                        .corruption_seed,
-                    atom_ix,
-                    axis,
-                );
-                let centered = unit * 2.0 - 1.0;
-                values.push((*value + centered * noise_scale) as f32);
-            }
-        }
-        Tensor::from_slice(&values)
-            .reshape([atom_count as i64, 3])
-            .to_device(reference_coords.device())
-    };
+    }
 
-    if noise_scale <= 0.0 {
-        base
-    } else {
-        &base
+    if use_corrupted_x0 {
+        return reference_coords
             + deterministic_flow_noise(
-                &base,
+                reference_coords,
                 noise_scale,
                 example
                     .decoder_supervision
                     .corruption_metadata
                     .corruption_seed
                     .wrapping_add(17),
-            )
+            );
     }
+
+    deterministic_pocket_noise_x0(example, reference_coords, noise_scale)
+}
+
+fn deterministic_pocket_noise_x0(
+    example: &MolecularExample,
+    reference_coords: &Tensor,
+    noise_scale: f64,
+) -> Tensor {
+    let atom_count = reference_coords.size()[0].max(0) as usize;
+    let pocket_centroid = if example.pocket.coords.numel() == 0 {
+        [0.0_f64, 0.0, 0.0]
+    } else {
+        let centroid = example
+            .pocket
+            .coords
+            .mean_dim([0].as_slice(), false, Kind::Float);
+        [
+            centroid.double_value(&[0]),
+            centroid.double_value(&[1]),
+            centroid.double_value(&[2]),
+        ]
+    };
+    let mut values = Vec::with_capacity(atom_count * 3);
+    for atom_ix in 0..atom_count {
+        for (axis, value) in pocket_centroid.iter().enumerate() {
+            let unit = deterministic_flow_unit(
+                example
+                    .decoder_supervision
+                    .corruption_metadata
+                    .corruption_seed,
+                atom_ix,
+                axis,
+            );
+            let centered = unit * 2.0 - 1.0;
+            values.push((*value + centered * noise_scale) as f32);
+        }
+    }
+    Tensor::from_slice(&values)
+        .reshape([atom_count as i64, 3])
+        .to_device(reference_coords.device())
 }
 
 struct MatchedTargetCoords {
@@ -909,6 +935,9 @@ pub(crate) fn flow_matching_t_from_example(
     example: &MolecularExample,
     context: Option<&InteractionExecutionContext>,
 ) -> f64 {
+    if let Some(flow_t) = context.and_then(|context| context.flow_t) {
+        return flow_t.clamp(0.05, 0.95);
+    }
     let seed = flow_matching_time_seed(example, context);
     let scaled = (seed % 10_000) as f64 / 10_000.0;
     scaled.clamp(0.05, 0.95)
@@ -941,10 +970,6 @@ fn flow_matching_time_seed(
         }
         if let Some(sample_order_seed) = context.sample_order_seed {
             seed ^= sample_order_seed.wrapping_mul(0x7e0f_4f5f_11ac_89cb);
-        }
-        if let Some(flow_t) = context.flow_t {
-            let t_bits = flow_t.to_bits();
-            seed ^= t_bits.wrapping_mul(0x7f4a_7c15_6c14_3f8d);
         }
     }
 

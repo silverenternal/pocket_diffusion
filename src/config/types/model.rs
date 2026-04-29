@@ -259,6 +259,9 @@ pub struct SlotDecompositionConfig {
     /// Minimum highest-activation slots visible to attention when masking is enabled.
     #[serde(default = "default_minimum_visible_slots")]
     pub minimum_visible_slots: i64,
+    /// Weight for assignment-mass evidence added to learned slot activation logits.
+    #[serde(default = "default_slot_activation_mass_evidence_weight")]
+    pub activation_mass_evidence_weight: f64,
     /// Reporting/aggregation window for balance-oriented slot usage summaries.
     #[serde(default = "default_slot_balance_window")]
     pub balance_window: usize,
@@ -271,6 +274,7 @@ impl Default for SlotDecompositionConfig {
             activation_threshold: default_slot_activation_threshold(),
             attention_masking: default_slot_attention_masking(),
             minimum_visible_slots: default_minimum_visible_slots(),
+            activation_mass_evidence_weight: default_slot_activation_mass_evidence_weight(),
             balance_window: default_slot_balance_window(),
         }
     }
@@ -301,6 +305,13 @@ impl SlotDecompositionConfig {
                 "model.slot_decomposition.minimum_visible_slots must be non-negative",
             ));
         }
+        if !self.activation_mass_evidence_weight.is_finite()
+            || self.activation_mass_evidence_weight < 0.0
+        {
+            return Err(ConfigValidationError::new(
+                "model.slot_decomposition.activation_mass_evidence_weight must be finite and non-negative",
+            ));
+        }
         Ok(())
     }
 }
@@ -319,6 +330,10 @@ fn default_slot_attention_masking() -> bool {
 
 fn default_minimum_visible_slots() -> i64 {
     1
+}
+
+fn default_slot_activation_mass_evidence_weight() -> f64 {
+    0.5
 }
 
 fn default_slot_balance_window() -> usize {

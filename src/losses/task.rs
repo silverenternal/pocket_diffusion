@@ -8,7 +8,8 @@
 //! - sampled rollout records are evaluation-only diagnostics because rollout
 //!   commits atom types through argmax/sampling, exports coordinates through
 //!   `Vec` records, and stores stop/stability values as scalars.
-//! - flow velocity and endpoint terms are tensor-preserving flow-head losses.
+//! - flow velocity is the direct flow-head loss; endpoint consistency is derived
+//!   from the same predicted velocity rather than a separate endpoint head.
 
 use tch::{Kind, Tensor};
 
@@ -579,7 +580,7 @@ fn molecular_flow_losses(forward: &ResearchForward) -> MolecularFlowLosses {
     let bond = if molecular.branch_weights.bond <= 0.0 {
         zero()
     } else {
-        let bond_exists = masked_bce_with_logits(
+        let bond_exists = masked_balanced_bce_with_logits(
             &molecular.bond_exists_logits,
             &molecular.target_adjacency,
             &molecular.pair_mask,
@@ -596,7 +597,7 @@ fn molecular_flow_losses(forward: &ResearchForward) -> MolecularFlowLosses {
     let topology = if molecular.branch_weights.topology <= 0.0 {
         zero()
     } else {
-        masked_bce_with_logits(
+        masked_balanced_bce_with_logits(
             &molecular.topology_logits,
             &molecular.target_topology,
             &molecular.pair_mask,
@@ -609,7 +610,7 @@ fn molecular_flow_losses(forward: &ResearchForward) -> MolecularFlowLosses {
     {
         zero()
     } else {
-        masked_bce_with_logits(
+        masked_balanced_bce_with_logits(
             &molecular.pocket_contact_logits,
             &molecular.target_pocket_contacts,
             &molecular.pocket_interaction_mask,
@@ -676,6 +677,35 @@ fn masked_bce_with_logits(logits: &Tensor, target: &Tensor, mask: &Tensor) -> Te
     let per_item = logits.clamp_min(0.0) - logits * &target + (-logits.abs()).exp().log1p();
     let denom = mask.sum(Kind::Float).clamp_min(1.0);
     (per_item * mask).sum(Kind::Float) / denom
+}
+
+fn masked_balanced_bce_with_logits(logits: &Tensor, target: &Tensor, mask: &Tensor) -> Tensor {
+    if logits.numel() == 0
+        || target.numel() == 0
+        || mask.numel() == 0
+        || logits.size() != target.size()
+    {
+        return Tensor::zeros([1], (Kind::Float, logits.device()));
+    }
+    let target = target.to_device(logits.device()).to_kind(Kind::Float);
+    let mask = mask.to_device(logits.device()).to_kind(Kind::Float);
+    let positive = (&target * &mask).sum(Kind::Float);
+    let negative = ((Tensor::ones_like(&target) - &target) * &mask).sum(Kind::Float);
+    let positive_count = positive.double_value(&[]);
+    let negative_count = negative.double_value(&[]);
+    if positive_count <= 0.0 || negative_count <= 0.0 {
+        return masked_bce_with_logits(logits, &target, &mask);
+    }
+
+    let positive_weight = (negative / positive.clamp_min(1.0)).clamp(1.0, 50.0);
+    let item_weights = &mask * (&target * positive_weight + (Tensor::ones_like(&target) - &target));
+    let per_item = logits.binary_cross_entropy_with_logits::<Tensor>(
+        &target,
+        None,
+        None,
+        tch::Reduction::None,
+    );
+    (per_item * &item_weights).sum(Kind::Float) / item_weights.sum(Kind::Float).clamp_min(1.0)
 }
 
 fn masked_pair_cross_entropy(logits: &Tensor, targets: &Tensor, mask: &Tensor) -> Tensor {
@@ -981,4 +1011,37 @@ fn centered_radius(coords: &Tensor, centroid: &Tensor) -> f64 {
         .sqrt()
         .mean(Kind::Float)
         .double_value(&[])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tch::{Device, Kind, Tensor};
+
+    #[test]
+    fn balanced_bce_upweights_rare_positive_errors() {
+        let logits = Tensor::from_slice(&[-2.0_f32, 0.0, 0.0, 0.0]);
+        let target = Tensor::from_slice(&[1.0_f32, 0.0, 0.0, 0.0]);
+        let mask = Tensor::ones([4], (Kind::Float, Device::Cpu));
+
+        let plain = masked_bce_with_logits(&logits, &target, &mask).double_value(&[]);
+        let balanced = masked_balanced_bce_with_logits(&logits, &target, &mask).double_value(&[]);
+
+        assert!(
+            balanced > plain,
+            "balanced BCE should emphasize rare positive errors"
+        );
+    }
+
+    #[test]
+    fn balanced_bce_falls_back_when_only_one_class_is_observed() {
+        let logits = Tensor::from_slice(&[0.5_f32, -0.5]);
+        let target = Tensor::zeros([2], (Kind::Float, Device::Cpu));
+        let mask = Tensor::ones([2], (Kind::Float, Device::Cpu));
+
+        let plain = masked_bce_with_logits(&logits, &target, &mask).double_value(&[]);
+        let balanced = masked_balanced_bce_with_logits(&logits, &target, &mask).double_value(&[]);
+
+        assert!((balanced - plain).abs() < 1.0e-8);
+    }
 }

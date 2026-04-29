@@ -144,7 +144,7 @@ Recommended activation order:
 2. Atom-type categorical flow with low weight and frozen geometry baseline.
 3. Bond existence and bond-type flow conditioned on atom and geometry states.
 4. Topology synchronization and graph-validity consistency.
-5. Pocket/context representation flow for conditioning stability.
+5. Pocket interaction-profile flow from matched ligand-pocket contact labels; keep pocket/context reconstruction diagnostic-only unless explicitly re-enabled.
 6. Cross-branch synchronization losses and sparse gate regularization.
 
 Each branch needs an independent disable switch, loss weight, metric block, and

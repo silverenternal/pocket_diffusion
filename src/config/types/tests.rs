@@ -209,6 +209,17 @@ mod tests {
     }
 
     #[test]
+    fn training_stage_schedule_validates_warmup_floor() {
+        let mut config = ResearchConfig::default();
+        assert_eq!(config.training.schedule.warmup_floor, 0.0);
+        assert!(config.validate().is_ok());
+
+        config.training.schedule.warmup_floor = 1.25;
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("training.schedule.warmup_floor"));
+    }
+
+    #[test]
     fn generation_target_accepts_legacy_rollout_weight_decay_alias() {
         let config: GenerationTargetConfig = serde_json::from_str(
             r#"{
@@ -437,6 +448,13 @@ mod tests {
     fn adaptive_stage_guard_defaults_off_and_validates_thresholds() {
         let mut config = ResearchConfig::default();
         assert!(!config.training.adaptive_stage_guard.enabled);
+        assert_eq!(
+            config
+                .training
+                .adaptive_stage_guard
+                .max_slot_mass_concentration_warnings,
+            0
+        );
         assert!(config.validate().is_ok());
 
         config
@@ -816,6 +834,13 @@ mod tests {
             .training
             .objective_gradient_diagnostics
             .included_families = vec!["primary".to_string(), "auxiliary:gate".to_string()];
+        assert_eq!(
+            config
+                .training
+                .objective_gradient_diagnostics
+                .max_exact_families,
+            4
+        );
         assert!(config.validate().is_ok());
 
         config
@@ -831,6 +856,24 @@ mod tests {
             .training
             .objective_gradient_diagnostics
             .included_families = Vec::new();
+        config
+            .training
+            .objective_gradient_diagnostics
+            .sampling_mode = ObjectiveGradientSamplingMode::ExactSampled;
+        config
+            .training
+            .objective_gradient_diagnostics
+            .max_exact_families = 0;
+        let err = config.validate().unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("objective_gradient_diagnostics.max_exact_families"));
+
+        config
+            .training
+            .objective_gradient_diagnostics
+            .max_exact_families = 4;
+        config.training.objective_gradient_diagnostics.enabled = false;
         config.training.objective_scale_diagnostics.warning_ratio = 0.0;
         let err = config.validate().unwrap_err();
         assert!(err
@@ -944,6 +987,13 @@ mod tests {
         assert_eq!(config.model.slot_decomposition.activation_threshold, 0.5);
         assert!(config.model.slot_decomposition.attention_masking);
         assert_eq!(config.model.slot_decomposition.minimum_visible_slots, 1);
+        assert_eq!(
+            config
+                .model
+                .slot_decomposition
+                .activation_mass_evidence_weight,
+            0.5
+        );
         assert_eq!(config.model.slot_decomposition.balance_window, 32);
 
         config.model.slot_decomposition.activation_temperature = 0.0;
@@ -957,6 +1007,16 @@ mod tests {
         let err = config.validate().unwrap_err();
         assert!(err.to_string().contains(
             "model.slot_decomposition.minimum_visible_slots must be non-negative"
+        ));
+
+        let mut config = ResearchConfig::default();
+        config
+            .model
+            .slot_decomposition
+            .activation_mass_evidence_weight = f64::NAN;
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains(
+            "model.slot_decomposition.activation_mass_evidence_weight must be finite and non-negative"
         ));
     }
 

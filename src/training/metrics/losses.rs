@@ -209,7 +209,7 @@ pub struct PrimaryObjectiveComponentMetrics {
     /// Topology synchronization flow contribution.
     #[serde(default)]
     pub flow_topology: Option<f64>,
-    /// Pocket/context representation flow contribution.
+    /// Ligand-pocket contact interaction-profile flow contribution.
     #[serde(default)]
     pub flow_pocket_context: Option<f64>,
     /// Cross-branch molecular flow synchronization contribution.
@@ -289,7 +289,7 @@ impl PrimaryObjectiveComponentMetrics {
             &mut records,
             "flow_endpoint",
             self.flow_endpoint,
-            "flow_matching_endpoint",
+            "flow_matching_velocity_derived_endpoint_consistency",
             true,
             true,
         );
@@ -321,7 +321,7 @@ impl PrimaryObjectiveComponentMetrics {
             &mut records,
             "flow_pocket_context",
             self.flow_pocket_context,
-            "molecular_flow_pocket_context",
+            "molecular_flow_pocket_interaction_profile",
             true,
             true,
         );
@@ -1467,6 +1467,12 @@ pub struct SlotUtilizationStepMetrics {
     pub mean_attention_visible_slot_fraction: f64,
     /// Mean slot-utilization entropy across modalities and examples.
     pub mean_slot_entropy: f64,
+    /// Mean maximum assignment-mass fraction across modalities and examples.
+    #[serde(default)]
+    pub mean_slot_mass_max_fraction: f64,
+    /// Mean effective number of assignment-mass slots, computed as exp(entropy).
+    #[serde(default)]
+    pub mean_slot_mass_effective_count: f64,
     /// Fraction of slots whose activation gate is effectively off.
     pub dead_slot_fraction: f64,
     /// Number of effectively dead slots by mean activation bucket.
@@ -1480,6 +1486,9 @@ pub struct SlotUtilizationStepMetrics {
     pub saturated_slot_count: usize,
     /// Number of modality/example diagnostics with collapse-like slot usage.
     pub collapse_warning_count: usize,
+    /// Number of modality/example diagnostics with highly concentrated slot mass.
+    #[serde(default)]
+    pub mass_concentration_warning_count: usize,
     /// Compact warning labels suitable for JSON summaries.
     #[serde(default)]
     pub warnings: Vec<String>,
@@ -1496,11 +1505,14 @@ impl Default for SlotUtilizationStepMetrics {
             mean_active_slot_fraction: 0.0,
             mean_attention_visible_slot_fraction: 0.0,
             mean_slot_entropy: 0.0,
+            mean_slot_mass_max_fraction: 0.0,
+            mean_slot_mass_effective_count: 0.0,
             dead_slot_fraction: 0.0,
             dead_slot_count: 0,
             diffuse_slot_count: 0,
             saturated_slot_count: 0,
             collapse_warning_count: 0,
+            mass_concentration_warning_count: 0,
             warnings: Vec::new(),
             slot_signatures: Vec::new(),
         }
@@ -1517,12 +1529,15 @@ impl SlotUtilizationStepMetrics {
         let mut active_fraction = 0.0;
         let mut visible_fraction = 0.0;
         let mut entropy = 0.0;
+        let mut mass_max_fraction = 0.0;
+        let mut mass_effective_count = 0.0;
         let mut dead_slots = 0.0;
         let mut slot_total = 0.0;
         let mut dead_slot_count = 0usize;
         let mut diffuse_slot_count = 0usize;
         let mut saturated_slot_count = 0usize;
         let mut collapse_warning_count = 0usize;
+        let mut mass_concentration_warning_count = 0usize;
         let mut warnings = Vec::new();
         let mut observations = 0.0_f64;
         let mut signature_accumulators = [
@@ -1541,12 +1556,15 @@ impl SlotUtilizationStepMetrics {
                 &mut active_fraction,
                 &mut visible_fraction,
                 &mut entropy,
+                &mut mass_max_fraction,
+                &mut mass_effective_count,
                 &mut dead_slots,
                 &mut slot_total,
                 &mut dead_slot_count,
                 &mut diffuse_slot_count,
                 &mut saturated_slot_count,
                 &mut collapse_warning_count,
+                &mut mass_concentration_warning_count,
                 &mut warnings,
                 &mut observations,
             );
@@ -1559,12 +1577,15 @@ impl SlotUtilizationStepMetrics {
                 &mut active_fraction,
                 &mut visible_fraction,
                 &mut entropy,
+                &mut mass_max_fraction,
+                &mut mass_effective_count,
                 &mut dead_slots,
                 &mut slot_total,
                 &mut dead_slot_count,
                 &mut diffuse_slot_count,
                 &mut saturated_slot_count,
                 &mut collapse_warning_count,
+                &mut mass_concentration_warning_count,
                 &mut warnings,
                 &mut observations,
             );
@@ -1577,12 +1598,15 @@ impl SlotUtilizationStepMetrics {
                 &mut active_fraction,
                 &mut visible_fraction,
                 &mut entropy,
+                &mut mass_max_fraction,
+                &mut mass_effective_count,
                 &mut dead_slots,
                 &mut slot_total,
                 &mut dead_slot_count,
                 &mut diffuse_slot_count,
                 &mut saturated_slot_count,
                 &mut collapse_warning_count,
+                &mut mass_concentration_warning_count,
                 &mut warnings,
                 &mut observations,
             );
@@ -1595,11 +1619,14 @@ impl SlotUtilizationStepMetrics {
             mean_active_slot_fraction: active_fraction / denom,
             mean_attention_visible_slot_fraction: visible_fraction / denom,
             mean_slot_entropy: entropy / denom,
+            mean_slot_mass_max_fraction: mass_max_fraction / denom,
+            mean_slot_mass_effective_count: mass_effective_count / denom,
             dead_slot_fraction: dead_slots / slot_total.max(1.0),
             dead_slot_count,
             diffuse_slot_count,
             saturated_slot_count,
             collapse_warning_count,
+            mass_concentration_warning_count,
             warnings,
             slot_signatures: signature_accumulators
                 .into_iter()
@@ -1632,12 +1659,15 @@ fn observe_slot_utilization_branch(
     active_fraction: &mut f64,
     visible_fraction: &mut f64,
     entropy: &mut f64,
+    mass_max_fraction: &mut f64,
+    mass_effective_count: &mut f64,
     dead_slots: &mut f64,
     slot_total: &mut f64,
     dead_slot_count: &mut usize,
     diffuse_slot_count: &mut usize,
     saturated_slot_count: &mut usize,
     collapse_warning_count: &mut usize,
+    mass_concentration_warning_count: &mut usize,
     warnings: &mut Vec<String>,
     observations: &mut f64,
 ) {
@@ -1649,6 +1679,10 @@ fn observe_slot_utilization_branch(
     *active_fraction += branch.active_slot_fraction;
     *visible_fraction += branch.attention_visible_slot_fraction;
     *entropy += branch.slot_entropy;
+    let max_mass_fraction = slot_mass_max_fraction(&slots_encoding.slot_weights);
+    let effective_mass_count = slot_mass_effective_count(&slots_encoding.slot_weights);
+    *mass_max_fraction += max_mass_fraction;
+    *mass_effective_count += effective_mass_count;
     *dead_slots += branch.dead_slot_count;
     *slot_total += slots;
     *observations += 1.0;
@@ -1668,6 +1702,13 @@ fn observe_slot_utilization_branch(
         *collapse_warning_count += 1;
         if warnings.len() < 8 {
             warnings.push(format!("{}_slot_collapse", branch.modality));
+        }
+    }
+    let mass_concentrated = slots > 1.0 && (max_mass_fraction >= 0.90 || effective_mass_count <= 1.25);
+    if mass_concentrated {
+        *mass_concentration_warning_count += 1;
+        if warnings.len() < 8 {
+            warnings.push(format!("{}_slot_mass_concentrated", branch.modality));
         }
     }
 }
@@ -1819,6 +1860,32 @@ fn slot_weight_entropy(weights: &tch::Tensor) -> f64 {
     }
     let normalized = (weights / weights.sum(tch::Kind::Float).clamp_min(1e-12)).clamp_min(1e-12);
     (-(&normalized * normalized.log()).sum(tch::Kind::Float)).double_value(&[])
+}
+
+fn slot_mass_max_fraction(weights: &tch::Tensor) -> f64 {
+    if weights.numel() == 0 {
+        return 0.0;
+    }
+    let total = weights.sum(tch::Kind::Float).double_value(&[]);
+    if !total.is_finite() || total.abs() <= 1.0e-12 {
+        return 0.0;
+    }
+    (weights / total)
+        .max()
+        .double_value(&[])
+        .clamp(0.0, 1.0)
+}
+
+fn slot_mass_effective_count(weights: &tch::Tensor) -> f64 {
+    if weights.numel() == 0 {
+        return 0.0;
+    }
+    let entropy = slot_weight_entropy(weights);
+    if entropy.is_finite() {
+        entropy.exp().min(weights.numel() as f64)
+    } else {
+        0.0
+    }
 }
 
 fn slot_probe_alignment(

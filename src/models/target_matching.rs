@@ -4,7 +4,7 @@ use tch::{Kind, Tensor};
 
 use crate::config::FlowTargetAlignmentPolicy;
 
-const MAX_EXACT_ASSIGNMENT_ROWS: usize = 10;
+const NON_FINITE_ASSIGNMENT_COST: f64 = 1.0e18;
 
 /// Cost summary for a generated-to-target row matching result.
 #[derive(Debug, Clone, PartialEq)]
@@ -282,71 +282,96 @@ fn assignment_for_rows(costs: &[Vec<f64>]) -> (Vec<(usize, usize)>, bool) {
     if rows == 0 || cols == 0 {
         return (Vec::new(), true);
     }
-    if rows <= MAX_EXACT_ASSIGNMENT_ROWS && cols <= 16 {
-        exact_assignment(costs).map_or_else(|| greedy_assignment(costs), |pairs| (pairs, true))
-    } else {
-        greedy_assignment(costs)
-    }
+    hungarian_assignment(costs).map_or_else(|| greedy_assignment(costs), |pairs| (pairs, true))
 }
 
-fn exact_assignment(costs: &[Vec<f64>]) -> Option<Vec<(usize, usize)>> {
-    let rows = costs.len();
-    let cols = costs.first()?.len();
-    if rows > cols {
+fn hungarian_assignment(costs: &[Vec<f64>]) -> Option<Vec<(usize, usize)>> {
+    let row_count = costs.len();
+    let col_count = costs.first()?.len();
+    if row_count == 0 || col_count == 0 || row_count > col_count {
         return None;
     }
-    let mut used = vec![false; cols];
-    let mut current = Vec::with_capacity(rows);
-    let mut best_pairs = Vec::new();
-    let mut best_cost = f64::INFINITY;
-    search_assignment(
-        0,
-        costs,
-        &mut used,
-        &mut current,
-        0.0,
-        &mut best_cost,
-        &mut best_pairs,
-    );
-    best_cost.is_finite().then_some(best_pairs)
+    if costs.iter().any(|row| row.len() != col_count) {
+        return None;
+    }
+
+    let mut row_potential = vec![0.0; row_count + 1];
+    let mut col_potential = vec![0.0; col_count + 1];
+    let mut matched_row_for_col = vec![0usize; col_count + 1];
+    let mut previous_col = vec![0usize; col_count + 1];
+
+    for row in 1..=row_count {
+        matched_row_for_col[0] = row;
+        let mut current_col = 0usize;
+        let mut min_slack = vec![f64::INFINITY; col_count + 1];
+        let mut used_col = vec![false; col_count + 1];
+        loop {
+            used_col[current_col] = true;
+            let current_row = matched_row_for_col[current_col];
+            let mut delta = f64::INFINITY;
+            let mut next_col = 0usize;
+
+            for col in 1..=col_count {
+                if used_col[col] {
+                    continue;
+                }
+                let reduced_cost = sanitized_cost(costs[current_row - 1][col - 1])
+                    - row_potential[current_row]
+                    - col_potential[col];
+                if reduced_cost < min_slack[col] {
+                    min_slack[col] = reduced_cost;
+                    previous_col[col] = current_col;
+                }
+                if min_slack[col] < delta {
+                    delta = min_slack[col];
+                    next_col = col;
+                }
+            }
+
+            if next_col == 0 || !delta.is_finite() {
+                return None;
+            }
+
+            for col in 0..=col_count {
+                if used_col[col] {
+                    row_potential[matched_row_for_col[col]] += delta;
+                    col_potential[col] -= delta;
+                } else {
+                    min_slack[col] -= delta;
+                }
+            }
+
+            current_col = next_col;
+            if matched_row_for_col[current_col] == 0 {
+                break;
+            }
+        }
+
+        loop {
+            let col = previous_col[current_col];
+            matched_row_for_col[current_col] = matched_row_for_col[col];
+            current_col = col;
+            if current_col == 0 {
+                break;
+            }
+        }
+    }
+
+    let mut pairs = Vec::with_capacity(row_count);
+    for (col, row) in matched_row_for_col.into_iter().enumerate().skip(1) {
+        if row > 0 {
+            pairs.push((row - 1, col - 1));
+        }
+    }
+    pairs.sort_by_key(|(row, _)| *row);
+    Some(pairs)
 }
 
-fn search_assignment(
-    row: usize,
-    costs: &[Vec<f64>],
-    used: &mut [bool],
-    current: &mut Vec<(usize, usize)>,
-    current_cost: f64,
-    best_cost: &mut f64,
-    best_pairs: &mut Vec<(usize, usize)>,
-) {
-    if row == costs.len() {
-        if current_cost < *best_cost {
-            *best_cost = current_cost;
-            *best_pairs = current.clone();
-        }
-        return;
-    }
-    if current_cost >= *best_cost {
-        return;
-    }
-    for col in 0..costs[row].len() {
-        if used[col] {
-            continue;
-        }
-        used[col] = true;
-        current.push((row, col));
-        search_assignment(
-            row + 1,
-            costs,
-            used,
-            current,
-            current_cost + costs[row][col],
-            best_cost,
-            best_pairs,
-        );
-        current.pop();
-        used[col] = false;
+fn sanitized_cost(cost: f64) -> f64 {
+    if cost.is_finite() {
+        cost
+    } else {
+        NON_FINITE_ASSIGNMENT_COST
     }
 }
 
@@ -394,6 +419,49 @@ mod tests {
         assert!(matching.cost_summary.exact_assignment);
         assert!(matching.cost_summary.total_cost <= 1.0e-12);
         assert_eq!(matching.mask.sum(Kind::Float).double_value(&[]), 3.0);
+    }
+
+    #[test]
+    fn rectangular_assignment_solves_greedy_counterexample_exactly() {
+        let costs = vec![vec![1.0, 2.0], vec![1.0, 100.0]];
+
+        let (pairs, exact) = assignment_for_rows(&costs);
+
+        assert!(exact);
+        assert_eq!(pairs, vec![(0, 1), (1, 0)]);
+        let total_cost = pairs
+            .iter()
+            .map(|(row, col)| costs[*row][*col])
+            .sum::<f64>();
+        assert_eq!(total_cost, 3.0);
+    }
+
+    #[test]
+    fn rectangular_assignment_remains_exact_above_previous_bruteforce_cutoff() {
+        let row_count = 12usize;
+        let col_count = 14usize;
+        let costs = (0..row_count)
+            .map(|row| {
+                (0..col_count)
+                    .map(|col| {
+                        let preferred = row + 2;
+                        if col == preferred {
+                            0.0
+                        } else {
+                            (100 + row + col) as f64
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        let (pairs, exact) = assignment_for_rows(&costs);
+
+        assert!(exact);
+        assert_eq!(pairs.len(), row_count);
+        for (row, col) in pairs {
+            assert_eq!(col, row + 2);
+        }
     }
 
     #[test]

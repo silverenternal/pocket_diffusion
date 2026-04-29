@@ -379,13 +379,16 @@ pub fn print_step_metrics(metrics: &StepMetrics) {
         metrics.stage_progress.active_objective_families.join(",")
     );
     println!(
-        "  slot utilization active_count={:.4} active_fraction={:.4} visible_fraction={:.4} entropy={:.4} dead_fraction={:.4} collapse_warnings={}",
+        "  slot utilization active_count={:.4} active_fraction={:.4} visible_fraction={:.4} entropy={:.4} mass_max={:.4} mass_effective={:.4} dead_fraction={:.4} collapse_warnings={} mass_warnings={}",
         metrics.slot_utilization.mean_active_slot_count,
         metrics.slot_utilization.mean_active_slot_fraction,
         metrics.slot_utilization.mean_attention_visible_slot_fraction,
         metrics.slot_utilization.mean_slot_entropy,
+        metrics.slot_utilization.mean_slot_mass_max_fraction,
+        metrics.slot_utilization.mean_slot_mass_effective_count,
         metrics.slot_utilization.dead_slot_fraction,
-        metrics.slot_utilization.collapse_warning_count
+        metrics.slot_utilization.collapse_warning_count,
+        metrics.slot_utilization.mass_concentration_warning_count
     );
     println!(
         "  primary weight={:.4} weighted={:.4} enabled={}",

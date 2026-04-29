@@ -11,8 +11,8 @@ use tch::{nn, nn::OptimizerConfig, Kind, Tensor};
 
 use crate::{
     config::{
-        AffinityWeighting, CrossAttentionMode, GenerationBackendFamilyConfig, ModalityFocusConfig,
-        ObjectiveGradientSamplingMode, PrimaryObjectiveConfig, ResearchConfig,
+        AffinityWeighting, CrossAttentionMode, GenerationBackendFamilyConfig, GenerationModeConfig,
+        ModalityFocusConfig, ObjectiveGradientSamplingMode, PrimaryObjectiveConfig, ResearchConfig,
     },
     data::{
         sample_order_seed_for_epoch, ExampleBatchSampler, MolecularExample, MolecularExampleSource,
@@ -105,6 +105,14 @@ struct GradientStepRunner<'a> {
 struct StepRuntimeTracker {
     started_at: Instant,
     memory_before_mb: f64,
+}
+
+#[derive(Debug, Clone)]
+struct ForwardExecutionProfile {
+    forward_batch_count: usize,
+    per_example_forward_count: usize,
+    forward_execution_mode: String,
+    de_novo_per_example_reason: Option<String>,
 }
 
 struct CheckpointStepTrigger {
@@ -368,6 +376,7 @@ impl StepRuntimeTracker {
         rollout_diagnostics_built: bool,
         rollout_diagnostic_execution_count: usize,
         objective_execution_counts: ObjectiveExecutionCountMetrics,
+        forward_execution: ForwardExecutionProfile,
     ) -> TrainingRuntimeProfileMetrics {
         let step_time_ms = self.started_at.elapsed().as_secs_f64() * 1000.0;
         let examples_per_second = if step_time_ms > 0.0 {
@@ -380,10 +389,10 @@ impl StepRuntimeTracker {
             step_time_ms,
             examples_per_second,
             batch_size,
-            forward_batch_count: 1,
-            per_example_forward_count: 0,
-            forward_execution_mode: "batched_interaction_context".to_string(),
-            de_novo_per_example_reason: None,
+            forward_batch_count: forward_execution.forward_batch_count,
+            per_example_forward_count: forward_execution.per_example_forward_count,
+            forward_execution_mode: forward_execution.forward_execution_mode,
+            de_novo_per_example_reason: forward_execution.de_novo_per_example_reason,
             rollout_diagnostics_built,
             rollout_diagnostic_execution_count,
             rollout_diagnostics_no_grad: rollout_diagnostics_built,
@@ -391,6 +400,48 @@ impl StepRuntimeTracker {
             memory_after_mb,
             memory_delta_mb: memory_after_mb - self.memory_before_mb,
             objective_execution_counts,
+        }
+    }
+}
+
+impl ForwardExecutionProfile {
+    fn from_config(config: &ResearchConfig, batch_size: usize) -> Self {
+        let backend_family = config.generation_method.resolved_primary_backend_family();
+        let generation_mode = config
+            .data
+            .generation_target
+            .generation_mode
+            .resolved_for_backend(backend_family);
+        if generation_mode == GenerationModeConfig::DeNovoInitialization {
+            return Self {
+                forward_batch_count: 0,
+                per_example_forward_count: batch_size,
+                forward_execution_mode: "per_example_de_novo_interaction_context".to_string(),
+                de_novo_per_example_reason: Some(
+                    "de_novo_training_uses_per_example_conditioning_and_target_matching_boundaries"
+                        .to_string(),
+                ),
+            };
+        }
+        if backend_family == GenerationBackendFamilyConfig::FlowMatching
+            && config
+                .model
+                .temporal_interaction_policy
+                .uses_flow_time_conditioning()
+        {
+            return Self {
+                forward_batch_count: 0,
+                per_example_forward_count: batch_size,
+                forward_execution_mode: "per_example_flow_time_conditioned_interaction_context"
+                    .to_string(),
+                de_novo_per_example_reason: None,
+            };
+        }
+        Self {
+            forward_batch_count: 1,
+            per_example_forward_count: 0,
+            forward_execution_mode: "batched_interaction_context".to_string(),
+            de_novo_per_example_reason: None,
         }
     }
 }
@@ -806,6 +857,7 @@ impl ResearchTrainer {
             build_rollout_diagnostics,
             rollout_diagnostic_execution_count,
             objective_execution_counts.clone(),
+            ForwardExecutionProfile::from_config(&self.config, examples.len()),
         );
 
         let metrics = StepMetrics {
@@ -1354,7 +1406,6 @@ fn primary_branch_schedule_report(
                 components.flow_synchronization.unwrap_or(0.0),
             ),
         ] {
-            let uses_atom_matching = branch_name != "pocket_context";
             let branch_values =
                 branch_scale_values(component_value, effective_weight, objective_flow_weight);
             entries.push(PrimaryBranchWeightRecord {
@@ -1369,30 +1420,27 @@ fn primary_branch_schedule_report(
                     flow.flow_contract_version.as_str(),
                     molecular.target_alignment_policy.as_str()
                 ),
-                target_matching_policy: uses_atom_matching
-                    .then(|| molecular.target_matching_policy.clone()),
-                target_matching_mean_cost: uses_atom_matching
-                    .then_some(molecular.target_matching_mean_cost),
-                target_matching_max_cost: uses_atom_matching
-                    .then_some(molecular.target_matching_cost_summary.max_cost),
-                target_matching_total_cost: uses_atom_matching
-                    .then_some(molecular.target_matching_cost_summary.total_cost),
-                target_matching_coverage: uses_atom_matching
-                    .then_some(molecular.target_matching_coverage),
-                target_matching_matched_count: uses_atom_matching
-                    .then_some(molecular.target_matching_cost_summary.matched_count),
-                target_matching_unmatched_generated_count: uses_atom_matching.then_some(
+                target_matching_policy: Some(molecular.target_matching_policy.clone()),
+                target_matching_mean_cost: Some(molecular.target_matching_mean_cost),
+                target_matching_max_cost: Some(molecular.target_matching_cost_summary.max_cost),
+                target_matching_total_cost: Some(molecular.target_matching_cost_summary.total_cost),
+                target_matching_coverage: Some(molecular.target_matching_coverage),
+                target_matching_matched_count: Some(
+                    molecular.target_matching_cost_summary.matched_count,
+                ),
+                target_matching_unmatched_generated_count: Some(
                     molecular
                         .target_matching_cost_summary
                         .unmatched_generated_count,
                 ),
-                target_matching_unmatched_target_count: uses_atom_matching.then_some(
+                target_matching_unmatched_target_count: Some(
                     molecular
                         .target_matching_cost_summary
                         .unmatched_target_count,
                 ),
-                target_matching_exact_assignment: uses_atom_matching
-                    .then_some(molecular.target_matching_cost_summary.exact_assignment),
+                target_matching_exact_assignment: Some(
+                    molecular.target_matching_cost_summary.exact_assignment,
+                ),
             });
         }
     }
@@ -1572,10 +1620,17 @@ fn exact_sampled_objective_gradient_diagnostics(
         .into_values()
         .filter(|tensor| tensor.requires_grad())
         .collect::<Vec<_>>();
-    let mut entries = families
-        .iter()
-        .map(|family| exact_objective_gradient_family_metric(family, &parameter_tensors))
-        .collect::<Vec<_>>();
+    let max_exact_families = config
+        .training
+        .objective_gradient_diagnostics
+        .max_exact_families
+        .max(1);
+    let exact_budget_limited = families.len() > max_exact_families;
+    let mut entries = exact_objective_gradient_family_metrics_with_budget(
+        &families,
+        &parameter_tensors,
+        max_exact_families,
+    );
     let norm_total = entries
         .iter()
         .filter_map(|entry| {
@@ -1598,7 +1653,11 @@ fn exact_sampled_objective_gradient_diagnostics(
             .training
             .objective_gradient_diagnostics
             .sample_every_steps,
-        sampling_mode: "exact_sampled_retained_graph".to_string(),
+        sampling_mode: if exact_budget_limited {
+            format!("exact_sampled_retained_graph_budgeted_max_{max_exact_families}")
+        } else {
+            "exact_sampled_retained_graph".to_string()
+        },
         entries,
     }
 }
@@ -1865,6 +1924,33 @@ fn exact_objective_gradient_family_metric(
     objective_gradient_family_metric(family, grad_l2_norm, 0.0, "exact_sampled", None)
 }
 
+fn exact_objective_gradient_family_metrics_with_budget(
+    families: &[ObjectiveGradientFamilyTensor],
+    parameter_tensors: &[Tensor],
+    max_exact_families: usize,
+) -> Vec<ObjectiveGradientFamilyMetrics> {
+    let exact_limit = max_exact_families.max(1);
+    families
+        .iter()
+        .enumerate()
+        .map(|(index, family)| {
+            if index < exact_limit {
+                exact_objective_gradient_family_metric(family, parameter_tensors)
+            } else {
+                objective_gradient_family_metric(
+                    family,
+                    0.0,
+                    0.0,
+                    "exact_budget_skipped",
+                    Some(format!(
+                        "exact sampled objective-gradient diagnostics were limited to {exact_limit} families; use included_families or raise max_exact_families to sample this family"
+                    )),
+                )
+            }
+        })
+        .collect()
+}
+
 fn objective_gradient_family_metric(
     family: &ObjectiveGradientFamilyTensor,
     grad_l2_norm: f64,
@@ -2105,6 +2191,15 @@ fn stage_readiness_reasons(
         reasons.push(format!(
             "slot_collapse_warning_count={} exceeds limit {}",
             latest.slot_utilization.collapse_warning_count, guard.max_slot_collapse_warnings
+        ));
+    }
+    if latest.slot_utilization.mass_concentration_warning_count
+        > guard.max_slot_mass_concentration_warnings
+    {
+        reasons.push(format!(
+            "slot_mass_concentration_warning_count={} exceeds limit {}",
+            latest.slot_utilization.mass_concentration_warning_count,
+            guard.max_slot_mass_concentration_warnings
         ));
     }
     if let Some(minimum) = guard.min_slot_signature_matching_score {
@@ -2975,6 +3070,16 @@ mod tests {
             .mean_active_slot_fraction
             .is_finite());
         assert!(metrics.slot_utilization.mean_slot_entropy.is_finite());
+        assert!(metrics
+            .slot_utilization
+            .mean_slot_mass_max_fraction
+            .is_finite());
+        assert!((0.0..=1.0).contains(&metrics.slot_utilization.mean_slot_mass_max_fraction));
+        assert!(metrics
+            .slot_utilization
+            .mean_slot_mass_effective_count
+            .is_finite());
+        assert!(metrics.slot_utilization.mean_slot_mass_effective_count >= 0.0);
         assert!(metrics.slot_utilization.dead_slot_fraction.is_finite());
         assert!(metrics.slot_utilization.dead_slot_fraction >= 0.0);
         let bucketed_slots = metrics.slot_utilization.dead_slot_count
@@ -3101,6 +3206,10 @@ mod tests {
         config
             .training
             .adaptive_stage_guard
+            .max_slot_mass_concentration_warnings = usize::MAX;
+        config
+            .training
+            .adaptive_stage_guard
             .max_gate_saturation_fraction = 1.0;
 
         let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
@@ -3152,6 +3261,10 @@ mod tests {
         config
             .training
             .adaptive_stage_guard
+            .max_slot_mass_concentration_warnings = 0;
+        config
+            .training
+            .adaptive_stage_guard
             .max_gate_saturation_fraction = 1.0;
 
         let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
@@ -3164,6 +3277,7 @@ mod tests {
             .train_batch_step(&var_store, &system, &dataset.examples()[..2])
             .unwrap();
         prior.slot_utilization.collapse_warning_count = 1;
+        prior.slot_utilization.mass_concentration_warning_count = 1;
         trainer.replace_history(vec![prior]);
 
         let metrics = trainer
@@ -3181,6 +3295,11 @@ mod tests {
             .readiness_reasons
             .iter()
             .any(|reason| reason.contains("slot_collapse_warning_count=1")));
+        assert!(metrics
+            .stage_progress
+            .readiness_reasons
+            .iter()
+            .any(|reason| reason.contains("slot_mass_concentration_warning_count=1")));
     }
 
     #[test]
@@ -3207,6 +3326,10 @@ mod tests {
             .training
             .adaptive_stage_guard
             .max_slot_collapse_warnings = usize::MAX;
+        config
+            .training
+            .adaptive_stage_guard
+            .max_slot_mass_concentration_warnings = usize::MAX;
         config
             .training
             .adaptive_stage_guard
@@ -3272,6 +3395,7 @@ mod tests {
         config.training.schedule.stage1_steps = 0;
         config.training.schedule.stage2_steps = 0;
         config.training.schedule.stage3_steps = 0;
+        config.training.schedule.warmup_floor = 1.0;
         config.training.loss_weights.eta_gate = 1.0;
         config
             .model
@@ -3729,7 +3853,11 @@ mod tests {
             branch("topology").target_matching_policy.as_deref(),
             Some("pad_with_mask")
         );
-        assert!(branch("pocket_context").target_matching_policy.is_none());
+        assert_eq!(
+            branch("pocket_context").target_matching_policy.as_deref(),
+            Some("pad_with_mask")
+        );
+        assert_eq!(branch("pocket_context").target_matching_coverage, Some(1.0));
         assert!(metrics
             .losses
             .primary
@@ -4006,6 +4134,38 @@ mod tests {
     }
 
     #[test]
+    fn exact_objective_gradient_diagnostics_budget_marks_overflow_families() {
+        let parameter = Tensor::from_slice(&[1.0_f32, 2.0]).set_requires_grad(true);
+        let families = (0..3)
+            .map(|index| {
+                let scale = (index + 1) as f64;
+                ObjectiveGradientFamilyTensor {
+                    family_name: format!("auxiliary:test_{index}"),
+                    weighted_value: scale,
+                    provenance: "auxiliary:test:exact_autograd".to_string(),
+                    objective: (&parameter * scale).sum(Kind::Float),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let entries = exact_objective_gradient_family_metrics_with_budget(
+            &families,
+            &[parameter.shallow_clone()],
+            1,
+        );
+
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].status, "exact_sampled");
+        assert!(entries[0].grad_l2_norm > 0.0);
+        assert_eq!(entries[1].status, "exact_budget_skipped");
+        assert_eq!(entries[2].status, "exact_budget_skipped");
+        assert!(entries[1]
+            .anomaly
+            .as_deref()
+            .is_some_and(|reason| reason.contains("max_exact_families")));
+    }
+
+    #[test]
     fn conditioned_denoising_primary_objective_reaches_decoder_gradients() {
         let mut config = ResearchConfig::default();
         config.data.batch_size = 2;
@@ -4081,6 +4241,16 @@ mod tests {
             trainable: true,
             ..crate::config::GenerationBackendConfig::default()
         };
+        config
+            .model
+            .temporal_interaction_policy
+            .flow_time_bucket_multipliers =
+            vec![crate::config::InteractionPathFlowTimeBucketMultiplier {
+                path: "geo_from_pocket".to_string(),
+                start_t: 0.0,
+                end_t: 1.0,
+                multiplier: 0.5,
+            }];
 
         let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
             .with_pocket_feature_dim(config.model.pocket_feature_dim);
@@ -4097,6 +4267,12 @@ mod tests {
             .paths
             .iter()
             .any(|path| path.flow_t.is_some() && path.flow_time_bucket.is_some()));
+        assert_eq!(metrics.runtime_profile.forward_batch_count, 0);
+        assert_eq!(metrics.runtime_profile.per_example_forward_count, 2);
+        assert_eq!(
+            metrics.runtime_profile.forward_execution_mode,
+            "per_example_flow_time_conditioned_interaction_context"
+        );
         assert!(!metrics.interaction.flow_time_buckets.is_empty());
         for bucket in &metrics.interaction.flow_time_buckets {
             assert!(matches!(bucket.bucket.as_str(), "low" | "mid" | "high"));
@@ -4576,6 +4752,19 @@ mod tests {
         assert_eq!(
             metrics.generation_mode,
             crate::config::GenerationModeConfig::DeNovoInitialization.as_str()
+        );
+        assert_eq!(metrics.runtime_profile.forward_batch_count, 0);
+        assert_eq!(metrics.runtime_profile.per_example_forward_count, 1);
+        assert_eq!(
+            metrics.runtime_profile.forward_execution_mode,
+            "per_example_de_novo_interaction_context"
+        );
+        assert_eq!(
+            metrics
+                .runtime_profile
+                .de_novo_per_example_reason
+                .as_deref(),
+            Some("de_novo_training_uses_per_example_conditioning_and_target_matching_boundaries")
         );
         assert!(metrics.losses.total.is_finite());
         assert!(metrics.losses.auxiliaries.probe.is_finite());

@@ -21,6 +21,7 @@ pub struct SoftSlotDecomposer {
     activation_threshold: f64,
     attention_masking: bool,
     minimum_visible_slots: i64,
+    activation_mass_evidence_weight: f64,
 }
 
 impl SoftSlotDecomposer {
@@ -76,6 +77,7 @@ impl SoftSlotDecomposer {
             activation_threshold: config.activation_threshold,
             attention_masking: config.attention_masking,
             minimum_visible_slots: config.minimum_visible_slots,
+            activation_mass_evidence_weight: config.activation_mass_evidence_weight,
         }
     }
 
@@ -93,8 +95,14 @@ impl SoftSlotDecomposer {
         let slots = normalized_assignments
             .transpose(1, 2)
             .bmm(&projected_tokens);
+        let slot_weights = slot_mass.shallow_clone()
+            / slot_mass
+                .sum_dim_intlist([1].as_slice(), true, Kind::Float)
+                .clamp_min(1e-6);
         let pooled = masked_token_mean(tokens, &mask);
-        let slot_activation_logits = pooled.apply(&self.slot_activation_logits);
+        let slot_activation_logits = pooled.apply(&self.slot_activation_logits)
+            + slot_mass_evidence(&slot_weights, self.num_slots)
+                * self.activation_mass_evidence_weight;
         let has_tokens = mask
             .sum_dim_intlist([1].as_slice(), true, Kind::Float)
             .gt(0.0)
@@ -110,10 +118,6 @@ impl SoftSlotDecomposer {
         let active_slot_count =
             active_slot_count_batch(&slot_activations, self.activation_threshold);
         let slots = slots * slot_activations.unsqueeze(-1);
-        let slot_weights = slot_mass.shallow_clone()
-            / slot_mass
-                .sum_dim_intlist([1].as_slice(), true, Kind::Float)
-                .clamp_min(1e-6);
         let reconstructed_tokens = token_assignments
             .bmm(&slots)
             .apply(&self.reconstruction_projector)
@@ -172,11 +176,14 @@ impl SlotDecomposer<ModalityEncoding, SlotEncoding> for SoftSlotDecomposer {
         let slots = normalized_assignments
             .transpose(0, 1)
             .matmul(&projected_tokens);
+        let slot_weights = slot_mass.shallow_clone() / slot_mass.sum(Kind::Float).clamp_min(1e-6);
         let pooled = tokens.mean_dim([0].as_slice(), false, Kind::Float);
         let slot_activation_logits = pooled
             .unsqueeze(0)
             .apply(&self.slot_activation_logits)
-            .squeeze_dim(0);
+            .squeeze_dim(0)
+            + slot_mass_evidence(&slot_weights, self.num_slots)
+                * self.activation_mass_evidence_weight;
         let slot_activations = (&slot_activation_logits / self.activation_temperature).sigmoid();
         let active_slot_mask = active_slot_mask(
             &slot_activations,
@@ -186,7 +193,6 @@ impl SlotDecomposer<ModalityEncoding, SlotEncoding> for SoftSlotDecomposer {
         );
         let active_slot_count = active_slot_count(&slot_activations, self.activation_threshold);
         let slots = slots * slot_activations.unsqueeze(-1);
-        let slot_weights = slot_mass.shallow_clone() / slot_mass.sum(Kind::Float).clamp_min(1e-6);
         let reconstructed_tokens = token_assignments
             .matmul(&slots)
             .apply(&self.reconstruction_projector);
@@ -209,6 +215,11 @@ fn masked_token_mean(tokens: &Tensor, mask: &Tensor) -> Tensor {
         .sum_dim_intlist([1].as_slice(), true, Kind::Float)
         .clamp_min(1.0);
     (tokens * mask.unsqueeze(-1)).sum_dim_intlist([1].as_slice(), false, Kind::Float) / denom
+}
+
+fn slot_mass_evidence(slot_weights: &Tensor, num_slots: i64) -> Tensor {
+    let slot_count = num_slots.max(1) as f64;
+    (slot_weights.clamp_min(1e-6) * slot_count).log()
 }
 
 fn active_slot_count(slot_activations: &Tensor, activation_threshold: f64) -> f64 {
@@ -361,6 +372,7 @@ mod tests {
             activation_threshold: 0.9,
             attention_masking: true,
             minimum_visible_slots: 1,
+            activation_mass_evidence_weight: 0.5,
             balance_window: 8,
         };
         let decomposer = SoftSlotDecomposer::new_with_config(&var_store.root(), 4, 3, &config);
@@ -376,6 +388,59 @@ mod tests {
     }
 
     #[test]
+    fn slot_activation_logits_include_assignment_mass_evidence() {
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let config = SlotDecompositionConfig {
+            activation_temperature: 1.0,
+            activation_threshold: 0.5,
+            attention_masking: true,
+            minimum_visible_slots: 1,
+            activation_mass_evidence_weight: 1.0,
+            balance_window: 8,
+        };
+        let decomposer = SoftSlotDecomposer::new_with_config(&var_store.root(), 4, 3, &config);
+        let input = ModalityEncoding {
+            token_embeddings: Tensor::from_slice(&[
+                1.0_f32, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+            ])
+            .reshape([3, 4]),
+            pooled_embedding: Tensor::zeros([4], (Kind::Float, Device::Cpu)),
+        };
+
+        let output = decomposer.decompose(&input);
+        let pooled = input
+            .token_embeddings
+            .mean_dim([0].as_slice(), false, Kind::Float);
+        let pooled_only = pooled
+            .unsqueeze(0)
+            .apply(&decomposer.slot_activation_logits)
+            .squeeze_dim(0);
+        let expected = pooled_only + slot_mass_evidence(&output.slot_weights, decomposer.num_slots);
+        let max_error = (output.slot_activation_logits - expected)
+            .abs()
+            .max()
+            .double_value(&[]);
+
+        assert!(max_error < 1e-5);
+    }
+
+    #[test]
+    fn slot_mass_evidence_is_centered_on_uniform_usage() {
+        let uniform = Tensor::from_slice(&[0.25_f32, 0.25, 0.25, 0.25]);
+        let skewed = Tensor::from_slice(&[0.7_f32, 0.1, 0.1, 0.1]);
+
+        let uniform_evidence = slot_mass_evidence(&uniform, 4);
+        let skewed_evidence = slot_mass_evidence(&skewed, 4);
+
+        assert!(
+            uniform_evidence.abs().max().double_value(&[]) < 1e-6,
+            "uniform slot usage should not bias activation logits"
+        );
+        assert!(skewed_evidence.double_value(&[0]) > 0.0);
+        assert!(skewed_evidence.double_value(&[1]) < 0.0);
+    }
+
+    #[test]
     fn slot_attention_masking_can_be_disabled_for_ablation() {
         let var_store = nn::VarStore::new(Device::Cpu);
         let config = SlotDecompositionConfig {
@@ -383,6 +448,7 @@ mod tests {
             activation_threshold: 0.99,
             attention_masking: false,
             minimum_visible_slots: 0,
+            activation_mass_evidence_weight: 0.5,
             balance_window: 8,
         };
         let decomposer = SoftSlotDecomposer::new_with_config(&var_store.root(), 4, 3, &config);
