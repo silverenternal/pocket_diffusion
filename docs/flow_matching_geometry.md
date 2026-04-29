@@ -1,10 +1,13 @@
-# Geometry Flow Matching (v1)
+# Geometry Flow Matching And Molecular Flow
 
-This repository now includes a **geometry-only flow matching generator** that minimally reuses the existing disentangled + conditioned stack.
+This repository keeps a **geometry-only flow matching generator** as the default
+baseline and also supports config-gated **full molecular flow** for de novo
+generation. The multi-modal contract is tracked in
+[`multimodal_flow_roadmap.md`](multimodal_flow_roadmap.md).
 
 ## Method
 
-For coordinates, we construct a linear path:
+For the active `geometry_flow` branch, we construct a linear coordinate path:
 
 - `x_t = (1 - t) * x0 + t * x1`
 - `x0`: noisy/corrupted ligand coordinates (configurable source and scale)
@@ -28,8 +31,8 @@ It now uses translation-invariant coordinate features (centered at `x0` centroid
 
 New primary objectives:
 
-- `flow_matching`
-- `denoising_flow_matching` (hybrid objective)
+- `flow_matching`: tensor-preserving flow-refinement velocity and endpoint objective.
+- `denoising_flow_matching`: hybrid training-objective composition that combines conditioned denoising and flow matching; it is not a separate generation mode.
 
 Flow loss is MSE over per-atom velocity:
 
@@ -46,7 +49,13 @@ When the active backend family is `flow_matching`, rollout uses ODE-style coordi
 - Euler: `x_{t+dt} = x_t + dt * v_theta(x_t, t)`
 - Heun: predictor-corrector variant
 
-The implementation supports low step counts (e.g., 10-50), geometry-only transport, and keeps topology fixed.
+With `geometry_only=true`, the implementation supports low step counts (e.g.,
+10-50), geometry-only transport, and keeps topology fixed. With
+`geometry_only=false` and all molecular branches enabled, rollout also updates
+atom types and native bond/topology payloads from `FullMolecularFlowHead`.
+Native bonds are decoded through a topology-synchronized graph extractor that
+combines bond logits, topology logits, coordinate distance priors, connectivity,
+and conservative valence budgets before writing raw rollout artifacts.
 
 ## Pipeline compatibility
 
@@ -63,13 +72,20 @@ The implementation supports low step counts (e.g., 10-50), geometry-only transpo
 - `steps`
 - `noise_scale`
 - `integration_method`: `euler | heun`
-- `geometry_only` (must stay `true` in v1)
+- `geometry_only` (`true` for coordinate-flow baseline, `false` for full
+  molecular flow)
 - `use_corrupted_x0`
+- `multi_modal.enabled_branches` (defaults to `["geometry"]`)
+- `multi_modal.branch_loss_weights`
+- `multi_modal.branch_schedule`
+- `multi_modal.allow_zero_weight_branch_ablation` (required when a present
+  branch is intentionally kept at zero final optimizer weight)
+- `multi_modal.warm_start_steps`
+- `multi_modal.claim_full_molecular_flow` (requires every required branch)
 
 Example config: `configs/flow_matching_experiment.json`.
 
 ## Current limitations
 
-- geometry-only flow (no topology diffusion/flow yet)
 - lightweight velocity head and deterministic synthetic noise path (v1 baseline)
 - not a full diffusion pipeline

@@ -1,0 +1,182 @@
+{
+  "artifact_name": "q3_bond_refinement_summary",
+  "backend_coverage_report": {
+    "artifact_name": "candidate_metric_coverage",
+    "backend_row_counts": {
+      "gnina": 300,
+      "vina": 400
+    },
+    "collision_count": 0,
+    "collisions": [],
+    "schema_version": 1,
+    "split_reports": {
+      "test": {
+        "candidate_count": 400,
+        "gnina_affinity_coverage_fraction": 0.75,
+        "gnina_cnn_score_coverage_fraction": 0.75,
+        "output_path": "checkpoints/q3_bond_refinement_public100/merged/candidate_metrics_test.jsonl",
+        "proxy_docking_like_fraction": 1.0,
+        "rdkit_metric_coverage_fraction": 0.8325,
+        "vina_score_coverage_fraction": 1.0
+      }
+    }
+  },
+  "claim_boundary": "This artifact evaluates coordinate-preserving bond refinement separately from the coordinate-moving repaired reference. Vina/GNINA are score_only backends, not experimental affinity.",
+  "coordinate_audit": {
+    "bond_logits_refined": {
+      "coordinate_preserving": true,
+      "max_rmsd_to_raw_geometry": 0.0,
+      "mean_rmsd_to_raw_geometry": 0.0
+    },
+    "repaired": {
+      "coordinate_preserving": false,
+      "max_rmsd_to_raw_geometry": 3.911230031171307,
+      "mean_rmsd_to_raw_geometry": 1.816572387089798
+    },
+    "valence_refined": {
+      "coordinate_preserving": true,
+      "max_rmsd_to_raw_geometry": 0.0,
+      "mean_rmsd_to_raw_geometry": 0.0
+    }
+  },
+  "gnina_repaired_status": "not_scored_in_q3_bond_refinement_run_after_external_gnina_hang_on_coordinate_moving_repaired_reference",
+  "inputs": {
+    "backend_coverage": "configs/q3_bond_refinement_backend_coverage.json",
+    "candidate_metrics": "checkpoints/q3_bond_refinement_public100/merged/candidate_metrics_test.jsonl",
+    "generation_layers": "checkpoints/q3_bond_refinement_public100/generation_layers_test.json"
+  },
+  "layer_summaries": {
+    "bond_logits_refined": {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "qed": 0.33,
+        "sa_score": 0.33,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "means": {
+        "bond_count": 26.18,
+        "clash_fraction": 0.015474549257536711,
+        "gnina_affinity": 24.940400800000003,
+        "gnina_cnn_score": 0.1377411,
+        "lipinski_violations": 0.3333333333333333,
+        "pocket_contact_fraction": 0.9431348572734547,
+        "qed": 0.3676953312419196,
+        "rdkit_valid_fraction": 1.0,
+        "sa_score": 2.7306060606060605,
+        "valence_violation_count": 2.38,
+        "vina_score": 24.94337
+      }
+    },
+    "raw_geometry": {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "qed": 1.0,
+        "sa_score": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "means": {
+        "bond_count": 0.0,
+        "clash_fraction": 0.015474549257536711,
+        "gnina_affinity": 24.940400800000003,
+        "gnina_cnn_score": 0.1377411,
+        "lipinski_violations": 0.86,
+        "pocket_contact_fraction": 0.9431348572734547,
+        "qed": 0.41741879116678454,
+        "rdkit_valid_fraction": 1.0,
+        "sa_score": 2.6946,
+        "valence_violation_count": 0.0,
+        "vina_score": 24.94337
+      }
+    },
+    "repaired": {
+      "backend_coverage": {
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "qed": 1.0,
+        "sa_score": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "means": {
+        "bond_count": 24.69,
+        "clash_fraction": 0.013984585279779789,
+        "gnina_affinity": null,
+        "gnina_cnn_score": null,
+        "lipinski_violations": 0.82,
+        "pocket_contact_fraction": 0.9918295705518675,
+        "qed": 0.4732437867887963,
+        "rdkit_valid_fraction": 1.0,
+        "sa_score": 4.0924000000000005,
+        "valence_violation_count": 0.0,
+        "vina_score": 79.69720000000001
+      }
+    },
+    "valence_refined": {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "qed": 1.0,
+        "sa_score": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "means": {
+        "bond_count": 23.24,
+        "clash_fraction": 0.015474549257536711,
+        "gnina_affinity": 24.940400800000003,
+        "gnina_cnn_score": 0.1377411,
+        "lipinski_violations": 1.02,
+        "pocket_contact_fraction": 0.9431348572734547,
+        "qed": 0.268299989424583,
+        "rdkit_valid_fraction": 1.0,
+        "sa_score": 3.6858,
+        "valence_violation_count": 0.0,
+        "vina_score": 24.94337
+      }
+    }
+  },
+  "paired_deltas_vs_raw_geometry": {
+    "bond_logits_refined": {
+      "bond_count": 26.18,
+      "clash_fraction": 0.0,
+      "gnina_affinity": 0.0,
+      "gnina_cnn_score": 0.0,
+      "lipinski_violations": -0.15151515151515152,
+      "pocket_contact_fraction": 0.0,
+      "qed": -0.12042749646664683,
+      "rdkit_valid_fraction": 0.0,
+      "sa_score": 0.5445454545454546,
+      "valence_violation_count": 2.38,
+      "vina_score": 0.0
+    },
+    "repaired": {
+      "bond_count": 24.69,
+      "clash_fraction": -0.0014899639777569231,
+      "lipinski_violations": -0.04,
+      "pocket_contact_fraction": 0.04869471327841289,
+      "qed": 0.05582499562201178,
+      "rdkit_valid_fraction": 0.0,
+      "sa_score": 1.3978,
+      "valence_violation_count": 0.0,
+      "vina_score": 54.75383
+    },
+    "valence_refined": {
+      "bond_count": 23.24,
+      "clash_fraction": 0.0,
+      "gnina_affinity": 0.0,
+      "gnina_cnn_score": 0.0,
+      "lipinski_violations": 0.16,
+      "pocket_contact_fraction": 0.0,
+      "qed": -0.14911880174220155,
+      "rdkit_valid_fraction": 0.0,
+      "sa_score": 0.9912000000000001,
+      "valence_violation_count": 0.0,
+      "vina_score": 0.0
+    }
+  },
+  "schema_version": 1
+}

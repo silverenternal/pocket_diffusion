@@ -15,6 +15,52 @@ pub trait Dataset {
     fn get(&self, index: usize) -> Option<&Self::Item>;
 }
 
+/// Indexed molecular-example source for future lazy or cached dataset loaders.
+///
+/// Current training paths still use [`InMemoryDataset::examples`] to avoid
+/// extra clones. This trait is a narrow adapter boundary for loaders that can
+/// expose stable indices but may need to parse or cache examples on demand.
+pub trait MolecularExampleSource {
+    /// Loader-specific error type.
+    type Error;
+
+    /// Number of addressable examples.
+    fn len(&self) -> usize;
+
+    /// Whether the source is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Load or clone one example by stable index.
+    fn get_example(&self, index: usize) -> Result<Option<MolecularExample>, Self::Error>;
+
+    /// Borrow materialized examples when available.
+    fn materialized_examples(&self) -> Option<&[MolecularExample]> {
+        None
+    }
+}
+
+/// Materialize an indexed source for existing slice-oriented training paths.
+pub fn collect_examples_from_source<S>(
+    source: &S,
+) -> Result<Vec<MolecularExample>, <S as MolecularExampleSource>::Error>
+where
+    S: MolecularExampleSource,
+{
+    if let Some(examples) = source.materialized_examples() {
+        return Ok(examples.to_vec());
+    }
+
+    let mut examples = Vec::with_capacity(source.len());
+    for index in 0..source.len() {
+        if let Some(example) = source.get_example(index)? {
+            examples.push(example);
+        }
+    }
+    Ok(examples)
+}
+
 /// Simple owned dataset used for Phase 1 integration and tests.
 #[derive(Debug, Clone, Default)]
 pub struct InMemoryDataset {
@@ -34,6 +80,16 @@ impl InMemoryDataset {
     /// Create a dataset from pre-built examples.
     pub fn new(examples: Vec<MolecularExample>) -> Self {
         Self { examples }
+    }
+
+    /// Number of materialized examples.
+    pub fn len(&self) -> usize {
+        self.examples.len()
+    }
+
+    /// Whether the dataset has no materialized examples.
+    pub fn is_empty(&self) -> bool {
+        self.examples.is_empty()
     }
 
     /// Borrow all examples in insertion order.
@@ -63,6 +119,7 @@ impl InMemoryDataset {
             crate::config::ParsingMode::Lightweight => "lightweight".to_string(),
             crate::config::ParsingMode::Strict => "strict".to_string(),
         };
+        let mut rotation_rng = StdRng::seed_from_u64(config.rotation_augmentation.seed);
 
         let mut examples =
             match config.dataset_format {
@@ -124,10 +181,16 @@ impl InMemoryDataset {
                             entry,
                             config.pocket_cutoff_angstrom,
                             config.parsing_mode,
+                            &config.rotation_augmentation,
+                            &mut rotation_rng,
                         )?;
                         validation.parsed_examples += 1;
                         validation.parsed_ligands += usize::from(parsed.parsed_ligand);
                         validation.parsed_pockets += usize::from(parsed.parsed_pocket);
+                        validation.rotation_augmentation_attempted_examples +=
+                            usize::from(parsed.rotation_augmentation_attempted);
+                        validation.rotation_augmentation_applied_examples +=
+                            usize::from(parsed.rotation_augmentation_applied);
                         validation.fallback_pocket_extractions +=
                             usize::from(parsed.used_pocket_fallback);
                         examples.push(example);
@@ -178,10 +241,16 @@ impl InMemoryDataset {
                             entry,
                             config.pocket_cutoff_angstrom,
                             config.parsing_mode,
+                            &config.rotation_augmentation,
+                            &mut rotation_rng,
                         )?;
                         validation.parsed_examples += 1;
                         validation.parsed_ligands += usize::from(parsed.parsed_ligand);
                         validation.parsed_pockets += usize::from(parsed.parsed_pocket);
+                        validation.rotation_augmentation_attempted_examples +=
+                            usize::from(parsed.rotation_augmentation_attempted);
+                        validation.rotation_augmentation_applied_examples +=
+                            usize::from(parsed.rotation_augmentation_applied);
                         validation.fallback_pocket_extractions +=
                             usize::from(parsed.used_pocket_fallback);
                         examples.push(example);
@@ -202,7 +271,12 @@ impl InMemoryDataset {
             examples.truncate(limit);
             validation.truncated_examples = original_len.saturating_sub(examples.len());
         }
-        finalize_validation_report(&mut validation, &examples);
+        finalize_validation_report(&mut validation, &examples, &config.generation_target);
+        enforce_target_context_leakage_policy(
+            &mut validation,
+            &config.generation_target,
+            &config.quality_filters,
+        )?;
 
         Ok(LoadedDataset {
             dataset: Self::new(examples),
@@ -331,5 +405,21 @@ impl InMemoryDataset {
             val: InMemoryDataset::new(val),
             test: InMemoryDataset::new(test),
         }
+    }
+}
+
+impl MolecularExampleSource for InMemoryDataset {
+    type Error = Infallible;
+
+    fn len(&self) -> usize {
+        self.examples.len()
+    }
+
+    fn get_example(&self, index: usize) -> Result<Option<MolecularExample>, Self::Error> {
+        Ok(self.examples.get(index).cloned())
+    }
+
+    fn materialized_examples(&self) -> Option<&[MolecularExample]> {
+        Some(&self.examples)
     }
 }

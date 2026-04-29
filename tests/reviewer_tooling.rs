@@ -223,10 +223,16 @@ fn correlation_table_builder_reports_missing_backend_coverage() {
         ),
     )
     .unwrap();
-    run_python(&["tools/correlation_table.py", "--output", output, input]);
+    run_python(&[
+        "tools/correlation_table.py",
+        "--allow-low-sample",
+        "--output",
+        output,
+        input,
+    ]);
 
     let payload = fs::read_to_string(output).expect("correlation table should exist");
-    assert!(payload.contains("\"pair_id\": \"pocket_fit_vs_docking\""));
+    assert!(payload.contains("\"pair_id\": \"pocket_fit_vs_vina\""));
     assert!(payload.contains("\"pearson\""));
     assert!(payload.contains("\"spearman\""));
     assert!(payload.contains("\"missing_count\""));
@@ -299,9 +305,25 @@ fn method_comparison_summary_includes_binding_analysis() {
         "--binding-output",
         binding,
     ]);
+    let summary_payload = fs::read_to_string(output).expect("method summary should exist");
+    assert!(summary_payload.contains("\"raw_native_evidence\""));
+    assert!(summary_payload.contains("\"processed_generation_evidence\""));
+    assert!(
+        summary_payload.find("\"raw_native_evidence\"").unwrap()
+            < summary_payload
+                .find("\"processed_generation_evidence\"")
+                .unwrap()
+    );
+    assert!(
+        summary_payload
+            .find("\"processed_generation_evidence\"")
+            .unwrap()
+            < summary_payload.find("\"methods\"").unwrap()
+    );
     let payload = fs::read_to_string(binding).expect("binding analysis should exist");
     assert!(payload
         .contains("\"comparison\": \"flow_matching_vs_conditioned_denoising_binding_metrics\""));
+    assert!(payload.contains("\"raw_native_evidence\""));
     assert!(payload.contains("\"flow_native_raw_flow\""));
     assert!(payload.contains("\"reranked_layer\""));
     assert!(payload.contains("\"promotion_decision\""));

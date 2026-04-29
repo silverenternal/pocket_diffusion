@@ -3,6 +3,7 @@
 //! This facade keeps the original parser API stable while separating manifest,
 //! affinity-label, structure-file, and fixture/test code.
 
+use rand::Rng;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,

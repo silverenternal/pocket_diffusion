@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "preset_id": "q14_full_flow_staged_warm_start",
+  "applies_to": "generation_method.flow_matching.multi_modal",
+  "claim_boundary": "This is a recommended primary full-flow branch schedule preset. It is not benchmark evidence by itself; claim-bearing runs must still report branch loss scales, matching provenance, raw-vs-processed generation layers, and backend/evaluation evidence.",
+  "enabled_branches": [
+    "geometry",
+    "atom_type",
+    "bond",
+    "topology",
+    "pocket_context"
+  ],
+  "allow_zero_weight_branch_ablation": false,
+  "branch_loss_weights": {
+    "geometry": 1.0,
+    "atom_type": 0.5,
+    "bond": 0.5,
+    "topology": 0.5,
+    "pocket_context": 0.5,
+    "synchronization": 0.25
+  },
+  "branch_schedule": {
+    "geometry": {
+      "enabled": true,
+      "start_step": 0,
+      "warmup_steps": 0,
+      "final_weight_multiplier": 1.0
+    },
+    "atom_type": {
+      "enabled": true,
+      "start_step": 50,
+      "warmup_steps": 50,
+      "final_weight_multiplier": 1.0
+    },
+    "bond": {
+      "enabled": true,
+      "start_step": 100,
+      "warmup_steps": 75,
+      "final_weight_multiplier": 1.0
+    },
+    "topology": {
+      "enabled": true,
+      "start_step": 150,
+      "warmup_steps": 75,
+      "final_weight_multiplier": 1.0
+    },
+    "pocket_context": {
+      "enabled": true,
+      "start_step": 200,
+      "warmup_steps": 100,
+      "final_weight_multiplier": 1.0
+    },
+    "synchronization": {
+      "enabled": true,
+      "start_step": 300,
+      "warmup_steps": 100,
+      "final_weight_multiplier": 1.0
+    }
+  },
+  "required_branch_report_fields": [
+    "branch_name",
+    "unweighted_value",
+    "effective_weight",
+    "weighted_value",
+    "schedule_multiplier",
+    "optimizer_facing",
+    "target_matching_policy",
+    "target_matching_coverage"
+  ],
+  "guardrails": [
+    "claim_full_molecular_flow configs must keep at least one branch active at step 0",
+    "claim_full_molecular_flow configs must keep every required branch implemented, present, and assigned positive static and scheduled optimizer weights",
+    "all required full-flow branches must have positive final_weight_multiplier",
+    "zero final branch weights require allow_zero_weight_branch_ablation=true and are non-claim ablations"
+  ]
+}

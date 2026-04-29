@@ -158,6 +158,12 @@ pub struct DatasetValidationReport {
     /// Fraction of retained examples carrying source structure provenance.
     #[serde(default)]
     pub retained_source_provenance_coverage: f32,
+    /// Number of examples processed by the rotation-augmentation policy.
+    #[serde(default)]
+    pub rotation_augmentation_attempted_examples: usize,
+    /// Number of examples actually rotated by the rotation-augmentation policy.
+    #[serde(default)]
+    pub rotation_augmentation_applied_examples: usize,
     /// Number of external label rows loaded.
     pub loaded_label_rows: usize,
     /// Total non-header rows seen in the label table.
@@ -215,6 +221,54 @@ pub struct DatasetValidationReport {
     /// Distinct retained normalization provenance values.
     #[serde(default)]
     pub retained_normalization_provenance_values: BTreeSet<String>,
+    /// Histogram of retained ligand atom-count bins for atom-count prior calibration.
+    #[serde(default)]
+    pub retained_ligand_atom_count_histogram: BTreeMap<String, usize>,
+    /// Histogram of retained pocket atom-count bins for atom-count prior calibration.
+    #[serde(default)]
+    pub retained_pocket_atom_count_histogram: BTreeMap<String, usize>,
+    /// Mean retained ligand atom count.
+    #[serde(default)]
+    pub retained_mean_ligand_atom_count: f64,
+    /// Atom-count prior provenance active for the configured generation mode.
+    #[serde(default)]
+    pub atom_count_prior_provenance: String,
+    /// Mean absolute atom-count prediction error when target ligand counts are available.
+    #[serde(default)]
+    pub atom_count_prior_mae: f64,
+    /// Coordinate-frame contract used by retained model examples.
+    #[serde(default)]
+    pub coordinate_frame_contract: String,
+    /// Number of retained examples with finite coordinate-frame origins.
+    #[serde(default)]
+    pub coordinate_frame_origin_valid_examples: usize,
+    /// Number of retained examples whose model coordinates satisfy the ligand-centered frame check.
+    #[serde(default)]
+    pub ligand_centered_coordinate_frame_examples: usize,
+    /// Whether every retained example reports pocket coordinates in the ligand-centered model frame.
+    #[serde(default)]
+    pub pocket_coordinates_centered_upstream: bool,
+    /// Candidate-artifact coordinate-frame contract paired with exported coordinates.
+    #[serde(default)]
+    pub coordinate_frame_artifact_contract: String,
+    /// Whether source-frame coordinates can be reconstructed from model coordinates plus origin.
+    #[serde(default)]
+    pub source_coordinate_reconstruction_supported: bool,
+    /// Generation-mode-specific target-context leakage contract.
+    #[serde(default)]
+    pub generation_target_leakage_contract: String,
+    /// Whether pocket/context tensors depend on target-ligand-derived centering.
+    #[serde(default)]
+    pub target_ligand_context_dependency_detected: bool,
+    /// Whether that target-ligand context dependency is allowed by the active generation mode.
+    #[serde(default)]
+    pub target_ligand_context_dependency_allowed: bool,
+    /// Whether configured validation rejected target-ligand context dependency for this mode.
+    #[serde(default)]
+    pub target_ligand_context_dependency_rejected: bool,
+    /// Warnings explaining target-ligand context leakage risk.
+    #[serde(default)]
+    pub target_ligand_context_leakage_warnings: Vec<String>,
     /// Warnings emitted by the affinity normalization path.
     pub normalization_warning_messages: Vec<String>,
     /// Active parsing mode used for the dataset load.
@@ -230,6 +284,10 @@ pub struct ParsedEntryReport {
     pub parsed_pocket: bool,
     /// Whether pocket extraction used the nearest-atom fallback.
     pub used_pocket_fallback: bool,
+    /// Whether rotation augmentation was attempted for this entry.
+    pub rotation_augmentation_attempted: bool,
+    /// Whether rotation augmentation was applied for this entry.
+    pub rotation_augmentation_applied: bool,
 }
 
 /// Metadata from attaching external affinity labels to manifest entries.
@@ -284,4 +342,3 @@ pub fn synthetic_phase1_examples() -> Vec<MolecularExample> {
         ),
     ]
 }
-

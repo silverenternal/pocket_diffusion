@@ -1,0 +1,123 @@
+{
+  "artifact_name": "q2_preference_dataset_contract",
+  "schema_version": 1,
+  "q2_training_boundary": "No RL, DPO, preference fine-tuning, or generator-level policy optimization is part of Q2.",
+  "preference_pair_required_fields": [
+    "pair_id",
+    "winner_candidate_id",
+    "loser_candidate_id",
+    "example_id",
+    "protein_id",
+    "method_id",
+    "winner_layer",
+    "loser_layer",
+    "preference_reason",
+    "feature_delta",
+    "evidence_source",
+    "backend_coverage",
+    "score_direction",
+    "claim_boundary"
+  ],
+  "feature_delta_contract": {
+    "definition": "winner_metric - loser_metric using candidate-level backend rows only",
+    "required_metrics_when_available": [
+      "vina_score",
+      "gnina_affinity",
+      "gnina_cnn_score",
+      "qed",
+      "sa_score",
+      "clash_fraction",
+      "pocket_contact_fraction",
+      "centroid_offset",
+      "lipinski_violations"
+    ],
+    "missing_semantics": "missing metrics are null with backend coverage status; missing is not zero"
+  },
+  "evidence_sources": [
+    {
+      "name": "backend_supported",
+      "allowed_when": "candidate-level RDKit and at least one score_only docking backend metric are present for both candidates"
+    },
+    {
+      "name": "proxy_only",
+      "allowed_when": "only heuristic pocket/contact/geometry proxy fields are present"
+    },
+    {
+      "name": "mixed_backend_proxy",
+      "allowed_when": "RDKit or docking exists for one side but not all required pair metrics"
+    }
+  ],
+  "pair_examples": [
+    {
+      "id": "docking_good_reasonable_druglike_no_clash",
+      "winner_condition": "lower Vina or GNINA affinity, reasonable QED/SA, low clash_fraction",
+      "loser_condition": "worse docking or clash while same example/protein",
+      "preference_reason": [
+        "better_score_only_docking",
+        "druglike_metrics_acceptable",
+        "no_steric_clash"
+      ],
+      "evidence_source": "backend_supported"
+    },
+    {
+      "id": "pocket_fit_high_but_docking_bad",
+      "winner_condition": "better docking despite lower or comparable pocket_contact_fraction",
+      "loser_condition": "high pocket_contact_fraction but worse Vina/GNINA",
+      "preference_reason": [
+        "proxy_misleading",
+        "docking_backend_overrides_proxy"
+      ],
+      "evidence_source": "backend_supported"
+    },
+    {
+      "id": "docking_good_but_sa_qed_unacceptable",
+      "winner_condition": "acceptable QED/SA with comparable docking",
+      "loser_condition": "good docking but SA/QED or Lipinski violation unacceptable",
+      "preference_reason": [
+        "druglike_constraint_overrides_docking"
+      ],
+      "evidence_source": "backend_supported"
+    },
+    {
+      "id": "repair_improves_proxy_but_destroys_docking",
+      "winner_condition": "raw or no_repair candidate with better score_only docking",
+      "loser_condition": "repaired/reranked/full_repair candidate with improved proxy but degraded Vina/GNINA",
+      "preference_reason": [
+        "postprocessing_proxy_failure",
+        "raw_layer_preferred_over_degraded_repair"
+      ],
+      "evidence_source": "backend_supported"
+    }
+  ],
+  "backend_coverage_contract": {
+    "required_fields": [
+      "rdkit_metric_coverage_fraction",
+      "vina_score_coverage_fraction",
+      "gnina_affinity_coverage_fraction",
+      "gnina_cnn_score_coverage_fraction",
+      "pocket_contact_coverage_fraction"
+    ],
+    "minimum_for_backend_supported_pair": {
+      "rdkit_metric_coverage_fraction": 1.0,
+      "one_of_vina_or_gnina_affinity": 1.0,
+      "pocket_contact_coverage_fraction": 1.0
+    }
+  },
+  "layer_policy": {
+    "raw_model_native_layers": [
+      "raw_flow",
+      "raw_rollout",
+      "no_repair"
+    ],
+    "constrained_or_postprocessed_layers": [
+      "constrained_flow",
+      "repaired",
+      "reranked",
+      "centroid_only",
+      "clash_only",
+      "bond_inference_only",
+      "full_repair"
+    ],
+    "reporting_rule": "Preference pairs may compare layers, but layer names and candidate ids must be preserved; repaired/reranked wins must not be described as raw model-native wins."
+  }
+}

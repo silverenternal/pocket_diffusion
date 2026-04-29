@@ -74,15 +74,27 @@ pub fn load_manifest_entry(
     entry: &ManifestEntry,
     pocket_cutoff_angstrom: f32,
     parsing_mode: ParsingMode,
+    rotation_augmentation: &crate::config::types::RotationAugmentationConfig,
+    rotation_rng: &mut rand::rngs::StdRng,
 ) -> Result<(MolecularExample, ParsedEntryReport), DataParseError> {
-    let ligand = load_ligand_from_sdf(&entry.ligand_path)?;
+    let mut ligand = load_ligand_from_sdf(&entry.ligand_path)?;
     let center = ligand_center(&ligand);
-    let pocket_result = load_pocket_from_pdb(
+    let mut pocket_result = load_pocket_from_pdb(
         &entry.pocket_path,
         center,
         pocket_cutoff_angstrom,
         parsing_mode,
     )?;
+
+    let (rotation_augmentation_attempted, rotation_augmentation_applied) =
+        apply_rotation_augmentation(
+            &mut ligand,
+            &mut pocket_result.pocket,
+            center,
+            rotation_augmentation,
+            rotation_rng,
+        );
+
     let mut example = MolecularExample::from_legacy_with_targets(
         entry.example_id.clone(),
         entry.protein_id.clone(),
@@ -106,7 +118,79 @@ pub fn load_manifest_entry(
             parsed_ligand: true,
             parsed_pocket: true,
             used_pocket_fallback: pocket_result.used_fallback,
+            rotation_augmentation_attempted,
+            rotation_augmentation_applied,
         },
     ))
 }
 
+fn apply_rotation_augmentation(
+    ligand: &mut Ligand,
+    pocket: &mut Pocket,
+    center: [f64; 3],
+    rotation_augmentation: &crate::config::types::RotationAugmentationConfig,
+    rotation_rng: &mut rand::rngs::StdRng,
+) -> (bool, bool) {
+    if !rotation_augmentation.enabled {
+        return (false, false);
+    }
+
+    let attempted = true;
+    if rotation_rng.gen_range(0.0..1.0) >= f64::from(rotation_augmentation.probability) {
+        return (attempted, false);
+    }
+
+    let rotation = random_rotation_matrix(rotation_rng);
+    rotate_atoms(&mut ligand.atoms, center, rotation);
+    rotate_atoms(&mut pocket.atoms, center, rotation);
+    (attempted, true)
+}
+
+fn random_rotation_matrix(rng: &mut rand::rngs::StdRng) -> [[f64; 3]; 3] {
+    // Uniform random quaternion sampling.
+    let u1: f64 = rng.gen_range(0.0..1.0);
+    let u2: f64 = rng.gen_range(0.0..1.0);
+    let u3: f64 = rng.gen_range(0.0..1.0);
+
+    let sqrt_u1 = u1.sqrt();
+    let sqrt_one_minus_u1 = (1.0 - u1).sqrt();
+    let phi_1 = 2.0 * std::f64::consts::PI * u2;
+    let phi_2 = 2.0 * std::f64::consts::PI * u3;
+
+    let x = sqrt_one_minus_u1 * phi_1.sin();
+    let y = sqrt_one_minus_u1 * phi_1.cos();
+    let z = sqrt_u1 * phi_2.sin();
+    let w = sqrt_u1 * phi_2.cos();
+
+    let xx = x * x;
+    let yy = y * y;
+    let zz = z * z;
+    let xy = x * y;
+    let xz = x * z;
+    let xw = x * w;
+    let yz = y * z;
+    let yw = y * w;
+    let zw = z * w;
+
+    [
+        [1.0 - 2.0 * (yy + zz), 2.0 * (xy - zw), 2.0 * (xz + yw)],
+        [2.0 * (xy + zw), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - xw)],
+        [2.0 * (xz - yw), 2.0 * (yz + xw), 1.0 - 2.0 * (xx + yy)],
+    ]
+}
+
+fn rotate_atoms(atoms: &mut [Atom], center: [f64; 3], matrix: [[f64; 3]; 3]) {
+    for atom in atoms.iter_mut() {
+        let rel_x = atom.coords[0] - center[0];
+        let rel_y = atom.coords[1] - center[1];
+        let rel_z = atom.coords[2] - center[2];
+
+        let rotated_x = matrix[0][0] * rel_x + matrix[0][1] * rel_y + matrix[0][2] * rel_z;
+        let rotated_y = matrix[1][0] * rel_x + matrix[1][1] * rel_y + matrix[1][2] * rel_z;
+        let rotated_z = matrix[2][0] * rel_x + matrix[2][1] * rel_y + matrix[2][2] * rel_z;
+
+        atom.coords[0] = center[0] + rotated_x;
+        atom.coords[1] = center[1] + rotated_y;
+        atom.coords[2] = center[2] + rotated_z;
+    }
+}

@@ -20,9 +20,9 @@ impl Default for IntraRedundancyLoss {
 impl IntraRedundancyLoss {
     /// Compute the aggregate intra-modality redundancy penalty.
     pub(crate) fn compute(&self, slots: &DecomposedModalities) -> Tensor {
-        let topo = self.modality_loss(&slots.topology.slots);
-        let geo = self.modality_loss(&slots.geometry.slots);
-        let pocket = self.modality_loss(&slots.pocket.slots);
+        let topo = self.modality_loss(&slots.topology.slots, &slots.topology.active_slot_mask);
+        let geo = self.modality_loss(&slots.geometry.slots, &slots.geometry.active_slot_mask);
+        let pocket = self.modality_loss(&slots.pocket.slots, &slots.pocket.active_slot_mask);
         (topo + geo + pocket) / 3.0
     }
 
@@ -43,12 +43,16 @@ impl IntraRedundancyLoss {
         total / forwards.len() as f64
     }
 
-    fn modality_loss(&self, slot_matrix: &Tensor) -> Tensor {
+    fn modality_loss(&self, slot_matrix: &Tensor, active_slot_mask: &Tensor) -> Tensor {
+        if slot_matrix.size()[0] <= 1 {
+            return Tensor::zeros([1], (Kind::Float, slot_matrix.device()));
+        }
+        let slot_matrix = active_slot_matrix(slot_matrix, active_slot_mask);
         if slot_matrix.size()[0] <= 1 {
             return Tensor::zeros([1], (Kind::Float, slot_matrix.device()));
         }
 
-        let centered = slot_matrix - slot_matrix.mean_dim([0].as_slice(), true, Kind::Float);
+        let centered = &slot_matrix - slot_matrix.mean_dim([0].as_slice(), true, Kind::Float);
         let denom = (slot_matrix.size()[0] - 1).max(1) as f64;
         let covariance = centered.transpose(0, 1).matmul(&centered) / denom;
         let dim = covariance.size()[0];
@@ -57,7 +61,7 @@ impl IntraRedundancyLoss {
         let off_diag = &covariance * off_diag_mask.shallow_clone();
         let covariance_penalty = off_diag.pow_tensor_scalar(2.0).mean(Kind::Float);
 
-        let normalized = slot_matrix
+        let normalized = &slot_matrix
             / slot_matrix
                 .pow_tensor_scalar(2.0)
                 .sum_dim_intlist([1].as_slice(), true, Kind::Float)
@@ -86,5 +90,72 @@ impl IntraRedundancyLoss {
         };
 
         covariance_penalty + predictability_penalty + 0.01 * hsic_penalty
+    }
+}
+
+fn active_slot_matrix(slot_matrix: &Tensor, active_slot_mask: &Tensor) -> Tensor {
+    let slot_count = slot_matrix.size().first().copied().unwrap_or(0).max(0);
+    if slot_count == 0 || active_slot_mask.numel() == 0 {
+        return slot_matrix.shallow_clone();
+    }
+    if active_slot_mask.size().first().copied().unwrap_or(0) != slot_count {
+        return slot_matrix.shallow_clone();
+    }
+    let active_indices = active_slot_mask
+        .to_device(slot_matrix.device())
+        .gt(0.5)
+        .nonzero()
+        .squeeze_dim(1);
+    let active_count = active_indices.size().first().copied().unwrap_or(0);
+    if active_count == 0 {
+        Tensor::zeros(
+            [0, slot_matrix.size().get(1).copied().unwrap_or(0)],
+            (Kind::Float, slot_matrix.device()),
+        )
+    } else {
+        slot_matrix.index_select(0, &active_indices)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tch::{Device, Kind, Tensor};
+
+    #[test]
+    fn redundancy_masks_inactive_slots_before_covariance() {
+        let loss = IntraRedundancyLoss::default();
+        let slots = Tensor::from_slice(&[
+            1.0_f32, 0.0, //
+            0.0, 1.0, //
+            100.0, 100.0,
+        ])
+        .reshape([3, 2]);
+        let active_mask = Tensor::from_slice(&[1.0_f32, 1.0, 0.0]);
+        let active_only = slots.narrow(0, 0, 2);
+        let all_active_mask = Tensor::ones([2], (Kind::Float, Device::Cpu));
+
+        let masked = loss.modality_loss(&slots, &active_mask);
+        let expected = loss.modality_loss(&active_only, &all_active_mask);
+
+        let delta = (masked - expected).abs().double_value(&[]);
+        assert!(delta <= 1e-6, "inactive slot changed redundancy by {delta}");
+    }
+
+    #[test]
+    fn redundancy_returns_zero_for_fewer_than_two_active_slots() {
+        let loss = IntraRedundancyLoss::default();
+        let slots = Tensor::randn([3, 4], (Kind::Float, Device::Cpu));
+        let one_active = Tensor::from_slice(&[0.0_f32, 1.0, 0.0]);
+        let none_active = Tensor::zeros([3], (Kind::Float, Device::Cpu));
+
+        assert_eq!(
+            loss.modality_loss(&slots, &one_active).double_value(&[]),
+            0.0
+        );
+        assert_eq!(
+            loss.modality_loss(&slots, &none_active).double_value(&[]),
+            0.0
+        );
     }
 }

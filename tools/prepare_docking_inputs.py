@@ -18,7 +18,19 @@ from pathlib import Path
 
 
 LAYER_SOURCES = [
+    ("raw_flow_candidates", "raw_flow"),
+    ("constrained_flow_candidates", "constrained_flow"),
+    ("raw_geometry_candidates", "raw_geometry"),
     ("raw_rollout_candidates", "raw_rollout"),
+    ("bond_logits_refined_candidates", "bond_logits_refined"),
+    ("valence_refined_candidates", "valence_refined"),
+    ("no_repair_candidates", "no_repair"),
+    ("centroid_only_candidates", "centroid_only"),
+    ("clash_only_candidates", "clash_only"),
+    ("bond_inference_only_candidates", "bond_inference_only"),
+    ("full_repair_candidates", "full_repair"),
+    ("gated_repair_candidates", "gated_repair"),
+    ("repair_rejected_candidates", "repair_rejected"),
     ("repaired_candidates", "repaired"),
     ("inferred_bond_candidates", "inferred_bond"),
     ("deterministic_proxy_candidates", "deterministic_proxy"),
@@ -66,6 +78,11 @@ def parse_args(argv):
         default=None,
         help="Optional explicit path for backend-ready candidate JSON.",
     )
+    parser.add_argument(
+        "--layers",
+        default=None,
+        help="Optional comma-separated layer allowlist, for example no_repair,centroid_only.",
+    )
     return parser.parse_args(argv[1:])
 
 
@@ -94,7 +111,7 @@ def candidate_id(method_id, layer, candidate, index):
     )
 
 
-def collect_candidates(path):
+def collect_candidates(path, allowed_layers=None):
     artifact = load_json(path)
     split = artifact.get("split_label") or Path(path).stem.replace("generation_layers_", "")
     method_id = (
@@ -104,6 +121,8 @@ def collect_candidates(path):
     )
     rows = []
     for source_key, layer in LAYER_SOURCES:
+        if allowed_layers is not None and layer not in allowed_layers:
+            continue
         for index, candidate in enumerate(artifact.get(source_key, [])):
             enriched = dict(candidate)
             enriched["candidate_id"] = enriched.get("candidate_id") or candidate_id(
@@ -365,9 +384,12 @@ def write_markdown(path, report):
 def main(argv):
     args = parse_args(argv)
     output_dir = Path(args.output_dir)
+    allowed_layers = None
+    if args.layers:
+        allowed_layers = {item.strip() for item in args.layers.split(",") if item.strip()}
     candidates = []
     for generation_path in args.generation_layers:
-        candidates.extend(collect_candidates(generation_path))
+        candidates.extend(collect_candidates(generation_path, allowed_layers))
     candidate_json = Path(args.candidate_json) if args.candidate_json else output_dir / "docking_candidates.json"
     prepared, records, counts = prepare_candidates(candidates, output_dir)
     write_json(candidate_json, prepared)

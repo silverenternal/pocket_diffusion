@@ -302,6 +302,7 @@ mod tests {
 
         Ligand {
             atoms,
+            bond_types: vec![1; bonds.len()],
             bonds,
             fingerprint: None,
         }

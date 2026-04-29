@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "artifact_name": "q2_drug_metric_coverage_plan",
+  "updated_at": "2026-04-28",
+  "summary": "Most requested Q2 drug-level metrics are already emitted by existing RDKit, Vina, GNINA, merge, and pocket/contact backends; PAINS and Brenk are deferred pending explicit RDKit support checks.",
+  "metrics": [
+    {
+      "metric": "vina_score_only",
+      "backend_fields": [
+        "vina_score",
+        "vina_score_mean",
+        "vina_score_success_fraction",
+        "vina_failure_reason"
+      ],
+      "source": "tools/vina_score_backend.py",
+      "provenance_type": "score_only_backend",
+      "status": "implemented"
+    },
+    {
+      "metric": "gnina_affinity_score_only",
+      "backend_fields": [
+        "gnina_affinity",
+        "gnina_affinity_mean",
+        "gnina_score_success_fraction",
+        "gnina_failure_reason"
+      ],
+      "source": "tools/gnina_score_backend.py",
+      "provenance_type": "score_only_backend",
+      "status": "implemented"
+    },
+    {
+      "metric": "gnina_cnn_score",
+      "backend_fields": [
+        "gnina_cnn_score",
+        "gnina_cnn_score_mean"
+      ],
+      "source": "tools/gnina_score_backend.py",
+      "provenance_type": "score_only_backend",
+      "status": "implemented"
+    },
+    {
+      "metric": "qed",
+      "backend_fields": [
+        "qed",
+        "raw_qed"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_chemistry_property",
+      "status": "implemented"
+    },
+    {
+      "metric": "sa_score",
+      "backend_fields": [
+        "sa_score"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "local_proxy_chemistry_property",
+      "status": "implemented",
+      "note": "This is a local proxy implementation, not the full Ertl-Schuffenhauer SA implementation."
+    },
+    {
+      "metric": "logp",
+      "backend_fields": [
+        "logp"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_chemistry_property",
+      "status": "implemented"
+    },
+    {
+      "metric": "tpsa",
+      "backend_fields": [
+        "tpsa"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_chemistry_property",
+      "status": "implemented"
+    },
+    {
+      "metric": "lipinski_violations",
+      "backend_fields": [
+        "lipinski_violations"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_chemistry_property",
+      "status": "implemented"
+    },
+    {
+      "metric": "scaffold_novelty",
+      "backend_fields": [
+        "scaffold_novelty_fraction",
+        "reference_scaffold_count"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_scaffold_metric",
+      "status": "implemented"
+    },
+    {
+      "metric": "nearest_train_similarity",
+      "backend_fields": [
+        "nearest_train_similarity"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_similarity_metric",
+      "status": "implemented"
+    },
+    {
+      "metric": "smiles_uniqueness",
+      "backend_fields": [
+        "rdkit_unique_smiles",
+        "rdkit_unique_smiles_fraction"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_chemistry_property",
+      "status": "implemented"
+    },
+    {
+      "metric": "scaffold_diversity",
+      "backend_fields": [
+        "unique_scaffold_fraction",
+        "pairwise_tanimoto_mean"
+      ],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "derived_scaffold_metric",
+      "status": "implemented"
+    },
+    {
+      "metric": "contact_clash_centroid",
+      "backend_fields": [
+        "contact_fraction",
+        "clash_fraction",
+        "centroid_inside_fraction",
+        "centroid_offset",
+        "mean_min_contact_distance"
+      ],
+      "source": "tools/pocket_contact_backend.py",
+      "provenance_type": "geometric_proxy",
+      "status": "implemented"
+    },
+    {
+      "metric": "runtime",
+      "backend_fields": [
+        "backend_runtime_seconds",
+        "backend_runtime_status"
+      ],
+      "source": "tools/vina_score_backend.py and tools/gnina_score_backend.py",
+      "provenance_type": "backend_runtime_measurement",
+      "status": "implemented_for_scoring_backends"
+    },
+    {
+      "metric": "coverage_and_failure_reason",
+      "backend_fields": [
+        "input_count",
+        "scored_count",
+        "failure_count",
+        "failure_reasons",
+        "backend_missing_structure_fraction"
+      ],
+      "source": "tools/vina_score_backend.py, tools/gnina_score_backend.py, tools/merge_candidate_metric_backends.py",
+      "provenance_type": "backend_contract_metadata",
+      "status": "implemented"
+    },
+    {
+      "metric": "pains_filter",
+      "backend_fields": [],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "medicinal_chemistry_filter",
+      "status": "feasible_extension",
+      "reason": "Requires explicit local RDKit FilterCatalog support check."
+    },
+    {
+      "metric": "brenk_filter",
+      "backend_fields": [],
+      "source": "tools/rdkit_validity_backend.py",
+      "provenance_type": "medicinal_chemistry_filter",
+      "status": "feasible_extension",
+      "reason": "Requires explicit local RDKit FilterCatalog support check."
+    }
+  ],
+  "table_rules": [
+    "Do not duplicate backend scoring logic in table renderers.",
+    "Render missing metrics as NA with coverage, not as zero.",
+    "Label Vina and GNINA values as score_only backend outputs, not experimental affinity.",
+    "Expose runtime, coverage, and failure reasons beside aggregate metric values."
+  ]
+}

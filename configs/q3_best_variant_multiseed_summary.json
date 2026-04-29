@@ -1,0 +1,208 @@
+{
+  "aggregates": {
+    "clash_fraction": {
+      "max": 0.0939211673406245,
+      "mean": 0.08009810855773479,
+      "min": 0.06648865909273302,
+      "seed_count": 3,
+      "std": 0.011200293118133857,
+      "variance": 0.0001254465659321166
+    },
+    "gnina_affinity": {
+      "max": 83.2075117,
+      "mean": 75.4063705,
+      "min": 70.6465061,
+      "seed_count": 3,
+      "std": 5.560679745706845,
+      "variance": 30.92115923431434
+    },
+    "gnina_cnn_score": {
+      "max": 0.08140460000000001,
+      "mean": 0.07173996666666667,
+      "min": 0.0559093,
+      "seed_count": 3,
+      "std": 0.011284725836968993,
+      "variance": 0.00012734503721555554
+    },
+    "pocket_contact_fraction": {
+      "max": 0.9530279447314675,
+      "mean": 0.9478504123582692,
+      "min": 0.9396307298208327,
+      "seed_count": 3,
+      "std": 0.005877207389952286,
+      "variance": 3.454156670450977e-05
+    },
+    "qed": {
+      "max": 0.43498110138181134,
+      "mean": 0.42393035290967246,
+      "min": 0.41781929470020585,
+      "seed_count": 3,
+      "std": 0.007828678350039017,
+      "variance": 6.128820470836964e-05
+    },
+    "sa_score": {
+      "max": 2.6982,
+      "mean": 2.6966,
+      "min": 2.6946,
+      "seed_count": 3,
+      "std": 0.0014966629547096095,
+      "variance": 2.240000000000099e-06
+    },
+    "vina_score": {
+      "max": 83.22453999999999,
+      "mean": 75.41233333333334,
+      "min": 70.64415,
+      "seed_count": 3,
+      "std": 5.5687288602476865,
+      "variance": 31.0107411189555
+    }
+  },
+  "artifact_name": "q3_best_variant_multiseed_summary",
+  "baseline_q2_flow_matching_raw_flow": {
+    "clash_fraction": 0.015474549257536711,
+    "gnina_affinity": 24.940400800000003,
+    "gnina_cnn_score": 0.1377411,
+    "layer": "raw_flow",
+    "method_id": "flow_matching",
+    "pocket_contact_fraction": 0.9431348572734547,
+    "qed": 0.41741879116678454,
+    "sa_score": 2.6946,
+    "vina_score": 24.94337
+  },
+  "best_variant": "pairwise_distance_direction",
+  "claim_boundary": "Vina/GNINA are score_only backend metrics, not experimental affinity. This artifact is a negative/confirmation gate, not a promotion claim.",
+  "decision": "best Q3 raw-flow multiseed mean does not beat Q2 flow_matching raw_flow on Vina/GNINA score_only; no statistical dominance claim emitted",
+  "delta_vs_q2_raw_flow": {
+    "clash_fraction": 0.06462355930019809,
+    "gnina_affinity": 50.46596969999999,
+    "gnina_cnn_score": -0.06600113333333334,
+    "pocket_contact_fraction": 0.004715555084814471,
+    "qed": 0.006511561742887917,
+    "sa_score": 0.002000000000000224,
+    "vina_score": 50.468963333333335
+  },
+  "evidence_threshold": {
+    "dominance_claim_allowed": false,
+    "requires_no_qed_sa_regression": true,
+    "requires_vina_or_gnina_mean_improvement_vs_q2": true
+  },
+  "public_baseline_raw_native": [
+    {
+      "clash_fraction": 0.005526315789473684,
+      "gnina_affinity": -0.8584511,
+      "gnina_cnn_score": 0.3738102,
+      "layer": "raw_rollout",
+      "method_id": "diffsbdd_public",
+      "pocket_contact_fraction": 0.9657436560155479,
+      "qed": 0.439806817785092,
+      "sa_score": 2.4604,
+      "vina_score": -0.3601348314606741
+    },
+    {
+      "clash_fraction": 0.0,
+      "gnina_affinity": -2.1092388,
+      "gnina_cnn_score": 0.5881317,
+      "layer": "raw_rollout",
+      "method_id": "pocket2mol_public",
+      "pocket_contact_fraction": 0.985995670995671,
+      "qed": 0.4410529309537189,
+      "sa_score": 1.5075999999999998,
+      "vina_score": -2.1086043956043956
+    },
+    {
+      "clash_fraction": 0.00245,
+      "gnina_affinity": -3.9247755,
+      "gnina_cnn_score": 0.38617080000000004,
+      "layer": "raw_rollout",
+      "method_id": "targetdiff_public",
+      "pocket_contact_fraction": 0.9680118796047185,
+      "qed": 0.41663570576273334,
+      "sa_score": 2.759,
+      "vina_score": -4.138011235955056
+    }
+  ],
+  "schema_version": 1,
+  "seed_runs": [
+    {
+      "artifact_dir": "checkpoints/q3_best_variant_multiseed/seed_17",
+      "candidate_count": 100,
+      "config": "configs/q3_best_variant_multiseed_seed_17.json",
+      "metrics_mean": {
+        "clash_fraction": 0.0939211673406245,
+        "gnina_affinity": 83.2075117,
+        "gnina_cnn_score": 0.0559093,
+        "pocket_contact_fraction": 0.9396307298208327,
+        "qed": 0.41899066264700013,
+        "sa_score": 2.697,
+        "vina_score": 83.22453999999999
+      },
+      "metrics_std": {
+        "clash_fraction": 0.10360566839530168,
+        "gnina_affinity": 61.04003534708085,
+        "gnina_cnn_score": 0.11386244379298206,
+        "pocket_contact_fraction": 0.1546292637000998,
+        "qed": 0.15494440329309173,
+        "sa_score": 0.7491935664432791,
+        "vina_score": 61.0457132505502
+      },
+      "pocket_count": 100,
+      "seed": 17
+    },
+    {
+      "artifact_dir": "checkpoints/q3_best_variant_multiseed/seed_42",
+      "candidate_count": 100,
+      "config": "configs/q3_best_variant_multiseed_seed_42.json",
+      "metrics_mean": {
+        "clash_fraction": 0.06648865909273302,
+        "gnina_affinity": 70.6465061,
+        "gnina_cnn_score": 0.07790599999999999,
+        "pocket_contact_fraction": 0.9530279447314675,
+        "qed": 0.41781929470020585,
+        "sa_score": 2.6946,
+        "vina_score": 70.64415
+      },
+      "metrics_std": {
+        "clash_fraction": 0.08262025668469732,
+        "gnina_affinity": 52.472296462346755,
+        "gnina_cnn_score": 0.11933150484260223,
+        "pocket_contact_fraction": 0.1227362034408104,
+        "qed": 0.15417795642011128,
+        "sa_score": 0.7439400782321114,
+        "vina_score": 52.4632229094582
+      },
+      "pocket_count": 100,
+      "seed": 42
+    },
+    {
+      "artifact_dir": "checkpoints/q3_best_variant_multiseed/seed_101",
+      "candidate_count": 100,
+      "config": "configs/q3_best_variant_multiseed_seed_101.json",
+      "metrics_mean": {
+        "clash_fraction": 0.07988449923984685,
+        "gnina_affinity": 72.3650937,
+        "gnina_cnn_score": 0.08140460000000001,
+        "pocket_contact_fraction": 0.9508925625225075,
+        "qed": 0.43498110138181134,
+        "sa_score": 2.6982,
+        "vina_score": 72.36831000000001
+      },
+      "metrics_std": {
+        "clash_fraction": 0.09924949848044931,
+        "gnina_affinity": 52.754810841522875,
+        "gnina_cnn_score": 0.12404961845503597,
+        "pocket_contact_fraction": 0.13186159116549173,
+        "qed": 0.14392830729272324,
+        "sa_score": 0.7528085812475839,
+        "vina_score": 52.751848933794726
+      },
+      "pocket_count": 100,
+      "seed": 101
+    }
+  ],
+  "seeds": [
+    17,
+    42,
+    101
+  ],
+  "status": "completed_negative_result"
+}

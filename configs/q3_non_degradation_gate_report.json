@@ -1,0 +1,21 @@
+{
+  "artifact_name": "q3_non_degradation_gate_report",
+  "failures": [],
+  "leaderboard_path": "configs/q3_model_improvement_leaderboard.json",
+  "schema_version": 1,
+  "status": "pass",
+  "warnings": [
+    "flow_matching constrained_flow Vina degradation 54.75 exceeds 5",
+    "flow_matching constrained_flow GNINA degradation 54.74 exceeds 5",
+    "q3_pairwise_geometry constrained_flow Vina degradation 17.24 exceeds 5",
+    "q3_pairwise_geometry constrained_flow GNINA degradation 17.23 exceeds 5",
+    "q3_pairwise_geometry constrained_flow Vina degradation 22.21 exceeds 5",
+    "q3_pairwise_geometry constrained_flow GNINA degradation 22.19 exceeds 5",
+    "q3_local_pocket_flow constrained_flow Vina degradation 14.76 exceeds 5",
+    "q3_local_pocket_flow constrained_flow GNINA degradation 14.75 exceeds 5",
+    "q3_pairwise_geometry constrained_flow Vina degradation 33.37 exceeds 5",
+    "q3_pairwise_geometry constrained_flow GNINA degradation 33.35 exceeds 5",
+    "q3_pairwise_geometry constrained_flow Vina degradation 56.39 exceeds 5",
+    "q3_pairwise_geometry constrained_flow GNINA degradation 56.36 exceeds 5"
+  ]
+}

@@ -346,9 +346,9 @@ pub struct AutomatedSearchSpaceConfig {
     /// Candidate coordinate update scales.
     #[serde(default)]
     pub coordinate_step_scale: Vec<f64>,
-    /// Candidate per-step weighting decay values.
-    #[serde(default)]
-    pub training_step_weight_decay: Vec<f64>,
+    /// Candidate detached rollout-evaluation per-step weighting decay values.
+    #[serde(default, alias = "training_step_weight_decay")]
+    pub rollout_eval_step_weight_decay: Vec<f64>,
     /// Candidate coordinate momentum values.
     #[serde(default)]
     pub coordinate_momentum: Vec<f64>,
@@ -425,8 +425,8 @@ impl AutomatedSearchSpaceConfig {
                 false,
             ),
             (
-                "automated_search.search_space.training_step_weight_decay",
-                &self.training_step_weight_decay,
+                "automated_search.search_space.rollout_eval_step_weight_decay",
+                &self.rollout_eval_step_weight_decay,
                 true,
                 false,
             ),
@@ -635,7 +635,7 @@ fn validate_usize_search_values(
     if values.is_empty() {
         return Ok(0);
     }
-    if positive_required && values.iter().any(|value| *value == 0) {
+    if positive_required && values.contains(&0) {
         return Err(ConfigValidationError::new(format!(
             "{name} entries must be greater than zero"
         )));

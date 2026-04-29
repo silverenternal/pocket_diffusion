@@ -1,0 +1,2476 @@
+{
+  "artifact_name": "q3_repair_damage_cases",
+  "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+  "claim_boundary": "This is a postprocessing-diagnosis artifact. It does not promote repaired layers as model-native evidence.",
+  "comparison": "Each case compares one postprocessing layer against the same method/example no_repair baseline.",
+  "component_counts": {
+    "bond_payload_chemistry_regression": 196,
+    "bond_payload_or_conversion": 1,
+    "coordinate_movement": 580,
+    "mixed_or_inconclusive": 423
+  },
+  "counts": {
+    "candidate_geometry_records": 1500,
+    "paired_layer_comparisons": 1200,
+    "skipped": {},
+    "worst_case_count": 20
+  },
+  "generation_layers": [
+    "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+    "checkpoints/q2_postprocessing_ablation/pocket2mol_public/generation_layers_test.json",
+    "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+  ],
+  "layer_damage_summary": {
+    "bond_inference_only": {
+      "candidate_count": 300,
+      "degraded_candidate_count": 0,
+      "failure_component_counts": {
+        "bond_payload_chemistry_regression": 196,
+        "mixed_or_inconclusive": 104
+      },
+      "mean_bond_count_delta": 17.37,
+      "mean_centroid_shift": 0.0,
+      "mean_degradation_score": 0.0,
+      "mean_docking_box_center_shift": 0.0
+    },
+    "centroid_only": {
+      "candidate_count": 300,
+      "degraded_candidate_count": 293,
+      "failure_component_counts": {
+        "coordinate_movement": 283,
+        "mixed_or_inconclusive": 17
+      },
+      "mean_bond_count_delta": 0.0,
+      "mean_centroid_shift": 15.920140456682933,
+      "mean_degradation_score": 284.65341086666666,
+      "mean_docking_box_center_shift": 9.911293752807373
+    },
+    "clash_only": {
+      "candidate_count": 300,
+      "degraded_candidate_count": 33,
+      "failure_component_counts": {
+        "mixed_or_inconclusive": 300
+      },
+      "mean_bond_count_delta": 0.0,
+      "mean_centroid_shift": 0.000728024486570619,
+      "mean_degradation_score": -0.08411683333333335,
+      "mean_docking_box_center_shift": 0.0008271121638117662
+    },
+    "full_repair": {
+      "candidate_count": 300,
+      "degraded_candidate_count": 299,
+      "failure_component_counts": {
+        "bond_payload_or_conversion": 1,
+        "coordinate_movement": 297,
+        "mixed_or_inconclusive": 2
+      },
+      "mean_bond_count_delta": 2.223333333333333,
+      "mean_centroid_shift": 20.95240130771308,
+      "mean_degradation_score": 305.2688314,
+      "mean_docking_box_center_shift": 13.666355854073991
+    }
+  },
+  "schema_version": 1,
+  "worst_cases": [
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:072_TNKS1_HUMAN_1099_1319_0:0",
+      "degradation_score": 1262.57298,
+      "delta_vs_no_repair": {
+        "centroid_offset": -8.181032385254726,
+        "clash_fraction": 0.375,
+        "gnina_affinity": 631.25598,
+        "gnina_cnn_score": -0.44781,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 631.317
+      },
+      "example_id": "072_TNKS1_HUMAN_1099_1319_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -8.26212135,
+          16.74552955,
+          -10.40229755
+        ],
+        "centroid_raw": [
+          -15.950548800000002,
+          19.51961085,
+          -10.053228025
+        ],
+        "centroid_shift": 8.18103252934536,
+        "coordinate_rmsd": 8.181032529345403,
+        "docking_box_center_shift": 6.602255468962612,
+        "docking_box_layer": {
+          "center": [
+            -8.6809365,
+            16.7749965,
+            -11.512756999999999
+          ],
+          "size": [
+            24.720454,
+            24.720454,
+            24.720454
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            -14.661939697115386,
+            19.549078,
+            -11.163687000000001
+          ],
+          "size": [
+            24.720454,
+            24.720454,
+            24.720454
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 1.3425088171783638e-07,
+        "clash_fraction": 0.375,
+        "gnina_affinity": 613.23608,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.16841061802435356,
+        "sa_score": 3.9000000000000004,
+        "vina_score": 613.3
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "TNKS1_HUMAN_1099_1319_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:072_TNKS1_HUMAN_1099_1319_0:0",
+      "raw_metrics": {
+        "centroid_offset": 8.181032519505608,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -18.0199,
+        "gnina_cnn_score": 0.44781,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.16841061802435356,
+        "sa_score": 3.9000000000000004,
+        "vina_score": -18.017
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:072_TNKS1_HUMAN_1099_1319_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:072_TNKS1_HUMAN_1099_1319_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:026_PHKG1_RABIT_6_296_ATPsite_0:0",
+      "degradation_score": 1168.84808,
+      "delta_vs_no_repair": {
+        "centroid_offset": -10.592933204873985,
+        "clash_fraction": 0.4,
+        "gnina_affinity": 584.30508,
+        "gnina_cnn_score": -0.45631,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 584.543
+      },
+      "example_id": "026_PHKG1_RABIT_6_296_ATPsite_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          5.915982475,
+          24.795336900000002,
+          13.115377724999998
+        ],
+        "centroid_raw": [
+          10.3086745,
+          15.266179875,
+          14.56784385
+        ],
+        "centroid_shift": 10.592933242396933,
+        "coordinate_rmsd": 10.592933242396938,
+        "docking_box_center_shift": 9.22891555661545,
+        "docking_box_layer": {
+          "center": [
+            5.977556,
+            25.1862955,
+            13.269299
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            10.36653975168237,
+            17.19880246119336,
+            14.7217655
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 4.276347419752081e-08,
+        "clash_fraction": 0.4,
+        "gnina_affinity": 574.07483,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.1330082611551582,
+        "sa_score": 3.7,
+        "vina_score": 574.332
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "PHKG1_RABIT_6_296_ATPsite_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:026_PHKG1_RABIT_6_296_ATPsite_0:0",
+      "raw_metrics": {
+        "centroid_offset": 10.59293324763746,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -10.23025,
+        "gnina_cnn_score": 0.45631,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.1330082611551582,
+        "sa_score": 3.7,
+        "vina_score": -10.211
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:026_PHKG1_RABIT_6_296_ATPsite_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:026_PHKG1_RABIT_6_296_ATPsite_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "diffsbdd_public:full_repair:092_CHIB_SERMA_1_499_0:0",
+      "degradation_score": 1148.5651900000003,
+      "delta_vs_no_repair": {
+        "centroid_offset": -10.54111360128539,
+        "clash_fraction": 0.3684210526315789,
+        "gnina_affinity": 574.3041900000001,
+        "gnina_cnn_score": -0.10370999999999997,
+        "pocket_contact_fraction": 0.10526315789473684,
+        "qed": -0.026171372267436988,
+        "sa_score": -0.06000000000000005,
+        "vina_score": 574.2610000000001
+      },
+      "example_id": "092_CHIB_SERMA_1_499_0",
+      "geometry_delta": {
+        "atom_count_layer": 38,
+        "atom_count_raw": 38,
+        "bond_count_delta": 3,
+        "bond_count_layer": 3,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -13.352935184210526,
+          -8.151230578947368,
+          -26.74546060526316
+        ],
+        "centroid_raw": [
+          -21.988473684210526,
+          0.2486842105263158,
+          -31.79328947368421
+        ],
+        "centroid_shift": 13.061840220285422,
+        "coordinate_rmsd": 15.89219957716723,
+        "docking_box_center_shift": 9.792770628428599,
+        "docking_box_layer": {
+          "center": [
+            -15.2416155,
+            -8.7434095,
+            -27.819436500000002
+          ],
+          "size": [
+            32.732715,
+            32.732715,
+            32.732715
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            -20.476808203424483,
+            -1.6487317914643498,
+            -32.0805
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 8.732714999999999
+      },
+      "layer": "full_repair",
+      "layer_metrics": {
+        "centroid_offset": 1.2831001279413197,
+        "clash_fraction": 0.3684210526315789,
+        "gnina_affinity": 563.64197,
+        "gnina_cnn_score": 0.31285,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.24026058091520913,
+        "sa_score": 3.86,
+        "vina_score": 563.599
+      },
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "diffsbdd_public",
+      "protein_id": "CHIB_SERMA_1_499_0",
+      "raw_candidate_id": "diffsbdd_public:no_repair:092_CHIB_SERMA_1_499_0:0",
+      "raw_metrics": {
+        "centroid_offset": 11.82421372922671,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -10.66222,
+        "gnina_cnn_score": 0.41656,
+        "pocket_contact_fraction": 0.8947368421052632,
+        "qed": 0.2664319531826461,
+        "sa_score": 3.92,
+        "vina_score": -10.662
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_full_geometry_repair_and_bond_inference:raw_candidate=diffsbdd_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=diffsbdd_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:full_repair:092_CHIB_SERMA_1_499_0:0",
+      "degradation_score": 1118.3352300000001,
+      "delta_vs_no_repair": {
+        "centroid_offset": -10.804968166910463,
+        "clash_fraction": 0.275,
+        "gnina_affinity": 559.05523,
+        "gnina_cnn_score": -0.5287999999999999,
+        "pocket_contact_fraction": 0.025000000000000022,
+        "qed": 0.0006746253366870375,
+        "sa_score": 0.0,
+        "vina_score": 559.28
+      },
+      "example_id": "092_CHIB_SERMA_1_499_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 3,
+        "bond_count_layer": 3,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -13.29979385,
+          -8.620681325,
+          -26.562077950000003
+        ],
+        "centroid_raw": [
+          -22.282816175,
+          1.162163675,
+          -31.362463075
+        ],
+        "centroid_shift": 14.122409275112892,
+        "coordinate_rmsd": 17.12963610792371,
+        "docking_box_center_shift": 10.375783584340025,
+        "docking_box_layer": {
+          "center": [
+            -14.0842715,
+            -7.490686999999999,
+            -27.9185195
+          ],
+          "size": [
+            34.285433999999995,
+            34.285433999999995,
+            34.285433999999995
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            -20.861586203424483,
+            -0.45382079146434995,
+            -31.41242911001789
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 10.285433999999995
+      },
+      "layer": "full_repair",
+      "layer_metrics": {
+        "centroid_offset": 1.6857666597868057,
+        "clash_fraction": 0.275,
+        "gnina_affinity": 546.93677,
+        "gnina_cnn_score": 0.32125,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.12393451220031713,
+        "sa_score": 3.72,
+        "vina_score": 547.168
+      },
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "CHIB_SERMA_1_499_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:092_CHIB_SERMA_1_499_0:0",
+      "raw_metrics": {
+        "centroid_offset": 12.490734826697269,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -12.11846,
+        "gnina_cnn_score": 0.85005,
+        "pocket_contact_fraction": 0.975,
+        "qed": 0.1232598868636301,
+        "sa_score": 3.72,
+        "vina_score": -12.112
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_full_geometry_repair_and_bond_inference:raw_candidate=targetdiff_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:full_repair:031_CPXB_BACMB_2_464_0:0",
+      "degradation_score": 1099.47188,
+      "delta_vs_no_repair": {
+        "centroid_offset": -4.78177375348372,
+        "clash_fraction": 0.225,
+        "gnina_affinity": 549.8328799999999,
+        "gnina_cnn_score": -0.25966,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.005831558615690541,
+        "sa_score": 0.09000000000000075,
+        "vina_score": 549.639
+      },
+      "example_id": "031_CPXB_BACMB_2_464_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 9,
+        "bond_count_layer": 9,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          14.740230575000002,
+          48.8760903,
+          11.759162275
+        ],
+        "centroid_raw": [
+          19.883447525,
+          51.865195175,
+          20.3440655
+        ],
+        "centroid_shift": 10.444519708015847,
+        "coordinate_rmsd": 12.670689799237458,
+        "docking_box_center_shift": 10.338884428092697,
+        "docking_box_layer": {
+          "center": [
+            15.4361925,
+            50.0266765,
+            12.172597
+          ],
+          "size": [
+            33.769425,
+            33.769425,
+            33.769425
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            21.00312135577183,
+            52.298334,
+            20.583388076642336
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 9.769424999999998
+      },
+      "layer": "full_repair",
+      "layer_metrics": {
+        "centroid_offset": 2.831819200706902,
+        "clash_fraction": 0.225,
+        "gnina_affinity": 536.40131,
+        "gnina_cnn_score": 0.00511,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.20779175580979578,
+        "sa_score": 4.050000000000001,
+        "vina_score": 536.219
+      },
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "CPXB_BACMB_2_464_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:031_CPXB_BACMB_2_464_0:0",
+      "raw_metrics": {
+        "centroid_offset": 7.613592954190622,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -13.43157,
+        "gnina_cnn_score": 0.26477,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.20196019719410524,
+        "sa_score": 3.96,
+        "vina_score": -13.42
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_full_geometry_repair_and_bond_inference:raw_candidate=targetdiff_public:raw_rollout:031_CPXB_BACMB_2_464_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:031_CPXB_BACMB_2_464_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "diffsbdd_public:centroid_only:092_CHIB_SERMA_1_499_0:0",
+      "degradation_score": 1094.60761,
+      "delta_vs_no_repair": {
+        "centroid_offset": -11.824213300358672,
+        "clash_fraction": 0.3157894736842105,
+        "gnina_affinity": 547.1486100000001,
+        "gnina_cnn_score": -0.41656,
+        "pocket_contact_fraction": 0.10526315789473684,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 547.4590000000001
+      },
+      "example_id": "092_CHIB_SERMA_1_499_0",
+      "geometry_delta": {
+        "atom_count_layer": 38,
+        "atom_count_raw": 38,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -14.200616684210525,
+          -7.5374637894736845,
+          -27.487803473684213
+        ],
+        "centroid_raw": [
+          -21.988473684210526,
+          0.2486842105263158,
+          -31.79328947368421
+        ],
+        "centroid_shift": 11.824213590194868,
+        "coordinate_rmsd": 11.824213590194868,
+        "docking_box_center_shift": 10.038461429125123,
+        "docking_box_layer": {
+          "center": [
+            -14.596643,
+            -8.552147999999999,
+            -27.775014
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            -20.476808203424483,
+            -1.6487317914643498,
+            -32.0805
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 4.288680372271881e-07,
+        "clash_fraction": 0.3157894736842105,
+        "gnina_affinity": 536.48639,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.2664319531826461,
+        "sa_score": 3.92,
+        "vina_score": 536.797
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "diffsbdd_public",
+      "protein_id": "CHIB_SERMA_1_499_0",
+      "raw_candidate_id": "diffsbdd_public:no_repair:092_CHIB_SERMA_1_499_0:0",
+      "raw_metrics": {
+        "centroid_offset": 11.82421372922671,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -10.66222,
+        "gnina_cnn_score": 0.41656,
+        "pocket_contact_fraction": 0.8947368421052632,
+        "qed": 0.2664319531826461,
+        "sa_score": 3.92,
+        "vina_score": -10.662
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=diffsbdd_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=diffsbdd_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:092_CHIB_SERMA_1_499_0:0",
+      "degradation_score": 1094.14357,
+      "delta_vs_no_repair": {
+        "centroid_offset": -12.4907346885458,
+        "clash_fraction": 0.275,
+        "gnina_affinity": 547.04857,
+        "gnina_cnn_score": -0.85005,
+        "pocket_contact_fraction": 0.025000000000000022,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 547.0949999999999
+      },
+      "example_id": "092_CHIB_SERMA_1_499_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -14.200616375,
+          -7.53746345,
+          -27.487803200000002
+        ],
+        "centroid_raw": [
+          -22.282816175,
+          1.162163675,
+          -31.362463075
+        ],
+        "centroid_shift": 12.490734760937437,
+        "coordinate_rmsd": 12.49073476093745,
+        "docking_box_center_shift": 10.27144696485184,
+        "docking_box_layer": {
+          "center": [
+            -15.12355,
+            -8.30707,
+            -28.1103025
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            -20.861586203424483,
+            -0.45382079146434995,
+            -31.41242911001789
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 1.3815146875506273e-07,
+        "clash_fraction": 0.275,
+        "gnina_affinity": 534.93011,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.1232598868636301,
+        "sa_score": 3.72,
+        "vina_score": 534.983
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "CHIB_SERMA_1_499_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:092_CHIB_SERMA_1_499_0:0",
+      "raw_metrics": {
+        "centroid_offset": 12.490734826697269,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -12.11846,
+        "gnina_cnn_score": 0.85005,
+        "pocket_contact_fraction": 0.975,
+        "qed": 0.1232598868636301,
+        "sa_score": 3.72,
+        "vina_score": -12.112
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:031_CPXB_BACMB_2_464_0:0",
+      "degradation_score": 1091.15449,
+      "delta_vs_no_repair": {
+        "centroid_offset": -7.613592907181747,
+        "clash_fraction": 0.375,
+        "gnina_affinity": 545.54449,
+        "gnina_cnn_score": -0.26477,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 545.61
+      },
+      "example_id": "031_CPXB_BACMB_2_464_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          16.096032675,
+          49.6540619,
+          14.120467125
+        ],
+        "centroid_raw": [
+          19.883447525,
+          51.865195175,
+          20.3440655
+        ],
+        "centroid_shift": 7.613592997994795,
+        "coordinate_rmsd": 7.613592997994834,
+        "docking_box_center_shift": 7.094972637243556,
+        "docking_box_layer": {
+          "center": [
+            17.5201185,
+            50.087201,
+            14.8111945
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            21.00312135577183,
+            52.298334,
+            20.583388076642336
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 4.700887494389272e-08,
+        "clash_fraction": 0.375,
+        "gnina_affinity": 532.11292,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.20196019719410524,
+        "sa_score": 3.96,
+        "vina_score": 532.19
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "CPXB_BACMB_2_464_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:031_CPXB_BACMB_2_464_0:0",
+      "raw_metrics": {
+        "centroid_offset": 7.613592954190622,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -13.43157,
+        "gnina_cnn_score": 0.26477,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.20196019719410524,
+        "sa_score": 3.96,
+        "vina_score": -13.42
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:031_CPXB_BACMB_2_464_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:031_CPXB_BACMB_2_464_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:022_NR1H4_HUMAN_258_486_0:0",
+      "degradation_score": 1089.11682,
+      "delta_vs_no_repair": {
+        "centroid_offset": -9.095833465032483,
+        "clash_fraction": 0.425,
+        "gnina_affinity": 544.61182,
+        "gnina_cnn_score": -0.26341,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 544.505
+      },
+      "example_id": "022_NR1H4_HUMAN_258_486_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          26.00568765,
+          22.109156475,
+          -0.27420599999999995
+        ],
+        "centroid_raw": [
+          32.350920675000005,
+          28.161486724999996,
+          -2.6911262000000002
+        ],
+        "centroid_shift": 9.095833488459636,
+        "coordinate_rmsd": 9.095833488459654,
+        "docking_box_center_shift": 8.161770449254401,
+        "docking_box_layer": {
+          "center": [
+            25.574521,
+            20.1072515,
+            -1.0369010000000003
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            30.48800083066598,
+            26.1595825,
+            -3.4538209999999996
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 5.016945217696961e-08,
+        "clash_fraction": 0.425,
+        "gnina_affinity": 547.01099,
+        "gnina_cnn_score": 2e-05,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.19833839993627636,
+        "sa_score": 3.96,
+        "vina_score": 546.918
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "NR1H4_HUMAN_258_486_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:022_NR1H4_HUMAN_258_486_0:0",
+      "raw_metrics": {
+        "centroid_offset": 9.095833515201935,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 2.39917,
+        "gnina_cnn_score": 0.26343,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.19833839993627636,
+        "sa_score": 3.96,
+        "vina_score": 2.413
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:022_NR1H4_HUMAN_258_486_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:022_NR1H4_HUMAN_258_486_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:054_NOS1_HUMAN_302_723_0:0",
+      "degradation_score": 1045.47596,
+      "delta_vs_no_repair": {
+        "centroid_offset": -16.084418463656636,
+        "clash_fraction": 0.325,
+        "gnina_affinity": 522.71696,
+        "gnina_cnn_score": -0.101,
+        "pocket_contact_fraction": 0.09999999999999998,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 522.759
+      },
+      "example_id": "054_NOS1_HUMAN_302_723_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          11.89294125,
+          4.781900875,
+          41.4570241
+        ],
+        "centroid_raw": [
+          9.10746775,
+          2.5141057,
+          25.778798425
+        ],
+        "centroid_shift": 16.084418481598412,
+        "coordinate_rmsd": 16.084418481598437,
+        "docking_box_center_shift": 10.176404373319668,
+        "docking_box_layer": {
+          "center": [
+            11.605726,
+            5.4671475,
+            41.411896999999996
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            8.820252,
+            3.1993525,
+            31.890476601623572
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 1.215486466449746e-07,
+        "clash_fraction": 0.325,
+        "gnina_affinity": 515.12897,
+        "gnina_cnn_score": 1e-05,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.14786077024095753,
+        "sa_score": 3.8400000000000003,
+        "vina_score": 515.173
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "NOS1_HUMAN_302_723_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:054_NOS1_HUMAN_302_723_0:0",
+      "raw_metrics": {
+        "centroid_offset": 16.08441858520528,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -7.58799,
+        "gnina_cnn_score": 0.10101,
+        "pocket_contact_fraction": 0.9,
+        "qed": 0.14786077024095753,
+        "sa_score": 3.8400000000000003,
+        "vina_score": -7.586
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:054_NOS1_HUMAN_302_723_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:054_NOS1_HUMAN_302_723_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:full_repair:081_BGL07_ORYSJ_25_504_0:0",
+      "degradation_score": 1032.73286,
+      "delta_vs_no_repair": {
+        "centroid_offset": -8.698037898988352,
+        "clash_fraction": 0.35,
+        "gnina_affinity": 516.28086,
+        "gnina_cnn_score": 0.26439999999999997,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0038384364402037074,
+        "sa_score": 0.0,
+        "vina_score": 516.452
+      },
+      "example_id": "081_BGL07_ORYSJ_25_504_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 5,
+        "bond_count_layer": 5,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          11.470837275,
+          -0.41676705,
+          35.98006635
+        ],
+        "centroid_raw": [
+          2.833936025,
+          1.138595325,
+          43.112403125
+        ],
+        "centroid_shift": 11.308644622227483,
+        "coordinate_rmsd": 14.584460985399268,
+        "docking_box_center_shift": 9.82769153870665,
+        "docking_box_layer": {
+          "center": [
+            11.689733,
+            -2.2069220000000005,
+            36.209424
+          ],
+          "size": [
+            34.720764,
+            34.720764,
+            34.720764
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            4.872298466868261,
+            0.5205204999999999,
+            42.74143477583487
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 10.720764000000003
+      },
+      "layer": "full_repair",
+      "layer_metrics": {
+        "centroid_offset": 1.3767841920026413,
+        "clash_fraction": 0.35,
+        "gnina_affinity": 507.36966,
+        "gnina_cnn_score": 0.39349,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.23554909829885035,
+        "sa_score": 4.0200000000000005,
+        "vina_score": 507.541
+      },
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "BGL07_ORYSJ_25_504_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:081_BGL07_ORYSJ_25_504_0:0",
+      "raw_metrics": {
+        "centroid_offset": 10.074822090990994,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -8.9112,
+        "gnina_cnn_score": 0.12909,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.23171066185864664,
+        "sa_score": 4.0200000000000005,
+        "vina_score": -8.911
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_full_geometry_repair_and_bond_inference:raw_candidate=targetdiff_public:raw_rollout:081_BGL07_ORYSJ_25_504_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:081_BGL07_ORYSJ_25_504_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:053_NOS1_HUMAN_302_723_0:0",
+      "degradation_score": 998.15563,
+      "delta_vs_no_repair": {
+        "centroid_offset": -16.641851674128556,
+        "clash_fraction": 0.35,
+        "gnina_affinity": 499.12563,
+        "gnina_cnn_score": -0.04118,
+        "pocket_contact_fraction": 0.19999999999999996,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 499.03
+      },
+      "example_id": "053_NOS1_HUMAN_302_723_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          11.802922125,
+          4.88308565,
+          41.323725775
+        ],
+        "centroid_raw": [
+          9.058539125,
+          3.108394225,
+          25.005942150000003
+        ],
+        "centroid_shift": 16.64185176406086,
+        "coordinate_rmsd": 16.64185176406088,
+        "docking_box_center_shift": 10.183374153607518,
+        "docking_box_layer": {
+          "center": [
+            11.6689845,
+            5.11238,
+            41.22063
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            8.9246015,
+            3.3376884999999996,
+            31.575945392326176
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 8.324000312072932e-08,
+        "clash_fraction": 0.35,
+        "gnina_affinity": 488.76083,
+        "gnina_cnn_score": 2e-05,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.2577070011945573,
+        "sa_score": 4.08,
+        "vina_score": 488.673
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "NOS1_HUMAN_302_723_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:053_NOS1_HUMAN_302_723_0:0",
+      "raw_metrics": {
+        "centroid_offset": 16.64185175736856,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -10.3648,
+        "gnina_cnn_score": 0.0412,
+        "pocket_contact_fraction": 0.8,
+        "qed": 0.2577070011945573,
+        "sa_score": 4.08,
+        "vina_score": -10.357
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:053_NOS1_HUMAN_302_723_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:053_NOS1_HUMAN_302_723_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:037_ROCO4_DICDI_1009_1292_0:0",
+      "degradation_score": 990.81452,
+      "delta_vs_no_repair": {
+        "centroid_offset": -12.015863721429064,
+        "clash_fraction": 0.2647058823529412,
+        "gnina_affinity": 495.42752,
+        "gnina_cnn_score": -0.76675,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 495.387
+      },
+      "example_id": "037_ROCO4_DICDI_1009_1292_0",
+      "geometry_delta": {
+        "atom_count_layer": 34,
+        "atom_count_raw": 34,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -6.702334205882353,
+          1.4939955588235294,
+          21.536090470588235
+        ],
+        "centroid_raw": [
+          -6.814245205882353,
+          12.388517911764707,
+          16.46875982352941
+        ],
+        "centroid_shift": 12.015863733301805,
+        "coordinate_rmsd": 12.015863733301824,
+        "docking_box_center_shift": 8.935528991759014,
+        "docking_box_layer": {
+          "center": [
+            -6.194153999999999,
+            1.2079925,
+            21.596819
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            -6.306065,
+            9.096391747747749,
+            17.401069770270272
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 9.852712464722826e-08,
+        "clash_fraction": 0.2647058823529412,
+        "gnina_affinity": 485.22955,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.26765030666680945,
+        "sa_score": 3.54,
+        "vina_score": 485.185
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "ROCO4_DICDI_1009_1292_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:037_ROCO4_DICDI_1009_1292_0:0",
+      "raw_metrics": {
+        "centroid_offset": 12.015863819956188,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -10.19797,
+        "gnina_cnn_score": 0.76675,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.26765030666680945,
+        "sa_score": 3.54,
+        "vina_score": -10.202
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:037_ROCO4_DICDI_1009_1292_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:037_ROCO4_DICDI_1009_1292_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "diffsbdd_public:full_repair:016_M3K14_HUMAN_321_678_0:0",
+      "degradation_score": 978.72353,
+      "delta_vs_no_repair": {
+        "centroid_offset": -5.0274402785023335,
+        "clash_fraction": 0.10526315789473684,
+        "gnina_affinity": 489.30053,
+        "gnina_cnn_score": -0.26911,
+        "pocket_contact_fraction": 0.0,
+        "qed": -0.015788708426540926,
+        "sa_score": -0.08999999999999986,
+        "vina_score": 489.423
+      },
+      "example_id": "016_M3K14_HUMAN_321_678_0",
+      "geometry_delta": {
+        "atom_count_layer": 38,
+        "atom_count_raw": 38,
+        "bond_count_delta": 5,
+        "bond_count_layer": 5,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -15.832790605263156,
+          24.738741131578948,
+          1.989633
+        ],
+        "centroid_raw": [
+          -7.991184210526316,
+          31.327105263157897,
+          -1.5210526315789472
+        ],
+        "centroid_shift": 10.826922295095159,
+        "coordinate_rmsd": 12.164142933653585,
+        "docking_box_center_shift": 9.671224739064522,
+        "docking_box_layer": {
+          "center": [
+            -14.087405,
+            25.1114365,
+            2.8489065
+          ],
+          "size": [
+            32.912464,
+            32.912464,
+            32.912464
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            -7.1805,
+            30.66615923045436,
+            -1.0204999999999997
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 8.912464
+      },
+      "layer": "full_repair",
+      "layer_metrics": {
+        "centroid_offset": 2.9014820769071896,
+        "clash_fraction": 0.10526315789473684,
+        "gnina_affinity": 489.05597,
+        "gnina_cnn_score": 0.00015,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.1170390435623554,
+        "sa_score": 3.5300000000000002,
+        "vina_score": 489.18
+      },
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "diffsbdd_public",
+      "protein_id": "M3K14_HUMAN_321_678_0",
+      "raw_candidate_id": "diffsbdd_public:no_repair:016_M3K14_HUMAN_321_678_0:0",
+      "raw_metrics": {
+        "centroid_offset": 7.928922355409523,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -0.24456,
+        "gnina_cnn_score": 0.26926,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.13282775198889632,
+        "sa_score": 3.62,
+        "vina_score": -0.243
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_full_geometry_repair_and_bond_inference:raw_candidate=diffsbdd_public:raw_rollout:016_M3K14_HUMAN_321_678_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=diffsbdd_public:raw_rollout:016_M3K14_HUMAN_321_678_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "diffsbdd_public:centroid_only:022_NR1H4_HUMAN_258_486_0:0",
+      "degradation_score": 975.2841900000001,
+      "delta_vs_no_repair": {
+        "centroid_offset": -8.620699181208558,
+        "clash_fraction": 0.38235294117647056,
+        "gnina_affinity": 487.62419,
+        "gnina_cnn_score": -0.25803,
+        "pocket_contact_fraction": 0.02941176470588236,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 487.66
+      },
+      "example_id": "022_NR1H4_HUMAN_258_486_0",
+      "geometry_delta": {
+        "atom_count_layer": 34,
+        "atom_count_raw": 34,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          26.005687529411762,
+          22.109156411764705,
+          -0.27420552941176474
+        ],
+        "centroid_raw": [
+          33.138323529411764,
+          26.931029411764705,
+          -0.7118235294117646
+        ],
+        "centroid_shift": 8.62069980051208,
+        "coordinate_rmsd": 8.620699800512078,
+        "docking_box_center_shift": 6.6355626706221,
+        "docking_box_layer": {
+          "center": [
+            26.651864,
+            22.055627,
+            0.5446179999999998
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            31.189343830665976,
+            26.877499999999998,
+            0.1070000000000002
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 4.780607309701205e-07,
+        "clash_fraction": 0.38235294117647056,
+        "gnina_affinity": 480.36337,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.2561198925126561,
+        "sa_score": 3.54,
+        "vina_score": 480.411
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "diffsbdd_public",
+      "protein_id": "NR1H4_HUMAN_258_486_0",
+      "raw_candidate_id": "diffsbdd_public:no_repair:022_NR1H4_HUMAN_258_486_0:0",
+      "raw_metrics": {
+        "centroid_offset": 8.620699659269288,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -7.26082,
+        "gnina_cnn_score": 0.25803,
+        "pocket_contact_fraction": 0.9705882352941176,
+        "qed": 0.2561198925126561,
+        "sa_score": 3.54,
+        "vina_score": -7.249
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=diffsbdd_public:raw_rollout:022_NR1H4_HUMAN_258_486_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=diffsbdd_public:raw_rollout:022_NR1H4_HUMAN_258_486_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:081_BGL07_ORYSJ_25_504_0:0",
+      "degradation_score": 975.1073200000001,
+      "delta_vs_no_repair": {
+        "centroid_offset": -10.074822025611281,
+        "clash_fraction": 0.3,
+        "gnina_affinity": 487.59232000000003,
+        "gnina_cnn_score": -0.12909,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 487.515
+      },
+      "example_id": "081_BGL07_ORYSJ_25_504_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          10.174683974999999,
+          -0.10631552500000001,
+          36.3252346
+        ],
+        "centroid_raw": [
+          2.833936025,
+          1.138595325,
+          43.112403125
+        ],
+        "centroid_shift": 10.074822086599225,
+        "coordinate_rmsd": 10.074822086599246,
+        "docking_box_center_shift": 8.832916145188653,
+        "docking_box_layer": {
+          "center": [
+            10.738268,
+            -0.7243900000000001,
+            36.255989
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            4.872298466868261,
+            0.5205204999999999,
+            42.74143477583487
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 6.537971188903106e-08,
+        "clash_fraction": 0.3,
+        "gnina_affinity": 478.68112,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.23171066185864664,
+        "sa_score": 4.0200000000000005,
+        "vina_score": 478.604
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "BGL07_ORYSJ_25_504_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:081_BGL07_ORYSJ_25_504_0:0",
+      "raw_metrics": {
+        "centroid_offset": 10.074822090990994,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -8.9112,
+        "gnina_cnn_score": 0.12909,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.23171066185864664,
+        "sa_score": 4.0200000000000005,
+        "vina_score": -8.911
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:081_BGL07_ORYSJ_25_504_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:081_BGL07_ORYSJ_25_504_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:076_ABL2_HUMAN_274_551_0:0",
+      "degradation_score": 933.20353,
+      "delta_vs_no_repair": {
+        "centroid_offset": -11.360226311204332,
+        "clash_fraction": 0.38235294117647056,
+        "gnina_affinity": 466.72053,
+        "gnina_cnn_score": -0.19279,
+        "pocket_contact_fraction": 0.05882352941176472,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 466.483
+      },
+      "example_id": "076_ABL2_HUMAN_274_551_0",
+      "geometry_delta": {
+        "atom_count_layer": 34,
+        "atom_count_raw": 34,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          18.218995705882353,
+          13.466267088235293,
+          26.789682323529412
+        ],
+        "centroid_raw": [
+          9.684872411764706,
+          8.861851235294118,
+          20.871672676470588
+        ],
+        "centroid_shift": 11.360226403056355,
+        "coordinate_rmsd": 11.360226403056382,
+        "docking_box_center_shift": 9.633212415418276,
+        "docking_box_layer": {
+          "center": [
+            17.6875455,
+            14.126786,
+            26.2300605
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            10.824614388315345,
+            9.5223705,
+            21.28048315438761
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 1.0592597970047729e-07,
+        "clash_fraction": 0.38235294117647056,
+        "gnina_affinity": 457.17358,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.14970790610773782,
+        "sa_score": 3.3000000000000003,
+        "vina_score": 456.936
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "ABL2_HUMAN_274_551_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:076_ABL2_HUMAN_274_551_0:0",
+      "raw_metrics": {
+        "centroid_offset": 11.360226417130312,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -9.54695,
+        "gnina_cnn_score": 0.19279,
+        "pocket_contact_fraction": 0.9411764705882353,
+        "qed": 0.14970790610773782,
+        "sa_score": 3.3000000000000003,
+        "vina_score": -9.547
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:076_ABL2_HUMAN_274_551_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:076_ABL2_HUMAN_274_551_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "diffsbdd_public:full_repair:022_NR1H4_HUMAN_258_486_0:0",
+      "degradation_score": 928.90651,
+      "delta_vs_no_repair": {
+        "centroid_offset": -5.826886320340706,
+        "clash_fraction": 0.20588235294117646,
+        "gnina_affinity": 464.33751,
+        "gnina_cnn_score": -0.21771,
+        "pocket_contact_fraction": 0.02941176470588236,
+        "qed": -0.08656562577274698,
+        "sa_score": -0.17999999999999972,
+        "vina_score": 464.569
+      },
+      "example_id": "022_NR1H4_HUMAN_258_486_0",
+      "geometry_delta": {
+        "atom_count_layer": 34,
+        "atom_count_raw": 34,
+        "bond_count_delta": 5,
+        "bond_count_layer": 5,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          23.334498352941175,
+          21.350870411764703,
+          -0.5826585294117647
+        ],
+        "centroid_raw": [
+          33.138323529411764,
+          26.931029411764705,
+          -0.7118235294117646
+        ],
+        "centroid_shift": 11.281393803662054,
+        "coordinate_rmsd": 12.962531910480841,
+        "docking_box_center_shift": 9.300636580144749,
+        "docking_box_layer": {
+          "center": [
+            24.1687175,
+            20.831201500000002,
+            -0.7022719999999998
+          ],
+          "size": [
+            32.422097,
+            32.422097,
+            32.422097
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            31.189343830665976,
+            26.877499999999998,
+            0.1070000000000002
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 8.422097
+      },
+      "layer": "full_repair",
+      "layer_metrics": {
+        "centroid_offset": 2.793813338928582,
+        "clash_fraction": 0.20588235294117646,
+        "gnina_affinity": 457.07669,
+        "gnina_cnn_score": 0.04032,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.16955426673990912,
+        "sa_score": 3.3600000000000003,
+        "vina_score": 457.32
+      },
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "diffsbdd_public",
+      "protein_id": "NR1H4_HUMAN_258_486_0",
+      "raw_candidate_id": "diffsbdd_public:no_repair:022_NR1H4_HUMAN_258_486_0:0",
+      "raw_metrics": {
+        "centroid_offset": 8.620699659269288,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -7.26082,
+        "gnina_cnn_score": 0.25803,
+        "pocket_contact_fraction": 0.9705882352941176,
+        "qed": 0.2561198925126561,
+        "sa_score": 3.54,
+        "vina_score": -7.249
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_full_geometry_repair_and_bond_inference:raw_candidate=diffsbdd_public:raw_rollout:022_NR1H4_HUMAN_258_486_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=diffsbdd_public:raw_rollout:022_NR1H4_HUMAN_258_486_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "diffsbdd_public:centroid_only:051_MCCF_ECOLX_1_344_0:0",
+      "degradation_score": 901.11835,
+      "delta_vs_no_repair": {
+        "centroid_offset": -14.632708111159126,
+        "clash_fraction": 0.15217391304347827,
+        "gnina_affinity": 450.60434999999995,
+        "gnina_cnn_score": -0.21493,
+        "pocket_contact_fraction": 0.13043478260869568,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 450.514
+      },
+      "example_id": "051_MCCF_ECOLX_1_344_0",
+      "geometry_delta": {
+        "atom_count_layer": 46,
+        "atom_count_raw": 46,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          34.12817082608696,
+          40.490015173913044,
+          33.280619217391305
+        ],
+        "centroid_raw": [
+          27.515347826086956,
+          48.32665217391304,
+          22.841565217391302
+        ],
+        "centroid_shift": 14.632708427150936,
+        "coordinate_rmsd": 14.632708427150936,
+        "docking_box_center_shift": 11.691074894693847,
+        "docking_box_layer": {
+          "center": [
+            34.982822999999996,
+            40.728863000000004,
+            32.462054
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            28.89708553005879,
+            46.828007490991844,
+            24.559809501232692
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 3.712147076077916e-07,
+        "clash_fraction": 0.15217391304347827,
+        "gnina_affinity": 445.90536,
+        "gnina_cnn_score": 2e-05,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.21697724082146805,
+        "sa_score": 4.5,
+        "vina_score": 445.813
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "diffsbdd_public",
+      "protein_id": "MCCF_ECOLX_1_344_0",
+      "raw_candidate_id": "diffsbdd_public:no_repair:051_MCCF_ECOLX_1_344_0:0",
+      "raw_metrics": {
+        "centroid_offset": 14.632708482373832,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -4.69899,
+        "gnina_cnn_score": 0.21495,
+        "pocket_contact_fraction": 0.8695652173913043,
+        "qed": 0.21697724082146805,
+        "sa_score": 4.5,
+        "vina_score": -4.701
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=diffsbdd_public:raw_rollout:051_MCCF_ECOLX_1_344_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=diffsbdd_public:raw_rollout:051_MCCF_ECOLX_1_344_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    },
+    {
+      "backend_statuses": {
+        "layer": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        },
+        "raw": {
+          "chemistry_validity": "metrics_available",
+          "docking_affinity": "metrics_available",
+          "gnina": "metrics_available",
+          "pocket_compatibility": "metrics_available",
+          "vina": "metrics_available"
+        }
+      },
+      "candidate_id": "targetdiff_public:centroid_only:083_BACE2_HUMAN_76_460_0:0",
+      "degradation_score": 897.7333000000001,
+      "delta_vs_no_repair": {
+        "centroid_offset": -13.922888070513777,
+        "clash_fraction": 0.4,
+        "gnina_affinity": 448.9263,
+        "gnina_cnn_score": -0.2733,
+        "pocket_contact_fraction": 0.050000000000000044,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 448.807
+      },
+      "example_id": "083_BACE2_HUMAN_76_460_0",
+      "geometry_delta": {
+        "atom_count_layer": 40,
+        "atom_count_raw": 40,
+        "bond_count_delta": 0,
+        "bond_count_layer": 0,
+        "bond_count_raw": 0,
+        "centroid_layer": [
+          -3.0635630750000002,
+          22.1273093,
+          59.826578874999996
+        ],
+        "centroid_raw": [
+          3.53999125,
+          27.892641525,
+          49.009886825
+        ],
+        "centroid_shift": 13.922888072967574,
+        "coordinate_rmsd": 13.922888072967595,
+        "docking_box_center_shift": 11.08776886500783,
+        "docking_box_layer": {
+          "center": [
+            -3.325945,
+            22.0517685,
+            59.8797565
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_raw": {
+          "center": [
+            2.157520446601942,
+            26.81396364632455,
+            51.5017064590846
+          ],
+          "size": [
+            24.0,
+            24.0,
+            24.0
+          ]
+        },
+        "docking_box_size_delta": 0.0
+      },
+      "layer": "centroid_only",
+      "layer_metrics": {
+        "centroid_offset": 5.4116633020572e-08,
+        "clash_fraction": 0.4,
+        "gnina_affinity": 441.10764,
+        "gnina_cnn_score": 0.0001,
+        "pocket_contact_fraction": 1.0,
+        "qed": 0.2528989205521523,
+        "sa_score": 4.08,
+        "vina_score": 440.988
+      },
+      "layer_role": "coordinate_movement_only",
+      "likely_failure_component": "coordinate_movement",
+      "method_id": "targetdiff_public",
+      "protein_id": "BACE2_HUMAN_76_460_0",
+      "raw_candidate_id": "targetdiff_public:no_repair:083_BACE2_HUMAN_76_460_0:0",
+      "raw_metrics": {
+        "centroid_offset": 13.92288812463041,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -7.81866,
+        "gnina_cnn_score": 0.2734,
+        "pocket_contact_fraction": 0.95,
+        "qed": 0.2528989205521523,
+        "sa_score": 4.08,
+        "vina_score": -7.819
+      },
+      "source_artifacts": {
+        "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+        "layer_candidate_source": "q2_centroid_translation_only:raw_candidate=targetdiff_public:raw_rollout:083_BACE2_HUMAN_76_460_0:0",
+        "layer_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "layer_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ],
+        "raw_candidate_source": "q2_no_repair_copy:raw_candidate=targetdiff_public:raw_rollout:083_BACE2_HUMAN_76_460_0:0",
+        "raw_generation_layer": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+        "raw_metric_source_artifacts": [
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+          "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json"
+        ]
+      },
+      "split_label": "q1_public_full100_budget1"
+    }
+  ]
+}

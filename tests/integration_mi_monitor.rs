@@ -39,7 +39,7 @@ fn test_mi_independent_variables() {
 #[test]
 fn test_mi_empty_tensors() {
     let monitor = MutualInformationMonitor::new(32);
-    let empty = Tensor::zeros(&[0], (Kind::Float, Device::Cpu));
+    let empty = Tensor::zeros([0], (Kind::Float, Device::Cpu));
     let mi = monitor.compute_mi(&empty, &empty);
     assert_eq!(mi, 0.0, "MI of empty tensors should be 0");
 }
@@ -56,8 +56,8 @@ fn test_mi_mismatched_sizes() {
 #[test]
 fn test_mi_single_element() {
     let monitor = MutualInformationMonitor::new(32);
-    let x = Tensor::ones(&[1], (Kind::Float, Device::Cpu));
-    let y = Tensor::ones(&[1], (Kind::Float, Device::Cpu));
+    let x = Tensor::ones([1], (Kind::Float, Device::Cpu));
+    let y = Tensor::ones([1], (Kind::Float, Device::Cpu));
     let mi = monitor.compute_mi(&x, &y);
     assert_eq!(mi, 0.0, "MI of single element should be 0");
 }

@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "component": "atom_to_pocket_cross_attention_velocity_head",
-  "status": "design_spec",
+  "status": "implemented_config_selectable_ablation",
   "baseline_preserved": "GeometryFlowMatchingHead",
   "config_switches": {
-    "enabled": false,
-    "attention_hidden_dim": 128,
-    "attention_heads": 4,
+    "kind": "atom_pocket_cross_attention",
+    "config_path": "model.flow_velocity_head.kind",
+    "default_kind": "geometry",
+    "attention_hidden_dim": "model.hidden_dim",
     "gate_initial_bias": -1.0,
-    "gate_l1_weight": 0.001,
     "fallback_to_baseline_on_empty_pocket": true
   },
   "controlled_interaction_contract": {

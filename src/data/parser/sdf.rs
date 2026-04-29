@@ -81,8 +81,9 @@ pub fn load_ligand_from_sdf(path: &Path) -> Result<Ligand, DataParseError> {
     }
 
     let mut bonds = Vec::with_capacity(num_bonds);
+    let mut bond_types = Vec::with_capacity(num_bonds);
     for line in &lines[bond_start..bond_start + num_bonds] {
-        let Some((src, dst)) = parse_v2000_bond_indices(line) else {
+        let Some((src, dst, bond_type)) = parse_v2000_bond_record(line) else {
             continue;
         };
         if src == 0 || dst == 0 {
@@ -95,25 +96,46 @@ pub fn load_ligand_from_sdf(path: &Path) -> Result<Ligand, DataParseError> {
             });
         }
         bonds.push((src - 1, dst - 1));
+        bond_types.push(bond_type);
     }
 
     Ok(Ligand {
         atoms,
         bonds,
+        bond_types,
         fingerprint: None,
     })
 }
 
+#[cfg(test)]
 fn parse_v2000_bond_indices(line: &str) -> Option<(usize, usize)> {
+    parse_v2000_bond_record(line).map(|(src, dst, _)| (src, dst))
+}
+
+fn parse_v2000_bond_record(line: &str) -> Option<(usize, usize, i64)> {
     if line.len() >= 6 {
         let src = line.get(0..3)?.trim().parse::<usize>().ok()?;
         let dst = line.get(3..6)?.trim().parse::<usize>().ok()?;
-        return Some((src, dst));
+        let bond_type = line
+            .get(6..9)
+            .and_then(|value| value.trim().parse::<i64>().ok())
+            .unwrap_or(0);
+        return Some((src, dst, normalize_sdf_bond_type(bond_type)));
     }
 
     let mut fields = line.split_whitespace();
     let src = fields.next()?.parse::<usize>().ok()?;
     let dst = fields.next()?.parse::<usize>().ok()?;
-    Some((src, dst))
+    let bond_type = fields
+        .next()
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(0);
+    Some((src, dst, normalize_sdf_bond_type(bond_type)))
 }
 
+fn normalize_sdf_bond_type(bond_type: i64) -> i64 {
+    match bond_type {
+        1..=4 => bond_type,
+        _ => 0,
+    }
+}

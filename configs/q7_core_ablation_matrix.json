@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "matrix_id": "q7_core_model_design_ablation_matrix",
+  "base_training_preset": "configs/q7_reviewer_unseen_pocket_training_preset.json",
+  "recommended_experiment_surface": "reviewer-scale unseen-pocket split",
+  "required_primary_objective": "conditioned_denoising",
+  "required_generation_path_contract": "raw model-native metrics must be read separately from constrained, repaired, inferred-bond, reranked, or backend-scored metrics",
+  "axes": [
+    {
+      "axis": "generation_mode",
+      "base": "target_ligand_denoising",
+      "variant": "generation_mode_ligand_refinement",
+      "override": {
+        "ablation.generation_mode_override": "ligand_refinement"
+      },
+      "supported": true,
+      "interprets": "Whether reported quality depends on target-ligand denoising semantics versus an explicit ligand-refinement mode that still does not support de novo wording."
+    },
+    {
+      "axis": "generation_mode",
+      "base": "target_ligand_denoising",
+      "variant": "generation_mode_pocket_only_initialization_baseline",
+      "override": {
+        "ablation.generation_mode_override": "pocket_only_initialization_baseline",
+        "training.primary_objective": "surrogate_reconstruction"
+      },
+      "supported": true,
+      "interprets": "Whether model behavior still produces bounded pocket-conditioned rollouts when target ligand atom types and coordinates are not used for decoder initialization; this uses the shape-safe surrogate objective, remains a baseline, and does not support de novo wording."
+    },
+    {
+      "axis": "generation_mode",
+      "base": "target_ligand_denoising",
+      "variant": "de_novo_full_molecular_flow",
+      "override": {
+        "data.generation_target.generation_mode": "de_novo_initialization",
+        "generation_method.primary_backend.family": "flow_matching",
+        "generation_method.flow_matching.geometry_only": false,
+        "generation_method.flow_matching.multi_modal.enabled_branches": [
+          "geometry",
+          "atom_type",
+          "bond",
+          "topology",
+          "pocket_context"
+        ],
+        "training.primary_objective": "flow_matching"
+      },
+      "supported": true,
+      "interprets": "Whether full molecular flow can generate from a pocket-conditioned scaffold without target-ligand topology or geometry initialization."
+    },
+    {
+      "axis": "topology_encoder",
+      "base": "message_passing",
+      "variant": "topology_encoder_lightweight",
+      "override": {
+        "ablation.topology_encoder_kind_override": "lightweight"
+      },
+      "interprets": "Whether graph message passing improves quality, geometry, efficiency, slot usage, gate usage, and leakage relative to the lightweight atom-degree baseline."
+    },
+    {
+      "axis": "topology_encoder",
+      "base": "message_passing",
+      "variant": "topology_encoder_typed_message_passing",
+      "override": {
+        "ablation.topology_encoder_kind_override": "typed_message_passing"
+      },
+      "interprets": "Whether bond-type-aware message passing improves chemically meaningful topology representations relative to untyped adjacency message passing."
+    },
+    {
+      "axis": "geometry_operator",
+      "base": "pair_distance_kernel",
+      "variant": "geometry_operator_raw_coordinate_projection",
+      "override": {
+        "ablation.geometry_operator_override": "raw_coordinate_projection"
+      },
+      "interprets": "Whether translation-invariant pair-distance kernels improve geometry consistency and pocket fit over raw coordinate projection."
+    },
+    {
+      "axis": "geometry_operator",
+      "base": "pair_distance_kernel",
+      "variant": "geometry_operator_local_frame_pair_message",
+      "override": {
+        "ablation.geometry_operator_override": "local_frame_pair_message"
+      },
+      "interprets": "Whether ligand-local-frame pair messages improve geometry consistency and pocket fit over distance-only radial kernels."
+    },
+    {
+      "axis": "pocket_encoder",
+      "base": "local_message_passing",
+      "variant": "pocket_encoder_feature_projection",
+      "override": {
+        "ablation.pocket_encoder_kind_override": "feature_projection"
+      },
+      "interprets": "Whether local pocket message passing improves contact, clash, and context-specialization behavior over independent feature projection."
+    },
+    {
+      "axis": "pocket_encoder",
+      "base": "local_message_passing",
+      "variant": "pocket_encoder_ligand_relative_local_frame",
+      "override": {
+        "ablation.pocket_encoder_kind_override": "ligand_relative_local_frame"
+      },
+      "interprets": "Whether ligand-relative local-frame pocket messages improve pocket-context specialization over radius-bounded local message passing."
+    },
+    {
+      "axis": "slots",
+      "base": "enabled",
+      "variant": "disable_slots",
+      "override": {
+        "ablation.disable_slots": true
+      },
+      "interprets": "Whether slot decomposition contributes beyond direct modality representations."
+    },
+    {
+      "axis": "slot_count",
+      "base": "configured_num_slots",
+      "variant": "slot_count_reduced",
+      "override": {
+        "ablation.num_slots_override": "floor(configured_num_slots / 2)"
+      },
+      "interprets": "Whether quality, leakage, and slot stability are sensitive to representation capacity."
+    },
+    {
+      "axis": "slot_attention_masking",
+      "base": "active_slot_masking_enabled",
+      "variant": "slot_attention_masking_disabled",
+      "override": {
+        "ablation.slot_attention_masking_override": false
+      },
+      "interprets": "Whether masking inactive slots out of cross-attention and decoder-local attention is necessary for stable utilization and leakage control."
+    },
+    {
+      "axis": "leakage_probe",
+      "base": "enabled",
+      "variant": "disable_leakage",
+      "override": {
+        "ablation.disable_leakage": true
+      },
+      "interprets": "Whether leakage diagnostics and penalties affect specialization without overstating absence of off-modality information."
+    },
+    {
+      "axis": "leakage_gradient",
+      "base": "configured_delta_leak",
+      "variant": "leakage_penalty_disabled",
+      "override": {
+        "ablation.delta_leak_override": 0.0
+      },
+      "interprets": "Whether the differentiable leakage penalty contributes to specialization beyond passive leakage diagnostics."
+    },
+    {
+      "axis": "redundancy",
+      "base": "configured_beta_intra_red",
+      "variant": "redundancy_disabled",
+      "override": {
+        "ablation.disable_redundancy": true
+      },
+      "interprets": "Whether intra-modality redundancy reduction contributes to quality, slot stability, leakage, and efficiency."
+    },
+    {
+      "axis": "modality_focus",
+      "base": "all_modalities",
+      "variant": "topology_only",
+      "override": {
+        "ablation.modality_focus_override": "topology_only"
+      },
+      "interprets": "Negative-control comparison that keeps only topology slots visible downstream while preserving separate encoders."
+    },
+    {
+      "axis": "modality_focus",
+      "base": "all_modalities",
+      "variant": "geometry_only",
+      "override": {
+        "ablation.modality_focus_override": "geometry_only"
+      },
+      "interprets": "Negative-control comparison that keeps only geometry slots visible downstream while preserving separate encoders."
+    },
+    {
+      "axis": "modality_focus",
+      "base": "all_modalities",
+      "variant": "pocket_only",
+      "override": {
+        "ablation.modality_focus_override": "pocket_only"
+      },
+      "interprets": "Negative-control comparison that keeps only pocket/context slots visible downstream while preserving separate encoders."
+    },
+    {
+      "axis": "semantic_probe",
+      "base": "enabled",
+      "variant": "disable_probes",
+      "override": {
+        "ablation.disable_probes": true
+      },
+      "interprets": "Whether semantic probes are carrying useful specialization signal or only reporting passive diagnostics."
+    },
+    {
+      "axis": "gate_regularization",
+      "base": "configured_eta_gate",
+      "variant": "gate_sparsity_disabled",
+      "override": {
+        "ablation.eta_gate_override": 0.0
+      },
+      "interprets": "Whether sparse controlled interaction gates improve quality or only suppress needed cross-modality dependence."
+    },
+    {
+      "axis": "gate_scale",
+      "base": "configured_gate_temperature",
+      "variant": "interaction_gate_temperature_high",
+      "override": {
+        "ablation.interaction_gate_temperature_override": 2.0
+      },
+      "interprets": "Whether changing the sigmoid gate temperature alters controlled cross-modality usage independently of the gate sparsity loss weight."
+    },
+    {
+      "axis": "interaction_negative_control",
+      "base": "directed_gated_cross_attention",
+      "variant": "direct_fusion_negative_control",
+      "override": {
+        "ablation.interaction_mode_override": "direct_fusion_negative_control"
+      },
+      "interprets": "Negative-control comparison that forces directed paths open and must not be presented as the preferred controlled-interaction architecture."
+    },
+    {
+      "axis": "decoder_conditioning",
+      "base": "local_atom_slot_attention",
+      "variant": "decoder_conditioning_mean_pooled",
+      "override": {
+        "ablation.decoder_conditioning_override": "mean_pooled"
+      },
+      "interprets": "Whether local atom-slot and pocket conditioning improves generation quality over global mean-pooled summaries."
+    },
+    {
+      "axis": "candidate_postprocessing",
+      "base": "repair_enabled",
+      "variant": "disable_candidate_repair",
+      "override": {
+        "ablation.disable_candidate_repair": true
+      },
+      "interprets": "How much reported quality depends on repair rather than raw model-native generation."
+    },
+    {
+      "axis": "training_schedule",
+      "base": "staged_schedule",
+      "variant": "staged_schedule_disabled",
+      "override": {
+        "ablation.disable_staged_schedule": true
+      },
+      "interprets": "Whether staged warm-starting is necessary compared with activating configured objective families from step zero."
+    }
+  ],
+  "minimum_report_fields": [
+    "comparison_summary.generation_mode",
+    "model_design.heldout_unseen_protein_fraction",
+    "model_design.raw_model_layer",
+    "model_design.processed_layer",
+    "model_design.geometry_consistency_score",
+    "model_design.raw_model_valid_fraction",
+    "model_design.raw_model_pocket_contact_fraction",
+    "model_design.raw_model_clash_fraction",
+    "model_design.processed_valid_fraction",
+    "model_design.processed_pocket_contact_fraction",
+    "model_design.processed_clash_fraction",
+    "model_design.examples_per_second",
+    "model_design.slot_activation_mean",
+    "model_design.gate_activation_mean",
+    "model_design.gate_saturation_fraction",
+    "model_design.leakage_proxy_mean",
+    "layer_provenance_audit.claim_safe"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "artifact_name": "q3_non_degradation_gate",
+  "schema_version": 1,
+  "leaderboard_path": "configs/q3_model_improvement_leaderboard.json",
+  "output_report": "configs/q3_non_degradation_gate_report.json",
+  "thresholds": {
+    "max_constrained_vina_degradation": 5.0,
+    "max_constrained_gnina_degradation": 5.0
+  },
+  "claim_table": [
+    {
+      "id": "raw_flow_model_improvement_only",
+      "claim_type": "model_improvement",
+      "evidence_type": "backend_scored_raw_flow",
+      "allowed_layers": [
+        "raw_flow",
+        "raw_rollout",
+        "no_repair",
+        "raw_geometry"
+      ]
+    },
+    {
+      "id": "postprocessing_is_not_model_native",
+      "claim_type": "postprocessing_safety",
+      "evidence_type": "backend_scored_layer_delta",
+      "disallowed_model_improvement_layers": [
+        "constrained_flow",
+        "repaired",
+        "reranked",
+        "full_repair",
+        "repair_rejected",
+        "backend_aware_posthoc"
+      ]
+    }
+  ]
+}

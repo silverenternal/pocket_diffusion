@@ -1,0 +1,128 @@
+{
+  "artifact_name": "q2_bond_refinement_plan",
+  "schema_version": 1,
+  "explicit_non_goal": "Do not implement full topology flow in Q2.",
+  "problem": "Flow matching currently produces geometry-first raw_flow/constrained_flow coordinates. Atom type and bond structure quality can be affected by downstream inference or repair, but Q2 should not claim joint topology diffusion or full molecular flow.",
+  "layer_semantics": [
+    {
+      "layer": "raw_geometry",
+      "model_native": true,
+      "description": "Generated coordinates and atom types before bond refinement or geometry repair.",
+      "claim_boundary": "Geometry-first native evidence only."
+    },
+    {
+      "layer": "bond_logits_refined",
+      "model_native": false,
+      "description": "Optional topology head predicts pairwise bond logits from fixed raw geometry, atom types, topology context, and gated pocket summaries.",
+      "claim_boundary": "Topology refinement evidence, not full topology flow."
+    },
+    {
+      "layer": "valence_refined",
+      "model_native": false,
+      "description": "Deterministic valence-constrained decoding over bond logits with atom-type-specific max-valence limits.",
+      "claim_boundary": "Constrained refinement evidence."
+    },
+    {
+      "layer": "repaired",
+      "model_native": false,
+      "description": "Any coordinate movement, centroid correction, clash handling, or postprocessing repair.",
+      "claim_boundary": "Postprocessing evidence only."
+    }
+  ],
+  "proposed_components": [
+    {
+      "name": "BondLogitRefinementHead",
+      "location": "src/models/decoder.rs or a new src/models/topology/bond_refinement.rs",
+      "inputs": [
+        "raw coordinates",
+        "atom type embeddings",
+        "topology_context",
+        "geometry_context",
+        "pocket_context summary",
+        "pair distance features"
+      ],
+      "outputs": [
+        "bond_logits[num_atoms,num_atoms,bond_vocab_size]",
+        "bond_presence_logits[num_atoms,num_atoms]"
+      ],
+      "constraints": [
+        "symmetric logits",
+        "masked diagonal",
+        "bounded top-k candidate edges per atom"
+      ]
+    },
+    {
+      "name": "ValenceRefinementDecoder",
+      "location": "src/models/evaluation/candidates.rs or topology refinement module",
+      "inputs": [
+        "bond logits",
+        "atom types",
+        "raw geometry"
+      ],
+      "outputs": [
+        "valence_refined bond list",
+        "bond_count",
+        "valence_violation_count"
+      ],
+      "constraints": [
+        "max valence by atom type",
+        "distance sanity window",
+        "no coordinate movement"
+      ]
+    }
+  ],
+  "config_plan": {
+    "block": "model.bond_refinement",
+    "default_enabled": false,
+    "fields": [
+      "enabled",
+      "hidden_dim",
+      "max_candidate_edges_per_atom",
+      "max_valence_by_atom_type",
+      "distance_feature_bins",
+      "valence_penalty_weight",
+      "emit_bond_logits_refined_layer",
+      "emit_valence_refined_layer"
+    ]
+  },
+  "acceptance_metrics": [
+    "rdkit_valid_fraction",
+    "rdkit_sanitized_fraction",
+    "qed",
+    "sa_score",
+    "logp",
+    "tpsa",
+    "lipinski_violations",
+    "vina_score_coverage_fraction",
+    "gnina_affinity_coverage_fraction",
+    "gnina_cnn_score_coverage_fraction",
+    "bond_count_mean",
+    "bond_count_delta_vs_raw_inference",
+    "valence_violation_fraction",
+    "atom_degree_distribution_delta"
+  ],
+  "ablation_matrix": [
+    {
+      "id": "no_bond_refinement",
+      "description": "Current geometry-first baseline."
+    },
+    {
+      "id": "bond_logits_only",
+      "description": "Emit bond_logits_refined without valence decoding; evaluate logits only where labels exist."
+    },
+    {
+      "id": "valence_refined_no_coordinate_repair",
+      "description": "Decode valence-constrained bonds while preserving raw coordinates."
+    },
+    {
+      "id": "valence_refined_plus_repair",
+      "description": "Apply existing repaired layer after bond refinement; must remain postprocessing."
+    }
+  ],
+  "claim_guardrails": [
+    "Exclude full topology flow and joint molecular diffusion claims.",
+    "Report raw geometry, bond_logits_refined, valence_refined, and repaired as separate layers.",
+    "Do not promote repaired docking scores as native model capability.",
+    "Require RDKit and score_only backend coverage before using refined layers for preference construction."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "artifact_name": "q3_best_variant_multiseed_config",
+  "schema_version": 1,
+  "best_variant": "pairwise_distance_direction",
+  "seeds": [
+    17,
+    42,
+    101
+  ],
+  "seed_configs": [
+    "configs/q3_best_variant_multiseed_seed_17.json",
+    "configs/q3_best_variant_multiseed_seed_42.json",
+    "configs/q3_best_variant_multiseed_seed_101.json"
+  ],
+  "checkpoint_root": "checkpoints/q3_best_variant_multiseed",
+  "scored_layers": [
+    "raw_flow"
+  ],
+  "claim_guardrail": "No statistical dominance claim is emitted unless configured evidence thresholds are met."
+}

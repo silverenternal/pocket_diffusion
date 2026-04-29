@@ -23,7 +23,8 @@ PROXY_BINDING_KEYS = ("docking_like_score", "docking_score_proxy", "pocket_fit_p
 BASELINE_KEYS = ("method_id", "baseline", "matched_budget", "sampling_steps", "wall_time_ms")
 STAT_KEYS = ("confidence_interval", "ci95", "std", "effect_size", "p_value", "bootstrap")
 POSTPROCESSING_LAYERS = ("repaired", "reranked", "inferred_bond", "deterministic_proxy")
-RAW_LAYERS = ("raw_flow", "raw_rollout", "constrained_flow")
+RAW_LAYERS = ("raw_flow", "raw_rollout")
+PLACEHOLDER_RE = re.compile(r"\b0\.XXX\b|~\s*\d+(?:\.\d+)?|~\s*0\.XXX")
 NON_CLAIM_FACING_CLAIM_PATH_PARTS = (
     "configs/checkpoints/automated_search/",
 )
@@ -41,6 +42,7 @@ NON_CLAIM_FACING_CANDIDATE_METRIC_PATH_PARTS = (
     "checkpoints/q1_public_baselines_full100_layered/diffsbdd_public/candidate_metrics_base.jsonl",
     "checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/candidate_metrics_base.jsonl",
     "checkpoints/q1_public_baselines_full100_layered/targetdiff_public/candidate_metrics_base.jsonl",
+    "checkpoints/q2_postprocessing_ablation/candidate_metrics_base.jsonl",
 )
 
 
@@ -110,6 +112,23 @@ def non_claim_facing_candidate_metric_reason(rel_path):
     for part in NON_CLAIM_FACING_CANDIDATE_METRIC_PATH_PARTS:
         if part in normalized:
             return "non_claim_bearing_external_baseline_smoke_artifact"
+    return None
+
+
+def backend_validated_base_metric_reason(path):
+    if path.name != "candidate_metrics_base.jsonl":
+        return None
+    parent = path.parent
+    has_real_backend_rows = any(
+        candidate.is_file()
+        for candidate in (
+            parent / "candidate_metrics_vina.jsonl",
+            parent / "candidate_metrics_gnina.jsonl",
+        )
+    )
+    has_merged_rows = any((parent / "merged").glob("candidate_metrics*.jsonl"))
+    if has_real_backend_rows or has_merged_rows:
+        return "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts"
     return None
 
 
@@ -227,7 +246,9 @@ def summarize_candidate_metrics(root):
     artifacts = []
     for path in files:
         rel = str(path.relative_to(root))
-        exclusion_reason = non_claim_facing_candidate_metric_reason(rel)
+        exclusion_reason = non_claim_facing_candidate_metric_reason(
+            rel
+        ) or backend_validated_base_metric_reason(path)
         rows = load_jsonl(path)
         total = len(rows)
         real = 0
@@ -299,6 +320,30 @@ def summarize_named_json_artifacts(root, label, patterns, keys):
     return artifacts
 
 
+def summarize_q2_claim_contract(root):
+    path = root / "configs/q2_claim_contract.json"
+    if not path.is_file():
+        return {"path": "configs/q2_claim_contract.json", "status": "missing"}
+    payload = load_json(path)
+    text = text_of(payload)
+    lower_text = text.lower()
+    layer_groups = payload.get("layer_groups", {}) if isinstance(payload, dict) else {}
+    return {
+        "path": "configs/q2_claim_contract.json",
+        "status": "present",
+        "has_raw_model_native_group": bool(layer_groups.get("raw_model_native")),
+        "has_constrained_sampling_group": bool(layer_groups.get("constrained_sampling")),
+        "has_postprocessing_group": bool(layer_groups.get("postprocessing")),
+        "states_geometry_first_not_full_molecular_flow": "geometry-first flow matching" in lower_text
+        and "not full molecular flow" in lower_text,
+        "states_score_only_not_experimental_affinity": "score_only" in lower_text
+        and "not experimental" in lower_text,
+        "forbids_statistical_dominance_without_multiseed": "statistical dominance" in lower_text
+        and "multi-seed" in lower_text,
+        "placeholder_pattern_count": len(PLACEHOLDER_RE.findall(text)),
+    }
+
+
 def assess(report):
     candidate_files = report["candidate_metrics"]
     claim_files = report["claim_summaries"]
@@ -314,7 +359,18 @@ def assess(report):
     ablations = report["ablation_reports"]
     multi_seed = report["multi_seed_reports"]
     statistics = report["statistical_reports"]
+    q2_contract = report.get("q2_claim_contract", {})
     failures = list(report["gate_failures"])
+    q2_contract_ok = (
+        q2_contract.get("status") == "present"
+        and q2_contract.get("has_raw_model_native_group")
+        and q2_contract.get("has_constrained_sampling_group")
+        and q2_contract.get("has_postprocessing_group")
+        and q2_contract.get("states_geometry_first_not_full_molecular_flow")
+        and q2_contract.get("states_score_only_not_experimental_affinity")
+        and q2_contract.get("forbids_statistical_dominance_without_multiseed")
+        and q2_contract.get("placeholder_pattern_count") == 0
+    )
     checks = {
         "real_backend_candidate_metrics_present": real_candidate_coverage > 0.0,
         "real_backend_candidate_metrics_at_90pct": real_candidate_coverage >= 0.9,
@@ -326,6 +382,7 @@ def assess(report):
         "statistical_reports_present": bool(statistics),
         "ablation_reports_present": bool(ablations),
         "candidate_metrics_separate_raw_and_postprocessed_layers": has_raw_and_post,
+        "q2_claim_contract_guardrails_present": q2_contract_ok,
     }
     if not candidate_files:
         failures.append({"reason": "missing_candidate_metrics_jsonl"})
@@ -344,6 +401,8 @@ def assess(report):
         failures.append({"reason": "missing_multi_seed_summary"})
     if not statistics:
         failures.append({"reason": "missing_statistical_comparison"})
+    if not q2_contract_ok:
+        failures.append({"reason": "q2_claim_contract_missing_or_incomplete"})
     score = sum(1 for passed in checks.values() if passed) / float(len(checks))
     return checks, failures, score
 
@@ -361,6 +420,7 @@ def write_markdown(path, report):
         f"- ablation_reports: {len(report['ablation_reports'])}",
         f"- multi_seed_reports: {len(report['multi_seed_reports'])}",
         f"- statistical_reports: {len(report['statistical_reports'])}",
+        f"- q2_claim_contract: {report.get('q2_claim_contract', {}).get('status', 'missing')}",
         "",
         "## Checks",
     ]
@@ -428,6 +488,7 @@ def main(argv):
             ["configs/*statistical*.json", "docs/*statistical*.md"],
             STAT_KEYS,
         ),
+        "q2_claim_contract": summarize_q2_claim_contract(root),
         "gate_failures": claim_violations,
     }
     checks, failures, score = assess(report)

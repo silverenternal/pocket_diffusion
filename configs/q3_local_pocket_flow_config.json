@@ -1,0 +1,31 @@
+{
+  "artifact_name": "q3_local_pocket_flow_config",
+  "schema_version": 1,
+  "status": "ready_to_run",
+  "public100_budget": {
+    "candidate_count_per_pocket": 1,
+    "pocket_count": 100,
+    "sampling_steps": 20,
+    "score_layers_separately": [
+      "raw_flow",
+      "constrained_flow"
+    ]
+  },
+  "model_delta": {
+    "flow_velocity_head": {
+      "kind": "atom_pocket_cross_attention",
+      "gate_initial_bias": -1.0
+    },
+    "pairwise_geometry": {
+      "enabled": false,
+      "radius": 4.5,
+      "max_neighbors": 16,
+      "residual_scale": 0.1
+    }
+  },
+  "outputs": {
+    "checkpoint_dir": "checkpoints/q3_local_pocket_flow_public100",
+    "summary": "configs/q3_local_pocket_flow_summary.json"
+  },
+  "claim_guardrail": "Only raw_flow backend scores can support model-native improvement; constrained_flow deltas are reported separately."
+}

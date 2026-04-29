@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "artifact_name": "q2_conditioning_compression_audit",
+  "updated_at": "2026-04-28",
+  "summary": "The three encoders and slot interactions preserve token and slot locality through controlled interaction, but the default GeometryFlowMatchingHead collapses topology, geometry, and pocket contexts to means before velocity prediction. Atom-pocket cross-attention is implemented as a config-selectable ablation, not the default.",
+  "audited_sources": [
+    "src/models/traits.rs",
+    "src/models/slot_decomposition.rs",
+    "src/models/cross_attention.rs",
+    "src/models/system/impl.rs",
+    "src/models/flow_matching.rs"
+  ],
+  "stages": [
+    {
+      "stage": "encoder_outputs",
+      "topology": "token_embeddings plus pooled_embedding",
+      "geometry": "token_embeddings plus pooled_embedding",
+      "pocket": "token_embeddings plus pooled_embedding",
+      "locality": "token_level_preserved"
+    },
+    {
+      "stage": "slot_decomposition",
+      "topology": "fixed slot tensor [num_slots, hidden_dim] with slot_weights",
+      "geometry": "fixed slot tensor [num_slots, hidden_dim] with slot_weights",
+      "pocket": "fixed slot tensor [num_slots, hidden_dim] with slot_weights",
+      "locality": "slot_level_preserved"
+    },
+    {
+      "stage": "controlled_cross_modal_interaction",
+      "topology": "topology slots receive gated updates from geometry and pocket slots",
+      "geometry": "geometry slots receive gated updates from topology and pocket slots",
+      "pocket": "pocket slots receive gated updates from topology and geometry slots",
+      "locality": "slot_level_preserved_with_gated_attention"
+    },
+    {
+      "stage": "generation_state",
+      "topology": "merged topology slot context",
+      "geometry": "merged geometry slot context",
+      "pocket": "merged pocket slot context",
+      "locality": "slot_level_context_preserved"
+    },
+    {
+      "stage": "baseline_flow_velocity_head",
+      "topology": "mean(topology_context)",
+      "geometry": "mean(geometry_context)",
+      "pocket": "mean(pocket_context)",
+      "locality": "collapsed_to_modality_means"
+    }
+  ],
+  "mean_pooling_sites_affecting_flow": [
+    {
+      "source": "src/models/flow_matching.rs",
+      "operation": "mean_or_zeros(&conditioning.topology_context, hidden_dim)",
+      "effect": "collapses topology slot context before velocity prediction"
+    },
+    {
+      "source": "src/models/flow_matching.rs",
+      "operation": "mean_or_zeros(&conditioning.geometry_context, hidden_dim)",
+      "effect": "collapses geometry slot context before velocity prediction"
+    },
+    {
+      "source": "src/models/flow_matching.rs",
+      "operation": "mean_or_zeros(&conditioning.pocket_context, hidden_dim)",
+      "effect": "collapses pocket slot context before velocity prediction"
+    },
+    {
+      "source": "src/models/cross_attention.rs",
+      "operation": "query_slots.mean_dim and key_slots.mean_dim for scalar gate computation",
+      "effect": "gate decision uses summaries, but attention weights still operate over slots"
+    }
+  ],
+  "q2_attention_checkpoints": [
+    {
+      "checkpoint": "flow_head_atom_to_pocket_slot_attention",
+      "integration_point": "After flow state centering and before velocity_delta in a configurable replacement head.",
+      "contract": "gate(atom,pocket) * Attention(Q_atom, K_pocket_slot, V_pocket_slot)",
+      "preserves_constraints": true
+    },
+    {
+      "checkpoint": "geometry_slot_to_pocket_slot_bias",
+      "integration_point": "Existing interact_batched_modalities geo_from_pocket and pocket_from_geo attention bias path.",
+      "contract": "Keep topology, geometry, and pocket encoders separate; use directed gated slot attention.",
+      "preserves_constraints": true
+    }
+  ],
+  "recommendation": "Keep GeometryFlowMatchingHead as the default baseline. Treat model.flow_velocity_head.kind=atom_pocket_cross_attention as the local pocket attention ablation that consumes pocket slots without collapsing them to one mean vector; it is not evidence for topology flow, bond flow, or full molecular flow."
+}

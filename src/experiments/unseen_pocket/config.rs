@@ -23,15 +23,48 @@ pub struct AblationConfig {
     /// Override the active generation backend for model-switch ablations.
     #[serde(default)]
     pub generation_backend_override: Option<crate::config::GenerationBackendConfig>,
+    /// Override explicit generation semantics for generation-mode boundary ablations.
+    #[serde(default)]
+    pub generation_mode_override: Option<crate::config::GenerationModeConfig>,
+    /// Override flow-matching transport controls for generation-mode boundary ablations.
+    #[serde(default)]
+    pub flow_matching_override: Option<crate::config::FlowMatchingConfig>,
     /// Override slot count for representation-capacity ablations.
     #[serde(default)]
     pub num_slots_override: Option<i64>,
+    /// Override active-slot masking for slot masking ablations.
+    #[serde(default)]
+    pub slot_attention_masking_override: Option<bool>,
     /// Override gate sparsity weight for controlled-interaction ablations.
     #[serde(default)]
     pub eta_gate_override: Option<f64>,
+    /// Override interaction gate temperature for gate-scale ablations.
+    #[serde(default)]
+    pub interaction_gate_temperature_override: Option<f64>,
     /// Override leakage penalty weight for specialization ablations.
     #[serde(default)]
     pub delta_leak_override: Option<f64>,
+    /// Disable intra-modality redundancy regularization for objective ablations.
+    #[serde(default)]
+    pub disable_redundancy: bool,
+    /// Collapse staged training gates so every configured objective is active from step zero.
+    #[serde(default)]
+    pub disable_staged_schedule: bool,
+    /// Override downstream modality visibility for topology/geometry/pocket-only controls.
+    #[serde(default)]
+    pub modality_focus_override: Option<crate::config::ModalityFocusConfig>,
+    /// Override topology encoder family for encoder-capacity ablations.
+    #[serde(default)]
+    pub topology_encoder_kind_override: Option<crate::config::TopologyEncoderKind>,
+    /// Override geometry operator family for geometry-representation ablations.
+    #[serde(default)]
+    pub geometry_operator_override: Option<crate::config::GeometryOperatorKind>,
+    /// Override pocket encoder family for context-encoder ablations.
+    #[serde(default)]
+    pub pocket_encoder_kind_override: Option<crate::config::PocketEncoderKind>,
+    /// Override decoder conditioning path for local-versus-global conditioning ablations.
+    #[serde(default)]
+    pub decoder_conditioning_override: Option<crate::config::DecoderConditioningKind>,
     /// Override the cross-modal interaction block style for controlled interaction ablations.
     pub interaction_mode_override: Option<CrossAttentionMode>,
     /// Human-readable variant label for persisted comparison artifacts.
@@ -50,9 +83,20 @@ impl Default for AblationConfig {
             disable_candidate_repair: false,
             primary_objective_override: None,
             generation_backend_override: None,
+            generation_mode_override: None,
+            flow_matching_override: None,
             num_slots_override: None,
+            slot_attention_masking_override: None,
             eta_gate_override: None,
+            interaction_gate_temperature_override: None,
             delta_leak_override: None,
+            disable_redundancy: false,
+            disable_staged_schedule: false,
+            modality_focus_override: None,
+            topology_encoder_kind_override: None,
+            geometry_operator_override: None,
+            pocket_encoder_kind_override: None,
+            decoder_conditioning_override: None,
             interaction_mode_override: None,
             variant_label: None,
         }
@@ -137,18 +181,39 @@ pub struct AblationMatrixConfig {
     pub include_surrogate_objective: bool,
     /// Whether to include a conditioned-denoising baseline.
     pub include_conditioned_denoising: bool,
+    /// Whether to include executable generation-mode boundary variants.
+    #[serde(default = "default_include_generation_mode_ablation")]
+    pub include_generation_mode_ablation: bool,
     /// Whether to include a variant with slots disabled in reporting.
     pub include_disable_slots: bool,
     /// Whether to include a variant with cross-attention disabled in reporting.
     pub include_disable_cross_attention: bool,
     /// Whether to include a variant with probes disabled in reporting.
     pub include_disable_probes: bool,
+    /// Whether to include a variant with leakage diagnostics disabled.
+    #[serde(default = "default_include_disable_leakage")]
+    pub include_disable_leakage: bool,
+    /// Whether to include the lightweight topology encoder baseline.
+    #[serde(default = "default_include_topology_encoder_ablation")]
+    pub include_topology_encoder_ablation: bool,
+    /// Whether to include the raw-coordinate geometry operator baseline.
+    #[serde(default = "default_include_geometry_operator_ablation")]
+    pub include_geometry_operator_ablation: bool,
+    /// Whether to include the feature-projection pocket encoder baseline.
+    #[serde(default = "default_include_pocket_encoder_ablation")]
+    pub include_pocket_encoder_ablation: bool,
+    /// Whether to include mean-pooled decoder conditioning against local atom-slot conditioning.
+    #[serde(default = "default_include_decoder_conditioning_ablation")]
+    pub include_decoder_conditioning_ablation: bool,
     /// Whether to include a lightweight controlled-interaction baseline.
     #[serde(default = "default_include_lightweight_interaction")]
     pub include_lightweight_interaction: bool,
     /// Whether to include a Transformer-style controlled-interaction variant.
     #[serde(default = "default_include_transformer_interaction")]
     pub include_transformer_interaction: bool,
+    /// Whether to include a direct-fusion negative control.
+    #[serde(default = "default_include_direct_fusion_negative_control")]
+    pub include_direct_fusion_negative_control: bool,
     /// Whether to include the no geometry-biased controlled-attention variant.
     #[serde(default = "default_include_geometry_bias_ablation")]
     pub include_disable_geometry_interaction_bias: bool,
@@ -164,12 +229,27 @@ pub struct AblationMatrixConfig {
     /// Whether to include a reduced slot-count variant.
     #[serde(default = "default_include_slot_count_ablation")]
     pub include_slot_count_ablation: bool,
+    /// Whether to include active-slot attention masking as a direct ablation.
+    #[serde(default = "default_include_slot_attention_masking_ablation")]
+    pub include_slot_attention_masking_ablation: bool,
     /// Whether to include a gate-sparsity disabled variant.
     #[serde(default = "default_include_gate_sparsity_ablation")]
     pub include_gate_sparsity_ablation: bool,
+    /// Whether to include gate-temperature scale variants.
+    #[serde(default = "default_include_gate_scale_ablation")]
+    pub include_gate_scale_ablation: bool,
     /// Whether to include a leakage-penalty disabled variant.
     #[serde(default = "default_include_leakage_penalty_ablation")]
     pub include_leakage_penalty_ablation: bool,
+    /// Whether to include a redundancy-loss disabled variant.
+    #[serde(default = "default_include_redundancy_ablation")]
+    pub include_redundancy_ablation: bool,
+    /// Whether to include topology-only, geometry-only, and pocket-only variants.
+    #[serde(default = "default_include_modality_focus_ablation")]
+    pub include_modality_focus_ablation: bool,
+    /// Whether to include a no-staged-schedule variant.
+    #[serde(default = "default_include_staged_schedule_ablation")]
+    pub include_staged_schedule_ablation: bool,
 }
 
 impl Default for AblationMatrixConfig {
@@ -178,18 +258,32 @@ impl Default for AblationMatrixConfig {
             enabled: false,
             include_surrogate_objective: true,
             include_conditioned_denoising: true,
+            include_generation_mode_ablation: default_include_generation_mode_ablation(),
             include_disable_slots: true,
             include_disable_cross_attention: true,
             include_disable_probes: false,
+            include_disable_leakage: default_include_disable_leakage(),
+            include_topology_encoder_ablation: default_include_topology_encoder_ablation(),
+            include_geometry_operator_ablation: default_include_geometry_operator_ablation(),
+            include_pocket_encoder_ablation: default_include_pocket_encoder_ablation(),
+            include_decoder_conditioning_ablation: default_include_decoder_conditioning_ablation(),
             include_lightweight_interaction: true,
             include_transformer_interaction: true,
+            include_direct_fusion_negative_control:
+                default_include_direct_fusion_negative_control(),
             include_disable_geometry_interaction_bias: default_include_geometry_bias_ablation(),
             include_disable_rollout_pocket_guidance: default_include_rollout_guidance_ablation(),
             include_disable_candidate_repair: default_include_candidate_repair_ablation(),
             include_backend_family_ablation: default_include_backend_family_ablation(),
             include_slot_count_ablation: default_include_slot_count_ablation(),
+            include_slot_attention_masking_ablation:
+                default_include_slot_attention_masking_ablation(),
             include_gate_sparsity_ablation: default_include_gate_sparsity_ablation(),
+            include_gate_scale_ablation: default_include_gate_scale_ablation(),
             include_leakage_penalty_ablation: default_include_leakage_penalty_ablation(),
+            include_redundancy_ablation: default_include_redundancy_ablation(),
+            include_modality_focus_ablation: default_include_modality_focus_ablation(),
+            include_staged_schedule_ablation: default_include_staged_schedule_ablation(),
         }
     }
 }
@@ -202,12 +296,60 @@ fn default_include_slot_count_ablation() -> bool {
     true
 }
 
+fn default_include_generation_mode_ablation() -> bool {
+    false
+}
+
+fn default_include_slot_attention_masking_ablation() -> bool {
+    false
+}
+
 fn default_include_gate_sparsity_ablation() -> bool {
     true
 }
 
+fn default_include_gate_scale_ablation() -> bool {
+    false
+}
+
+fn default_include_direct_fusion_negative_control() -> bool {
+    false
+}
+
 fn default_include_leakage_penalty_ablation() -> bool {
     true
+}
+
+fn default_include_redundancy_ablation() -> bool {
+    true
+}
+
+fn default_include_modality_focus_ablation() -> bool {
+    false
+}
+
+fn default_include_staged_schedule_ablation() -> bool {
+    false
+}
+
+fn default_include_disable_leakage() -> bool {
+    false
+}
+
+fn default_include_topology_encoder_ablation() -> bool {
+    false
+}
+
+fn default_include_geometry_operator_ablation() -> bool {
+    false
+}
+
+fn default_include_pocket_encoder_ablation() -> bool {
+    false
+}
+
+fn default_include_decoder_conditioning_ablation() -> bool {
+    false
 }
 
 fn default_include_geometry_bias_ablation() -> bool {
@@ -264,9 +406,14 @@ impl UnseenPocketExperimentConfig {
     pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
         self.research.validate()?;
         if !PocketGenerationMethodRegistry::contains(self.research.generation_method.primary_backend_id()) {
+            let family = format!(
+                "{:?}",
+                self.research.generation_method.primary_backend.family
+            )
+            .to_ascii_lowercase();
             return Err(format!(
-                "unknown generation_method.active_method `{}`",
-                self.research.generation_method.primary_backend_id()
+                "unknown generation_method.active_method `{}` (family={family}, config_path=unavailable)",
+                self.research.generation_method.primary_backend_id(),
             )
             .into());
         }
@@ -281,7 +428,7 @@ impl UnseenPocketExperimentConfig {
         for method_id in self.research.generation_method.comparison_backend_ids() {
             if !PocketGenerationMethodRegistry::contains(&method_id) {
                 return Err(format!(
-                    "unknown generation_method.comparison_methods entry `{method_id}`"
+                    "unknown generation_method.comparison_methods entry `{method_id}` (family=unknown, config_path=unavailable)"
                 )
                 .into());
             }
@@ -294,6 +441,21 @@ impl UnseenPocketExperimentConfig {
         }
         Ok(())
     }
+}
+
+/// Validate an experiment config and attach the source path to fail-fast errors.
+pub fn validate_experiment_config_with_source(
+    config: &UnseenPocketExperimentConfig,
+    source_path: impl AsRef<std::path::Path>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    config.validate().map_err(|error| {
+        format!(
+            "{}; config_path={}",
+            error,
+            source_path.as_ref().display()
+        )
+        .into()
+    })
 }
 
 impl Default for UnseenPocketExperimentConfig {
@@ -335,6 +497,18 @@ pub struct PerformanceGateConfig {
     /// Maximum test memory delta in MB allowed when set.
     #[serde(default)]
     pub max_test_memory_mb: Option<f64>,
+    /// Minimum raw-native test valid fraction required when set.
+    #[serde(default)]
+    pub min_test_raw_model_valid_fraction: Option<f64>,
+    /// Minimum raw-native test pocket-contact fraction required when set.
+    #[serde(default)]
+    pub min_test_raw_model_pocket_contact_fraction: Option<f64>,
+    /// Maximum raw-native test clash fraction allowed when set.
+    #[serde(default)]
+    pub max_test_raw_model_clash_fraction: Option<f64>,
+    /// Minimum raw-native graph validity fraction required when set.
+    #[serde(default)]
+    pub min_test_raw_native_graph_valid_fraction: Option<f64>,
 }
 
 impl PerformanceGateConfig {
@@ -356,12 +530,52 @@ impl PerformanceGateConfig {
                 "performance_gates.max_test_memory_mb",
                 self.max_test_memory_mb,
             ),
+            (
+                "performance_gates.min_test_raw_model_valid_fraction",
+                self.min_test_raw_model_valid_fraction,
+            ),
+            (
+                "performance_gates.min_test_raw_model_pocket_contact_fraction",
+                self.min_test_raw_model_pocket_contact_fraction,
+            ),
+            (
+                "performance_gates.max_test_raw_model_clash_fraction",
+                self.max_test_raw_model_clash_fraction,
+            ),
+            (
+                "performance_gates.min_test_raw_native_graph_valid_fraction",
+                self.min_test_raw_native_graph_valid_fraction,
+            ),
         ] {
             if let Some(value) = value {
                 if !value.is_finite() || value < 0.0 {
                     return Err(
                         format!("{name} must be omitted or a non-negative finite number").into(),
                     );
+                }
+            }
+        }
+        for (name, value) in [
+            (
+                "performance_gates.min_test_raw_model_valid_fraction",
+                self.min_test_raw_model_valid_fraction,
+            ),
+            (
+                "performance_gates.min_test_raw_model_pocket_contact_fraction",
+                self.min_test_raw_model_pocket_contact_fraction,
+            ),
+            (
+                "performance_gates.max_test_raw_model_clash_fraction",
+                self.max_test_raw_model_clash_fraction,
+            ),
+            (
+                "performance_gates.min_test_raw_native_graph_valid_fraction",
+                self.min_test_raw_native_graph_valid_fraction,
+            ),
+        ] {
+            if let Some(value) = value {
+                if value > 1.0 {
+                    return Err(format!("{name} must be in [0, 1] when set").into());
                 }
             }
         }
@@ -755,7 +969,7 @@ enum SearchOverride {
     MinRolloutSteps(usize),
     StopProbabilityThreshold(f64),
     CoordinateStepScale(f64),
-    TrainingStepWeightDecay(f64),
+    RolloutEvalStepWeightDecay(f64),
     CoordinateMomentum(f64),
     AtomMomentum(f64),
     AtomCommitTemperature(f64),

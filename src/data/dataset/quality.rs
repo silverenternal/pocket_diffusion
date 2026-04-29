@@ -163,6 +163,11 @@ struct RetainedExampleSummary {
     missing_measurement_type: usize,
     measurement_family_histogram: BTreeMap<String, usize>,
     normalization_provenance_values: BTreeSet<String>,
+    ligand_atom_count_histogram: BTreeMap<String, usize>,
+    pocket_atom_count_histogram: BTreeMap<String, usize>,
+    mean_ligand_atom_count: f64,
+    coordinate_frame_origin_valid_examples: usize,
+    ligand_centered_coordinate_frame_examples: usize,
 }
 
 fn summarize_retained_examples(examples: &[MolecularExample]) -> RetainedExampleSummary {
@@ -184,6 +189,20 @@ fn summarize_retained_examples(examples: &[MolecularExample]) -> RetainedExample
         .count();
     let mut measurement_family_histogram = BTreeMap::new();
     let mut normalization_provenance_values = BTreeSet::new();
+    let mut ligand_atom_count_histogram = BTreeMap::new();
+    let mut pocket_atom_count_histogram = BTreeMap::new();
+    let mut ligand_atom_count_total = 0_usize;
+    for example in examples {
+        let ligand_atoms = ligand_atom_count(example);
+        let pocket_atoms = pocket_atom_count(example);
+        ligand_atom_count_total += ligand_atoms;
+        *ligand_atom_count_histogram
+            .entry(atom_count_bin(ligand_atoms))
+            .or_default() += 1;
+        *pocket_atom_count_histogram
+            .entry(atom_count_bin(pocket_atoms))
+            .or_default() += 1;
+    }
     for example in &labeled_examples {
         let measurement = example
             .targets
@@ -195,6 +214,14 @@ fn summarize_retained_examples(examples: &[MolecularExample]) -> RetainedExample
             normalization_provenance_values.insert(provenance.clone());
         }
     }
+    let coordinate_frame_origin_valid_examples = examples
+        .iter()
+        .filter(|example| coordinate_frame_origin_is_finite(example))
+        .count();
+    let ligand_centered_coordinate_frame_examples = examples
+        .iter()
+        .filter(|example| example_uses_ligand_centered_model_frame(example))
+        .count();
 
     RetainedExampleSummary {
         label_coverage: fraction_usize(labeled_examples.len(), examples.len()) as f32,
@@ -220,12 +247,59 @@ fn summarize_retained_examples(examples: &[MolecularExample]) -> RetainedExample
         missing_measurement_type,
         measurement_family_histogram,
         normalization_provenance_values,
+        ligand_atom_count_histogram,
+        pocket_atom_count_histogram,
+        mean_ligand_atom_count: fraction_usize(ligand_atom_count_total, examples.len()),
+        coordinate_frame_origin_valid_examples,
+        ligand_centered_coordinate_frame_examples,
     }
+}
+
+fn coordinate_frame_origin_is_finite(example: &MolecularExample) -> bool {
+    example
+        .coordinate_frame_origin
+        .iter()
+        .all(|value| value.is_finite())
+}
+
+fn example_uses_ligand_centered_model_frame(example: &MolecularExample) -> bool {
+    if !coordinate_frame_origin_is_finite(example) {
+        return false;
+    }
+    let ligand_atoms = ligand_atom_count(example) as i64;
+    if ligand_atoms <= 0 {
+        return false;
+    }
+    tensor_all_finite(&example.geometry.coords)
+        && tensor_all_finite(&example.pocket.coords)
+        && geometry_centroid_is_ligand_origin(&example.geometry.coords)
+}
+
+fn tensor_all_finite(tensor: &tch::Tensor) -> bool {
+    if tensor.numel() == 0 {
+        return true;
+    }
+    tensor
+        .isfinite()
+        .all()
+        .to_kind(tch::Kind::Int64)
+        .int64_value(&[])
+        != 0
+}
+
+fn geometry_centroid_is_ligand_origin(coords: &tch::Tensor) -> bool {
+    let atom_count = coords.size().first().copied().unwrap_or(0);
+    if atom_count <= 0 {
+        return false;
+    }
+    let centroid = coords.mean_dim([0].as_slice(), false, tch::Kind::Float);
+    centroid.abs().max().double_value(&[]) <= 1.0e-4
 }
 
 fn finalize_validation_report(
     validation: &mut DatasetValidationReport,
     examples: &[MolecularExample],
+    generation_target: &GenerationTargetConfig,
 ) {
     let summary = summarize_retained_examples(examples);
     validation.attached_labels = examples
@@ -245,5 +319,155 @@ fn finalize_validation_report(
     validation.retained_measurement_family_count = summary.measurement_family_histogram.len();
     validation.retained_measurement_family_histogram = summary.measurement_family_histogram;
     validation.retained_normalization_provenance_values = summary.normalization_provenance_values;
+    validation.retained_ligand_atom_count_histogram = summary.ligand_atom_count_histogram;
+    validation.retained_pocket_atom_count_histogram = summary.pocket_atom_count_histogram;
+    validation.retained_mean_ligand_atom_count = summary.mean_ligand_atom_count;
+    validation.atom_count_prior_provenance =
+        atom_count_prior_provenance_label(generation_target).to_string();
+    validation.atom_count_prior_mae = atom_count_prior_mae(examples, generation_target);
+    validation.coordinate_frame_contract =
+        "ligand_centered_model_coordinates_with_coordinate_frame_origin".to_string();
+    validation.coordinate_frame_artifact_contract =
+        "candidate.coords are ligand-centered model-frame coordinates; coordinate_frame_origin reconstructs source-frame coordinates".to_string();
+    validation.coordinate_frame_origin_valid_examples =
+        summary.coordinate_frame_origin_valid_examples;
+    validation.ligand_centered_coordinate_frame_examples =
+        summary.ligand_centered_coordinate_frame_examples;
+    validation.pocket_coordinates_centered_upstream = !examples.is_empty()
+        && summary.ligand_centered_coordinate_frame_examples == examples.len();
+    validation.source_coordinate_reconstruction_supported = !examples.is_empty()
+        && summary.coordinate_frame_origin_valid_examples == examples.len()
+        && summary.ligand_centered_coordinate_frame_examples == examples.len();
+    record_target_context_leakage_contract(validation, examples, generation_target);
 }
 
+fn atom_count_bin(count: usize) -> String {
+    match count {
+        0..=8 => "000-008".to_string(),
+        9..=16 => "009-016".to_string(),
+        17..=32 => "017-032".to_string(),
+        33..=64 => "033-064".to_string(),
+        _ => "065-plus".to_string(),
+    }
+}
+
+fn atom_count_prior_provenance_label(generation_target: &GenerationTargetConfig) -> &'static str {
+    match generation_target.generation_mode {
+        GenerationModeConfig::PocketOnlyInitializationBaseline => "fixed",
+        GenerationModeConfig::DeNovoInitialization => {
+            if generation_target
+                .de_novo_initialization
+                .dataset_calibrated_atom_count
+                .is_some()
+            {
+                "dataset_calibrated"
+            } else {
+                "pocket_volume"
+            }
+        }
+        GenerationModeConfig::TargetLigandDenoising
+        | GenerationModeConfig::LigandRefinement
+        | GenerationModeConfig::FlowRefinement => "target_ligand",
+    }
+}
+
+fn atom_count_prior_mae(
+    examples: &[MolecularExample],
+    generation_target: &GenerationTargetConfig,
+) -> f64 {
+    if examples.is_empty() {
+        return 0.0;
+    }
+    let total = examples
+        .iter()
+        .map(|example| {
+            let target = ligand_atom_count(example) as f64;
+            let predicted = match generation_target.generation_mode {
+                GenerationModeConfig::PocketOnlyInitializationBaseline => {
+                    generation_target.pocket_only_initialization.atom_count as f64
+                }
+                GenerationModeConfig::DeNovoInitialization => {
+                    if let Some(atom_count) = generation_target
+                        .de_novo_initialization
+                        .dataset_calibrated_atom_count
+                    {
+                        atom_count as f64
+                    } else {
+                        let pocket_atoms = pocket_atom_count(example) as f64;
+                        let divisor = generation_target
+                            .de_novo_initialization
+                            .pocket_atom_divisor
+                            .max(1.0e-6);
+                        let raw = (pocket_atoms / divisor).round() as usize;
+                        raw.clamp(
+                            generation_target.de_novo_initialization.min_atom_count,
+                            generation_target.de_novo_initialization.max_atom_count,
+                        ) as f64
+                    }
+                }
+                GenerationModeConfig::TargetLigandDenoising
+                | GenerationModeConfig::LigandRefinement
+                | GenerationModeConfig::FlowRefinement => target,
+            };
+            (predicted - target).abs()
+        })
+        .sum::<f64>();
+    total / examples.len() as f64
+}
+
+fn record_target_context_leakage_contract(
+    validation: &mut DatasetValidationReport,
+    examples: &[MolecularExample],
+    generation_target: &GenerationTargetConfig,
+) {
+    let mode = generation_target.generation_mode;
+    let target_ligand_context_dependency_detected = !examples.is_empty()
+        && validation.pocket_coordinates_centered_upstream
+        && validation.coordinate_frame_contract.contains("ligand_centered");
+    let target_ligand_context_dependency_allowed =
+        mode.uses_target_ligand_initialization() && mode != GenerationModeConfig::DeNovoInitialization;
+    validation.target_ligand_context_dependency_detected =
+        target_ligand_context_dependency_detected;
+    validation.target_ligand_context_dependency_allowed =
+        target_ligand_context_dependency_allowed;
+    validation.generation_target_leakage_contract = if target_ligand_context_dependency_detected {
+        format!(
+            "generation_mode={} observes ligand-centered pocket/context tensors; this is allowed only for target-ligand refinement modes",
+            mode.as_str()
+        )
+    } else {
+        format!(
+            "generation_mode={} has no detected target-ligand context dependency in retained examples",
+            mode.as_str()
+        )
+    };
+    validation.target_ligand_context_leakage_warnings.clear();
+    if target_ligand_context_dependency_detected && !target_ligand_context_dependency_allowed {
+        validation.target_ligand_context_leakage_warnings.push(format!(
+            "generation_mode={} should not use target-ligand-centered pocket/context tensors for pocket-only or de novo claims",
+            mode.as_str()
+        ));
+    }
+}
+
+fn enforce_target_context_leakage_policy(
+    validation: &mut DatasetValidationReport,
+    generation_target: &GenerationTargetConfig,
+    filters: &DataQualityFilterConfig,
+) -> Result<(), DataParseError> {
+    if filters.reject_target_ligand_context_leakage
+        && validation.target_ligand_context_dependency_detected
+        && !validation.target_ligand_context_dependency_allowed
+    {
+        validation.target_ligand_context_dependency_rejected = true;
+        return Err(DataParseError::Discovery {
+            root: PathBuf::from("."),
+            message: format!(
+                "generation_mode={} rejects target-ligand-centered pocket/context tensors; use a pocket-only coordinate frame before claim-bearing inference",
+                generation_target.generation_mode.as_str()
+            ),
+        });
+    }
+    validation.target_ligand_context_dependency_rejected = false;
+    Ok(())
+}

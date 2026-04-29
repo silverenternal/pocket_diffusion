@@ -2,7 +2,15 @@ pub fn load_experiment_config(
     path: impl AsRef<std::path::Path>,
 ) -> Result<UnseenPocketExperimentConfig, Box<dyn std::error::Error>> {
     let content = fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&content)?)
+    let value: serde_json::Value = serde_json::from_str(&content)?;
+    if value.get("research").is_some() {
+        return Ok(serde_json::from_value(value)?);
+    }
+    let research: ResearchConfig = serde_json::from_value(value)?;
+    Ok(UnseenPocketExperimentConfig {
+        research,
+        ..UnseenPocketExperimentConfig::default()
+    })
 }
 
 /// Execute the bounded multi-surface automated search rooted at one config.
@@ -15,7 +23,7 @@ pub fn run_automated_search(
     if !config.automated_search.enabled {
         return Err("automated_search.enabled must be true for the search entrypoint".into());
     }
-    config.validate()?;
+    validate_experiment_config_with_source(&config, orchestrator_path)?;
     let search = &config.automated_search;
     for surface_path in &search.surface_configs {
         let resolved = resolve_relative_path(orchestrator_dir, surface_path);
@@ -23,7 +31,7 @@ pub fn run_automated_search(
             return Err(format!("search surface config not found: {}", resolved.display()).into());
         }
     }
-    let artifact_root = resolve_relative_path(orchestrator_dir, &search.artifact_root_dir);
+    let artifact_root = resolve_output_artifact_path(orchestrator_dir, &search.artifact_root_dir);
     fs::create_dir_all(&artifact_root)?;
 
     let candidates = build_search_candidates(&config.research, search)?;
@@ -68,8 +76,8 @@ pub fn run_multi_seed_experiment(
     if !config.multi_seed.enabled {
         return Err("multi_seed.enabled must be true for the multi-seed entrypoint".into());
     }
-    config.validate()?;
-    let artifact_root = resolve_relative_path(source_dir, &config.multi_seed.artifact_root_dir);
+    validate_experiment_config_with_source(&config, source_path)?;
+    let artifact_root = resolve_output_artifact_path(source_dir, &config.multi_seed.artifact_root_dir);
     fs::create_dir_all(&artifact_root)?;
 
     let mut seed_runs = Vec::with_capacity(config.multi_seed.seeds.len());
@@ -111,6 +119,7 @@ fn run_search_candidate(
     for surface_path in &search.surface_configs {
         let source_config = resolve_relative_path(orchestrator_dir, surface_path);
         let mut surface_config = load_experiment_config(&source_config)?;
+        validate_experiment_config_with_source(&surface_config, &source_config)?;
         apply_search_candidate(
             &mut surface_config,
             candidate,
@@ -239,15 +248,15 @@ fn search_axes(
     push_f64_axis(
         &mut axes,
         &search_space.stop_probability_threshold,
-        |value| SearchOverride::StopProbabilityThreshold(value),
+        SearchOverride::StopProbabilityThreshold,
     );
     push_f64_axis(&mut axes, &search_space.coordinate_step_scale, |value| {
         SearchOverride::CoordinateStepScale(value)
     });
     push_f64_axis(
         &mut axes,
-        &search_space.training_step_weight_decay,
-        |value| SearchOverride::TrainingStepWeightDecay(value),
+        &search_space.rollout_eval_step_weight_decay,
+        SearchOverride::RolloutEvalStepWeightDecay,
     );
     push_f64_axis(&mut axes, &search_space.coordinate_momentum, |value| {
         SearchOverride::CoordinateMomentum(value)
@@ -261,7 +270,7 @@ fn search_axes(
     push_f64_axis(
         &mut axes,
         &search_space.max_coordinate_delta_norm,
-        |value| SearchOverride::MaxCoordinateDeltaNorm(value),
+        SearchOverride::MaxCoordinateDeltaNorm,
     );
     push_f64_axis(&mut axes, &search_space.stop_delta_threshold, |value| {
         SearchOverride::StopDeltaThreshold(value)
@@ -298,8 +307,8 @@ fn search_axes(
             base.data.generation_target.stop_probability_threshold,
         ),
         SearchOverride::CoordinateStepScale(base.data.generation_target.coordinate_step_scale),
-        SearchOverride::TrainingStepWeightDecay(
-            base.data.generation_target.training_step_weight_decay,
+        SearchOverride::RolloutEvalStepWeightDecay(
+            base.data.generation_target.rollout_eval_step_weight_decay,
         ),
         SearchOverride::CoordinateMomentum(base.data.generation_target.coordinate_momentum),
         SearchOverride::AtomMomentum(base.data.generation_target.atom_momentum),
@@ -431,6 +440,26 @@ fn resolve_relative_path(base_dir: &Path, path: &Path) -> PathBuf {
     } else {
         base_dir.join(path)
     }
+}
+
+fn resolve_output_artifact_path(base_dir: &Path, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    if starts_with_repo_artifact_root(path) {
+        return path.to_path_buf();
+    }
+    base_dir.join(path)
+}
+
+fn starts_with_repo_artifact_root(path: &Path) -> bool {
+    path.components()
+        .find_map(|component| match component {
+            std::path::Component::CurDir => None,
+            std::path::Component::Normal(value) => value.to_str(),
+            _ => Some(""),
+        })
+        .is_some_and(|first| matches!(first, "checkpoints" | "artifacts"))
 }
 
 fn evaluate_search_gates(
@@ -790,12 +819,12 @@ impl SearchOverride {
             SearchOverride::CoordinateStepScale(value) => {
                 config.research.data.generation_target.coordinate_step_scale = *value;
             }
-            SearchOverride::TrainingStepWeightDecay(value) => {
+            SearchOverride::RolloutEvalStepWeightDecay(value) => {
                 config
                     .research
                     .data
                     .generation_target
-                    .training_step_weight_decay = *value;
+                    .rollout_eval_step_weight_decay = *value;
             }
             SearchOverride::CoordinateMomentum(value) => {
                 config.research.data.generation_target.coordinate_momentum = *value;
@@ -857,8 +886,8 @@ impl SearchOverride {
             SearchOverride::CoordinateStepScale(value) => {
                 format!("coordinate_step_scale={value:.6}")
             }
-            SearchOverride::TrainingStepWeightDecay(value) => {
-                format!("training_step_weight_decay={value:.6}")
+            SearchOverride::RolloutEvalStepWeightDecay(value) => {
+                format!("rollout_eval_step_weight_decay={value:.6}")
             }
             SearchOverride::CoordinateMomentum(value) => format!("coordinate_momentum={value:.6}"),
             SearchOverride::AtomMomentum(value) => format!("atom_momentum={value:.6}"),
@@ -888,4 +917,3 @@ impl SearchOverride {
         self.label() == other.label()
     }
 }
-

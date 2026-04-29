@@ -6,6 +6,7 @@ impl TopologyFeatures {
             edge_index: self.edge_index.to_device(device),
             bond_types: self.bond_types.to_device(device),
             adjacency: self.adjacency.to_device(device),
+            chemistry_roles: self.chemistry_roles.to_device(device),
         }
     }
 }
@@ -27,6 +28,7 @@ impl PocketFeatures {
             coords: self.coords.to_device(device),
             atom_features: self.atom_features.to_device(device),
             pooled_features: self.pooled_features.to_device(device),
+            chemistry_roles: self.chemistry_roles.to_device(device),
         }
     }
 
@@ -36,6 +38,18 @@ impl PocketFeatures {
             coords: self.coords.shallow_clone(),
             atom_features: resize_feature_matrix(&self.atom_features, target_dim),
             pooled_features: resize_feature_vector(&self.pooled_features, target_dim),
+            chemistry_roles: self.chemistry_roles.clone(),
+        }
+    }
+}
+
+impl ChemistryRoleFeatureMatrix {
+    /// Move role tensors onto a specific device.
+    pub fn to_device(&self, device: Device) -> Self {
+        Self {
+            role_vectors: self.role_vectors.to_device(device),
+            availability: self.availability.to_device(device),
+            provenance: self.provenance,
         }
     }
 }
@@ -52,13 +66,14 @@ impl DecoderSupervision {
             coordinate_noise: self.coordinate_noise.to_device(device),
             target_pairwise_distances: self.target_pairwise_distances.to_device(device),
             rollout_steps: self.rollout_steps,
-            training_step_weight_decay: self.training_step_weight_decay,
+            rollout_eval_step_weight_decay: self.rollout_eval_step_weight_decay,
             corruption_metadata: self.corruption_metadata.clone(),
         }
     }
 
     /// Weight assigned to the provided rollout step under the configured decay schedule.
-    pub fn rollout_step_weight(&self, step_index: usize) -> f64 {
-        self.training_step_weight_decay.powi(step_index as i32)
+    pub fn rollout_eval_step_weight(&self, step_index: usize) -> f64 {
+        self.rollout_eval_step_weight_decay
+            .powi(step_index as i32)
     }
 }

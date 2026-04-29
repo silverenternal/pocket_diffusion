@@ -6,7 +6,7 @@
         "fmt",
         "--check"
       ],
-      "duration_seconds": 0.106,
+      "duration_seconds": 0.221,
       "name": "cargo fmt",
       "required": true,
       "returncode": 0,
@@ -20,19 +20,35 @@
         "test",
         "--no-run"
       ],
-      "duration_seconds": 0.086,
+      "duration_seconds": 0.084,
       "name": "cargo test no-run",
       "required": true,
       "returncode": 0,
       "status": "pass",
-      "stderr_tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s\n  Executable unittests src/lib.rs (target/debug/deps/pocket_diffusion-0f28936c81b80c14)\n  Executable unittests src/bin/disentangle_demo.rs (target/debug/deps/disentangle_demo-38adf413e4605218)\n  Executable unittests src/main.rs (target/debug/deps/pocket_diffusion-88b8126f63e5e260)\n  Executable tests/artifact_compatibility.rs (target/debug/deps/artifact_compatibility-fddb2f96b879b7af)\n  Executable tests/generation_method_platform.rs (target/debug/deps/generation_method_platform-ec78e3ae8b73dde6)\n  Executable tests/integration_mi_monitor.rs (target/debug/deps/integration_mi_monitor-2520597359a76057)\n  Executable tests/reviewer_tooling.rs (target/debug/deps/reviewer_tooling-294a8bfe3c4dabba)\n  Executable tests/smoke_trainer_mi_integration.rs (target/debug/deps/smoke_trainer_mi_integration-f223ce5d9f0eec28)\n",
+      "stderr_tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s\n  Executable unittests src/lib.rs (target/debug/deps/pocket_diffusion-0f28936c81b80c14)\n  Executable unittests src/bin/disentangle_demo.rs (target/debug/deps/disentangle_demo-38adf413e4605218)\n  Executable unittests src/main.rs (target/debug/deps/pocket_diffusion-88b8126f63e5e260)\n  Executable tests/artifact_compatibility.rs (target/debug/deps/artifact_compatibility-fddb2f96b879b7af)\n  Executable tests/generation_method_platform.rs (target/debug/deps/generation_method_platform-ec78e3ae8b73dde6)\n  Executable tests/integration_mi_monitor.rs (target/debug/deps/integration_mi_monitor-2520597359a76057)\n  Executable tests/reviewer_tooling.rs (target/debug/deps/reviewer_tooling-294a8bfe3c4dabba)\n  Executable tests/smoke_trainer_mi_integration.rs (target/debug/deps/smoke_trainer_mi_integration-f223ce5d9f0eec28)\n",
       "stdout_tail": ""
     },
     {
       "command": [
-        "/usr/bin/python",
+        "cargo",
+        "test",
+        "--no-default-features",
+        "drug_metric_contract_matches_legacy_classifier"
+      ],
+      "duration_seconds": 1.051,
+      "name": "drug metric contract drift check",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s\n     Running unittests src/lib.rs (target/debug/deps/pocket_diffusion-0f28936c81b80c14)\n     Running unittests src/bin/disentangle_demo.rs (target/debug/deps/disentangle_demo-38adf413e4605218)\n     Running unittests src/main.rs (target/debug/deps/pocket_diffusion-88b8126f63e5e260)\n     Running tests/artifact_compatibility.rs (target/debug/deps/artifact_compatibility-fddb2f96b879b7af)\n     Running tests/generation_method_platform.rs (target/debug/deps/generation_method_platform-ec78e3ae8b73dde6)\n     Running tests/integration_mi_monitor.rs (target/debug/deps/integration_mi_monitor-2520597359a76057)\n     Running tests/reviewer_tooling.rs (target/debug/deps/reviewer_tooling-294a8bfe3c4dabba)\n     Running tests/smoke_trainer_mi_integration.rs (target/debug/deps/smoke_trainer_mi_integration-f223ce5d9f0eec28)\n",
+      "stdout_tail": "\nrunning 1 test\ntest models::evaluation::drug_metrics::drug_metric_tests::drug_metric_contract_matches_legacy_classifier ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 392 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n"
+    },
+    {
+      "command": [
+        "/home/hugo/codes/patent_rw/.reviewer-env/bin/python",
         "-m",
         "py_compile",
+        "tools/artifact_paths.py",
         "tools/q1_readiness_audit.py",
         "tools/prepare_docking_inputs.py",
         "tools/vina_score_backend.py",
@@ -50,10 +66,17 @@
         "tools/public_baseline_method_comparison.py",
         "tools/public_baseline_postprocess_layers.py",
         "tools/run_diffsbdd_public_testset.py",
+        "tools/q3_model_improvement_leaderboard.py",
+        "tools/validation/__init__.py",
+        "tools/validation/architecture.py",
+        "tools/validation/artifacts.py",
+        "tools/validation/claim_provenance.py",
+        "tools/validation/negative_fixtures.py",
+        "tools/validation/reporting.py",
         "tools/baseline_output_adapters/sdf_generation_layers_adapter.py",
         "tools/baseline_output_adapters/targetdiff_meta_generation_layers_adapter.py"
       ],
-      "duration_seconds": 0.072,
+      "duration_seconds": 0.088,
       "name": "python syntax",
       "required": true,
       "returncode": 0,
@@ -63,10 +86,11 @@
     },
     {
       "command": [
-        "/usr/bin/python",
+        "/home/hugo/codes/patent_rw/.reviewer-env/bin/python",
         "-c",
         "import json,sys; [json.load(open(p)) for p in sys.argv[1:]]",
         "todo.json",
+        "configs/validation_manifest.json",
         "configs/q1_readiness_audit.json",
         "configs/q1_claim_contract.json",
         "configs/candidate_metric_coverage.json",
@@ -83,9 +107,19 @@
         "configs/q1_public_baseline_full100_postprocess_report.json",
         "configs/q1_diffsbdd_public_full100_generation_report.json",
         "configs/q1_method_comparison_summary.json",
-        "configs/correlation_table.json"
+        "configs/correlation_table.json",
+        "configs/q2_ours_vs_public_baselines_summary.json",
+        "configs/q2_postprocessing_ablation_summary.json",
+        "configs/q2_claim_contract.json",
+        "configs/drug_metric_artifact_manifest.json",
+        "configs/artifact_retention_manifest.json",
+        "artifacts/evidence/q2/q2_proxy_backend_correlation.json",
+        "artifacts/evidence/q2/postprocessing_failure_audit.json",
+        "configs/q3_rotation_consistency_report.json",
+        "configs/q3_model_improvement_leaderboard.json",
+        "configs/q3_non_degradation_gate.json"
       ],
-      "duration_seconds": 0.015,
+      "duration_seconds": 0.017,
       "name": "json artifacts",
       "required": true,
       "returncode": 0,
@@ -95,10 +129,10 @@
     },
     {
       "command": [
-        "/usr/bin/python",
+        "/home/hugo/codes/patent_rw/.reviewer-env/bin/python",
         "tools/q1_readiness_audit.py"
       ],
-      "duration_seconds": 0.386,
+      "duration_seconds": 1.149,
       "name": "q1 readiness audit",
       "required": true,
       "returncode": 0,
@@ -108,16 +142,16 @@
     },
     {
       "command": [
-        "/usr/bin/python",
+        "/home/hugo/codes/patent_rw/.reviewer-env/bin/python",
         "tools/q1_readiness_audit.py",
         "--gate"
       ],
-      "duration_seconds": 0.388,
+      "duration_seconds": 1.139,
       "name": "q1 readiness gate",
       "required": false,
-      "returncode": 0,
-      "status": "pass",
-      "stderr_tail": "",
+      "returncode": 1,
+      "status": "fail",
+      "stderr_tail": "{\n  \"schema_version\": 1,\n  \"gate_failures\": [\n    {\n      \"reason\": \"q2_claim_contract_missing_or_incomplete\"\n    }\n  ]\n}\n",
       "stdout_tail": ""
     },
     {
@@ -154,7 +188,7 @@
         "--config",
         "configs/unseen_pocket_lp_pdbbind_refined_real_backends.json"
       ],
-      "duration_seconds": 0.24,
+      "duration_seconds": 0.241,
       "name": "validate unseen_pocket_lp_pdbbind_refined_real_backends.json",
       "required": true,
       "returncode": 0,
@@ -175,12 +209,12 @@
         "--config",
         "configs/unseen_pocket_tight_geometry_pressure.json"
       ],
-      "duration_seconds": 0.246,
+      "duration_seconds": 0.24,
       "name": "validate unseen_pocket_tight_geometry_pressure.json",
       "required": true,
       "returncode": 0,
       "status": "pass",
-      "stderr_tail": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s\n     Running `target/debug/pocket_diffusion validate --kind experiment --config configs/unseen_pocket_tight_geometry_pressure.json`\n",
+      "stderr_tail": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s\n     Running `target/debug/pocket_diffusion validate --kind experiment --config configs/unseen_pocket_tight_geometry_pressure.json`\n",
       "stdout_tail": "experiment config is valid: configs/unseen_pocket_tight_geometry_pressure.json\n"
     },
     {
@@ -196,25 +230,237 @@
         "--config",
         "configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json"
       ],
-      "duration_seconds": 0.242,
+      "duration_seconds": 0.243,
       "name": "validate unseen_pocket_multi_seed_pdbbindpp_real_backends.json",
       "required": true,
       "returncode": 0,
       "status": "pass",
       "stderr_tail": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s\n     Running `target/debug/pocket_diffusion validate --kind experiment --config configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json`\n",
       "stdout_tail": "experiment config is valid: configs/unseen_pocket_multi_seed_pdbbindpp_real_backends.json\n"
+    },
+    {
+      "command": [
+        "internal",
+        "validate_validation_manifest"
+      ],
+      "duration_seconds": 0.0,
+      "name": "validation manifest",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_drug_metric_contract"
+      ],
+      "duration_seconds": 0.0,
+      "name": "drug metric contract config",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_q2_artifacts"
+      ],
+      "duration_seconds": 0.001,
+      "name": "q2 artifact schema validation",
+      "required": true,
+      "returncode": 1,
+      "status": "fail",
+      "stderr_tail": "",
+      "stdout_tail": "q2 claim contract missing geometry-first or score_only guardrail\ntodo phase missing name: P9\ntodo phase missing goal: P9\ntodo task missing rationale: Q14-P9-02\ntodo task missing actions: Q14-P9-02\ntodo task missing verification: Q14-P9-02\ntodo task Q14-P9-02 actions must be a non-empty list of strings\ntodo task Q14-P9-02 verification must be a non-empty list of strings"
+    },
+    {
+      "command": [
+        "internal",
+        "validate_layer_attribution"
+      ],
+      "duration_seconds": 0.045,
+      "name": "layer attribution integrity",
+      "required": true,
+      "returncode": 1,
+      "status": "fail",
+      "stderr_tail": "",
+      "stdout_tail": "README.md missing explicit layer boundary terms: ['deterministic_proxy', 'inferred_bond', 'reranked']"
+    },
+    {
+      "command": [
+        "internal",
+        "validate_modular_architecture_boundaries"
+      ],
+      "duration_seconds": 0.0,
+      "name": "architecture boundary checks",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_architecture_module_map"
+      ],
+      "duration_seconds": 0.0,
+      "name": "architecture module map",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_artifact_retention_policy"
+      ],
+      "duration_seconds": 0.008,
+      "name": "artifact retention policy",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_backend_sanity"
+      ],
+      "duration_seconds": 0.007,
+      "name": "backend coverage and score sanity",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": "checkpoints/q2_ours_public100/candidate_metrics_vina.json: extreme_positive_score_review_count=68\ncheckpoints/q2_ours_public100/candidate_metrics_gnina.json: extreme_positive_score_review_count=68\ncheckpoints/q2_postprocessing_ablation/candidate_metrics_vina.json: extreme_positive_score_review_count=473\ncheckpoints/q2_postprocessing_ablation/candidate_metrics_gnina.json: extreme_positive_score_review_count=476"
+    },
+    {
+      "command": [
+        "internal",
+        "validate_coordinate_frame_consistency"
+      ],
+      "duration_seconds": 0.033,
+      "name": "coordinate frame consistency",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_diagnostic_presence_for_smoke_artifacts"
+      ],
+      "duration_seconds": 0.837,
+      "name": "smoke diagnostics presence",
+      "required": false,
+      "returncode": 1,
+      "status": "fail",
+      "stderr_tail": "",
+      "stdout_tail": "checkpoints/q13_final_smoke/conditioned_denoising/experiment_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/conditioned_denoising/experiment_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/configs/conditioned_denoising.json missing synchronization diagnostics\ncheckpoints/q13_final_smoke/configs/de_novo_full_flow.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/configs/geometry_flow.json missing synchronization diagnostics\ncheckpoints/q13_final_smoke/de_novo_full_flow/experiment_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/de_novo_full_flow/experiment_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/geometry_flow/experiment_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/geometry_flow/experiment_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/training_configs/conditioned_denoising.research.json missing synchronization diagnostics\ncheckpoints/q13_final_smoke/training_configs/de_novo_full_flow.research.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/training_configs/geometry_flow.research.json missing synchronization diagnostics\ncheckpoints/q13_final_smoke/training_only/conditioned_denoising/training_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/training_only/conditioned_denoising/training_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/training_only/de_novo_full_flow/training_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/training_only/de_novo_full_flow/training_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/training_only/geometry_flow/training_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q13_final_smoke/training_only/geometry_flow/training_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/conditioned_denoising/experiment_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/conditioned_denoising/experiment_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/conditioned_denoising/training_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/conditioned_denoising/training_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/de_novo_full_flow/experiment_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/de_novo_full_flow/experiment_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/de_novo_full_flow/training_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/de_novo_full_flow/training_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/geometry_flow/experiment_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/geometry_flow/experiment_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/geometry_flow/training_summary.json sync[0] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps\ncheckpoints/q14_final_smoke/geometry_flow/training_summary.json sync[1] missing synchronization diagnostic fields: batch_slice_sync_pass, coordinate_frame_mismatch, mask_count_mismatch, refresh_count, slot_count_mismatch, stale_context_steps"
+    },
+    {
+      "command": [
+        "internal",
+        "validate_provenance_safe_pharmacology_claims"
+      ],
+      "duration_seconds": 0.035,
+      "name": "provenance-safe pharmacology claims",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_negative_fixtures"
+      ],
+      "duration_seconds": 0.001,
+      "name": "negative claim/artifact fixtures",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_method_comparison_regression"
+      ],
+      "duration_seconds": 0.071,
+      "name": "method comparison and postprocessing ablation regression",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_training_replay_contract"
+      ],
+      "duration_seconds": 0.0,
+      "name": "training replay contract",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "internal",
+        "validate_flow_head_status_claims"
+      ],
+      "duration_seconds": 0.009,
+      "name": "flow-head status claims",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "/home/hugo/codes/patent_rw/.reviewer-env/bin/python",
+        "tools/claim_regression_gate.py",
+        "--q3-non-degradation-gate",
+        "configs/q3_non_degradation_gate.json"
+      ],
+      "duration_seconds": 0.035,
+      "name": "q3 non-degradation gate",
+      "required": true,
+      "returncode": 0,
+      "status": "pass",
+      "stderr_tail": "",
+      "stdout_tail": "q3 non-degradation gate passed: configs/q3_non_degradation_gate.json\n"
     }
   ],
+  "generated_by": "tools/validation_suite.py",
+  "generated_report": true,
   "mode": "quick",
   "schema_version": 1,
   "strict": false,
   "summary": {
-    "failed_optional": 0,
-    "failed_required": 0,
-    "optional_checks": 1,
-    "required_checks": 9,
-    "status": "pass",
-    "total_checks": 10
+    "failed_optional": 2,
+    "failed_required": 2,
+    "optional_checks": 2,
+    "required_checks": 25,
+    "status": "fail",
+    "total_checks": 27
   },
   "tool": "validation_suite"
 }

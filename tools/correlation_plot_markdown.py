@@ -71,6 +71,61 @@ def render(table, source):
         lines.extend(render_section(title, pair_id, table))
     lines.extend(
         [
+            "## Q2 Proxy Backend Pairs",
+            "",
+            "| Scope | Pair | Left | Right | N | Missing | Pearson | Spearman | Expected | Interpretation |",
+            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
+        ]
+    )
+    for row in table.get("metric_pairs", []):
+        if row.get("scope") not in ("all", "raw_layers", "postprocessed_layers"):
+            continue
+        lines.append(
+            "| {scope} | {pair} | {left} | {right} | {n} | {missing} | {pearson} | {spearman} | {expected} | {interp} |".format(
+                scope=row.get("scope", "unknown"),
+                pair=row.get("pair_id", ""),
+                left=row.get("left_metric", ""),
+                right=row.get("right_metric", ""),
+                n=row.get("sample_count", 0),
+                missing=row.get("missing_count", 0),
+                pearson=fmt(row.get("pearson"), row.get("confidence_note", "")),
+                spearman=fmt(row.get("spearman"), row.get("confidence_note", "")),
+                expected=row.get("direction_expectation", ""),
+                interp=row.get("interpretation", ""),
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "## Raw Vs Postprocessed Deltas",
+            "",
+            "| Method | Raw Layer | Target Layer | Pairs | dVina | dGNINA | dCNN | dQED | dSA | dClash | dContact |",
+            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for row in table.get("layer_delta_summaries", []):
+        deltas = row.get("metric_deltas", {})
+        def delta(metric):
+            return fmt(deltas.get(metric, {}).get("mean_delta"))
+
+        lines.append(
+            "| {method} | {raw} | {target} | {pairs} | {vina} | {gnina} | {cnn} | {qed} | {sa} | {clash} | {contact} |".format(
+                method=row.get("method_id", "unknown"),
+                raw=row.get("raw_layer", ""),
+                target=row.get("target_layer", ""),
+                pairs=row.get("pair_count", 0),
+                vina=delta("vina_score"),
+                gnina=delta("gnina_affinity"),
+                cnn=delta("gnina_cnn_score"),
+                qed=delta("qed"),
+                sa=delta("sa_score"),
+                clash=delta("clash_fraction"),
+                contact=delta("pocket_contact_fraction"),
+            )
+        )
+    lines.append("")
+    lines.extend(
+        [
             "## Flow Vs Denoising On Binding",
             "",
             "Use method-comparison candidate metrics with matched budgets before interpreting this section. Rows remain unsupported until both flow and denoising layers have candidate-level docking or GNINA/Vina coverage.",

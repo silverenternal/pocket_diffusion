@@ -13,6 +13,8 @@ use crate::models::traits::{
 pub const INTERACTION_PROFILE_SCHEMA_VERSION: u32 = 1;
 /// Current schema version for serialized preference pairs.
 pub const PREFERENCE_PAIR_SCHEMA_VERSION: u32 = 1;
+/// Current schema version for backend-backed preference-pair artifacts.
+pub const BACKEND_PREFERENCE_PAIR_SCHEMA_VERSION: u32 = 1;
 /// Current schema version for preference-aware reranker summaries.
 pub const PREFERENCE_RERANKER_SCHEMA_VERSION: u32 = 1;
 
@@ -98,6 +100,93 @@ pub struct PreferencePairArtifact {
     /// Pair records. Empty means no pair evidence was available for this split.
     #[serde(default)]
     pub records: Vec<PreferencePair>,
+}
+
+/// Failure mode represented by a backend-backed preference pair.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum BackendPreferenceClass {
+    /// A candidate looks good under pocket-fit proxies but scores badly under docking backends.
+    HighPocketFitBadDocking,
+    /// A candidate is both backend-favorable and druglike relative to the loser.
+    GoodDockingDruglike,
+    /// A candidate docks well but has poor synthetic accessibility or QED.
+    DockingGoodDruglikeBad,
+    /// A coordinate-moving repair or postprocessor destroys docking quality.
+    RepairDestroysDocking,
+}
+
+/// Candidate-side metadata stored in backend preference artifacts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BackendPreferenceCandidateRef {
+    /// Stable candidate identifier.
+    pub candidate_id: String,
+    /// Method id that emitted the candidate.
+    pub method_id: String,
+    /// Persisted layer name, for example `raw_flow` or `full_repair`.
+    pub layer: String,
+}
+
+/// One auditable backend-backed preference pair.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BackendPreferencePair {
+    /// Schema version for artifact compatibility.
+    pub schema_version: u32,
+    /// Stable pair identifier.
+    pub pair_id: String,
+    /// Stable example id.
+    pub example_id: String,
+    /// Protein id.
+    pub protein_id: String,
+    /// Winner candidate metadata.
+    pub winner: BackendPreferenceCandidateRef,
+    /// Loser candidate metadata.
+    pub loser: BackendPreferenceCandidateRef,
+    /// Failure or preference class represented by this pair.
+    pub preference_class: BackendPreferenceClass,
+    /// Human-readable evidence source such as `vina_gnina_rdkit` or `repair_damage_cases`.
+    pub evidence_source: String,
+    /// Signed feature deltas as winner minus loser.
+    pub feature_deltas: BTreeMap<String, f64>,
+    /// Backend coverage values used to guard pair reliability.
+    pub backend_coverage: BTreeMap<String, f64>,
+}
+
+/// Persisted backend preference-pair dataset envelope.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BackendPreferencePairArtifact {
+    /// Schema version for this artifact.
+    pub schema_version: u32,
+    /// Split label covered by the pair records.
+    pub split: String,
+    /// Number of pair records.
+    pub pair_count: usize,
+    /// Pair counts keyed by preference class.
+    pub class_coverage: BTreeMap<BackendPreferenceClass, usize>,
+    /// Pair records. This artifact is dataset construction only, not a training run.
+    pub records: Vec<BackendPreferencePair>,
+    /// Claim boundary for downstream summaries.
+    pub claim_boundary: String,
+}
+
+impl BackendPreferencePairArtifact {
+    /// Build a backend preference artifact and summarize class coverage.
+    pub fn new(split: impl Into<String>, records: Vec<BackendPreferencePair>) -> Self {
+        let mut class_coverage = BTreeMap::new();
+        for record in &records {
+            *class_coverage.entry(record.preference_class).or_insert(0) += 1;
+        }
+        Self {
+            schema_version: BACKEND_PREFERENCE_PAIR_SCHEMA_VERSION,
+            split: split.into(),
+            pair_count: records.len(),
+            class_coverage,
+            records,
+            claim_boundary:
+                "Backend preference pairs are dataset evidence only; they do not enable RL/DPO or prove native model improvement."
+                    .to_string(),
+        }
+    }
 }
 
 impl PreferencePairArtifact {
@@ -1409,7 +1498,7 @@ fn key_residue_name(residue_name: &str) -> bool {
 }
 
 fn ligand_atom_is_polar(atom_type: i64) -> bool {
-    matches!(atom_type, 1 | 2 | 3)
+    (1..=3).contains(&atom_type)
 }
 
 fn ligand_atom_is_hydrophobic(atom_type: i64) -> bool {
@@ -1542,6 +1631,43 @@ mod tests {
     }
 
     #[test]
+    fn backend_preference_artifact_records_class_and_claim_boundary() {
+        let pair = BackendPreferencePair {
+            schema_version: BACKEND_PREFERENCE_PAIR_SCHEMA_VERSION,
+            pair_id: "ex:repair".to_string(),
+            example_id: "ex".to_string(),
+            protein_id: "prot".to_string(),
+            winner: BackendPreferenceCandidateRef {
+                candidate_id: "raw".to_string(),
+                method_id: "flow_matching".to_string(),
+                layer: "raw_flow".to_string(),
+            },
+            loser: BackendPreferenceCandidateRef {
+                candidate_id: "repair".to_string(),
+                method_id: "flow_matching".to_string(),
+                layer: "full_repair".to_string(),
+            },
+            preference_class: BackendPreferenceClass::RepairDestroysDocking,
+            evidence_source: "repair_damage_cases".to_string(),
+            feature_deltas: BTreeMap::from([("vina_score".to_string(), -10.0)]),
+            backend_coverage: BTreeMap::from([("vina_score".to_string(), 1.0)]),
+        };
+        let artifact = BackendPreferencePairArtifact::new("test", vec![pair]);
+        assert_eq!(
+            artifact.schema_version,
+            BACKEND_PREFERENCE_PAIR_SCHEMA_VERSION
+        );
+        assert_eq!(artifact.pair_count, 1);
+        assert_eq!(
+            artifact
+                .class_coverage
+                .get(&BackendPreferenceClass::RepairDestroysDocking),
+            Some(&1)
+        );
+        assert!(artifact.claim_boundary.contains("dataset evidence only"));
+    }
+
+    #[test]
     fn preference_reranker_orders_profiles_by_observed_features() {
         let good = extract_interaction_profiles(
             &[candidate(vec![[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]])],
@@ -1570,10 +1696,20 @@ mod tests {
             atom_types: vec![6; coords.len()],
             coords,
             inferred_bonds: vec![(0, 1)],
+            bond_count: 1,
+            valence_violation_count: 0,
             pocket_centroid: [0.0, 0.0, 0.0],
             pocket_radius: 3.0,
             coordinate_frame_origin: [0.0, 0.0, 0.0],
             source: "test".to_string(),
+            generation_mode: "target_ligand_denoising".to_string(),
+            generation_layer: "raw_flow".to_string(),
+            generation_path_class: "model_native_raw".to_string(),
+            model_native_raw: true,
+            postprocessor_chain: Vec::new(),
+            claim_boundary:
+                "raw model-native output before repair, constraints, reranking, or backend scoring"
+                    .to_string(),
             source_pocket_path: None,
             source_ligand_path: None,
         }

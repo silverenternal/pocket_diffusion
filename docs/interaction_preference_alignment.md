@@ -55,6 +55,21 @@ Missing preference artifacts mean preference evidence is unavailable, not failed
 | `hydrogen_bond_proxy` | planned pocket chemistry proxy | `future_optional` | explicitly unavailable |
 | `key_residue_contact_proxy` | planned residue-aware contact proxy | `future_optional` | explicitly unavailable |
 
+## Q2 Interaction Profile Metric Plan
+
+The Q2 metric plan is machine-readable in `configs/q2_interaction_profile_metric_plan.json`.
+It keeps the current fields proxy-labeled unless a future backend supplies residue chemistry
+or experimental annotations. The required candidate-level fields are `candidate_id`,
+`example_id`, `protein_id`, `method_id`, `layer`, feature values, feature provenance, and
+backend coverage.
+
+Q2 core fields are `hydrogen_bond_proxy`, `hydrophobic_contact_proxy`,
+`residue_contact_count`, `clash_fraction`, `pocket_contact_fraction`, and
+`centroid_offset`. `key_residue_interaction_proxy` is reserved and remains unavailable
+unless receptor residue ids and configured key-residue lists are present. Unavailable
+features must remain null or absent with explicit status; they must not be rendered as
+zero-valued evidence.
+
 Existing calibrated reranker features are reusable for deterministic profile scoring, but are insufficient as preference evidence by themselves because they do not preserve pair reasons, signed deltas, or source labels.
 
 ## Module Ownership
@@ -121,6 +136,16 @@ Claim wording must use conservative labels:
 - experimental preference: only after experimental outcomes are loaded
 
 ## Future Generator-Level Roadmap
+
+The Q2 backend-backed preference dataset contract is recorded in
+`configs/q2_preference_dataset_contract.json`. It requires each pair to preserve
+winner/loser candidate ids, method id, layer, `feature_delta`, `evidence_source`,
+and backend coverage. Required pair examples include docking-good/druglike wins,
+high-pocket-fit but docking-bad proxy failures, docking-good but SA/QED-unacceptable
+cases, and repairs that improve proxies while destroying score-only docking.
+
+Q2 stops at dataset and deterministic reranking contracts. It does not enable
+RL, DPO, preference fine-tuning, or generator-level policy optimization.
 
 Generator-level DPO, RL, diffusion fine-tuning, or flow-matching preference training should only be considered after profile and pair artifacts are stable across held-out pockets, backend coverage is sufficient, and calibrated reranking plateaus. Future trainer hooks should consume `PreferencePair` records without bypassing the disentangled topology/geometry/pocket backbone or replacing gated cross-modal interaction with naive fusion.
 

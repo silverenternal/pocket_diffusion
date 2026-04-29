@@ -9,6 +9,8 @@ pub struct TopologyFeatures {
     pub bond_types: Tensor,
     /// Dense adjacency with shape `[num_atoms, num_atoms]`.
     pub adjacency: Tensor,
+    /// Ligand atom chemistry role features with shape `[num_atoms, CHEMISTRY_ROLE_FEATURE_DIM]`.
+    pub chemistry_roles: ChemistryRoleFeatureMatrix,
 }
 
 impl Clone for TopologyFeatures {
@@ -18,6 +20,7 @@ impl Clone for TopologyFeatures {
             edge_index: self.edge_index.shallow_clone(),
             bond_types: self.bond_types.shallow_clone(),
             adjacency: self.adjacency.shallow_clone(),
+            chemistry_roles: self.chemistry_roles.clone(),
         }
     }
 }
@@ -49,10 +52,115 @@ pub struct PocketFeatures {
     pub atom_features: Tensor,
     /// Global pooled pocket summary with shape `[feature_dim]`.
     pub pooled_features: Tensor,
+    /// Pocket atom chemistry role features with shape `[num_atoms, CHEMISTRY_ROLE_FEATURE_DIM]`.
+    pub chemistry_roles: ChemistryRoleFeatureMatrix,
 }
 
 /// Default legacy pocket atom feature width before config-driven resizing.
 pub const LEGACY_POCKET_FEATURE_DIM: i64 = 6;
+
+/// Number of scalar channels in a chemistry role vector.
+pub const CHEMISTRY_ROLE_FEATURE_DIM_USIZE: usize = 9;
+/// Number of scalar channels in a chemistry role vector as an i64 tensor dimension.
+pub const CHEMISTRY_ROLE_FEATURE_DIM: i64 = CHEMISTRY_ROLE_FEATURE_DIM_USIZE as i64;
+
+/// Source and strength class for chemistry role features.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ChemistryRoleFeatureProvenance {
+    /// Deterministic in-repo heuristic derived from atom or residue features.
+    #[default]
+    Heuristic,
+    /// Optional external chemistry backend supported this role assignment.
+    BackendSupported,
+    /// Role information is unavailable and should not be treated as negative evidence.
+    Unavailable,
+}
+
+/// Per-atom or per-residue chemistry roles used for ligand-pocket compatibility.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ChemistryRoleFeature {
+    /// Hydrogen-bond donor tendency.
+    pub donor: f32,
+    /// Hydrogen-bond acceptor tendency.
+    pub acceptor: f32,
+    /// Hydrophobic-contact tendency.
+    pub hydrophobic: f32,
+    /// Aromatic-contact tendency.
+    pub aromatic: f32,
+    /// Positive charge tendency.
+    pub positive: f32,
+    /// Negative charge tendency.
+    pub negative: f32,
+    /// Metal-binding tendency.
+    pub metal_binding: f32,
+    /// Explicit unknown marker for insufficient role evidence.
+    pub unknown: f32,
+    /// Whether this row contains usable role evidence.
+    pub available: f32,
+    /// Provenance of the role assignment.
+    pub provenance: ChemistryRoleFeatureProvenance,
+}
+
+impl ChemistryRoleFeature {
+    /// Return an explicit unavailable feature row.
+    pub const fn unavailable() -> Self {
+        Self {
+            donor: 0.0,
+            acceptor: 0.0,
+            hydrophobic: 0.0,
+            aromatic: 0.0,
+            positive: 0.0,
+            negative: 0.0,
+            metal_binding: 0.0,
+            unknown: 1.0,
+            available: 0.0,
+            provenance: ChemistryRoleFeatureProvenance::Unavailable,
+        }
+    }
+
+    /// Convert the semantic role struct to a stable tensor row.
+    pub const fn to_vector(self) -> [f32; CHEMISTRY_ROLE_FEATURE_DIM_USIZE] {
+        [
+            self.donor,
+            self.acceptor,
+            self.hydrophobic,
+            self.aromatic,
+            self.positive,
+            self.negative,
+            self.metal_binding,
+            self.unknown,
+            self.available,
+        ]
+    }
+}
+
+impl Default for ChemistryRoleFeature {
+    fn default() -> Self {
+        Self::unavailable()
+    }
+}
+
+/// Tensorized chemistry role rows plus availability masks.
+#[derive(Debug)]
+pub struct ChemistryRoleFeatureMatrix {
+    /// Role matrix with shape `[items, CHEMISTRY_ROLE_FEATURE_DIM]`.
+    pub role_vectors: Tensor,
+    /// Per-row availability mask with shape `[items]`.
+    pub availability: Tensor,
+    /// Coarse provenance for this matrix.
+    pub provenance: ChemistryRoleFeatureProvenance,
+}
+
+impl Clone for ChemistryRoleFeatureMatrix {
+    fn clone(&self) -> Self {
+        Self {
+            role_vectors: self.role_vectors.shallow_clone(),
+            availability: self.availability.shallow_clone(),
+            provenance: self.provenance,
+        }
+    }
+}
 
 impl Clone for PocketFeatures {
     fn clone(&self) -> Self {
@@ -60,6 +168,7 @@ impl Clone for PocketFeatures {
             coords: self.coords.shallow_clone(),
             atom_features: self.atom_features.shallow_clone(),
             pooled_features: self.pooled_features.shallow_clone(),
+            chemistry_roles: self.chemistry_roles.clone(),
         }
     }
 }
@@ -108,8 +217,8 @@ pub struct DecoderSupervision {
     pub target_pairwise_distances: Tensor,
     /// Configured number of iterative rollout steps used by training and generation.
     pub rollout_steps: usize,
-    /// Geometric decay applied to later rollout losses.
-    pub training_step_weight_decay: f64,
+    /// Geometric decay applied to detached rollout-evaluation summaries.
+    pub rollout_eval_step_weight_decay: f64,
     /// Reproducibility metadata for the corruption transform.
     pub corruption_metadata: GenerationCorruptionMetadata,
 }
@@ -125,7 +234,7 @@ impl Clone for DecoderSupervision {
             coordinate_noise: self.coordinate_noise.shallow_clone(),
             target_pairwise_distances: self.target_pairwise_distances.shallow_clone(),
             rollout_steps: self.rollout_steps,
-            training_step_weight_decay: self.training_step_weight_decay,
+            rollout_eval_step_weight_decay: self.rollout_eval_step_weight_decay,
             corruption_metadata: self.corruption_metadata.clone(),
         }
     }

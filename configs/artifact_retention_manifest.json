@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-04-28",
+  "goal": "Define tracking and retention boundaries for source configs, generated checkpoints, generated evidence, generated reports, and curated reviewer artifacts.",
+  "default_policies": {
+    "source_config": {
+      "track": true,
+      "default_root": "configs/",
+      "description": "Small hand-authored or curated JSON inputs that define experiments, protocols, validation contracts, or claim contracts."
+    },
+    "generated_checkpoint": {
+      "track": false,
+      "default_root": "checkpoints/",
+      "description": "Training and evaluation outputs such as model weights, step metadata, latest pointers, run artifacts, split reports, and config snapshots."
+    },
+    "generated_evidence": {
+      "track": "curated_only",
+      "default_root": "artifacts/evidence/",
+      "description": "Size-bounded evidence artifacts that support claims and are referenced from this manifest."
+    },
+    "generated_report": {
+      "track": "curated_or_generated_marked",
+      "default_root": "docs/",
+      "description": "Markdown or JSON reports emitted by validation, audit, or benchmark tools."
+    },
+    "curated_reviewer_artifact": {
+      "track": true,
+      "default_root": "artifacts/evidence/",
+      "description": "Selected generated outputs retained to make reviewer-facing evidence auditable."
+    }
+  },
+  "artifact_families": [
+    {
+      "id": "source_configs",
+      "classification": "source_config",
+      "paths": [
+        "configs/*.json"
+      ],
+      "tracking_policy": "track hand-authored and curated config inputs",
+      "retention_reason": "Experiment configs, protocols, claim contracts, and validation manifests are source inputs for reproducibility.",
+      "migration_recommendation": "Move generated summaries out of top-level configs unless they are curated contract inputs."
+    },
+    {
+      "id": "root_checkpoints",
+      "classification": "generated_checkpoint",
+      "paths": [
+        "checkpoints/**",
+        "*.ot"
+      ],
+      "tracking_policy": "ignored",
+      "retention_reason": "Generated local training and evaluation outputs are reproducible from configs and should not enter source review by default.",
+      "migration_recommendation": "Keep as the default output root for future runs."
+    },
+    {
+      "id": "configs_checkpoints_automated_search",
+      "classification": "generated_checkpoint",
+      "paths": [
+        "configs/checkpoints/automated_search/**"
+      ],
+      "observed_tracked_files": 1513,
+      "observed_size": "1.5G",
+      "tracking_policy": "legacy_tracked_freeze",
+      "retention_reason": "Legacy reviewer search metadata currently referenced by audit and validation workflows.",
+      "migration_recommendation": "Do not add new outputs here. Migrate selected summaries to artifacts/evidence and regenerate future outputs under ignored checkpoints/."
+    },
+    {
+      "id": "configs_checkpoints_flow_sweep_search",
+      "classification": "generated_checkpoint",
+      "paths": [
+        "configs/checkpoints/flow_sweep_search/**"
+      ],
+      "observed_tracked_files": 61,
+      "observed_size": "72M",
+      "tracking_policy": "legacy_tracked_freeze",
+      "retention_reason": "Legacy flow sweep metadata used for reviewer comparison and regression context.",
+      "migration_recommendation": "Keep only curated summaries if claim-bearing; write future generated flow sweep outputs to checkpoints/."
+    },
+    {
+      "id": "configs_checkpoints_multi_seed_pdbbindpp_real_backends",
+      "classification": "curated_reviewer_artifact",
+      "paths": [
+        "configs/checkpoints/multi_seed_pdbbindpp_real_backends/**"
+      ],
+      "observed_tracked_files": 34,
+      "observed_size": "43M",
+      "tracking_policy": "curate_then_migrate",
+      "retention_reason": "Real-backend multi-seed evidence may be expensive to reproduce and can support reviewer claims when provenance is explicit.",
+      "migration_recommendation": "Migrate selected summaries and coverage records to artifacts/evidence with provenance labels; keep raw reruns ignored."
+    },
+    {
+      "id": "configs_checkpoints_multi_seed_pdbbindpp_flow",
+      "classification": "curated_reviewer_artifact",
+      "paths": [
+        "configs/checkpoints/multi_seed_pdbbindpp_flow/**"
+      ],
+      "observed_tracked_files": 34,
+      "observed_size": "42M",
+      "tracking_policy": "curate_then_migrate",
+      "retention_reason": "Flow multi-seed evidence may remain claim-bearing when docs reference it.",
+      "migration_recommendation": "Migrate selected summaries to artifacts/evidence and write future runs to checkpoints/."
+    },
+    {
+      "id": "configs_checkpoints_multi_seed_pdbbindpp",
+      "classification": "curated_reviewer_artifact",
+      "paths": [
+        "configs/checkpoints/multi_seed_pdbbindpp/**"
+      ],
+      "observed_tracked_files": 31,
+      "observed_size": "35M",
+      "tracking_policy": "curate_then_migrate",
+      "retention_reason": "PDBBind++ multi-seed metadata may support existing reviewer comparisons.",
+      "migration_recommendation": "Keep selected summaries only if still referenced by claim docs; otherwise regenerate under checkpoints/."
+    },
+    {
+      "id": "configs_checkpoints_multi_seed_medium",
+      "classification": "curated_reviewer_artifact",
+      "paths": [
+        "configs/checkpoints/multi_seed_medium/**"
+      ],
+      "observed_tracked_files": 31,
+      "observed_size": "31M",
+      "tracking_policy": "curate_then_migrate",
+      "retention_reason": "Medium-profile multi-seed metadata may support older reviewer comparisons.",
+      "migration_recommendation": "Migrate selected summaries only if claim-bearing; otherwise leave future outputs under checkpoints/."
+    },
+    {
+      "id": "configs_checkpoints_multi_seed",
+      "classification": "curated_reviewer_artifact",
+      "paths": [
+        "configs/checkpoints/multi_seed/**"
+      ],
+      "observed_tracked_files": 31,
+      "observed_size": "31M",
+      "tracking_policy": "curate_then_migrate",
+      "retention_reason": "Small multi-seed metadata may support older smoke or reviewer comparisons.",
+      "migration_recommendation": "Migrate selected summaries only if claim-bearing; otherwise leave future outputs under checkpoints/."
+    },
+    {
+      "id": "q2_evidence_local",
+      "classification": "generated_evidence",
+      "paths": [
+        "artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl",
+        "artifacts/evidence/q2/q2_proxy_backend_correlation.json",
+        "artifacts/evidence/q2/postprocessing_failure_audit.json"
+      ],
+      "tracking_policy": "candidate_for_curated_tracking",
+      "retention_reason": "Q2 evidence files are small and directly tied to proxy/backend correlation and postprocessing-failure claims.",
+      "migration_recommendation": "Track only after provenance fields and claim references are validated."
+    },
+    {
+      "id": "validation_reports",
+      "classification": "generated_report",
+      "paths": [
+        "configs/validation_suite_report.json",
+        "docs/validation_suite_report.md"
+      ],
+      "tracking_policy": "generated_marked_or_temp_output",
+      "retention_reason": "Validation reports are useful reviewer artifacts but should not be rewritten during normal local checks unless explicitly requested.",
+      "migration_recommendation": "Add generated markers and support temporary output paths."
+    },
+    {
+      "id": "docs_curated_and_generated_reports",
+      "classification": "generated_report",
+      "paths": [
+        "docs/*.md",
+        "docs/*.json"
+      ],
+      "tracking_policy": "track curated docs; mark generated reports",
+      "retention_reason": "Architecture, audit, claim, and validation docs make the evidence boundary reviewable.",
+      "migration_recommendation": "Label generated reports and keep hand-maintained docs as curated documentation."
+    }
+  ],
+  "tracking_invariants": [
+    "New generated checkpoint outputs must not default to configs/checkpoints/.",
+    "Generated model weights remain ignored through *.ot.",
+    "Root checkpoints/ remains ignored.",
+    "Curated evidence must be size-bounded and listed in this manifest before tracking.",
+    "Heuristic, repaired, reranked, docking, backend, and experimental evidence must retain explicit provenance labels."
+  ],
+  "verification": {
+    "manifest_valid_json": "jq empty configs/artifact_retention_manifest.json",
+    "tracked_configs_checkpoints_count": "git ls-files configs/checkpoints | wc -l",
+    "artifact_sizes": "du -sh configs/checkpoints checkpoints artifacts/evidence 2>/dev/null"
+  }
+}

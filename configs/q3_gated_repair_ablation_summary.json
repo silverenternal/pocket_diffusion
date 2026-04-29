@@ -1,0 +1,140 @@
+{
+  "artifact_name": "q3_gated_repair_ablation_summary",
+  "claim_boundary": "Gated repair evidence is postprocessing evidence. repair_rejected is a safety fallback that preserves raw coordinates and must not be reported as native model improvement.",
+  "inputs": {
+    "q2_candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+    "q3_candidate_metrics": "checkpoints/q3_gated_repair_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+    "repair_gate_report": "configs/q3_repair_gate_report.json"
+  },
+  "interpretation": [
+    "Legacy full_repair remains a postprocessing-only layer and is not promoted as model-native evidence.",
+    "The configured gate rejected every coordinate-moving repair because raw candidates were already backend-input dockable and proposed repair exceeded movement or box-center bounds.",
+    "repair_rejected is a raw-coordinate passthrough layer; its backend scores should be interpreted as a non-degradation guard, not a model improvement.",
+    "Vina mean degradation was reduced from legacy full_repair delta 162.9 to repair_rejected delta 0.",
+    "GNINA affinity mean degradation was reduced from legacy full_repair delta 159.2 to repair_rejected delta 0."
+  ],
+  "layer_summaries": {
+    "full_repair": {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 300,
+      "metric_means": {
+        "centroid_offset": 5.075811543860265,
+        "clash_fraction": 0.10336389614332134,
+        "gnina_affinity": 156.87106243333332,
+        "gnina_cnn_score": 0.24020313333333335,
+        "pocket_contact_fraction": 0.9381303510254283,
+        "qed": 0.4314660638416497,
+        "sa_score": 2.2838333333333334,
+        "vina_score": 156.89404333333334
+      }
+    },
+    "gated_repair": {
+      "backend_coverage": {
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "rdkit": 0.0,
+        "vina_score": 0.0
+      },
+      "candidate_count": 0,
+      "metric_means": {
+        "centroid_offset": null,
+        "clash_fraction": null,
+        "gnina_affinity": null,
+        "gnina_cnn_score": null,
+        "pocket_contact_fraction": null,
+        "qed": null,
+        "sa_score": null,
+        "vina_score": null
+      }
+    },
+    "no_repair": {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.8966666666666666
+      },
+      "candidate_count": 300,
+      "metric_means": {
+        "centroid_offset": 15.920140472628054,
+        "clash_fraction": 0.0026587719298245614,
+        "gnina_affinity": -2.2974956333333334,
+        "gnina_cnn_score": 0.44937083333333333,
+        "pocket_contact_fraction": 0.9732504022053124,
+        "qed": 0.43249848483384806,
+        "sa_score": 2.2423333333333333,
+        "vina_score": -2.201546468401487
+      }
+    },
+    "repair_rejected": {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.8966666666666666
+      },
+      "candidate_count": 300,
+      "metric_means": {
+        "centroid_offset": 15.920140472628054,
+        "clash_fraction": 0.0026587719298245614,
+        "gnina_affinity": -2.2974956333333334,
+        "gnina_cnn_score": 0.44937083333333333,
+        "pocket_contact_fraction": 0.9732504022053124,
+        "qed": 0.43249848483384806,
+        "sa_score": 2.2423333333333333,
+        "vina_score": -2.201546468401487
+      }
+    }
+  },
+  "paired_deltas": {
+    "full_repair": {
+      "mean_delta_vs_no_repair": {
+        "centroid_offset": -10.844328928767789,
+        "clash_fraction": 0.10070512421349677,
+        "gnina_affinity": 159.16855806666666,
+        "gnina_cnn_score": -0.20916769999999998,
+        "pocket_contact_fraction": -0.03512005117988424,
+        "qed": -0.001032420992198344,
+        "sa_score": 0.041500000000000016,
+        "vina_score": 162.93710780669147
+      },
+      "paired_candidate_count": 300
+    },
+    "gated_repair": {
+      "mean_delta_vs_no_repair": {},
+      "paired_candidate_count": 0
+    },
+    "repair_rejected": {
+      "mean_delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0
+      },
+      "paired_candidate_count": 300
+    }
+  },
+  "repair_gate_counts": {
+    "raw_passthrough": 300,
+    "rejected_repair": 300,
+    "repaired_candidate": 0
+  },
+  "repair_gate_options": {
+    "fallback_to_raw_on_failed_sanity": true,
+    "max_box_center_shift": 2.0,
+    "max_centroid_shift": 2.0,
+    "max_clash_increase": 0.01,
+    "no_move_if_raw_dockable": true,
+    "preserve_raw_box_center": true
+  },
+  "schema_version": 1
+}

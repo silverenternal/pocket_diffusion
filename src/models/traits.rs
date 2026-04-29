@@ -1,12 +1,12 @@
 //! Replaceable model interfaces for research ablations.
 
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
 use serde::{Deserialize, Serialize};
-use tch::Tensor;
+use tch::{Kind, Tensor};
 
 use crate::{
-    config::GenerationTargetConfig,
+    config::{GenerationModeConfig, GenerationTargetConfig},
     data::{GeometryFeatures, MolecularExample, PocketFeatures, TopologyFeatures},
 };
 
@@ -136,6 +136,12 @@ pub struct ConditionedGenerationState {
     pub geometry_context: Tensor,
     /// Pocket/context conditioning slots after controlled interaction.
     pub pocket_context: Tensor,
+    /// Attention-visible topology slot mask with shape `[slots]`.
+    pub topology_slot_mask: Tensor,
+    /// Attention-visible geometry slot mask with shape `[slots]`.
+    pub geometry_slot_mask: Tensor,
+    /// Attention-visible pocket/context slot mask with shape `[slots]`.
+    pub pocket_slot_mask: Tensor,
 }
 
 impl Clone for ConditionedGenerationState {
@@ -147,6 +153,9 @@ impl Clone for ConditionedGenerationState {
             topology_context: self.topology_context.shallow_clone(),
             geometry_context: self.geometry_context.shallow_clone(),
             pocket_context: self.pocket_context.shallow_clone(),
+            topology_slot_mask: self.topology_slot_mask.shallow_clone(),
+            geometry_slot_mask: self.geometry_slot_mask.shallow_clone(),
+            pocket_slot_mask: self.pocket_slot_mask.shallow_clone(),
         }
     }
 }
@@ -158,10 +167,16 @@ pub struct GenerationModalityConditioning {
     pub context: Tensor,
     /// Original decomposed slots for this modality.
     pub slots: Tensor,
-    /// Soft slot activation weights for utilization and sparsity checks.
+    /// Legacy assignment-mass weights for utilization and compatibility checks.
     pub slot_weights: Tensor,
+    /// Independent learned slot activation gates.
+    pub slot_activations: Tensor,
+    /// Binary attention-visible slot mask used by local attention paths.
+    pub active_slot_mask: Tensor,
     /// Mean slot activation for backend-agnostic reporting.
     pub active_slot_fraction: f64,
+    /// Fraction of slots visible to attention after masking.
+    pub attention_visible_slot_fraction: f64,
 }
 
 impl Clone for GenerationModalityConditioning {
@@ -170,7 +185,10 @@ impl Clone for GenerationModalityConditioning {
             context: self.context.shallow_clone(),
             slots: self.slots.shallow_clone(),
             slot_weights: self.slot_weights.shallow_clone(),
+            slot_activations: self.slot_activations.shallow_clone(),
+            active_slot_mask: self.active_slot_mask.shallow_clone(),
             active_slot_fraction: self.active_slot_fraction,
+            attention_visible_slot_fraction: self.attention_visible_slot_fraction,
         }
     }
 }
@@ -192,6 +210,27 @@ pub struct GenerationGateSummary {
     pub pocket_from_geo: f64,
 }
 
+/// Step-bucketed directed interaction path usage for inference summaries.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GenerationStepPathUsageSummary {
+    /// Inclusive start step represented by this bucket.
+    pub start_step: usize,
+    /// Inclusive end step represented by this bucket.
+    pub end_step: usize,
+    /// Mean gate activation for each directed path in this step bucket.
+    pub path_means: GenerationGateSummary,
+}
+
+/// Directed interaction path usage attached to a rollout trace.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GenerationPathUsageSummary {
+    /// Mean gate activation for each directed path before rollout begins.
+    pub raw_path_means: GenerationGateSummary,
+    /// Rollout-step buckets carrying path means used by the inference summary.
+    #[serde(default)]
+    pub step_bucketed_path_means: Vec<GenerationStepPathUsageSummary>,
+}
+
 /// Backend-neutral request that exposes decomposed conditioning explicitly.
 #[derive(Debug, Clone)]
 pub struct ConditionedGenerationRequest {
@@ -211,6 +250,8 @@ pub struct ConditionedGenerationRequest {
     pub generation_state: ConditionedGenerationState,
     /// Generation/sampling config selected for this request.
     pub generation_config: GenerationTargetConfig,
+    /// Explicit generation-mode contract for this request.
+    pub generation_mode: GenerationModeConfig,
 }
 
 impl ConditionedGenerationRequest {
@@ -226,19 +267,38 @@ impl ConditionedGenerationRequest {
                 context: forward.generation.state.topology_context.shallow_clone(),
                 slots: forward.slots.topology.slots.shallow_clone(),
                 slot_weights: forward.slots.topology.slot_weights.shallow_clone(),
-                active_slot_fraction: active_slot_fraction(&forward.slots.topology.slot_weights),
+                slot_activations: forward.slots.topology.slot_activations.shallow_clone(),
+                active_slot_mask: forward.slots.topology.active_slot_mask.shallow_clone(),
+                active_slot_fraction: active_slot_fraction(
+                    &forward.slots.topology.slot_activations,
+                ),
+                attention_visible_slot_fraction: active_slot_fraction(
+                    &forward.slots.topology.active_slot_mask,
+                ),
             },
             geometry: GenerationModalityConditioning {
                 context: forward.generation.state.geometry_context.shallow_clone(),
                 slots: forward.slots.geometry.slots.shallow_clone(),
                 slot_weights: forward.slots.geometry.slot_weights.shallow_clone(),
-                active_slot_fraction: active_slot_fraction(&forward.slots.geometry.slot_weights),
+                slot_activations: forward.slots.geometry.slot_activations.shallow_clone(),
+                active_slot_mask: forward.slots.geometry.active_slot_mask.shallow_clone(),
+                active_slot_fraction: active_slot_fraction(
+                    &forward.slots.geometry.slot_activations,
+                ),
+                attention_visible_slot_fraction: active_slot_fraction(
+                    &forward.slots.geometry.active_slot_mask,
+                ),
             },
             pocket: GenerationModalityConditioning {
                 context: forward.generation.state.pocket_context.shallow_clone(),
                 slots: forward.slots.pocket.slots.shallow_clone(),
                 slot_weights: forward.slots.pocket.slot_weights.shallow_clone(),
-                active_slot_fraction: active_slot_fraction(&forward.slots.pocket.slot_weights),
+                slot_activations: forward.slots.pocket.slot_activations.shallow_clone(),
+                active_slot_mask: forward.slots.pocket.active_slot_mask.shallow_clone(),
+                active_slot_fraction: active_slot_fraction(&forward.slots.pocket.slot_activations),
+                attention_visible_slot_fraction: active_slot_fraction(
+                    &forward.slots.pocket.active_slot_mask,
+                ),
             },
             gate_summary: GenerationGateSummary {
                 topo_from_geo: scalar_gate(&forward.interactions.topo_from_geo.gate),
@@ -250,6 +310,7 @@ impl ConditionedGenerationRequest {
             },
             generation_state: forward.generation.state.clone(),
             generation_config: generation_config.clone(),
+            generation_mode: forward.generation.generation_mode,
         }
     }
 }
@@ -299,11 +360,325 @@ impl Clone for DecoderOutput {
 
 /// Replaceable decoder contract for conditioned ligand construction.
 pub trait ConditionedLigandDecoder {
+    /// Decoder capability contract used to validate generation modes and reports.
+    fn capability(&self) -> DecoderCapabilityDescriptor {
+        DecoderCapabilityDescriptor::fixed_atom_refinement()
+    }
+
     /// Decode one modular generation state into topology and geometry updates.
     fn decode(&self, state: &ConditionedGenerationState) -> DecoderOutput;
 }
 
-/// Continuous flow state used by geometry-only flow-matching generators.
+/// Explicit decoder capability descriptor for generation-mode validation.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DecoderCapabilityDescriptor {
+    /// Decoder preserves an externally supplied atom count.
+    pub fixed_atom_refinement: bool,
+    /// Decoder can consume a scaffold initializer.
+    pub scaffold_conditioned: bool,
+    /// Decoder predicts atom counts internally.
+    pub atom_count_prediction: bool,
+    /// Decoder grows molecular graphs with stop decisions.
+    pub graph_growth: bool,
+    /// Decoder can run from a pocket-only initialization baseline.
+    pub pocket_only_initialization: bool,
+}
+
+impl DecoderCapabilityDescriptor {
+    /// Capability contract for the current modular fixed-atom decoder.
+    pub const fn fixed_atom_refinement() -> Self {
+        Self {
+            fixed_atom_refinement: true,
+            scaffold_conditioned: false,
+            atom_count_prediction: false,
+            graph_growth: false,
+            pocket_only_initialization: true,
+        }
+    }
+
+    /// Capability contract for pocket-conditioned de novo graph flow.
+    pub const fn pocket_conditioned_graph_flow() -> Self {
+        Self {
+            fixed_atom_refinement: true,
+            scaffold_conditioned: true,
+            atom_count_prediction: true,
+            graph_growth: true,
+            pocket_only_initialization: true,
+        }
+    }
+
+    /// Stable label used in rollout and checkpoint diagnostics.
+    pub const fn label(self) -> &'static str {
+        if self.graph_growth {
+            "graph_growth"
+        } else if self.atom_count_prediction {
+            "atom_count_prediction"
+        } else if self.scaffold_conditioned {
+            "scaffold_conditioned_fixed_atom_refinement"
+        } else if self.pocket_only_initialization {
+            "fixed_atom_refinement_with_pocket_only_initialization"
+        } else if self.fixed_atom_refinement {
+            "fixed_atom_refinement"
+        } else {
+            "unsupported"
+        }
+    }
+
+    /// Whether the capability can execute the requested mode.
+    pub fn supports_mode(self, mode: GenerationModeConfig) -> bool {
+        match mode {
+            GenerationModeConfig::TargetLigandDenoising
+            | GenerationModeConfig::LigandRefinement
+            | GenerationModeConfig::FlowRefinement => self.fixed_atom_refinement,
+            GenerationModeConfig::PocketOnlyInitializationBaseline => {
+                self.fixed_atom_refinement && self.pocket_only_initialization
+            }
+            GenerationModeConfig::DeNovoInitialization => {
+                self.atom_count_prediction && self.graph_growth
+            }
+        }
+    }
+}
+
+/// Pocket-conditioned context passed to atom-count and scaffold initializers.
+pub struct PocketInitializationContext<'a> {
+    /// Stable example identifier.
+    pub example_id: &'a str,
+    /// Stable protein identifier.
+    pub protein_id: &'a str,
+    /// Pocket coordinates with shape `[num_pocket_atoms, 3]`.
+    pub pocket_coords: &'a Tensor,
+}
+
+/// Replaceable atom-count prior for initialization-only baselines.
+pub trait AtomCountPrior {
+    /// Propose an atom count without reading target ligand topology.
+    fn propose_atom_count(&self, context: &PocketInitializationContext<'_>) -> usize;
+    /// Stable provenance label for artifact and evaluation summaries.
+    fn provenance(&self) -> &'static str;
+}
+
+/// Fixed atom-count prior used by the conservative pocket-only baseline.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FixedAtomCountPrior {
+    /// Atom count emitted for every pocket.
+    pub atom_count: usize,
+}
+
+impl AtomCountPrior for FixedAtomCountPrior {
+    fn propose_atom_count(&self, _context: &PocketInitializationContext<'_>) -> usize {
+        self.atom_count.max(1)
+    }
+
+    fn provenance(&self) -> &'static str {
+        "fixed"
+    }
+}
+
+/// Pocket-size atom-count prior used by the de novo molecular flow path.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct PocketVolumeAtomCountPrior {
+    /// Minimum emitted atom count.
+    pub min_atom_count: usize,
+    /// Maximum emitted atom count.
+    pub max_atom_count: usize,
+    /// Approximate pocket atoms represented by one ligand atom.
+    pub pocket_atom_divisor: f64,
+}
+
+impl AtomCountPrior for PocketVolumeAtomCountPrior {
+    fn propose_atom_count(&self, context: &PocketInitializationContext<'_>) -> usize {
+        let pocket_atoms = context
+            .pocket_coords
+            .size()
+            .first()
+            .copied()
+            .unwrap_or(0)
+            .max(0) as f64;
+        let centroid = pocket_centroid_or_zero(context.pocket_coords);
+        let radius = pocket_radius_or_default(context.pocket_coords, &centroid);
+        let divisor = self.pocket_atom_divisor.max(1.0e-6);
+        let raw = (pocket_atoms / divisor + (radius / 2.5)).round() as usize;
+        raw.clamp(self.min_atom_count.max(1), self.max_atom_count.max(1))
+    }
+
+    fn provenance(&self) -> &'static str {
+        "pocket_volume"
+    }
+}
+
+/// Replaceable scaffold initializer for generation modes that own initialization.
+pub trait ScaffoldInitializer {
+    /// Build an initial partial ligand state without reading target ligand atoms.
+    fn initialize(&self, context: &PocketInitializationContext<'_>) -> PartialLigandState;
+}
+
+/// Deterministic pocket-centroid initializer used as a low-claim baseline.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct PocketCentroidScaffoldInitializer {
+    /// Fixed atom-count prior.
+    pub atom_count_prior: FixedAtomCountPrior,
+    /// Atom-type token assigned to every initialized atom.
+    pub atom_type_token: i64,
+    /// Fraction of pocket radius used for deterministic offsets.
+    pub radius_fraction: f64,
+    /// Seed used by deterministic offset construction.
+    pub coordinate_seed: u64,
+}
+
+impl ScaffoldInitializer for PocketCentroidScaffoldInitializer {
+    fn initialize(&self, context: &PocketInitializationContext<'_>) -> PartialLigandState {
+        let device = context.pocket_coords.device();
+        let atom_count = self.atom_count_prior.propose_atom_count(context).max(1) as i64;
+        let atom_types = Tensor::full([atom_count], self.atom_type_token, (Kind::Int64, device));
+        let centroid = pocket_centroid_or_zero(context.pocket_coords);
+        let radius = pocket_radius_or_default(context.pocket_coords, &centroid)
+            * self.radius_fraction.max(1.0e-6);
+        let offsets = deterministic_pocket_offsets(
+            context.example_id,
+            context.protein_id,
+            atom_count as usize,
+            radius as f32,
+            self.coordinate_seed,
+        );
+        let coords = centroid.unsqueeze(0)
+            + Tensor::from_slice(&offsets)
+                .reshape([atom_count, 3])
+                .to_device(device);
+
+        PartialLigandState {
+            atom_types,
+            coords,
+            atom_mask: Tensor::ones([atom_count], (Kind::Float, device)),
+            step_index: 0,
+        }
+    }
+}
+
+/// Pocket-conditioned scaffold initializer for de novo molecular flow.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct DeNovoScaffoldInitializer {
+    /// Pocket-derived atom-count policy.
+    pub atom_count_prior: PocketVolumeAtomCountPrior,
+    /// Atom vocabulary size used to keep deterministic priors in range.
+    pub atom_vocab_size: i64,
+    /// Fraction of pocket radius used for deterministic coordinate offsets.
+    pub radius_fraction: f64,
+    /// Seed used by deterministic atom-type and coordinate construction.
+    pub seed: u64,
+}
+
+impl ScaffoldInitializer for DeNovoScaffoldInitializer {
+    fn initialize(&self, context: &PocketInitializationContext<'_>) -> PartialLigandState {
+        let device = context.pocket_coords.device();
+        let atom_count = self.atom_count_prior.propose_atom_count(context).max(1);
+        let atom_types = deterministic_de_novo_atom_types(
+            context.example_id,
+            context.protein_id,
+            atom_count,
+            self.atom_vocab_size,
+            self.seed,
+            device,
+        );
+        let centroid = pocket_centroid_or_zero(context.pocket_coords);
+        let radius = pocket_radius_or_default(context.pocket_coords, &centroid)
+            * self.radius_fraction.max(1.0e-6);
+        let offsets = deterministic_pocket_offsets(
+            context.example_id,
+            context.protein_id,
+            atom_count,
+            radius as f32,
+            self.seed,
+        );
+        let coords = centroid.unsqueeze(0)
+            + Tensor::from_slice(&offsets)
+                .reshape([atom_count as i64, 3])
+                .to_device(device);
+
+        PartialLigandState {
+            atom_types,
+            coords,
+            atom_mask: Tensor::ones([atom_count as i64], (Kind::Float, device)),
+            step_index: 0,
+        }
+    }
+}
+
+fn deterministic_de_novo_atom_types(
+    example_id: &str,
+    protein_id: &str,
+    atom_count: usize,
+    atom_vocab_size: i64,
+    seed: u64,
+    device: tch::Device,
+) -> Tensor {
+    let usable_vocab = atom_vocab_size.max(1);
+    let heavy_template = [0_i64, 0, 0, 1, 2, 3];
+    let values = (0..atom_count)
+        .map(|atom_ix| {
+            let hash = stable_initialization_hash(example_id, protein_id, atom_ix, seed);
+            let template_value = heavy_template[(hash as usize) % heavy_template.len()];
+            template_value.min(usable_vocab - 1).max(0)
+        })
+        .collect::<Vec<_>>();
+    Tensor::from_slice(&values).to_device(device)
+}
+
+fn pocket_centroid_or_zero(pocket_coords: &Tensor) -> Tensor {
+    if pocket_coords.numel() == 0 {
+        Tensor::zeros([3], (Kind::Float, pocket_coords.device()))
+    } else {
+        pocket_coords.mean_dim([0].as_slice(), false, Kind::Float)
+    }
+}
+
+fn pocket_radius_or_default(pocket_coords: &Tensor, centroid: &Tensor) -> f64 {
+    if pocket_coords.numel() == 0 {
+        return 1.0;
+    }
+    (pocket_coords - centroid.unsqueeze(0))
+        .pow_tensor_scalar(2.0)
+        .sum_dim_intlist([1].as_slice(), false, Kind::Float)
+        .sqrt()
+        .mean(Kind::Float)
+        .double_value(&[])
+        .max(1.0)
+}
+
+fn deterministic_pocket_offsets(
+    example_id: &str,
+    protein_id: &str,
+    atom_count: usize,
+    radius: f32,
+    seed: u64,
+) -> Vec<f32> {
+    let mut values = Vec::with_capacity(atom_count * 3);
+    for atom_ix in 0..atom_count {
+        let hash = stable_initialization_hash(example_id, protein_id, atom_ix, seed);
+        let phase = (hash % 65_521) as f32 / 65_521.0 * std::f32::consts::TAU;
+        let height = ((hash.rotate_left(11) % 10_000) as f32 / 10_000.0 - 0.5) * radius;
+        values.push(phase.cos() * radius);
+        values.push(phase.sin() * radius);
+        values.push(height);
+    }
+    values
+}
+
+fn stable_initialization_hash(
+    example_id: &str,
+    protein_id: &str,
+    atom_ix: usize,
+    seed: u64,
+) -> u64 {
+    let mut hash = seed ^ (atom_ix as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    for byte in example_id.bytes().chain(protein_id.bytes()) {
+        hash = hash.rotate_left(9) ^ u64::from(byte);
+        hash = hash.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    }
+    hash
+}
+
+/// Continuous coordinate state used by the geometry branch of flow-matching generators.
 #[derive(Debug)]
 pub struct FlowState {
     /// Coordinates at the current integration time `t` with shape `[num_atoms, 3]`.
@@ -356,12 +731,15 @@ impl Clone for ConditioningState {
 pub struct VelocityField {
     /// Predicted velocity vectors with shape `[num_atoms, 3]`.
     pub velocity: Tensor,
+    /// Optional scalar diagnostics emitted by ablation heads.
+    pub diagnostics: BTreeMap<String, f64>,
 }
 
 impl Clone for VelocityField {
     fn clone(&self) -> Self {
         Self {
             velocity: self.velocity.shallow_clone(),
+            diagnostics: self.diagnostics.clone(),
         }
     }
 }
@@ -400,6 +778,51 @@ pub trait FlowMatchingHead {
     ) -> Result<VelocityField, ModelError>;
 }
 
+/// Rollout-level provenance separating raw logits, raw native graph extraction, and constrained graph evidence.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeGraphLayerProvenance {
+    /// Layer that owns the raw flow-head logits before graph extraction.
+    pub raw_logits_layer: String,
+    /// Layer that owns thresholded native graph extraction before valence or repair constraints.
+    pub raw_native_extraction_layer: String,
+    /// Layer that owns connectivity, density, and valence constrained graph payloads.
+    pub constrained_graph_layer: String,
+    /// Layer that owns geometry-repaired graph payloads when downstream candidate repair is enabled.
+    pub repaired_graph_layer: String,
+    /// Number of pairwise raw bond logits considered by the extractor.
+    pub raw_bond_logit_pair_count: usize,
+    /// Number of thresholded raw native bonds before graph constraints.
+    pub raw_native_bond_count: usize,
+    /// Number of bonds retained by the constrained native graph.
+    pub constrained_bond_count: usize,
+    /// Number of thresholded raw native bonds removed by graph guardrails.
+    pub raw_to_constrained_removed_bond_count: usize,
+    /// Number of low-score connectivity edges inserted by the graph extractor.
+    pub connectivity_guardrail_added_bond_count: usize,
+    /// Number of bond-type downgrades caused by conservative valence checks.
+    pub valence_guardrail_downgrade_count: usize,
+    /// Aggregate count of graph guardrail actions observed during extraction.
+    pub guardrail_trigger_count: usize,
+}
+
+impl Default for NativeGraphLayerProvenance {
+    fn default() -> Self {
+        Self {
+            raw_logits_layer: "unavailable".to_string(),
+            raw_native_extraction_layer: "unavailable".to_string(),
+            constrained_graph_layer: "unavailable".to_string(),
+            repaired_graph_layer: "unavailable".to_string(),
+            raw_bond_logit_pair_count: 0,
+            raw_native_bond_count: 0,
+            constrained_bond_count: 0,
+            raw_to_constrained_removed_bond_count: 0,
+            connectivity_guardrail_added_bond_count: 0,
+            valence_guardrail_downgrade_count: 0,
+            guardrail_trigger_count: 0,
+        }
+    }
+}
+
 /// One iterative refinement step emitted by the modular decoder rollout.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerationStepRecord {
@@ -413,12 +836,42 @@ pub struct GenerationStepRecord {
     pub atom_types: Vec<i64>,
     /// Coordinates after applying this step.
     pub coords: Vec<[f32; 3]>,
+    /// Native model-predicted bonds after applying this step.
+    #[serde(default)]
+    pub native_bonds: Vec<(usize, usize)>,
+    /// Native model-predicted bond types aligned with `native_bonds`.
+    #[serde(default)]
+    pub native_bond_types: Vec<i64>,
+    /// Native graph after connectivity, density, and valence constraints.
+    #[serde(default)]
+    pub constrained_native_bonds: Vec<(usize, usize)>,
+    /// Constrained native bond types aligned with `constrained_native_bonds`.
+    #[serde(default)]
+    pub constrained_native_bond_types: Vec<i64>,
+    /// Layer-level provenance for raw logits, native extraction, constrained graph, and repair.
+    #[serde(default)]
+    pub native_graph_provenance: NativeGraphLayerProvenance,
     /// Mean per-atom displacement applied at this step.
     pub mean_displacement: f64,
     /// Fraction of atoms whose committed identity changed at this step.
     pub atom_change_fraction: f64,
     /// Effective coordinate step scale applied by the rollout controller.
     pub coordinate_step_scale: f64,
+    /// Whether this step produced a severe ligand-pocket steric clash diagnostic.
+    #[serde(default)]
+    pub severe_clash_flag: bool,
+    /// Whether this step violated conservative topology valence guardrails.
+    #[serde(default)]
+    pub valence_guardrail_flag: bool,
+    /// Whether this step showed a close-range ligand-pocket pharmacophore conflict.
+    #[serde(default)]
+    pub pharmacophore_conflict_flag: bool,
+    /// Whether chemistry guardrails would have blocked this stop if enforcement were enabled.
+    #[serde(default, alias = "stop_overridden_flag")]
+    pub guardrail_blockable_stop_flag: bool,
+    /// Optional flow-head diagnostics such as atom-pocket gate usage and pairwise message stats.
+    #[serde(default)]
+    pub flow_diagnostics: BTreeMap<String, f64>,
 }
 
 /// Full iterative rollout trace for one conditioned ligand generation example.
@@ -428,12 +881,63 @@ pub struct GenerationRolloutRecord {
     pub example_id: String,
     /// Stable protein identifier.
     pub protein_id: String,
+    /// Explicit generation-mode contract for this rollout.
+    #[serde(default = "default_generation_mode_label")]
+    pub generation_mode: String,
+    /// Decoder capability contract active for this rollout.
+    #[serde(default = "default_decoder_capability_label")]
+    pub decoder_capability: String,
+    /// Atom-count source used by the initial ligand state.
+    #[serde(default = "default_atom_count_source_label")]
+    pub atom_count_source: String,
+    /// Provenance family for the atom-count prior.
+    #[serde(default = "default_atom_count_prior_provenance_label")]
+    pub atom_count_prior_provenance: String,
+    /// Topology source used by the initial ligand state.
+    #[serde(default = "default_topology_source_label")]
+    pub topology_source: String,
+    /// Geometry source used by the initial ligand state.
+    #[serde(default = "default_geometry_source_label")]
+    pub geometry_source: String,
+    /// Coordinate-frame provenance used to build conditioning inputs.
+    #[serde(default = "default_conditioning_coordinate_frame_label")]
+    pub conditioning_coordinate_frame: String,
+    /// Flow-specific x0 source used when a coordinate flow rollout is active.
+    #[serde(default)]
+    pub flow_x0_source: Option<String>,
     /// Configured step budget for this rollout.
     pub configured_steps: usize,
     /// Actual number of executed refinement steps.
     pub executed_steps: usize,
     /// Whether rollout terminated due to the learned stop head.
     pub stopped_early: bool,
+    /// Directed interaction path usage observed by the inference path.
+    #[serde(default)]
+    pub path_usage: GenerationPathUsageSummary,
+    /// Context refresh policy used for this rollout.
+    #[serde(default)]
+    pub context_refresh_policy: String,
+    /// Number of rollout steps where context refresh was scheduled.
+    #[serde(default)]
+    pub refresh_count: usize,
+    /// Last rollout step where context refresh was scheduled.
+    #[serde(default)]
+    pub last_refresh_step: Option<usize>,
+    /// Number of executed steps that reused stale static or periodic context.
+    #[serde(default)]
+    pub stale_context_steps: usize,
+    /// Whether any rollout step produced a severe ligand-pocket steric clash diagnostic.
+    #[serde(default)]
+    pub severe_clash_flag: bool,
+    /// Whether any rollout step violated conservative topology valence guardrails.
+    #[serde(default)]
+    pub valence_guardrail_flag: bool,
+    /// Whether any rollout step showed a close-range ligand-pocket pharmacophore conflict.
+    #[serde(default)]
+    pub pharmacophore_conflict_flag: bool,
+    /// Whether chemistry guardrails would have blocked at least one stop if enforcement were enabled.
+    #[serde(default, alias = "stop_overridden_flag")]
+    pub guardrail_blockable_stop_flag: bool,
     /// Per-step state trace.
     pub steps: Vec<GenerationStepRecord>,
 }
@@ -453,6 +957,12 @@ pub struct GeneratedCandidateRecord {
     pub coords: Vec<[f32; 3]>,
     /// Distance-inferred bond list.
     pub inferred_bonds: Vec<(usize, usize)>,
+    /// Cached bond count for artifact filtering and chemistry reports.
+    #[serde(default)]
+    pub bond_count: usize,
+    /// Cached count of atoms whose inferred degree exceeds a conservative valence cap.
+    #[serde(default)]
+    pub valence_violation_count: usize,
     /// Pocket centroid used for downstream compatibility heuristics.
     pub pocket_centroid: [f32; 3],
     /// Pocket radius summary used for downstream compatibility heuristics.
@@ -461,6 +971,24 @@ pub struct GeneratedCandidateRecord {
     pub coordinate_frame_origin: [f32; 3],
     /// Generator path that produced this candidate.
     pub source: String,
+    /// Explicit generation-mode contract for this candidate.
+    #[serde(default = "default_generation_mode_label")]
+    pub generation_mode: String,
+    /// Canonical metric layer used when aggregating this candidate.
+    #[serde(default = "default_generation_layer_label")]
+    pub generation_layer: String,
+    /// Coarse generation path class for raw-vs-processed attribution.
+    #[serde(default = "default_generation_path_class_label")]
+    pub generation_path_class: String,
+    /// Whether this candidate is raw model-native evidence before postprocessing.
+    #[serde(default)]
+    pub model_native_raw: bool,
+    /// Ordered postprocessing steps already applied to this candidate.
+    #[serde(default)]
+    pub postprocessor_chain: Vec<String>,
+    /// Claim-boundary note for interpreting this candidate layer.
+    #[serde(default)]
+    pub claim_boundary: String,
     /// Optional source protein structure path used for downstream scoring workflows.
     pub source_pocket_path: Option<String>,
     /// Optional source ligand path associated with the conditioning example.
@@ -480,6 +1008,9 @@ pub struct ExternalGenerationRequestRecord {
     pub protein_id: String,
     /// Requested candidate count.
     pub candidate_limit: usize,
+    /// Explicit generation-mode contract for this request.
+    #[serde(default = "default_generation_mode_label")]
+    pub generation_mode: String,
     /// Explicit decomposed conditioning summary.
     pub conditioning: ExternalConditioningSummary,
 }
@@ -570,8 +1101,14 @@ pub enum GenerationExecutionMode {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum CandidateLayerKind {
+    /// Raw geometry before any bond payload refinement.
+    RawGeometry,
     /// Direct method-native rollout output.
     RawRollout,
+    /// Coordinate-preserving bond-logit or distance-bond refinement.
+    BondLogitsRefined,
+    /// Coordinate-preserving valence-constrained bond refinement.
+    ValenceRefined,
     /// Geometry-repaired output.
     Repaired,
     /// Bond-inferred output.
@@ -586,11 +1123,61 @@ impl CandidateLayerKind {
     /// Legacy field name used by persisted reviewer artifacts.
     pub fn legacy_field_name(self) -> &'static str {
         match self {
+            Self::RawGeometry => "raw_geometry_candidates",
             Self::RawRollout => "raw_rollout",
+            Self::BondLogitsRefined => "bond_logits_refined_candidates",
+            Self::ValenceRefined => "valence_refined_candidates",
             Self::Repaired => "repaired_candidates",
             Self::InferredBond => "inferred_bond_candidates",
             Self::DeterministicProxy => "deterministic_proxy_candidates",
             Self::Reranked => "reranked_candidates",
+        }
+    }
+
+    /// Canonical claim-facing generation layer name.
+    pub fn canonical_generation_layer(self) -> &'static str {
+        match self {
+            Self::RawGeometry | Self::RawRollout => "raw_flow",
+            Self::BondLogitsRefined | Self::ValenceRefined | Self::InferredBond => {
+                "constrained_flow"
+            }
+            Self::Repaired => "repaired",
+            Self::DeterministicProxy => "deterministic_proxy",
+            Self::Reranked => "reranked",
+        }
+    }
+
+    /// Coarse path class used to separate native generation from postprocessing.
+    pub fn generation_path_class(self) -> &'static str {
+        match self {
+            Self::RawGeometry | Self::RawRollout => "model_native_raw",
+            Self::BondLogitsRefined | Self::ValenceRefined | Self::InferredBond => "constrained",
+            Self::Repaired => "repaired",
+            Self::DeterministicProxy | Self::Reranked => "reranked",
+        }
+    }
+
+    /// Whether the layer is raw model-native output before shared postprocessors.
+    pub fn is_model_native_raw(self) -> bool {
+        matches!(self, Self::RawGeometry | Self::RawRollout)
+    }
+
+    /// Short claim boundary for this layer.
+    pub fn claim_boundary(self) -> &'static str {
+        match self {
+            Self::RawGeometry | Self::RawRollout => {
+                "raw model-native output before repair, constraints, reranking, or backend scoring"
+            }
+            Self::BondLogitsRefined | Self::ValenceRefined | Self::InferredBond => {
+                "constraint-supported candidate after bond or valence postprocessing"
+            }
+            Self::Repaired => {
+                "geometry-repaired candidate; improvements are not model-native alone"
+            }
+            Self::DeterministicProxy => {
+                "deterministic selector output; selection contribution must be separated"
+            }
+            Self::Reranked => "reranked candidate; final quality includes selection contribution",
         }
     }
 }
@@ -650,12 +1237,73 @@ pub struct CandidateLayerProvenance {
     pub layer_kind: CandidateLayerKind,
     /// Backward-compatible persisted field name.
     pub legacy_field_name: String,
+    /// Canonical claim-facing generation layer name.
+    #[serde(default)]
+    pub canonical_generation_layer: String,
+    /// Coarse generation path class.
+    #[serde(default)]
+    pub generation_path_class: String,
+    /// Explicit generation-mode contract for this layer.
+    #[serde(default = "default_generation_mode_label")]
+    pub generation_mode: String,
     /// Whether the layer is method-native rather than derived.
     pub method_native: bool,
     /// Ordered postprocessor chain that produced this layer.
     pub postprocessor_chain: Vec<String>,
+    /// Whether this layer already includes backend-scored evidence.
+    #[serde(default)]
+    pub backend_supported: bool,
+    /// Claim boundary for interpreting this layer.
+    #[serde(default)]
+    pub claim_boundary: String,
     /// Whether the layer is available for this method.
     pub available: bool,
+}
+
+fn default_generation_mode_label() -> String {
+    GenerationModeConfig::TargetLigandDenoising
+        .as_str()
+        .to_string()
+}
+
+fn default_decoder_capability_label() -> String {
+    DecoderCapabilityDescriptor::fixed_atom_refinement()
+        .label()
+        .to_string()
+}
+
+fn default_atom_count_source_label() -> String {
+    GenerationModeConfig::TargetLigandDenoising
+        .atom_count_source_label()
+        .to_string()
+}
+
+fn default_atom_count_prior_provenance_label() -> String {
+    "target_ligand".to_string()
+}
+
+fn default_topology_source_label() -> String {
+    GenerationModeConfig::TargetLigandDenoising
+        .topology_source_label()
+        .to_string()
+}
+
+fn default_geometry_source_label() -> String {
+    GenerationModeConfig::TargetLigandDenoising
+        .geometry_source_label()
+        .to_string()
+}
+
+fn default_conditioning_coordinate_frame_label() -> String {
+    "ligand_centered_model_frame".to_string()
+}
+
+fn default_generation_layer_label() -> String {
+    "unassigned".to_string()
+}
+
+fn default_generation_path_class_label() -> String {
+    "unassigned".to_string()
 }
 
 /// Candidate collection plus provenance for one generation layer.
@@ -675,6 +1323,15 @@ pub struct LayeredGenerationOutput {
     /// Raw rollout layer when available.
     #[serde(default)]
     pub raw_rollout: Option<CandidateLayerOutput>,
+    /// Raw geometry layer before any coordinate or bond refinement.
+    #[serde(default)]
+    pub raw_geometry: Option<CandidateLayerOutput>,
+    /// Coordinate-preserving bond-logit refinement layer.
+    #[serde(default)]
+    pub bond_logits_refined: Option<CandidateLayerOutput>,
+    /// Coordinate-preserving valence-constrained refinement layer.
+    #[serde(default)]
+    pub valence_refined: Option<CandidateLayerOutput>,
     /// Geometry-repaired layer when available.
     #[serde(default)]
     pub repaired: Option<CandidateLayerOutput>,
@@ -695,6 +1352,9 @@ impl LayeredGenerationOutput {
         Self {
             metadata,
             raw_rollout: None,
+            raw_geometry: None,
+            bond_logits_refined: None,
+            valence_refined: None,
             repaired: None,
             inferred_bond: None,
             deterministic_proxy: None,
@@ -808,8 +1468,18 @@ pub trait PocketCompatibilityEvaluator {
 pub struct SlotEncoding {
     /// Slot tensors with shape `[num_slots, hidden_dim]`.
     pub slots: Tensor,
-    /// Soft activation weights with shape `[num_slots]`.
+    /// Normalized assignment mass retained for compatibility with existing reports.
     pub slot_weights: Tensor,
+    /// Per-token slot assignment probabilities with shape `[num_tokens, num_slots]`.
+    pub token_assignments: Tensor,
+    /// Independent learned slot activation logits with shape `[num_slots]`.
+    pub slot_activation_logits: Tensor,
+    /// Independent learned slot activation gates with shape `[num_slots]`.
+    pub slot_activations: Tensor,
+    /// Binary attention-visible slot mask with shape `[num_slots]`.
+    pub active_slot_mask: Tensor,
+    /// Number of slots whose activation gate is above the active threshold.
+    pub active_slot_count: f64,
     /// Reconstruction of token features with shape `[num_tokens, hidden_dim]`.
     pub reconstructed_tokens: Tensor,
 }
@@ -819,6 +1489,11 @@ impl Clone for SlotEncoding {
         Self {
             slots: self.slots.shallow_clone(),
             slot_weights: self.slot_weights.shallow_clone(),
+            token_assignments: self.token_assignments.shallow_clone(),
+            slot_activation_logits: self.slot_activation_logits.shallow_clone(),
+            slot_activations: self.slot_activations.shallow_clone(),
+            active_slot_mask: self.active_slot_mask.shallow_clone(),
+            active_slot_count: self.active_slot_count,
             reconstructed_tokens: self.reconstructed_tokens.shallow_clone(),
         }
     }
@@ -829,8 +1504,18 @@ impl Clone for SlotEncoding {
 pub(crate) struct BatchedSlotEncoding {
     /// Slot tensors with shape `[batch, num_slots, hidden_dim]`.
     pub slots: Tensor,
-    /// Soft activation weights with shape `[batch, num_slots]`.
+    /// Normalized assignment mass retained for compatibility with existing reports.
     pub slot_weights: Tensor,
+    /// Per-token slot assignment probabilities with shape `[batch, max_tokens, num_slots]`.
+    pub token_assignments: Tensor,
+    /// Independent learned slot activation logits with shape `[batch, num_slots]`.
+    pub slot_activation_logits: Tensor,
+    /// Independent learned slot activation gates with shape `[batch, num_slots]`.
+    pub slot_activations: Tensor,
+    /// Binary attention-visible slot mask with shape `[batch, num_slots]`.
+    pub active_slot_mask: Tensor,
+    /// Active slot counts per example with shape `[batch]`.
+    pub active_slot_count: Tensor,
     /// Reconstruction of token features with shape `[batch, max_tokens, hidden_dim]`.
     pub reconstructed_tokens: Tensor,
     /// Active token mask with shape `[batch, max_tokens]`.
@@ -842,6 +1527,11 @@ impl Clone for BatchedSlotEncoding {
         Self {
             slots: self.slots.shallow_clone(),
             slot_weights: self.slot_weights.shallow_clone(),
+            token_assignments: self.token_assignments.shallow_clone(),
+            slot_activation_logits: self.slot_activation_logits.shallow_clone(),
+            slot_activations: self.slot_activations.shallow_clone(),
+            active_slot_mask: self.active_slot_mask.shallow_clone(),
+            active_slot_count: self.active_slot_count.shallow_clone(),
             reconstructed_tokens: self.reconstructed_tokens.shallow_clone(),
             token_mask: self.token_mask.shallow_clone(),
         }
@@ -851,8 +1541,10 @@ impl Clone for BatchedSlotEncoding {
 /// Output for one directed gated cross-modal attention path.
 #[derive(Debug)]
 pub struct CrossAttentionOutput {
-    /// Gate scalar in `[0, 1]`.
+    /// Gate tensor in `[0, 1]`; scalar path gates have shape `[1]`, fine-grained gates may be per target slot.
     pub gate: Tensor,
+    /// Whether the gate value was forced open by a negative-control ablation.
+    pub forced_open: bool,
     /// Attention-weighted update with shape `[query_len, hidden_dim]`.
     pub attended_tokens: Tensor,
     /// Attention weights with shape `[query_len, key_len]`.
@@ -863,6 +1555,7 @@ impl Clone for CrossAttentionOutput {
     fn clone(&self) -> Self {
         Self {
             gate: self.gate.shallow_clone(),
+            forced_open: self.forced_open,
             attended_tokens: self.attended_tokens.shallow_clone(),
             attention_weights: self.attention_weights.shallow_clone(),
         }
@@ -872,8 +1565,10 @@ impl Clone for CrossAttentionOutput {
 /// Batched output for one directed gated cross-modal attention path.
 #[derive(Debug)]
 pub(crate) struct BatchedCrossAttentionOutput {
-    /// Gate scalar per batch item with shape `[batch, 1]`.
+    /// Gate tensor per batch item; scalar path gates have shape `[batch, 1]`, fine-grained gates may be per target slot.
     pub gate: Tensor,
+    /// Whether the gate value was forced open by a negative-control ablation.
+    pub forced_open: bool,
     /// Attention-weighted update with shape `[batch, query_len, hidden_dim]`.
     pub attended_tokens: Tensor,
     /// Attention weights with shape `[batch, query_len, key_len]`.
@@ -884,6 +1579,7 @@ impl Clone for BatchedCrossAttentionOutput {
     fn clone(&self) -> Self {
         Self {
             gate: self.gate.shallow_clone(),
+            forced_open: self.forced_open,
             attended_tokens: self.attended_tokens.shallow_clone(),
             attention_weights: self.attention_weights.shallow_clone(),
         }

@@ -30,6 +30,14 @@ RDKIT_KEYS = {
     "rdkit_unique_smiles",
     "rdkit_unique_smiles_fraction",
 }
+CHEMISTRY_COLLABORATION_KEYS = {
+    "pharmacophore_role_coverage",
+    "role_conflict_rate",
+    "severe_clash_fraction",
+    "valence_violation_fraction",
+    "bond_length_guardrail_mean",
+    "key_residue_contact_coverage",
+}
 
 
 def parse_args(argv):
@@ -89,6 +97,8 @@ def metric_provenance(metric_name):
         return "gnina"
     if metric_name in RDKIT_KEYS:
         return "rdkit"
+    if metric_name in CHEMISTRY_COLLABORATION_KEYS or metric_name.startswith("gate_usage_by_chemical_role"):
+        return "heuristic_proxy"
     if metric_name == "docking_like_score":
         return "heuristic_proxy"
     if any(token in metric_name for token in ("contact", "clash", "centroid", "pocket", "hydrogen_bond", "hydrophobic")):

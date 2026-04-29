@@ -1,0 +1,64 @@
+{
+  "artifact_name": "q1_public_baseline_postprocess_report",
+  "claim_boundary": "Generated ablation, repaired, and reranked rows are postprocessing evidence except no_repair, which is an unchanged-coordinate copy used as the ablation baseline.",
+  "records": [
+    {
+      "ablation_layer_candidate_counts": {
+        "bond_inference_only": 100,
+        "centroid_only": 100,
+        "clash_only": 100,
+        "full_repair": 100,
+        "no_repair": 100
+      },
+      "input_artifact": "checkpoints/q1_public_baselines_full100/pocket2mol_public/generation_layers_test.json",
+      "method_id": "pocket2mol_public",
+      "output_artifact": "checkpoints/q2_postprocessing_ablation/pocket2mol_public/generation_layers_test.json",
+      "raw_candidate_count": 100,
+      "repaired_candidate_count": 100,
+      "reranked_candidate_count": 100
+    },
+    {
+      "ablation_layer_candidate_counts": {
+        "bond_inference_only": 100,
+        "centroid_only": 100,
+        "clash_only": 100,
+        "full_repair": 100,
+        "no_repair": 100
+      },
+      "input_artifact": "checkpoints/q1_public_baselines_full100/targetdiff_public/generation_layers_test.json",
+      "method_id": "targetdiff_public",
+      "output_artifact": "checkpoints/q2_postprocessing_ablation/targetdiff_public/generation_layers_test.json",
+      "raw_candidate_count": 100,
+      "repaired_candidate_count": 100,
+      "reranked_candidate_count": 100
+    },
+    {
+      "ablation_layer_candidate_counts": {
+        "bond_inference_only": 100,
+        "centroid_only": 100,
+        "clash_only": 100,
+        "full_repair": 100,
+        "no_repair": 100
+      },
+      "input_artifact": "checkpoints/q1_public_baselines_full100/diffsbdd_public/generation_layers_test.json",
+      "method_id": "diffsbdd_public",
+      "output_artifact": "checkpoints/q2_postprocessing_ablation/diffsbdd_public/generation_layers_test.json",
+      "raw_candidate_count": 100,
+      "repaired_candidate_count": 100,
+      "reranked_candidate_count": 100
+    }
+  ],
+  "schema_version": 1,
+  "totals": {
+    "ablation_layer_candidate_counts": {
+      "bond_inference_only": 300,
+      "centroid_only": 300,
+      "clash_only": 300,
+      "full_repair": 300,
+      "no_repair": 300
+    },
+    "raw_candidate_count": 300,
+    "repaired_candidate_count": 300,
+    "reranked_candidate_count": 300
+  }
+}

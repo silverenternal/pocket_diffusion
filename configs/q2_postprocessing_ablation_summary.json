@@ -1,0 +1,854 @@
+{
+  "ablation_layers": [
+    "no_repair",
+    "centroid_only",
+    "clash_only",
+    "bond_inference_only",
+    "full_repair"
+  ],
+  "artifact_name": "q2_postprocessing_ablation_summary",
+  "candidate_metrics": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+  "claim_boundary": "Ablation layers are score_only postprocessing evidence. no_repair is an unchanged-coordinate baseline; centroid_only, clash_only, bond_inference_only, and full_repair must not be reported as native public-baseline capability.",
+  "diagnosis": {
+    "component_findings": {
+      "bond_inference": {
+        "evidence": "bond_inference_only keeps raw coordinates but changes inferred_bonds/molecular representation.",
+        "gnina_affinity_delta": 0.0,
+        "sa_score_delta": 0.6798000000000002,
+        "status": "chemistry_regression_without_docking_degradation",
+        "vina_delta": 0.0
+      },
+      "clash_handling": {
+        "clash_fraction_delta": -0.0026587719298245614,
+        "evidence": "clash_only keeps the raw centroid and bond payload while applying local declash moves.",
+        "gnina_affinity_delta": -0.05778683333333312,
+        "status": "not_primary_degradation_source",
+        "vina_delta": -0.02936431226765812
+      },
+      "coordinate_movement": {
+        "evidence": "centroid_only changes coordinates without changing bonds; positive Vina/GNINA affinity deltas mean worse score_only docking.",
+        "gnina_affinity_delta": 148.38455420000003,
+        "status": "primary_degradation_source",
+        "vina_delta": 148.29698980173484
+      },
+      "docking_input_conversion": {
+        "evidence": "no_repair is an unchanged-coordinate copy scored through the same docking-input path; missing Vina rows are explicit command failures, while GNINA coverage is complete.",
+        "no_repair_failure_reasons": {
+          "missing_vina_score": 31,
+          "vina_command_failed": 31
+        },
+        "no_repair_vina_coverage": 0.8966666666666666,
+        "status": "coverage_issue_not_primary_score_degradation"
+      },
+      "full_repair": {
+        "evidence": "full_repair combines centroid-anchored repair, declash, envelope clamp, and bond inference and is worse than no_repair on both score_only affinity backends.",
+        "gnina_affinity_delta": 159.16855806666666,
+        "status": "not_promoted",
+        "vina_delta": 159.09558980173483
+      },
+      "reranking": {
+        "evidence": "The five-layer ablation shows severe degradation before deterministic reranking is applied; legacy reranked rows remain postprocessing evidence and are not promoted.",
+        "status": "not_needed_to_explain_degradation"
+      }
+    },
+    "conclusion": "The combined repair path degrades more than any isolated step.",
+    "docking_degradation_signal": 318.2641478684015,
+    "dominant_layer": "full_repair",
+    "full_repair_promoted": false,
+    "promotion_rule": "Full repair is not promoted unless score_only docking improves without unacceptable QED/SA, clash, or contact regressions."
+  },
+  "layer_summaries": [
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.8966666666666666
+      },
+      "candidate_count": 300,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 31,
+        "vina_command_failed": 31
+      },
+      "interpretation": [
+        "baseline unchanged-coordinate copy for same-pipeline scoring"
+      ],
+      "layer": "no_repair",
+      "layer_role": "unchanged_coordinate_ablation_baseline",
+      "metric_means": {
+        "centroid_offset": 15.920140472628054,
+        "clash_fraction": 0.0026587719298245614,
+        "gnina_affinity": -2.2974956333333334,
+        "gnina_cnn_score": 0.44937083333333333,
+        "pocket_contact_fraction": 0.9732504022053124,
+        "qed": 0.43249848483384806,
+        "sa_score": 2.2423333333333333,
+        "vina_score": -2.201546468401487
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 300,
+      "delta_vs_no_repair": {
+        "centroid_offset": -15.920140216575678,
+        "clash_fraction": 0.2063597717275827,
+        "gnina_affinity": 148.38455420000003,
+        "gnina_cnn_score": -0.3215847,
+        "pocket_contact_fraction": -0.0367469822726787,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 148.29698980173484
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "coordinate movement is sufficient to degrade score_only docking",
+        "large centroid-offset change"
+      ],
+      "layer": "centroid_only",
+      "layer_role": "coordinate_movement_only",
+      "metric_means": {
+        "centroid_offset": 2.5605237626176183e-07,
+        "clash_fraction": 0.20901854365740727,
+        "gnina_affinity": 146.08705856666668,
+        "gnina_cnn_score": 0.12778613333333333,
+        "pocket_contact_fraction": 0.9365034199326338,
+        "qed": 0.43249848483384806,
+        "sa_score": 2.2423333333333333,
+        "vina_score": 146.09544333333335
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.8966666666666666
+      },
+      "candidate_count": 300,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0004755636111895001,
+        "clash_fraction": -0.0026587719298245614,
+        "gnina_affinity": -0.05778683333333312,
+        "gnina_cnn_score": 0.00012606666666670208,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": -0.02936431226765812
+      },
+      "failure_reasons": {
+        "missing_vina_score": 31,
+        "vina_command_failed": 31
+      },
+      "interpretation": [
+        "no decisive degradation signal from available metrics"
+      ],
+      "layer": "clash_only",
+      "layer_role": "declash_without_centroid_translation_or_bond_change",
+      "metric_means": {
+        "centroid_offset": 15.920616036239243,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -2.3552824666666665,
+        "gnina_cnn_score": 0.44949690000000003,
+        "pocket_contact_fraction": 0.9732504022053124,
+        "qed": 0.43249848483384806,
+        "sa_score": 2.2423333333333333,
+        "vina_score": -2.230910780669145
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.8966666666666666
+      },
+      "candidate_count": 300,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": -0.013090992254987777,
+        "sa_score": 0.6798000000000002,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 31,
+        "vina_command_failed": 31
+      },
+      "interpretation": [
+        "SA regression"
+      ],
+      "layer": "bond_inference_only",
+      "layer_role": "bond_payload_change_without_coordinate_movement",
+      "metric_means": {
+        "centroid_offset": 15.920140472628054,
+        "clash_fraction": 0.0026587719298245614,
+        "gnina_affinity": -2.2974956333333334,
+        "gnina_cnn_score": 0.44937083333333333,
+        "pocket_contact_fraction": 0.9732504022053124,
+        "qed": 0.4194074925788603,
+        "sa_score": 2.9221333333333335,
+        "vina_score": -2.201546468401487
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 300,
+      "delta_vs_no_repair": {
+        "centroid_offset": -10.844328928767789,
+        "clash_fraction": 0.10070512421349678,
+        "gnina_affinity": 159.16855806666666,
+        "gnina_cnn_score": -0.20916769999999998,
+        "pocket_contact_fraction": -0.03512005117988415,
+        "qed": -0.0010324209921983574,
+        "sa_score": 0.04150000000000009,
+        "vina_score": 159.09558980173483
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "combined repair is not claim-promotable under current scoring",
+        "large centroid-offset change"
+      ],
+      "layer": "full_repair",
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "metric_means": {
+        "centroid_offset": 5.075811543860265,
+        "clash_fraction": 0.10336389614332134,
+        "gnina_affinity": 156.87106243333332,
+        "gnina_cnn_score": 0.24020313333333335,
+        "pocket_contact_fraction": 0.9381303510254283,
+        "qed": 0.4314660638416497,
+        "sa_score": 2.2838333333333334,
+        "vina_score": 156.89404333333334
+      }
+    }
+  ],
+  "method_summaries": [
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 11,
+        "vina_command_failed": 11
+      },
+      "interpretation": [
+        "baseline unchanged-coordinate copy for same-pipeline scoring"
+      ],
+      "layer": "no_repair",
+      "layer_role": "unchanged_coordinate_ablation_baseline",
+      "method_id": "diffsbdd_public",
+      "metric_means": {
+        "centroid_offset": 15.688749750971613,
+        "clash_fraction": 0.005526315789473684,
+        "gnina_affinity": -0.8584511,
+        "gnina_cnn_score": 0.3738102,
+        "pocket_contact_fraction": 0.9657436560155479,
+        "qed": 0.439806817785092,
+        "sa_score": 2.4604,
+        "vina_score": -0.3601348314606741
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": -15.688749275066181,
+        "clash_fraction": 0.19030880699433717,
+        "gnina_affinity": 169.03393160000002,
+        "gnina_cnn_score": -0.2839173,
+        "pocket_contact_fraction": -0.029102291601887487,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 168.54832483146066
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "coordinate movement is sufficient to degrade score_only docking",
+        "large centroid-offset change"
+      ],
+      "layer": "centroid_only",
+      "layer_role": "coordinate_movement_only",
+      "method_id": "diffsbdd_public",
+      "metric_means": {
+        "centroid_offset": 4.7590543179868e-07,
+        "clash_fraction": 0.19583512278381085,
+        "gnina_affinity": 168.17548050000002,
+        "gnina_cnn_score": 0.0898929,
+        "pocket_contact_fraction": 0.9366413644136604,
+        "qed": 0.439806817785092,
+        "sa_score": 2.4604,
+        "vina_score": 168.18819
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0010639601405735277,
+        "clash_fraction": -0.005526315789473684,
+        "gnina_affinity": -0.06723770000000007,
+        "gnina_cnn_score": 0.00012180000000000524,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": -0.07505617977528095
+      },
+      "failure_reasons": {
+        "missing_vina_score": 11,
+        "vina_command_failed": 11
+      },
+      "interpretation": [
+        "no decisive degradation signal from available metrics"
+      ],
+      "layer": "clash_only",
+      "layer_role": "declash_without_centroid_translation_or_bond_change",
+      "method_id": "diffsbdd_public",
+      "metric_means": {
+        "centroid_offset": 15.689813711112187,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -0.9256888000000001,
+        "gnina_cnn_score": 0.373932,
+        "pocket_contact_fraction": 0.9657436560155479,
+        "qed": 0.439806817785092,
+        "sa_score": 2.4604,
+        "vina_score": -0.43519101123595505
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": -0.0496040036468785,
+        "sa_score": 1.0604999999999998,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 11,
+        "vina_command_failed": 11
+      },
+      "interpretation": [
+        "SA regression"
+      ],
+      "layer": "bond_inference_only",
+      "layer_role": "bond_payload_change_without_coordinate_movement",
+      "method_id": "diffsbdd_public",
+      "metric_means": {
+        "centroid_offset": 15.688749750971613,
+        "clash_fraction": 0.005526315789473684,
+        "gnina_affinity": -0.8584511,
+        "gnina_cnn_score": 0.3738102,
+        "pocket_contact_fraction": 0.9657436560155479,
+        "qed": 0.3902028141382135,
+        "sa_score": 3.5208999999999997,
+        "vina_score": -0.3601348314606741
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": -11.070823550667063,
+        "clash_fraction": 0.11435106804293765,
+        "gnina_affinity": 184.9193332,
+        "gnina_cnn_score": -0.13426459999999998,
+        "pocket_contact_fraction": -0.031668831169685774,
+        "qed": -0.01239247348493705,
+        "sa_score": 0.04859999999999998,
+        "vina_score": 184.45441483146067
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "combined repair is not claim-promotable under current scoring",
+        "large centroid-offset change"
+      ],
+      "layer": "full_repair",
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "method_id": "diffsbdd_public",
+      "metric_means": {
+        "centroid_offset": 4.6179262003045505,
+        "clash_fraction": 0.11987738383241134,
+        "gnina_affinity": 184.06088210000001,
+        "gnina_cnn_score": 0.2395456,
+        "pocket_contact_fraction": 0.9340748248458621,
+        "qed": 0.42741434430015496,
+        "sa_score": 2.509,
+        "vina_score": 184.09428
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.91
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 9,
+        "vina_command_failed": 9
+      },
+      "interpretation": [
+        "baseline unchanged-coordinate copy for same-pipeline scoring"
+      ],
+      "layer": "no_repair",
+      "layer_role": "unchanged_coordinate_ablation_baseline",
+      "method_id": "pocket2mol_public",
+      "metric_means": {
+        "centroid_offset": 16.415678484599987,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -2.1092635,
+        "gnina_cnn_score": 0.5881315,
+        "pocket_contact_fraction": 0.985995670995671,
+        "qed": 0.4410529309537189,
+        "sa_score": 1.5075999999999998,
+        "vina_score": -2.1085824175824177
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": -16.415678294173112,
+        "clash_fraction": 0.1992071817071817,
+        "gnina_affinity": 58.1036961,
+        "gnina_cnn_score": -0.35324520000000004,
+        "pocket_contact_fraction": -0.04832900432900433,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 58.108972417582414
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "coordinate movement is sufficient to degrade score_only docking",
+        "large centroid-offset change"
+      ],
+      "layer": "centroid_only",
+      "layer_role": "coordinate_movement_only",
+      "method_id": "pocket2mol_public",
+      "metric_means": {
+        "centroid_offset": 1.904268739052924e-07,
+        "clash_fraction": 0.1992071817071817,
+        "gnina_affinity": 55.9944326,
+        "gnina_cnn_score": 0.2348863,
+        "pocket_contact_fraction": 0.9376666666666666,
+        "qed": 0.4410529309537189,
+        "sa_score": 1.5075999999999998,
+        "vina_score": 56.000389999999996
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.91
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 4.708901713001978e-09,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0015084000000000763,
+        "gnina_cnn_score": -0.00010130000000008188,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0018131868131869844
+      },
+      "failure_reasons": {
+        "missing_vina_score": 9,
+        "vina_command_failed": 9
+      },
+      "interpretation": [
+        "no decisive degradation signal from available metrics"
+      ],
+      "layer": "clash_only",
+      "layer_role": "declash_without_centroid_translation_or_bond_change",
+      "method_id": "pocket2mol_public",
+      "metric_means": {
+        "centroid_offset": 16.41567848930889,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -2.1077551,
+        "gnina_cnn_score": 0.5880302,
+        "pocket_contact_fraction": 0.985995670995671,
+        "qed": 0.4410529309537189,
+        "sa_score": 1.5075999999999998,
+        "vina_score": -2.1067692307692307
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.91
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": -0.01846361379173589,
+        "sa_score": 0.1464000000000003,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 9,
+        "vina_command_failed": 9
+      },
+      "interpretation": [
+        "no decisive degradation signal from available metrics"
+      ],
+      "layer": "bond_inference_only",
+      "layer_role": "bond_payload_change_without_coordinate_movement",
+      "method_id": "pocket2mol_public",
+      "metric_means": {
+        "centroid_offset": 16.415678484599987,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -2.1092635,
+        "gnina_cnn_score": 0.5881315,
+        "pocket_contact_fraction": 0.985995670995671,
+        "qed": 0.422589317161983,
+        "sa_score": 1.6540000000000001,
+        "vina_score": -2.1085824175824177
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": -10.320513263334266,
+        "clash_fraction": 0.05907611832611833,
+        "gnina_affinity": 64.1077866,
+        "gnina_cnn_score": -0.30799420000000005,
+        "pocket_contact_fraction": -0.03859090909090912,
+        "qed": 0.0017930388839902944,
+        "sa_score": 0.010200000000000209,
+        "vina_score": 64.10743241758242
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "combined repair is not claim-promotable under current scoring",
+        "large centroid-offset change"
+      ],
+      "layer": "full_repair",
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "method_id": "pocket2mol_public",
+      "metric_means": {
+        "centroid_offset": 6.095165221265721,
+        "clash_fraction": 0.05907611832611833,
+        "gnina_affinity": 61.9985231,
+        "gnina_cnn_score": 0.2801373,
+        "pocket_contact_fraction": 0.9474047619047619,
+        "qed": 0.4428459698377092,
+        "sa_score": 1.5178,
+        "vina_score": 61.998850000000004
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 11,
+        "vina_command_failed": 11
+      },
+      "interpretation": [
+        "baseline unchanged-coordinate copy for same-pipeline scoring"
+      ],
+      "layer": "no_repair",
+      "layer_role": "unchanged_coordinate_ablation_baseline",
+      "method_id": "targetdiff_public",
+      "metric_means": {
+        "centroid_offset": 15.655993182312564,
+        "clash_fraction": 0.00245,
+        "gnina_affinity": -3.9247722999999994,
+        "gnina_cnn_score": 0.38617080000000004,
+        "pocket_contact_fraction": 0.9680118796047185,
+        "qed": 0.41663570576273334,
+        "sa_score": 2.759,
+        "vina_score": -4.138011235955056
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": -15.655993080487741,
+        "clash_fraction": 0.2295633264812293,
+        "gnina_affinity": 218.01603490000002,
+        "gnina_cnn_score": -0.32759160000000004,
+        "pocket_contact_fraction": -0.03280965088714449,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 218.23576123595507
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "coordinate movement is sufficient to degrade score_only docking",
+        "large centroid-offset change"
+      ],
+      "layer": "centroid_only",
+      "layer_role": "coordinate_movement_only",
+      "method_id": "targetdiff_public",
+      "metric_means": {
+        "centroid_offset": 1.0182482308131313e-07,
+        "clash_fraction": 0.2320133264812293,
+        "gnina_affinity": 214.09126260000002,
+        "gnina_cnn_score": 0.0585792,
+        "pocket_contact_fraction": 0.935202228717574,
+        "qed": 0.41663570576273334,
+        "sa_score": 2.759,
+        "vina_score": 214.09775000000002
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0003627259840932595,
+        "clash_fraction": -0.00245,
+        "gnina_affinity": -0.1076312000000006,
+        "gnina_cnn_score": 0.0003576999999999608,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": -0.015550561797753382
+      },
+      "failure_reasons": {
+        "missing_vina_score": 11,
+        "vina_command_failed": 11
+      },
+      "interpretation": [
+        "no decisive degradation signal from available metrics"
+      ],
+      "layer": "clash_only",
+      "layer_role": "declash_without_centroid_translation_or_bond_change",
+      "method_id": "targetdiff_public",
+      "metric_means": {
+        "centroid_offset": 15.656355908296657,
+        "clash_fraction": 0.0,
+        "gnina_affinity": -4.0324035,
+        "gnina_cnn_score": 0.3865285,
+        "pocket_contact_fraction": 0.9680118796047185,
+        "qed": 0.41663570576273334,
+        "sa_score": 2.759,
+        "vina_score": -4.153561797752809
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": 0.0,
+        "clash_fraction": 0.0,
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "pocket_contact_fraction": 0.0,
+        "qed": 0.028794640673651173,
+        "sa_score": 0.8325,
+        "vina_score": 0.0
+      },
+      "failure_reasons": {
+        "missing_vina_score": 11,
+        "vina_command_failed": 11
+      },
+      "interpretation": [
+        "SA regression"
+      ],
+      "layer": "bond_inference_only",
+      "layer_role": "bond_payload_change_without_coordinate_movement",
+      "method_id": "targetdiff_public",
+      "metric_means": {
+        "centroid_offset": 15.655993182312564,
+        "clash_fraction": 0.00245,
+        "gnina_affinity": -3.9247722999999994,
+        "gnina_cnn_score": 0.38617080000000004,
+        "pocket_contact_fraction": 0.9680118796047185,
+        "qed": 0.4454303464363845,
+        "sa_score": 3.5915,
+        "vina_score": -4.138011235955056
+      }
+    },
+    {
+      "backend_coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "pocket_contact": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "candidate_count": 100,
+      "delta_vs_no_repair": {
+        "centroid_offset": -11.14164997230204,
+        "clash_fraction": 0.12868818627143436,
+        "gnina_affinity": 228.47855439999998,
+        "gnina_cnn_score": -0.18524430000000006,
+        "pocket_contact_fraction": -0.035100413279057774,
+        "qed": 0.007502171624351794,
+        "sa_score": 0.06569999999999965,
+        "vina_score": 228.72701123595508
+      },
+      "failure_reasons": {},
+      "interpretation": [
+        "combined repair is not claim-promotable under current scoring",
+        "large centroid-offset change"
+      ],
+      "layer": "full_repair",
+      "layer_role": "coordinate_repair_plus_bond_inference",
+      "method_id": "targetdiff_public",
+      "metric_means": {
+        "centroid_offset": 4.514343210010523,
+        "clash_fraction": 0.13113818627143436,
+        "gnina_affinity": 224.55378209999998,
+        "gnina_cnn_score": 0.20092649999999998,
+        "pocket_contact_fraction": 0.9329114663256607,
+        "qed": 0.42413787738708514,
+        "sa_score": 2.8246999999999995,
+        "vina_score": 224.58900000000003
+      }
+    }
+  ],
+  "schema_version": 1,
+  "score_direction": {
+    "centroid_offset": "lower_is_better",
+    "clash_fraction": "lower_is_better",
+    "gnina_affinity": "lower_is_better",
+    "gnina_cnn_score": "higher_is_better",
+    "pocket_contact_fraction": "higher_is_better",
+    "qed": "higher_is_better",
+    "sa_score": "lower_is_better",
+    "vina_score": "lower_is_better"
+  }
+}

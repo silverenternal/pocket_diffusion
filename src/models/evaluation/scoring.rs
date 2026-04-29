@@ -1,11 +1,13 @@
-fn metric(name: &str, value: f64) -> ExternalMetricRecord {
+use super::*;
+
+pub(super) fn metric(name: &str, value: f64) -> ExternalMetricRecord {
     ExternalMetricRecord {
         metric_name: name.to_string(),
         value,
     }
 }
 
-fn evaluate_via_command(
+pub(super) fn evaluate_via_command(
     backend_name: &str,
     config: &ExternalBackendCommandConfig,
     candidates: &[GeneratedCandidateRecord],
@@ -40,7 +42,11 @@ fn evaluate_via_command(
     let backend_input = candidates
         .iter()
         .enumerate()
-        .filter_map(|(index, candidate)| serde_json::to_value(candidate).ok().map(|value| (index, value)))
+        .filter_map(|(index, candidate)| {
+            serde_json::to_value(candidate)
+                .ok()
+                .map(|value| (index, value))
+        })
         .map(|(index, mut value)| {
             if let Some(object) = value.as_object_mut() {
                 object.insert(
@@ -170,7 +176,10 @@ fn parse_backend_output_metrics(payload: &serde_json::Value) -> Option<Vec<Exter
     }
 
     let mut metrics = Vec::new();
-    if let Some(aggregate) = root.get("aggregate_metrics").and_then(|value| value.as_object()) {
+    if let Some(aggregate) = root
+        .get("aggregate_metrics")
+        .and_then(|value| value.as_object())
+    {
         metrics.extend(aggregate.iter().filter_map(|(metric_name, value)| {
             value
                 .as_f64()
@@ -183,7 +192,10 @@ fn parse_backend_output_metrics(payload: &serde_json::Value) -> Option<Vec<Exter
     }
 
     let mut candidate_rows = 0.0;
-    if let Some(rows) = root.get("candidate_metrics").and_then(|value| value.as_array()) {
+    if let Some(rows) = root
+        .get("candidate_metrics")
+        .and_then(|value| value.as_array())
+    {
         for row in rows {
             let Some(row_object) = row.as_object() else {
                 continue;
@@ -200,7 +212,10 @@ fn parse_backend_output_metrics(payload: &serde_json::Value) -> Option<Vec<Exter
                 .get("protein_id")
                 .and_then(|value| value.as_str())
                 .unwrap_or("unknown");
-            let Some(row_metrics) = row_object.get("metrics").and_then(|value| value.as_object()) else {
+            let Some(row_metrics) = row_object
+                .get("metrics")
+                .and_then(|value| value.as_object())
+            else {
                 continue;
             };
             candidate_rows += 1.0;
@@ -226,7 +241,7 @@ fn parse_backend_output_metrics(payload: &serde_json::Value) -> Option<Vec<Exter
     }
     Some(metrics)
 }
-fn basic_validity(candidate: &GeneratedCandidateRecord) -> bool {
+pub(super) fn basic_validity(candidate: &GeneratedCandidateRecord) -> bool {
     !candidate.atom_types.is_empty()
         && candidate.coords.len() == candidate.atom_types.len()
         && candidate
@@ -235,7 +250,7 @@ fn basic_validity(candidate: &GeneratedCandidateRecord) -> bool {
             .all(|coord| coord.iter().all(|value| value.is_finite()))
 }
 
-fn valence_sane(candidate: &GeneratedCandidateRecord) -> bool {
+pub(super) fn valence_sane(candidate: &GeneratedCandidateRecord) -> bool {
     if !basic_validity(candidate) {
         return false;
     }
@@ -255,14 +270,14 @@ fn valence_sane(candidate: &GeneratedCandidateRecord) -> bool {
         .all(|(index, atom_type)| degrees[index] <= max_valence(*atom_type))
 }
 
-fn structural_pass(candidate: &GeneratedCandidateRecord) -> bool {
+pub(super) fn structural_pass(candidate: &GeneratedCandidateRecord) -> bool {
     if !basic_validity(candidate) {
         return false;
     }
     for (ix, left) in candidate.coords.iter().enumerate() {
         for right in candidate.coords.iter().skip(ix + 1) {
             let distance = euclidean(left, right);
-            if distance < 0.35 || distance > 8.0 {
+            if !(0.35..=8.0).contains(&distance) {
                 return false;
             }
         }
@@ -270,13 +285,13 @@ fn structural_pass(candidate: &GeneratedCandidateRecord) -> bool {
     true
 }
 
-fn candidate_contact_pocket(candidate: &GeneratedCandidateRecord) -> bool {
+pub(super) fn candidate_contact_pocket(candidate: &GeneratedCandidateRecord) -> bool {
     candidate.coords.iter().any(|coord| {
         euclidean(coord, &candidate.pocket_centroid) <= (candidate.pocket_radius + 2.0) as f64
     })
 }
 
-fn centroid_offset_from_pocket(candidate: &GeneratedCandidateRecord) -> f64 {
+pub(super) fn centroid_offset_from_pocket(candidate: &GeneratedCandidateRecord) -> f64 {
     if candidate.coords.is_empty() {
         return f64::INFINITY;
     }
@@ -301,7 +316,7 @@ fn centroid_offset_from_pocket(candidate: &GeneratedCandidateRecord) -> f64 {
     )
 }
 
-fn atom_coverage_fraction(candidate: &GeneratedCandidateRecord) -> f64 {
+pub(super) fn atom_coverage_fraction(candidate: &GeneratedCandidateRecord) -> f64 {
     if candidate.coords.is_empty() {
         return 0.0;
     }
@@ -315,7 +330,7 @@ fn atom_coverage_fraction(candidate: &GeneratedCandidateRecord) -> f64 {
         / candidate.coords.len() as f64
 }
 
-fn centroid_fit_score(candidate: &GeneratedCandidateRecord) -> f64 {
+pub(super) fn centroid_fit_score(candidate: &GeneratedCandidateRecord) -> f64 {
     let offset = centroid_offset_from_pocket(candidate);
     if !offset.is_finite() {
         return 0.0;
@@ -323,7 +338,7 @@ fn centroid_fit_score(candidate: &GeneratedCandidateRecord) -> f64 {
     1.0 / (1.0 + offset)
 }
 
-fn non_bonded_clash_fraction(candidate: &GeneratedCandidateRecord) -> f64 {
+pub(super) fn non_bonded_clash_fraction(candidate: &GeneratedCandidateRecord) -> f64 {
     if candidate.coords.len() < 2 {
         return 0.0;
     }
@@ -360,7 +375,7 @@ fn non_bonded_clash_fraction(candidate: &GeneratedCandidateRecord) -> f64 {
     }
 }
 
-fn strict_pocket_fit_score(candidate: &GeneratedCandidateRecord) -> f64 {
+pub(super) fn strict_pocket_fit_score(candidate: &GeneratedCandidateRecord) -> f64 {
     if !basic_validity(candidate) {
         return 0.0;
     }
@@ -383,14 +398,14 @@ fn strict_pocket_fit_score(candidate: &GeneratedCandidateRecord) -> f64 {
         * clash_penalty
 }
 
-fn euclidean(left: &[f32; 3], right: &[f32; 3]) -> f64 {
+pub(super) fn euclidean(left: &[f32; 3], right: &[f32; 3]) -> f64 {
     let dx = left[0] as f64 - right[0] as f64;
     let dy = left[1] as f64 - right[1] as f64;
     let dz = left[2] as f64 - right[2] as f64;
     (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
-fn infer_bonds(coords: &[[f32; 3]]) -> Vec<(usize, usize)> {
+pub(super) fn infer_bonds(coords: &[[f32; 3]]) -> Vec<(usize, usize)> {
     let mut bonds = Vec::new();
     for left in 0..coords.len() {
         for right in (left + 1)..coords.len() {
@@ -403,7 +418,7 @@ fn infer_bonds(coords: &[[f32; 3]]) -> Vec<(usize, usize)> {
     bonds
 }
 
-fn prune_bonds_for_valence(
+pub(super) fn prune_bonds_for_valence(
     coords: &[[f32; 3]],
     atom_types: &[i64],
     inferred_bonds: &[(usize, usize)],
@@ -429,7 +444,7 @@ fn prune_bonds_for_valence(
     kept
 }
 
-fn max_valence(atom_type: i64) -> usize {
+pub(super) fn max_valence(atom_type: i64) -> usize {
     match atom_type {
         0 => 4,
         1 => 3,
@@ -440,7 +455,7 @@ fn max_valence(atom_type: i64) -> usize {
     }
 }
 
-fn atom_type_from_index(index: i64) -> AtomType {
+pub(super) fn atom_type_from_index(index: i64) -> AtomType {
     match index {
         0 => AtomType::Carbon,
         1 => AtomType::Nitrogen,
@@ -451,7 +466,7 @@ fn atom_type_from_index(index: i64) -> AtomType {
     }
 }
 
-fn tensor_to_coords(tensor: &Tensor) -> Vec<[f32; 3]> {
+pub(super) fn tensor_to_coords(tensor: &Tensor) -> Vec<[f32; 3]> {
     let num_atoms = tensor.size().first().copied().unwrap_or(0).max(0) as usize;
     (0..num_atoms)
         .map(|atom_ix| {
@@ -464,7 +479,7 @@ fn tensor_to_coords(tensor: &Tensor) -> Vec<[f32; 3]> {
         .collect()
 }
 
-fn tensor_centroid(coords: &Tensor) -> [f64; 3] {
+pub(super) fn tensor_centroid(coords: &Tensor) -> [f64; 3] {
     if coords.numel() == 0 {
         return [0.0, 0.0, 0.0];
     }
@@ -476,7 +491,7 @@ fn tensor_centroid(coords: &Tensor) -> [f64; 3] {
     ]
 }
 
-fn pocket_radius(coords: &Tensor, centroid: [f64; 3]) -> f64 {
+pub(super) fn pocket_radius(coords: &Tensor, centroid: [f64; 3]) -> f64 {
     let points = tensor_to_coords(coords);
     points
         .iter()

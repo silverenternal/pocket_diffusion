@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-29",
+  "calibration_status": "heuristic_smoke_calibrated",
+  "calibration_scope": "synthetic frozen-probe smoke plus persisted mini-real claim summaries",
+  "threshold_source": "mixed_heuristic_and_empirical_smoke",
+  "reports": [
+    {
+      "metric_family": "similarity_proxy",
+      "metric_name": "test.leakage_proxy_mean",
+      "direction": "lower_is_better",
+      "recommended_warning_threshold": 0.08,
+      "recommended_hard_threshold": 0.12,
+      "recommended_regression_threshold": 0.03,
+      "calibration_basis": "Empirical smoke boundary from persisted mini-real claim summaries, retained as reviewer-facing heuristic until a larger held-out sweep exists.",
+      "evidence": [
+        {
+          "source": "checkpoints/pdbbindpp_real_backends/experiment_summary.json",
+          "split": "test",
+          "observed_value": 0.07348963423207786,
+          "interpretation": "Below preferred warning threshold but close enough to keep no-leakage wording cautious without frozen audit evidence."
+        },
+        {
+          "source": "checkpoints/tight_geometry_pressure/claim_summary.json",
+          "split": "test",
+          "observed_reviewer_status": "pass",
+          "interpretation": "Existing claim summary uses the same 0.08/0.12 reviewer band."
+        }
+      ]
+    },
+    {
+      "metric_family": "explicit_probe_penalties",
+      "metric_name": "auxiliary.leak_encoder_penalty",
+      "direction": "lower_is_better",
+      "recommended_warning_threshold": 0.0,
+      "recommended_hard_threshold": 0.1,
+      "calibration_basis": "Heuristic because explicit probe-fit and encoder-penalty routing was introduced in Q14 P2. Any sustained positive encoder-facing penalty after warmup indicates recoverable off-modality signal under the configured tolerance.",
+      "evidence": [
+        {
+          "source": "cargo test leakage",
+          "split": "synthetic",
+          "observed_route_statuses": [
+            "detached_diagnostic",
+            "probe_fit",
+            "encoder_penalty",
+            "alternating_probe_fit",
+            "alternating_encoder_penalty"
+          ],
+          "interpretation": "Gradient-routing tests validate semantics, not population thresholds."
+        }
+      ]
+    },
+    {
+      "metric_family": "frozen_probe_audit",
+      "metric_name": "improvement_over_baseline",
+      "direction": "lower_is_better_for_no_leakage_claims",
+      "recommended_warning_threshold": 0.05,
+      "recommended_hard_threshold": 0.2,
+      "insufficient_data_policy": "status=insufficient_data blocks no-leakage wording and must be reported explicitly.",
+      "calibration_basis": "Heuristic smoke threshold over separately fit frozen ridge probes; promote to empirical only after enough held-out real split rows are available.",
+      "evidence": [
+        {
+          "source": "cargo test frozen_leakage_probe_calibration_capacity_sweep_reports_heldout_routes",
+          "split": "synthetic",
+          "routes": [
+            "topology_to_geometry",
+            "pocket_to_geometry"
+          ],
+          "capacity_sweep_rows": 8,
+          "observed_best_improvement_over_baseline": 0.0,
+          "interpretation": "Synthetic smoke exercises the artifact schema and threshold logic but is not enough for strong no-leakage claims."
+        }
+      ]
+    }
+  ],
+  "claim_wording_policy": {
+    "no_leakage_wording_requires": [
+      "similarity_proxy below the preferred threshold",
+      "explicit encoder penalty at or below warning threshold after warmup",
+      "frozen_probe_audit status ok with improvement_over_baseline at or below warning threshold",
+      "sufficient held-out rows for every claim-facing route"
+    ],
+    "caution_wording_when": [
+      "similarity_proxy is between preferred and hard thresholds",
+      "frozen_probe_audit is not_run or insufficient_data",
+      "any explicit route is positive but below the hard threshold"
+    ],
+    "fail_wording_when": [
+      "similarity_proxy exceeds the hard threshold",
+      "frozen_probe_audit improvement_over_baseline exceeds the hard threshold",
+      "split leakage checks detect protein overlap or duplicate example ids"
+    ]
+  }
+}

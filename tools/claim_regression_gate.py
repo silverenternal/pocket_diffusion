@@ -179,6 +179,11 @@ def parse_args(argv):
         default=1,
         help="Minimum backend_based source count required under --enforce-preference-readiness.",
     )
+    parser.add_argument(
+        "--q3-non-degradation-gate",
+        default=None,
+        help="Validate a Q3 non-degradation gate JSON instead of a claim artifact directory.",
+    )
     return parser.parse_args(argv[1:])
 
 
@@ -726,6 +731,31 @@ def validate_claim_contract_mappings(contract, artifact_dir, claim):
                 )
 
 
+def validate_raw_native_claim_gate(claim):
+    raw = claim.get("raw_native_evidence")
+    if not isinstance(raw, dict) or not raw:
+        return
+    require(raw.get("valid_fraction") is not None, "raw_native_evidence missing valid_fraction")
+    require(
+        raw.get("native_graph_valid_fraction") is not None,
+        "raw_native_evidence missing native_graph_valid_fraction",
+    )
+    require(raw.get("mean_centroid_offset") is not None, "raw_native_evidence missing mean_centroid_offset")
+    require(raw.get("pocket_contact_fraction") is not None, "raw_native_evidence missing pocket_contact_fraction")
+    require(raw.get("leakage_proxy_mean") is not None, "raw_native_evidence missing leakage_proxy_mean")
+    gate = raw.get("raw_native_gate") or {}
+    if gate:
+        require(
+            gate.get("processed_metrics_excluded") is True,
+            "raw_native_gate must exclude processed/repaired/reranked metrics",
+        )
+        require(
+            gate.get("passed") is not False,
+            "raw_native_gate failed independently of processed metrics: "
+            + "; ".join(str(reason) for reason in gate.get("failed_reasons", [])),
+        )
+
+
 def validate_artifact_dir(artifact_dir, args, claim_contract):
     claim_path = artifact_dir / "claim_summary.json"
     experiment_path = artifact_dir / "experiment_summary.json"
@@ -752,6 +782,7 @@ def validate_artifact_dir(artifact_dir, args, claim_contract):
     require(finite_number(test.get("slot_activation_mean", 0.0)), "slot activation is not finite")
     require(finite_number(test.get("gate_activation_mean", 0.0)), "gate activation is not finite")
     require(finite_number(test.get("leakage_proxy_mean", 0.0)), "leakage proxy is not finite")
+    validate_raw_native_claim_gate(claim)
 
     layered = claim["layered_generation_metrics"]
     for layer in ("raw_rollout", "repaired_candidates", "inferred_bond_candidates", "reranked_candidates"):
@@ -845,8 +876,96 @@ def validate_artifact_dir(artifact_dir, args, claim_contract):
     print(f"claim regression gate passed: {artifact_dir}")
 
 
+def _gate_number(value):
+    return finite_number(value) or value is None
+
+
+def validate_q3_non_degradation_gate(path):
+    gate = load_json(path)
+    require(gate.get("schema_version", 0) >= 1, "q3 gate schema_version must be >= 1")
+    leaderboard_path = Path(gate.get("leaderboard_path", ""))
+    require(leaderboard_path.is_file(), f"missing q3 leaderboard: {leaderboard_path}")
+    leaderboard = load_json(leaderboard_path)
+    rows = leaderboard.get("rows")
+    require(isinstance(rows, list) and rows, "q3 leaderboard must contain rows")
+
+    thresholds = gate.get("thresholds", {})
+    max_vina_delta = thresholds.get("max_constrained_vina_degradation", 5.0)
+    max_gnina_delta = thresholds.get("max_constrained_gnina_degradation", 5.0)
+    require(finite_number(max_vina_delta), "max_constrained_vina_degradation must be finite")
+    require(finite_number(max_gnina_delta), "max_constrained_gnina_degradation must be finite")
+
+    failures = []
+    warnings = []
+    raw_by_method = {}
+    for row in rows:
+        role = row.get("layer_role")
+        metrics = row.get("metrics", {})
+        if row.get("model_improvement") is True and role != "raw_model_native":
+            failures.append(f"{row.get('method_id')}:{row.get('layer')} marks non-raw row as model improvement")
+        if row.get("layer") in {"repaired", "reranked", "backend_aware_posthoc", "full_repair", "repair_rejected"}:
+            if row.get("model_improvement") is True:
+                failures.append(f"{row.get('method_id')}:{row.get('layer')} repaired/reranked row is model improvement")
+        for metric_name, value in metrics.items():
+            if not _gate_number(value):
+                failures.append(f"{row.get('method_id')}:{row.get('layer')} metric {metric_name} is not finite/null")
+        if role == "raw_model_native" and row.get("status") == "scored":
+            raw_by_method.setdefault(row.get("method_id"), row)
+
+    for row in rows:
+        if row.get("layer_role") != "constrained_sampling" or row.get("status") != "scored":
+            continue
+        raw = raw_by_method.get(row.get("method_id"))
+        if not raw:
+            continue
+        raw_metrics = raw.get("metrics", {})
+        metrics = row.get("metrics", {})
+        vina_delta = _numeric_delta(metrics.get("vina_score"), raw_metrics.get("vina_score"))
+        gnina_delta = _numeric_delta(metrics.get("gnina_affinity"), raw_metrics.get("gnina_affinity"))
+        if vina_delta is not None and vina_delta > max_vina_delta:
+            warnings.append(
+                f"{row.get('method_id')} constrained_flow Vina degradation {vina_delta:.4g} exceeds {max_vina_delta:.4g}"
+            )
+        if gnina_delta is not None and gnina_delta > max_gnina_delta:
+            warnings.append(
+                f"{row.get('method_id')} constrained_flow GNINA degradation {gnina_delta:.4g} exceeds {max_gnina_delta:.4g}"
+            )
+
+    for claim in gate.get("claim_table", []):
+        evidence_type = claim.get("evidence_type")
+        claim_type = claim.get("claim_type")
+        if evidence_type == "proxy_only" and claim_type == "docking_improvement":
+            failures.append(f"claim {claim.get('id')} marks proxy-only gain as docking improvement")
+        text = json.dumps(claim, sort_keys=True)
+        if "0.XXX" in text or "~" in text:
+            failures.append(f"claim {claim.get('id')} contains placeholder-like numeric text")
+
+    report = {
+        "schema_version": 1,
+        "artifact_name": "q3_non_degradation_gate_report",
+        "status": "fail" if failures else "pass",
+        "failures": failures,
+        "warnings": warnings,
+        "leaderboard_path": str(leaderboard_path),
+    }
+    output_path = Path(gate.get("output_report", "configs/q3_non_degradation_gate_report.json"))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    require(not failures, "q3 non-degradation gate failed: " + "; ".join(failures[:5]))
+    print(f"q3 non-degradation gate passed: {path}")
+
+
+def _numeric_delta(value, baseline):
+    if finite_number(value) and finite_number(baseline):
+        return value - baseline
+    return None
+
+
 def main(argv):
     args = parse_args(argv)
+    if args.q3_non_degradation_gate:
+        validate_q3_non_degradation_gate(Path(args.q3_non_degradation_gate))
+        return
     claim_contract = load_claim_contract(Path(args.claim_contract))
     apply_contract_threshold_overrides(args, claim_contract)
     config_path = Path(args.config)

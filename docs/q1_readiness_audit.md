@@ -1,14 +1,15 @@
 # Q1 Readiness Audit
 
-- readiness_score: 1.00
-- gate_failure_count: 0
-- claim_summary_artifacts: 66
+- readiness_score: 0.91
+- gate_failure_count: 1
+- claim_summary_artifacts: 78
 - excluded_claim_summary_artifacts: 169
-- candidate_metric_artifacts: 30
+- candidate_metric_artifacts: 117
 - baseline_reports: 5
-- ablation_reports: 13
+- ablation_reports: 23
 - multi_seed_reports: 12
 - statistical_reports: 2
+- q2_claim_contract: present
 
 ## Checks
 - ablation_reports_present: pass
@@ -18,6 +19,7 @@
 - claim_summaries_present: pass
 - multi_seed_reports_present: pass
 - no_proxy_only_binding_claim_surfaces: pass
+- q2_claim_contract_guardrails_present: missing_or_fail
 - real_backend_candidate_metrics_at_90pct: pass
 - real_backend_candidate_metrics_present: pass
 - statistical_reports_present: pass
@@ -69,11 +71,11 @@
 - `checkpoints/pdbbindpp_real_backends/ablations/slot_count_reduced/claim_summary.json`
 - `checkpoints/pdbbindpp_real_backends/claim_summary.json`
 - `checkpoints/pdbbindpp_reranker_matched/claim_summary.json`
-- `checkpoints/vina_backend/claim_summary.json`
-- `configs/checkpoints/flow_sweep_search/candidate_000_base/flow_sweep_surface/claim_summary.json`
-- `configs/checkpoints/flow_sweep_search/candidate_001/flow_sweep_surface/claim_summary.json`
-- `configs/checkpoints/flow_sweep_search/candidate_002/flow_sweep_surface/claim_summary.json`
-- `configs/checkpoints/flow_sweep_search/candidate_003/flow_sweep_surface/claim_summary.json`
+- `checkpoints/q13_final_smoke/conditioned_denoising/claim_summary.json`
+- `checkpoints/q13_final_smoke/de_novo_full_flow/claim_summary.json`
+- `checkpoints/q13_final_smoke/geometry_flow/claim_summary.json`
+- `checkpoints/q14_final_smoke/conditioned_denoising/claim_summary.json`
+- `checkpoints/q14_final_smoke/de_novo_full_flow/claim_summary.json`
 ### excluded_claim_summaries
 - `checkpoints/flow_ablation_matrix/ablations/backend_autoregressive_graph_geometry/claim_summary.json`
 - `checkpoints/flow_ablation_matrix/ablations/objective_conditioned_denoising/claim_summary.json`
@@ -126,6 +128,7 @@
 - `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_002/tight_geometry_pressure/claim_summary.json`
 - `configs/checkpoints/automated_search/tight_geometry_pressure/candidate_003/tight_geometry_pressure/ablations/disable_candidate_repair/claim_summary.json`
 ### candidate_metrics
+- `checkpoints/candidate_metrics_validation.jsonl`
 - `checkpoints/diffsbdd_public_smoke/candidate_metrics_test.jsonl`
 - `checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_test.jsonl`
 - `checkpoints/pdbbindpp_real_backends/candidate_metrics_gnina_validation.jsonl`
@@ -135,6 +138,24 @@
 - `checkpoints/pdbbindpp_real_backends/candidate_metrics_validation.jsonl`
 - `checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_test.jsonl`
 - `checkpoints/pdbbindpp_real_backends/candidate_metrics_vina_validation.jsonl`
+- `checkpoints/q13_final_smoke/conditioned_denoising/candidate_metrics_test.jsonl`
+- `checkpoints/q13_final_smoke/conditioned_denoising/candidate_metrics_validation.jsonl`
+- `checkpoints/q13_final_smoke/de_novo_full_flow/candidate_metrics_test.jsonl`
+- `checkpoints/q13_final_smoke/de_novo_full_flow/candidate_metrics_validation.jsonl`
+- `checkpoints/q13_final_smoke/geometry_flow/candidate_metrics_test.jsonl`
+- `checkpoints/q13_final_smoke/geometry_flow/candidate_metrics_validation.jsonl`
+- `checkpoints/q13_final_smoke/training_only/conditioned_denoising/candidate_metrics_test.jsonl`
+- `checkpoints/q13_final_smoke/training_only/conditioned_denoising/candidate_metrics_validation.jsonl`
+- `checkpoints/q13_final_smoke/training_only/de_novo_full_flow/candidate_metrics_test.jsonl`
+- `checkpoints/q13_final_smoke/training_only/de_novo_full_flow/candidate_metrics_validation.jsonl`
+- `checkpoints/q13_final_smoke/training_only/geometry_flow/candidate_metrics_test.jsonl`
+- `checkpoints/q13_final_smoke/training_only/geometry_flow/candidate_metrics_validation.jsonl`
+- `checkpoints/q14_final_smoke/conditioned_denoising/candidate_metrics_test.jsonl`
+- `checkpoints/q14_final_smoke/conditioned_denoising/candidate_metrics_validation.jsonl`
+- `checkpoints/q14_final_smoke/de_novo_full_flow/candidate_metrics_test.jsonl`
+- `checkpoints/q14_final_smoke/de_novo_full_flow/candidate_metrics_validation.jsonl`
+- `checkpoints/q14_final_smoke/geometry_flow/candidate_metrics_test.jsonl`
+- `checkpoints/q14_final_smoke/geometry_flow/candidate_metrics_validation.jsonl`
 - `checkpoints/q1_public_baselines/candidate_metrics_base_all.jsonl`
 - `checkpoints/q1_public_baselines/candidate_metrics_gnina.jsonl`
 - `checkpoints/q1_public_baselines/candidate_metrics_vina.jsonl`
@@ -156,6 +177,7 @@
 - `checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl`
 - `checkpoints/q1_public_baselines_full100_layered/pocket2mol_public/candidate_metrics_base.jsonl`
 - `checkpoints/q1_public_baselines_full100_layered/targetdiff_public/candidate_metrics_base.jsonl`
+- `checkpoints/q2_ours_public100/candidate_metrics_gnina.jsonl`
 ### baseline_reports
 - `checkpoints/pdbbindpp_real_backends/method_comparison_summary.json`
 - `configs/f42_method_comparison.json`
@@ -169,12 +191,22 @@
 - `checkpoints/pdbbindpp_real_backends/ablation_delta_table.json`
 - `checkpoints/pdbbindpp_real_backends/ablation_matrix_summary.json`
 - `checkpoints/pdbbindpp_real_backends_interaction_review/ablation_matrix_summary.json`
+- `checkpoints/q2_postprocessing_ablation/docking_inputs/candidates_q2_postprocessing_ablation.json`
 - `checkpoints/tight_geometry_pressure/ablation_matrix_summary.json`
 - `configs/ablation_delta_table.json`
 - `configs/f31_ablation_bundle.json`
 - `configs/q1_ablation_matrix.json`
 - `configs/q1_cross_attention_head_ablation.json`
 - `configs/q1_pairwise_geometry_ablation.json`
+- `configs/q2_pairwise_geometry_ablation_plan.json`
+- `configs/q2_postprocessing_ablation_backend_coverage.json`
+- `configs/q2_postprocessing_ablation_docking_input_report.json`
+- `configs/q2_postprocessing_ablation_generation_report.json`
+- `configs/q2_postprocessing_ablation_summary.json`
+- `configs/q3_gated_repair_ablation_summary.json`
+- `configs/q3_pairwise_geometry_ablation_config.json`
+- `configs/q3_pairwise_geometry_ablation_summary.json`
+- `configs/q7_core_ablation_matrix.json`
 - `configs/unseen_pocket_flow_ablation_matrix.json`
 ### multi_seed_reports
 - `checkpoints/multi_seed/multi_seed_summary.json`
@@ -194,4 +226,4 @@
 - `docs/q1_statistical_tests.md`
 
 ## Gate Failures
-- none
+- `repository`: q2_claim_contract_missing_or_incomplete

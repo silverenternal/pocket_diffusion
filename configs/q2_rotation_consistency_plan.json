@@ -1,0 +1,88 @@
+{
+  "artifact_name": "q2_rotation_consistency_plan",
+  "schema_version": 1,
+  "scope": "Plan disableable rotation augmentation and rotation-consistency evaluation for geometry-first flow matching.",
+  "augmentation_plan": {
+    "config_block": "data.rotation_augmentation",
+    "default_enabled": false,
+    "disableable_for_ablation": true,
+    "same_rotation_for_complex": true,
+    "rotation_distribution": "uniform_so3",
+    "apply_to": [
+      "ligand_coords",
+      "pocket_atom_coords",
+      "coordinate_frame_origin when represented in active frame"
+    ],
+    "do_not_apply_to": [
+      "atom_types",
+      "bond_indices",
+      "labels",
+      "method_id",
+      "layer attribution"
+    ],
+    "reproducibility": [
+      "record augmentation seed",
+      "record whether augmentation was enabled in config snapshot",
+      "include ablation id in summary artifacts"
+    ]
+  },
+  "evaluation_plan": {
+    "raw_flow_velocity_metric": {
+      "name": "rotation_velocity_equivariance_error",
+      "definition": "For sampled rotation R, compare v(Rx, Rpocket) to R v(x, pocket) with mean L2 error normalized by mean velocity norm.",
+      "layer": "raw_flow",
+      "requires": [
+        "same model checkpoint",
+        "same flow t",
+        "same x0/xt construction",
+        "same pocket features after coordinate rotation"
+      ]
+    },
+    "generated_coordinate_metric": {
+      "name": "rotation_coordinate_consistency_error",
+      "definition": "Generate from original and rotated inputs, align by applying R^-1 to rotated output, then compare coordinate RMSD and centroid offset deltas.",
+      "layers": [
+        "raw_flow",
+        "constrained_flow"
+      ]
+    },
+    "report_fields": [
+      "sample_count",
+      "rotation_seed",
+      "mean_velocity_equivariance_error",
+      "p95_velocity_equivariance_error",
+      "mean_coordinate_consistency_rmsd",
+      "mean_centroid_offset_delta",
+      "raw_flow_vs_constrained_flow_split"
+    ]
+  },
+  "ablation_matrix": [
+    {
+      "id": "no_rotation_augmentation",
+      "augmentation_enabled": false,
+      "purpose": "Current baseline."
+    },
+    {
+      "id": "rotation_augmentation_train_only",
+      "augmentation_enabled": true,
+      "evaluation_enabled": true,
+      "purpose": "Test whether augmentation improves consistency without architecture changes."
+    },
+    {
+      "id": "rotation_consistency_eval_only",
+      "augmentation_enabled": false,
+      "evaluation_enabled": true,
+      "purpose": "Measure current baseline sensitivity."
+    }
+  ],
+  "architecture_boundary": {
+    "not_e3_equivariant_architecture": true,
+    "explanation": "Rotation augmentation and consistency metrics regularize/test behavior but do not make GeometryFlowMatchingHead or AtomPocketCrossAttentionVelocityHead exactly E(3)-equivariant.",
+    "future_equivariant_option": "A future E(3)-equivariant velocity head must be separately configured, tested, and compared as a new architecture ablation."
+  },
+  "claim_guardrails": [
+    "Do not claim exact rotational equivariance from augmentation alone.",
+    "Report rotation consistency separately for raw_flow and constrained_flow.",
+    "Keep augmentation default-off and disableable for ablations."
+  ]
+}

@@ -33,6 +33,53 @@ def gain(candidate, baseline):
     return candidate - baseline
 
 
+def raw_native_evidence(claim):
+    existing = claim.get("raw_native_evidence")
+    if isinstance(existing, dict) and existing:
+        return existing
+    raw_flow = layer_metrics(claim, "raw_flow") or layer_metrics(claim, "raw_rollout")
+    model = claim.get("model_design") or {}
+    return {
+        "schema_version": 1,
+        "evidence_role": "model_native_raw_first",
+        "raw_model_layer": model.get("raw_model_layer") or ("raw_flow" if raw_flow else "unavailable"),
+        "model_native_raw": True if raw_flow else False,
+        "candidate_count": raw_flow.get("candidate_count"),
+        "valid_fraction": metric(raw_flow, "valid_fraction") if raw_flow else model.get("raw_model_valid_fraction"),
+        "native_graph_valid_fraction": metric(raw_flow, "native_graph_valid_fraction"),
+        "native_bond_count_mean": metric(raw_flow, "native_bond_count_mean"),
+        "mean_centroid_offset": metric(raw_flow, "mean_centroid_offset"),
+        "mean_displacement": metric(raw_flow, "mean_displacement"),
+        "clash_fraction": metric(raw_flow, "clash_fraction") if raw_flow else model.get("raw_model_clash_fraction"),
+        "pocket_contact_fraction": metric(raw_flow, "pocket_contact_fraction") if raw_flow else model.get("raw_model_pocket_contact_fraction"),
+        "gate_activation_mean": (claim.get("test") or {}).get("gate_activation_mean"),
+        "leakage_proxy_mean": (claim.get("test") or {}).get("leakage_proxy_mean"),
+        "claim_boundary": "raw model-native output before repair, constraints, reranking, or backend scoring",
+    }
+
+
+def processed_generation_evidence(claim):
+    existing = claim.get("processed_generation_evidence")
+    if isinstance(existing, dict) and existing:
+        return existing
+    model = claim.get("model_design") or {}
+    processed_layer = model.get("processed_layer") or "reranked_candidates"
+    processed = layer_metrics(claim, processed_layer) or layer_metrics(claim, "reranked_candidates")
+    return {
+        "schema_version": 1,
+        "evidence_role": "additive_processed_or_reranked_evidence",
+        "processed_layer": processed_layer,
+        "model_native_raw": processed_layer in {"raw_flow", "raw_rollout"},
+        "candidate_count": processed.get("candidate_count"),
+        "valid_fraction": metric(processed, "valid_fraction") if processed else model.get("processed_valid_fraction"),
+        "pocket_contact_fraction": metric(processed, "pocket_contact_fraction") if processed else model.get("processed_pocket_contact_fraction"),
+        "mean_centroid_offset": metric(processed, "mean_centroid_offset"),
+        "clash_fraction": metric(processed, "clash_fraction") if processed else model.get("processed_clash_fraction"),
+        "postprocessor_chain": model.get("processed_postprocessor_chain") or [],
+        "claim_boundary": model.get("processed_claim_boundary") or "processed layer evidence is additive and not raw-native model capability",
+    }
+
+
 def build_binding_analysis(artifact_dir, claim, method_comparison):
     methods = method_comparison.get("methods") or []
     flow = next((row for row in methods if row.get("method_id") == "flow_matching"), None)
@@ -82,6 +129,8 @@ def build_binding_analysis(artifact_dir, claim, method_comparison):
         "artifact_dir": str(artifact_dir),
         "comparison": "flow_matching_vs_conditioned_denoising_binding_metrics",
         "matched_budget_required": True,
+        "raw_native_evidence": raw_native_evidence(claim),
+        "processed_generation_evidence": processed_generation_evidence(claim),
         "flow_native_raw_flow": flow_native,
         "reranked_layer": reranked_layer,
         "backend_coverage": backend_coverage,
@@ -122,6 +171,8 @@ def main():
     summary = {
         "schema_version": 1,
         "artifact_dir": str(artifact_dir),
+        "raw_native_evidence": raw_native_evidence(claim),
+        "processed_generation_evidence": processed_generation_evidence(claim),
         "active_method": method_comparison.get("active_method"),
         "method_count": len(methods),
         "methods": [

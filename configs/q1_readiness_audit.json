@@ -61,6 +61,14 @@
     {
       "has_expected_tokens": true,
       "label": "ablation",
+      "path": "checkpoints/q2_postprocessing_ablation/docking_inputs/candidates_q2_postprocessing_ablation.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
       "path": "checkpoints/tight_geometry_pressure/ablation_matrix_summary.json",
       "tokens": [
         "ablation",
@@ -112,6 +120,84 @@
       "path": "configs/q1_pairwise_geometry_ablation.json",
       "tokens": [
         "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q2_pairwise_geometry_ablation_plan.json",
+      "tokens": [
+        "ablation",
+        "delta"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q2_postprocessing_ablation_backend_coverage.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q2_postprocessing_ablation_docking_input_report.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q2_postprocessing_ablation_generation_report.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q2_postprocessing_ablation_summary.json",
+      "tokens": [
+        "ablation",
+        "delta"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q3_gated_repair_ablation_summary.json",
+      "tokens": [
+        "ablation",
+        "delta"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q3_pairwise_geometry_ablation_config.json",
+      "tokens": [
+        "ablation"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "tokens": [
+        "ablation",
+        "delta"
+      ]
+    },
+    {
+      "has_expected_tokens": true,
+      "label": "ablation",
+      "path": "configs/q7_core_ablation_matrix.json",
+      "tokens": [
+        "ablation",
+        "delta",
+        "disable_slots"
       ]
     },
     {
@@ -183,6 +269,23 @@
     }
   ],
   "candidate_metrics": [
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 22,
+      "status": "claim_facing"
+    },
     {
       "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
       "layers": [
@@ -330,6 +433,288 @@
       "proxy_binding_row_fraction": 0.0,
       "real_backend_row_fraction": 1.0,
       "row_count": 88,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/conditioned_denoising/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 10,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/conditioned_denoising/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/de_novo_full_flow/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/de_novo_full_flow/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/geometry_flow/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/geometry_flow/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/training_only/conditioned_denoising/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 10,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/training_only/conditioned_denoising/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/training_only/de_novo_full_flow/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/training_only/de_novo_full_flow/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/training_only/geometry_flow/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q13_final_smoke/training_only/geometry_flow/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q14_final_smoke/conditioned_denoising/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 10,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q14_final_smoke/conditioned_denoising/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q14_final_smoke/de_novo_full_flow/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q14_final_smoke/de_novo_full_flow/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q14_final_smoke/geometry_flow/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q14_final_smoke/geometry_flow/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 3,
       "status": "claim_facing"
     },
     {
@@ -618,6 +1003,1008 @@
       "real_backend_row_fraction": 0.0,
       "row_count": 300,
       "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_ours_public100/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_ours_public100/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "raw_rollout",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 4,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_ours_public100/combined/candidate_metrics_public_plus_ours.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 1100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_ours_public100/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "non_claim_bearing_external_baseline_smoke_artifact",
+      "layers": [
+        "bond_inference_only",
+        "centroid_only",
+        "clash_only",
+        "full_repair",
+        "no_repair"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_postprocessing_ablation/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 1500,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "bond_inference_only",
+        "centroid_only",
+        "clash_only",
+        "full_repair",
+        "no_repair"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_postprocessing_ablation/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 1500,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "bond_inference_only",
+        "centroid_only",
+        "clash_only",
+        "full_repair",
+        "no_repair"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_postprocessing_ablation/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 1500,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "bond_inference_only",
+        "centroid_only",
+        "clash_only",
+        "full_repair",
+        "no_repair"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q2_postprocessing_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 1500,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_101/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 100,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_101/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_101/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_101/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_101/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_17/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 100,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_17/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_17/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_17/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_17/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_42/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 100,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_42/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_42/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_42/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_best_variant_multiseed/seed_42/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 100,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "bond_logits_refined",
+        "raw_geometry",
+        "repaired",
+        "valence_refined"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_bond_refinement_public100/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 400,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "bond_logits_refined",
+        "raw_geometry",
+        "valence_refined"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_bond_refinement_public100/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 300,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "bond_logits_refined",
+        "raw_geometry",
+        "repaired",
+        "valence_refined"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_bond_refinement_public100/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 400,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "bond_logits_refined",
+        "raw_geometry",
+        "repaired",
+        "valence_refined"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_bond_refinement_public100/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 400,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "repair_rejected"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_gated_repair_ablation/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 300,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "repair_rejected"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_gated_repair_ablation/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 300,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "repair_rejected"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_gated_repair_ablation/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 300,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "repair_rejected"
+      ],
+      "method_count": 3,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_gated_repair_ablation/merged/candidate_metrics_q1_public_full100_budget1.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 300,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_local_pocket_flow_public100/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 200,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_local_pocket_flow_public100/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_local_pocket_flow_public100/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_local_pocket_flow_public100/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_local_pocket_flow_public100/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/no_pairwise/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 200,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/no_pairwise/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/no_pairwise/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/no_pairwise/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/no_pairwise/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_distance_direction/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 200,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_distance_direction/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_distance_direction/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_distance_direction/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_distance_direction/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_plus_local_pocket/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 200,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_plus_local_pocket/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_plus_local_pocket/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_plus_local_pocket/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_plus_local_pocket/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": "intermediate_proxy_base_metrics_have_backend_validated_sibling_artifacts",
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_with_clash_margin/candidate_metrics_base.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 200,
+      "status": "excluded_non_claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_with_clash_margin/candidate_metrics_gnina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow",
+        "repaired"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_with_clash_margin/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 24,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_with_clash_margin/candidate_metrics_vina.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "raw_flow"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q3_pairwise_geometry_public100/pairwise_with_clash_margin/merged/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 1.0,
+      "real_backend_row_fraction": 1.0,
+      "row_count": 200,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/distance_bias_only/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 10,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/distance_bias_only/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/full_sync_chemistry_collaboration/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 10,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/full_sync_chemistry_collaboration/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/no_chemistry_bias/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/no_chemistry_bias/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/no_temporal_policy/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/no_temporal_policy/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/no_topology_pocket_pharmacophore/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 10,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/no_topology_pocket_pharmacophore/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/static_context_only/candidate_metrics_test.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
+    },
+    {
+      "exclusion_reason": null,
+      "layers": [
+        "constrained_flow",
+        "deterministic_proxy",
+        "raw_flow",
+        "repaired",
+        "reranked"
+      ],
+      "method_count": 1,
+      "parse_failure_count": 0,
+      "path": "checkpoints/q5_ablation_smoke/static_context_only/candidate_metrics_validation.jsonl",
+      "proxy_binding_row_fraction": 0.0,
+      "real_backend_row_fraction": 0.0,
+      "row_count": 5,
+      "status": "claim_facing"
     }
   ],
   "checks": {
@@ -628,6 +2015,7 @@
     "claim_summaries_present": true,
     "multi_seed_reports_present": true,
     "no_proxy_only_binding_claim_surfaces": true,
+    "q2_claim_contract_guardrails_present": false,
     "real_backend_candidate_metrics_at_90pct": true,
     "real_backend_candidate_metrics_present": true,
     "statistical_reports_present": true
@@ -1036,6 +2424,114 @@
       "max_real_backend_coverage_fraction": 0.0,
       "path": "checkpoints/pdbbindpp_reranker_matched/claim_summary.json",
       "reviewer_backend_pass": true,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q13_final_smoke/conditioned_denoising/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q13_final_smoke/de_novo_full_flow/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q13_final_smoke/geometry_flow/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q14_final_smoke/conditioned_denoising/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q14_final_smoke/de_novo_full_flow/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q14_final_smoke/geometry_flow/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q5_ablation_smoke/distance_bias_only/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q5_ablation_smoke/full_sync_chemistry_collaboration/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q5_ablation_smoke/no_chemistry_bias/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q5_ablation_smoke/no_temporal_policy/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q5_ablation_smoke/no_topology_pocket_pharmacophore/claim_summary.json",
+      "reviewer_backend_pass": false,
+      "status": "traceable"
+    },
+    {
+      "backend_coverage": {},
+      "has_proxy_binding_metric": false,
+      "has_real_backend_metric": false,
+      "max_real_backend_coverage_fraction": 0.0,
+      "path": "checkpoints/q5_ablation_smoke/static_context_only/claim_summary.json",
+      "reviewer_backend_pass": false,
       "status": "traceable"
     },
     {
@@ -2922,8 +4418,12 @@
       "status": "excluded_non_claim_facing"
     }
   ],
-  "gate_failures": [],
-  "interpretation": "candidate_for_manuscript_tables",
+  "gate_failures": [
+    {
+      "reason": "q2_claim_contract_missing_or_incomplete"
+    }
+  ],
+  "interpretation": "not_q1_ready_without_resolving_gate_failures",
   "multi_seed_reports": [
     {
       "has_expected_tokens": true,
@@ -3041,7 +4541,18 @@
       ]
     }
   ],
-  "readiness_score": 1.0,
+  "q2_claim_contract": {
+    "forbids_statistical_dominance_without_multiseed": true,
+    "has_constrained_sampling_group": true,
+    "has_postprocessing_group": true,
+    "has_raw_model_native_group": true,
+    "path": "configs/q2_claim_contract.json",
+    "placeholder_pattern_count": 0,
+    "states_geometry_first_not_full_molecular_flow": false,
+    "states_score_only_not_experimental_affinity": true,
+    "status": "present"
+  },
+  "readiness_score": 0.9090909090909091,
   "schema_version": 1,
   "statistical_reports": [
     {

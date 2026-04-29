@@ -316,6 +316,7 @@ impl PocketLigandGenerator {
 
         Ligand {
             atoms,
+            bond_types: vec![0; bonds.len()],
             bonds,
             fingerprint: None,
         }

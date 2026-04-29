@@ -8,6 +8,12 @@ use pocket_diffusion::{
 };
 use tch::{nn, Device};
 
+fn make_short_schedule_valid(config: &mut ResearchConfig) {
+    config.training.schedule.stage1_steps = config.training.max_steps;
+    config.training.schedule.stage2_steps = config.training.max_steps;
+    config.training.schedule.stage3_steps = config.training.max_steps;
+}
+
 /// Verify that MI is computed and logged during training steps.
 #[test]
 fn trainer_computes_mi_during_training() {
@@ -16,6 +22,7 @@ fn trainer_computes_mi_during_training() {
     config.training.max_steps = 2;
     config.training.checkpoint_every = 100;
     config.training.log_every = 100;
+    make_short_schedule_valid(&mut config);
 
     let dataset = InMemoryDataset::new(synthetic_phase1_examples())
         .with_pocket_feature_dim(config.model.pocket_feature_dim);
@@ -72,6 +79,7 @@ fn trainer_loss_finite_with_mi() {
     config.training.max_steps = 5;
     config.training.checkpoint_every = 100;
     config.training.log_every = 100;
+    make_short_schedule_valid(&mut config);
 
     let dataset = InMemoryDataset::new(synthetic_phase1_examples())
         .with_pocket_feature_dim(config.model.pocket_feature_dim);

@@ -41,8 +41,7 @@ impl PocketGenerationMethodRegistry {
     /// Whether the provided method identifier is recognized.
     pub fn contains(method_id: &str) -> bool {
         Self::registered_method_ids()
-            .iter()
-            .any(|registered| *registered == method_id)
+            .contains(&method_id)
     }
 
     /// Instantiate one registered method.
@@ -116,6 +115,15 @@ pub struct MethodComparisonRow {
     pub available: bool,
     /// Stable legacy field name of the method-native layer when available.
     pub native_layer: Option<String>,
+    /// Family-aware layer used for method-level metric aggregation.
+    #[serde(default)]
+    pub selected_metric_layer: Option<String>,
+    /// Coarse path class of `selected_metric_layer`.
+    #[serde(default)]
+    pub selected_metric_layer_path_class: Option<String>,
+    /// Whether `selected_metric_layer` is raw model-native output.
+    #[serde(default)]
+    pub selected_metric_layer_model_native_raw: bool,
     /// Declared supported layers.
     #[serde(default)]
     pub supported_layers: Vec<String>,

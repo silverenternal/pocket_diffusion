@@ -219,7 +219,7 @@ The intended migration path is therefore:
 - `README.md`
 - `src/main.rs`
 - `src/lib.rs`
-- `src/models/system.rs`
+- `src/models/system/`
 - `src/data/features.rs`
 - `src/data/batch.rs`
 - `src/data/dataset.rs`

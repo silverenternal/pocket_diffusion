@@ -7,6 +7,8 @@ pub struct PairwiseGeometryConfig {
     pub radius: f32,
     /// Maximum retained neighbors per atom after radius filtering.
     pub max_neighbors: usize,
+    /// Conservative residual scale applied when messages are injected into a velocity head.
+    pub residual_scale: f64,
 }
 
 impl Default for PairwiseGeometryConfig {
@@ -14,6 +16,7 @@ impl Default for PairwiseGeometryConfig {
         Self {
             radius: 4.5,
             max_neighbors: 16,
+            residual_scale: 0.1,
         }
     }
 }
@@ -96,6 +99,7 @@ mod tests {
         let mp = PairwiseGeometryMessagePassing::new(PairwiseGeometryConfig {
             radius: 100.0,
             max_neighbors: 3,
+            residual_scale: 0.1,
         });
         let messages = mp.build_messages(&coords);
         assert!(messages.len() <= coords.len() * 3);

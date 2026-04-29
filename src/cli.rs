@@ -17,6 +17,8 @@ enum CliCommand {
     Validate(ValidateArgs),
     /// Read a shared run artifact bundle and print the stored summary.
     Report(ReportArgs),
+    /// Compare a training summary with checkpoint metadata for replay/evidence compatibility.
+    ReplayCheck(ReplayCheckArgs),
     /// Compatibility demo flag for the early inspection surface.
     #[command(hide = true, name = "--phase1")]
     Phase1Demo,
@@ -92,6 +94,16 @@ struct ReportArgs {
 }
 
 #[derive(Debug, Args)]
+struct ReplayCheckArgs {
+    #[arg(long)]
+    summary: String,
+    #[arg(long)]
+    checkpoint: String,
+    #[arg(long, default_value_t = false)]
+    require_strict_replay: bool,
+}
+
+#[derive(Debug, Args)]
 struct LegacyDemoArgs {
     #[arg(default_value_t = 10)]
     num_candidates: usize,
@@ -107,6 +119,10 @@ struct GenerateArgs {
     config: String,
     #[arg(long, default_value_t = false)]
     resume: bool,
+    #[arg(long, default_value_t = false)]
+    all_examples: bool,
+    #[arg(long, default_value = "test")]
+    split_label: String,
     #[arg(long)]
     example_id: Option<String>,
     #[arg(long, default_value_t = 4)]
@@ -160,7 +176,10 @@ fn compatibility_notice(command: &CliCommand) -> Option<String> {
             "legacy demo path detected; this preserves compatibility but is not the primary modular research interface. Current equivalent compatibility command: `legacy-demo {} {}`",
             args.num_candidates, args.top_k
         )),
-        CliCommand::Research { .. } | CliCommand::Validate(..) | CliCommand::Report(..) => None,
+        CliCommand::Research { .. }
+        | CliCommand::Validate(..)
+        | CliCommand::Report(..)
+        | CliCommand::ReplayCheck(..) => None,
     }
 }
 #[cfg(test)]
@@ -229,9 +248,33 @@ mod tests {
             } => {
                 assert_eq!(args.config, "configs/research_manifest.json");
                 assert!(args.resume);
+                assert!(!args.all_examples);
+                assert_eq!(args.split_label, "test");
                 assert_eq!(args.num_candidates, 5);
             }
             _ => panic!("expected research generate command"),
+        }
+    }
+
+    #[test]
+    fn parse_replay_check_command() {
+        let command = parse_cli(&[
+            "pocket_diffusion",
+            "replay-check",
+            "--summary",
+            "checkpoints/training_summary.json",
+            "--checkpoint",
+            "checkpoints/latest.json",
+            "--require-strict-replay",
+        ]);
+
+        match command {
+            CliCommand::ReplayCheck(args) => {
+                assert_eq!(args.summary, "checkpoints/training_summary.json");
+                assert_eq!(args.checkpoint, "checkpoints/latest.json");
+                assert!(args.require_strict_replay);
+            }
+            _ => panic!("expected replay-check command"),
         }
     }
 

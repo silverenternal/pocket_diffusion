@@ -1,3 +1,5 @@
+use crate::types::CorruptionSourceProvenance;
+
 fn build_decoder_supervision(
     example_id: &str,
     topology: &TopologyFeatures,
@@ -9,10 +11,21 @@ fn build_decoder_supervision(
     let target_atom_types = topology.atom_types.shallow_clone();
     let target_coords = geometry.coords.shallow_clone();
     let target_pairwise_distances = geometry.pairwise_distances.shallow_clone();
+    let source_is_target_ligand = generation_target
+        .generation_mode
+        .uses_target_ligand_initialization();
+    let source_provenance = if source_is_target_ligand {
+        CorruptionSourceProvenance::TargetLigand
+    } else {
+        CorruptionSourceProvenance::DeNovoSource
+    };
     let metadata = GenerationCorruptionMetadata {
         atom_mask_ratio: generation_target.atom_mask_ratio,
         coordinate_noise_std: generation_target.coordinate_noise_std,
         corruption_seed: generation_target.corruption_seed,
+        source_is_target_ligand,
+        topology_source: source_provenance,
+        geometry_source: source_provenance,
     };
 
     if num_atoms == 0 {
@@ -27,7 +40,7 @@ fn build_decoder_supervision(
             coordinate_noise: Tensor::zeros([0, 3], (Kind::Float, device)),
             target_pairwise_distances,
             rollout_steps: generation_target.rollout_steps,
-            training_step_weight_decay: generation_target.training_step_weight_decay,
+            rollout_eval_step_weight_decay: generation_target.rollout_eval_step_weight_decay,
             corruption_metadata: metadata,
         };
     }
@@ -73,7 +86,7 @@ fn build_decoder_supervision(
         coordinate_noise,
         target_pairwise_distances,
         rollout_steps: generation_target.rollout_steps,
-        training_step_weight_decay: generation_target.training_step_weight_decay,
+        rollout_eval_step_weight_decay: generation_target.rollout_eval_step_weight_decay,
         corruption_metadata: metadata,
     }
 }
@@ -119,7 +132,7 @@ fn deterministic_noise(
         generation_target.corruption_seed,
     );
     let phase = (hash % 65_521) as f32 / 65_521.0;
-    ((phase * std::f32::consts::TAU).sin() * generation_target.coordinate_noise_std) as f32
+    (phase * std::f32::consts::TAU).sin() * generation_target.coordinate_noise_std
 }
 
 fn stable_atom_hash(example_id: &str, atom_ix: usize, seed: u64) -> u64 {

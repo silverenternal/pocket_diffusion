@@ -1,0 +1,136 @@
+{
+  "data": {
+    "root_dir": ".",
+    "dataset_format": "manifest_json",
+    "manifest_path": "configs/q2_public100_manifest.json",
+    "label_table_path": null,
+    "parsing_mode": "lightweight",
+    "max_ligand_atoms": 128,
+    "max_pocket_atoms": 768,
+    "pocket_cutoff_angstrom": 8.0,
+    "max_examples": null,
+    "batch_size": 8,
+    "split_seed": 2026,
+    "val_fraction": 0.1,
+    "test_fraction": 0.1,
+    "stratify_by_measurement": false,
+    "quality_filters": {
+      "min_label_coverage": null,
+      "max_fallback_fraction": null,
+      "max_ligand_atoms": 128,
+      "max_pocket_atoms": 768,
+      "require_source_structure_provenance": false,
+      "require_affinity_metadata": false,
+      "max_approximate_label_fraction": null,
+      "min_normalization_provenance_coverage": null
+    },
+    "rotation_augmentation": {
+      "enabled": true,
+      "same_rotation_for_complex": true,
+      "seed": 29,
+      "probability": 0.5
+    },
+    "generation_target": {
+      "atom_mask_ratio": 0.2,
+      "coordinate_noise_std": 0.1,
+      "corruption_seed": 1337,
+      "rollout_steps": 6,
+      "min_rollout_steps": 3,
+      "stop_probability_threshold": 0.82,
+      "coordinate_step_scale": 0.75,
+      "rollout_eval_step_weight_decay": 0.92,
+      "rollout_mode": "momentum_refine",
+      "coordinate_momentum": 0.55,
+      "atom_momentum": 0.4,
+      "atom_commit_temperature": 0.9,
+      "max_coordinate_delta_norm": 1.25,
+      "stop_delta_threshold": 0.015,
+      "stop_patience": 2,
+      "sampling_seed": 4244,
+      "pocket_guidance_scale": 0.25
+    }
+  },
+  "model": {
+    "hidden_dim": 192,
+    "num_slots": 12,
+    "atom_vocab_size": 32,
+    "bond_vocab_size": 8,
+    "pocket_feature_dim": 24,
+    "pair_feature_dim": 8,
+    "semantic_probes": {
+      "hidden_dim": 192,
+      "hidden_layers": 1
+    },
+    "decoder_conditioning": {
+      "kind": "local_atom_slot_attention",
+      "local_gate_initial_bias": -0.75
+    }
+  },
+  "generation_method": {
+    "active_method": "conditioned_denoising",
+    "primary_backend": {
+      "backend_id": "conditioned_denoising",
+      "family": "conditioned_denoising",
+      "trainable": true,
+      "sampling_steps": 6,
+      "sampling_temperature": 0.0
+    },
+    "comparison_methods": [
+      "conditioned_denoising",
+      "calibrated_reranker",
+      "flow_matching"
+    ],
+    "candidate_count": 4,
+    "enable_comparison_runner": true
+  },
+  "training": {
+    "learning_rate": 0.0003,
+    "max_steps": 5000,
+    "data_order": {
+      "shuffle": true,
+      "sampler_seed": 2026,
+      "drop_last": false
+    },
+    "gradient_clipping": {
+      "global_norm": 5.0
+    },
+    "schedule": {
+      "stage1_steps": 500,
+      "stage2_steps": 1800,
+      "stage3_steps": 3500
+    },
+    "loss_weights": {
+      "alpha_task": 1.0,
+      "beta_intra_red": 0.08,
+      "gamma_probe": 0.15,
+      "delta_leak": 0.04,
+      "eta_gate": 0.05,
+      "mu_slot": 0.05,
+      "nu_consistency": 0.12,
+      "slot_sparsity_weight": 1.0,
+      "slot_balance_weight": 0.5,
+      "rho_pocket_contact": 0.08,
+      "sigma_pocket_clash": 0.05,
+      "tau_pocket_envelope": 0.03,
+      "upsilon_valence_guardrail": 0.02,
+      "phi_bond_length_guardrail": 0.03
+    },
+    "checkpoint_dir": "./checkpoints/q7_training_presets/reviewer_unseen_pocket",
+    "checkpoint_every": 500,
+    "validation_every": 250,
+    "best_metric": "candidate_valid_fraction",
+    "early_stopping_patience": 8,
+    "log_every": 50,
+    "primary_objective": "conditioned_denoising",
+    "flow_matching_loss_weight": 0.0,
+    "hybrid_denoising_weight": 1.0,
+    "hybrid_flow_weight": 0.0,
+    "affinity_weighting": "inverse_frequency"
+  },
+  "runtime": {
+    "device": "cpu",
+    "data_workers": 0,
+    "tch_intra_op_threads": 4,
+    "tch_inter_op_threads": 1
+  }
+}

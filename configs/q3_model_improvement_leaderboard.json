@@ -1,0 +1,845 @@
+{
+  "artifact_name": "q3_model_improvement_leaderboard",
+  "claim_boundary": "Only scored raw_flow/raw_rollout/no_repair/raw_geometry rows may support native model quality. Constrained, repaired, and reranked rows are separated and never marked as model improvement.",
+  "ranking_policy": {
+    "primary_order": [
+      "raw_model_native",
+      "constrained_sampling",
+      "postprocessing"
+    ],
+    "unavailable_rows": "listed for dependency tracking but excluded from improvement claims",
+    "within_group": "lower Vina score first when available"
+  },
+  "rows": [
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "layer": "raw_rollout",
+      "layer_role": "raw_model_native",
+      "method_id": "targetdiff_public",
+      "method_name": "TargetDiff",
+      "metrics": {
+        "clash_fraction": 0.00245,
+        "gnina_affinity": -3.9247755,
+        "gnina_cnn_score": 0.38617080000000004,
+        "pocket_contact_fraction": 0.9680118796047185,
+        "qed": 0.41663570576273334,
+        "sa_score": 2.759,
+        "vina_score": -4.138011235955056
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": "official_public_precomputed_meta"
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 300,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.8966666666666666
+      },
+      "layer": "no_repair",
+      "layer_role": "raw_model_native",
+      "method_id": "q3_gated_repair",
+      "method_name": "Q3 gated repair ablation",
+      "metrics": {
+        "clash_fraction": 0.0026587719298245614,
+        "gnina_affinity": -2.2974956333333334,
+        "gnina_cnn_score": 0.44937083333333333,
+        "pocket_contact_fraction": 0.9732504022053124,
+        "qed": 0.43249848483384806,
+        "sa_score": 2.2423333333333333,
+        "vina_score": -2.201546468401487
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_gated_repair_ablation_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.91
+      },
+      "layer": "raw_rollout",
+      "layer_role": "raw_model_native",
+      "method_id": "pocket2mol_public",
+      "method_name": "Pocket2Mol",
+      "metrics": {
+        "clash_fraction": 0.0,
+        "gnina_affinity": -2.1092388,
+        "gnina_cnn_score": 0.5881317,
+        "pocket_contact_fraction": 0.985995670995671,
+        "qed": 0.4410529309537189,
+        "sa_score": 1.5075999999999998,
+        "vina_score": -2.1086043956043956
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": "official_public_precomputed_meta"
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.89
+      },
+      "layer": "raw_rollout",
+      "layer_role": "raw_model_native",
+      "method_id": "diffsbdd_public",
+      "method_name": "DiffSBDD",
+      "metrics": {
+        "clash_fraction": 0.005526315789473684,
+        "gnina_affinity": -0.8584511,
+        "gnina_cnn_score": 0.3738102,
+        "pocket_contact_fraction": 0.9657436560155479,
+        "qed": 0.439806817785092,
+        "sa_score": 2.4604,
+        "vina_score": -0.3601348314606741
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 1000
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "raw_flow",
+      "layer_role": "raw_model_native",
+      "method_id": "flow_matching",
+      "method_name": "Ours flow_matching",
+      "metrics": {
+        "clash_fraction": 0.015474549257536711,
+        "gnina_affinity": 24.940400800000003,
+        "gnina_cnn_score": 0.1377411,
+        "pocket_contact_fraction": 0.9431348572734547,
+        "qed": 0.41741879116678454,
+        "sa_score": 2.6946,
+        "vina_score": 24.94337
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "qed": 1.0,
+        "sa_score": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "raw_geometry",
+      "layer_role": "raw_model_native",
+      "method_id": "q3_bond_refinement",
+      "method_name": "Q3 coordinate-preserving bond refinement",
+      "metrics": {
+        "clash_fraction": 0.015474549257536711,
+        "gnina_affinity": 24.940400800000003,
+        "gnina_cnn_score": 0.1377411,
+        "pocket_contact_fraction": 0.9431348572734547,
+        "qed": 0.41741879116678454,
+        "sa_score": 2.6946,
+        "vina_score": 24.94337
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_bond_refinement_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "raw_flow",
+      "layer_role": "raw_model_native",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.07988903390614208,
+        "gnina_affinity": 70.4570774,
+        "gnina_cnn_score": 0.0637143,
+        "pocket_contact_fraction": 0.9657595370548411,
+        "qed": 0.41741879116678454,
+        "sa_score": 2.6946,
+        "vina_score": 70.45621
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "pairwise_distance_direction"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "raw_flow",
+      "layer_role": "raw_model_native",
+      "method_id": "q3_local_pocket_flow",
+      "method_name": "Q3 local pocket flow head",
+      "metrics": {
+        "clash_fraction": 0.09597385403201915,
+        "gnina_affinity": 85.4712434,
+        "gnina_cnn_score": 0.0516317,
+        "pocket_contact_fraction": 0.939803562459214,
+        "qed": 0.41741879116678454,
+        "sa_score": 2.6946,
+        "vina_score": 85.47963
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_local_pocket_flow_summary.json",
+      "status": "scored",
+      "variant_id": "q3_local_pocket_flow"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "raw_flow",
+      "layer_role": "raw_model_native",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.11626711470020135,
+        "gnina_affinity": 112.41999809999999,
+        "gnina_cnn_score": 0.0739344,
+        "pocket_contact_fraction": 0.9459667077765564,
+        "qed": 0.41741879116678454,
+        "sa_score": 2.6946,
+        "vina_score": 112.43009
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "pairwise_plus_local_pocket"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "raw_flow",
+      "layer_role": "raw_model_native",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.12861563115611174,
+        "gnina_affinity": 113.5562863,
+        "gnina_cnn_score": 0.0405616,
+        "pocket_contact_fraction": 0.9603624929952361,
+        "qed": 0.41741879116678454,
+        "sa_score": 2.6946,
+        "vina_score": 113.56450000000001
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "pairwise_with_clash_margin"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "raw_flow",
+      "layer_role": "raw_model_native",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.13559011591556472,
+        "gnina_affinity": 116.8788952,
+        "gnina_cnn_score": 0.041399799999999994,
+        "pocket_contact_fraction": 0.9417647716683379,
+        "qed": 0.41741879116678454,
+        "sa_score": 2.6946,
+        "vina_score": 116.88938
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "no_pairwise"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "constrained_flow",
+      "layer_role": "constrained_sampling",
+      "method_id": "flow_matching",
+      "method_name": "Ours flow_matching",
+      "metrics": {
+        "clash_fraction": 0.013984585279779789,
+        "gnina_affinity": 79.6845569,
+        "gnina_cnn_score": 0.1122735,
+        "pocket_contact_fraction": 0.9918295705518675,
+        "qed": 0.4732437867887963,
+        "sa_score": 4.0924000000000005,
+        "vina_score": 79.69720000000001
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "constrained_flow",
+      "layer_role": "constrained_sampling",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.010862439689625598,
+        "gnina_affinity": 87.68534149999999,
+        "gnina_cnn_score": 0.1080539,
+        "pocket_contact_fraction": 0.9897215330290046,
+        "qed": 0.4336304076347039,
+        "sa_score": 4.113,
+        "vina_score": 87.70047000000001
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "pairwise_distance_direction"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "constrained_flow",
+      "layer_role": "constrained_sampling",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.01450829465211893,
+        "gnina_affinity": 92.6453191,
+        "gnina_cnn_score": 0.1146562,
+        "pocket_contact_fraction": 0.9928373164703354,
+        "qed": 0.45902454731229836,
+        "sa_score": 4.167,
+        "vina_score": 92.66582
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "no_pairwise"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "constrained_flow",
+      "layer_role": "constrained_sampling",
+      "method_id": "q3_local_pocket_flow",
+      "method_name": "Q3 local pocket flow head",
+      "metrics": {
+        "clash_fraction": 0.01897624341013121,
+        "gnina_affinity": 100.21928299999999,
+        "gnina_cnn_score": 0.076556,
+        "pocket_contact_fraction": 0.9877838961780856,
+        "qed": 0.46886516432384945,
+        "sa_score": 3.9888,
+        "vina_score": 100.23916
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_local_pocket_flow_summary.json",
+      "status": "scored",
+      "variant_id": "q3_local_pocket_flow"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "constrained_flow",
+      "layer_role": "constrained_sampling",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.018530482222892428,
+        "gnina_affinity": 103.81014440000001,
+        "gnina_cnn_score": 0.0796651,
+        "pocket_contact_fraction": 0.9916181274841479,
+        "qed": 0.4379104999835366,
+        "sa_score": 3.8782,
+        "vina_score": 103.82471
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "pairwise_with_clash_margin"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "constrained_flow",
+      "layer_role": "constrained_sampling",
+      "method_id": "q3_pairwise_geometry",
+      "method_name": "Q3 pairwise geometry ablation",
+      "metrics": {
+        "clash_fraction": 0.03328312755983178,
+        "gnina_affinity": 126.8144009,
+        "gnina_cnn_score": 0.0505711,
+        "pocket_contact_fraction": 0.9902843815355579,
+        "qed": 0.4391152159004625,
+        "sa_score": 3.7876,
+        "vina_score": 126.84206
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 20
+      },
+      "source_artifact": "configs/q3_pairwise_geometry_ablation_summary.json",
+      "status": "scored",
+      "variant_id": "pairwise_plus_local_pocket"
+    },
+    {
+      "candidate_count": 300,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 0.8966666666666666
+      },
+      "layer": "repair_rejected",
+      "layer_role": "postprocessing",
+      "method_id": "q3_gated_repair",
+      "method_name": "Q3 gated repair ablation",
+      "metrics": {
+        "clash_fraction": 0.0026587719298245614,
+        "gnina_affinity": -2.2974956333333334,
+        "gnina_cnn_score": 0.44937083333333333,
+        "pocket_contact_fraction": 0.9732504022053124,
+        "qed": 0.43249848483384806,
+        "sa_score": 2.2423333333333333,
+        "vina_score": -2.201546468401487
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_gated_repair_ablation_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "qed": 0.33,
+        "sa_score": 0.33,
+        "vina_score": 1.0
+      },
+      "layer": "bond_logits_refined",
+      "layer_role": "postprocessing",
+      "method_id": "q3_bond_refinement",
+      "method_name": "Q3 coordinate-preserving bond refinement",
+      "metrics": {
+        "clash_fraction": 0.015474549257536711,
+        "gnina_affinity": 24.940400800000003,
+        "gnina_cnn_score": 0.1377411,
+        "pocket_contact_fraction": 0.9431348572734547,
+        "qed": 0.3676953312419196,
+        "sa_score": 2.7306060606060605,
+        "vina_score": 24.94337
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_bond_refinement_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "qed": 1.0,
+        "sa_score": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "valence_refined",
+      "layer_role": "postprocessing",
+      "method_id": "q3_bond_refinement",
+      "method_name": "Q3 coordinate-preserving bond refinement",
+      "metrics": {
+        "clash_fraction": 0.015474549257536711,
+        "gnina_affinity": 24.940400800000003,
+        "gnina_cnn_score": 0.1377411,
+        "pocket_contact_fraction": 0.9431348572734547,
+        "qed": 0.268299989424583,
+        "sa_score": 3.6858,
+        "vina_score": 24.94337
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_bond_refinement_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "repaired",
+      "layer_role": "postprocessing",
+      "method_id": "pocket2mol_public",
+      "method_name": "Pocket2Mol",
+      "metrics": {
+        "clash_fraction": 0.05907611832611833,
+        "gnina_affinity": 61.9985231,
+        "gnina_cnn_score": 0.2801373,
+        "pocket_contact_fraction": 0.9474047619047619,
+        "qed": 0.4410529309537189,
+        "sa_score": 1.5075999999999998,
+        "vina_score": 61.998850000000004
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": "official_public_precomputed_meta"
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "reranked",
+      "layer_role": "postprocessing",
+      "method_id": "pocket2mol_public",
+      "method_name": "Pocket2Mol",
+      "metrics": {
+        "clash_fraction": 0.05907611832611833,
+        "gnina_affinity": 61.9985231,
+        "gnina_cnn_score": 0.2801373,
+        "pocket_contact_fraction": 0.9474047619047619,
+        "qed": 0.4428459698377092,
+        "sa_score": 1.5178,
+        "vina_score": 61.998850000000004
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": "official_public_precomputed_meta"
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "qed": 1.0,
+        "sa_score": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "repaired",
+      "layer_role": "postprocessing",
+      "method_id": "q3_bond_refinement",
+      "method_name": "Q3 coordinate-preserving bond refinement",
+      "metrics": {
+        "clash_fraction": 0.013984585279779789,
+        "gnina_affinity": null,
+        "gnina_cnn_score": null,
+        "pocket_contact_fraction": 0.9918295705518675,
+        "qed": 0.4732437867887963,
+        "sa_score": 4.0924000000000005,
+        "vina_score": 79.69720000000001
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_bond_refinement_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 300,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "full_repair",
+      "layer_role": "postprocessing",
+      "method_id": "q3_gated_repair",
+      "method_name": "Q3 gated repair ablation",
+      "metrics": {
+        "clash_fraction": 0.10336389614332134,
+        "gnina_affinity": 156.87106243333332,
+        "gnina_cnn_score": 0.24020313333333335,
+        "pocket_contact_fraction": 0.9381303510254283,
+        "qed": 0.4314660638416497,
+        "sa_score": 2.2838333333333334,
+        "vina_score": 156.89404333333334
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_gated_repair_ablation_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "repaired",
+      "layer_role": "postprocessing",
+      "method_id": "diffsbdd_public",
+      "method_name": "DiffSBDD",
+      "metrics": {
+        "clash_fraction": 0.11987738383241134,
+        "gnina_affinity": 184.06088210000001,
+        "gnina_cnn_score": 0.2395456,
+        "pocket_contact_fraction": 0.9337717945428318,
+        "qed": 0.439806817785092,
+        "sa_score": 2.4604,
+        "vina_score": 184.09428
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 1000
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "reranked",
+      "layer_role": "postprocessing",
+      "method_id": "diffsbdd_public",
+      "method_name": "DiffSBDD",
+      "metrics": {
+        "clash_fraction": 0.11987738383241134,
+        "gnina_affinity": 184.06088210000001,
+        "gnina_cnn_score": 0.2395456,
+        "pocket_contact_fraction": 0.9337717945428318,
+        "qed": 0.42741434430015496,
+        "sa_score": 2.509,
+        "vina_score": 184.09428
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": 1000
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "repaired",
+      "layer_role": "postprocessing",
+      "method_id": "targetdiff_public",
+      "method_name": "TargetDiff",
+      "metrics": {
+        "clash_fraction": 0.13113818627143436,
+        "gnina_affinity": 224.55378209999998,
+        "gnina_cnn_score": 0.20092649999999998,
+        "pocket_contact_fraction": 0.9324352758494702,
+        "qed": 0.41663570576273334,
+        "sa_score": 2.759,
+        "vina_score": 224.58900000000003
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": "official_public_precomputed_meta"
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {
+        "gnina_affinity": 1.0,
+        "gnina_cnn_score": 1.0,
+        "rdkit": 1.0,
+        "vina_score": 1.0
+      },
+      "layer": "reranked",
+      "layer_role": "postprocessing",
+      "method_id": "targetdiff_public",
+      "method_name": "TargetDiff",
+      "metrics": {
+        "clash_fraction": 0.13113818627143436,
+        "gnina_affinity": 224.55378209999998,
+        "gnina_cnn_score": 0.20092649999999998,
+        "pocket_contact_fraction": 0.9324352758494702,
+        "qed": 0.42413787738708514,
+        "sa_score": 2.8246999999999995,
+        "vina_score": 224.58900000000003
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": 1,
+        "sampling_steps": "official_public_precomputed_meta"
+      },
+      "source_artifact": "configs/q2_ours_vs_public_baselines_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 0,
+      "coverage": {
+        "gnina_affinity": 0.0,
+        "gnina_cnn_score": 0.0,
+        "rdkit": 0.0,
+        "vina_score": 0.0
+      },
+      "layer": "gated_repair",
+      "layer_role": "postprocessing",
+      "method_id": "q3_gated_repair",
+      "method_name": "Q3 gated repair ablation",
+      "metrics": {
+        "clash_fraction": null,
+        "gnina_affinity": null,
+        "gnina_cnn_score": null,
+        "pocket_contact_fraction": null,
+        "qed": null,
+        "sa_score": null,
+        "vina_score": null
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_gated_repair_ablation_summary.json",
+      "status": "scored"
+    },
+    {
+      "candidate_count": 100,
+      "coverage": {},
+      "layer": "backend_aware_posthoc",
+      "layer_role": "postprocessing",
+      "method_id": "q3_backend_aware_reranker",
+      "method_name": "Q3 backend-aware reranker",
+      "metrics": {
+        "clash_fraction": null,
+        "gnina_affinity": null,
+        "gnina_cnn_score": null,
+        "pocket_contact_fraction": null,
+        "qed": null,
+        "sa_score": null,
+        "vina_score": null
+      },
+      "model_improvement": false,
+      "runtime": {
+        "matched_candidates_per_pocket": null,
+        "sampling_steps": null
+      },
+      "source_artifact": "configs/q3_docking_aware_reranker_summary.json",
+      "status": "scored"
+    }
+  ],
+  "schema_version": 1
+}

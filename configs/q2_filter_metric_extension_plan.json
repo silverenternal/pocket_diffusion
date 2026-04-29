@@ -1,0 +1,53 @@
+{
+  "artifact_name": "q2_filter_metric_extension_plan",
+  "schema_version": 1,
+  "rdkit_filter_catalog_support": {
+    "rdkit_available": true,
+    "filter_catalog_params_available": true,
+    "pains_a_supported": true,
+    "pains_b_supported": true,
+    "pains_c_supported": true,
+    "brenk_supported": true,
+    "checked_at": "2026-04-28",
+    "check_command": "from rdkit.Chem import FilterCatalog; inspect FilterCatalogParams.FilterCatalogs"
+  },
+  "extension_status": "supported_but_deferred_from_q2_core_claims",
+  "metric_names": [
+    {
+      "name": "pains_alert_count",
+      "type": "integer",
+      "coverage_semantics": "available when RDKit sanitization succeeds and FilterCatalog PAINS_A/B/C can be constructed"
+    },
+    {
+      "name": "pains_free_fraction",
+      "type": "fraction",
+      "coverage_semantics": "aggregate fraction of candidates with zero PAINS alerts among filter-scored candidates"
+    },
+    {
+      "name": "brenk_alert_count",
+      "type": "integer",
+      "coverage_semantics": "available when RDKit sanitization succeeds and FilterCatalog BRENK can be constructed"
+    },
+    {
+      "name": "brenk_free_fraction",
+      "type": "fraction",
+      "coverage_semantics": "aggregate fraction of candidates with zero Brenk alerts among filter-scored candidates"
+    },
+    {
+      "name": "medchem_filter_coverage_fraction",
+      "type": "fraction",
+      "coverage_semantics": "filter-scored candidate count divided by backend input count"
+    }
+  ],
+  "integration_plan": {
+    "target_file": "tools/rdkit_validity_backend.py",
+    "implementation": "Build optional RDKit FilterCatalogs after RDKit import; emit per-candidate alert counts and aggregate free fractions.",
+    "failure_behavior": "If FilterCatalog import or construction fails, emit medchem_filter_coverage_fraction=0 and omit alert counts; Q2 core evaluation must not fail.",
+    "table_rendering": "When unsupported or uncomputed, render PAINS/Brenk metrics as NA, not zero."
+  },
+  "claim_guardrails": [
+    "PAINS/Brenk are screening filters, not proof of developability.",
+    "Unavailable filter metrics must not block Vina/GNINA/RDKit core Q2 tables.",
+    "Do not compare methods on PAINS/Brenk unless filter coverage is reported."
+  ]
+}

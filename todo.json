@@ -1,133 +1,151 @@
 {
-  "current_state_summary": {
-    "main_gap": "The project is not yet Q1-SCI-ready because the strongest biological and drug-discovery claims still need large-scale real backend scoring, strong public baselines, matched-budget comparisons, statistical significance, raw-model attribution, and paper-level narrative/figures.",
-    "risk_assessment": "A Q1 medicinal chemistry, bioinformatics, or computational biology journal will likely reject the work if docking evidence remains proxy-only, if baselines are weak, if improvements are mostly repair/reranker-driven, or if experiments are too small for unseen-pocket generalization claims.",
-    "strengths": [
-      "Rust-first modular framework with explicit topology, geometry, and pocket/context boundaries.",
-      "Layered generation artifacts now separate raw rollout, constrained/repaired outputs, and reranked candidates.",
-      "Candidate-level metric JSONL, correlation tables, artifact audit, claim contract, ablation summaries, and multi-seed summaries exist.",
-      "Vina and GNINA executables are installed locally, and RDKit-backed chemistry metrics are available.",
-      "Current evidence surface is more auditable than a typical prototype and avoids fabricated claim values."
+  "project": "pocket_diffusion",
+  "version": "q14_model_training_design_hardening_plan",
+  "created_at": "2026-04-29",
+  "goal": "Review and harden the model design and training design end to end, with priority on de novo full molecular flow, shape-safe training objectives, leakage-control semantics, slot specialization, controlled cross-modal interaction, trainer/runtime correctness, and claim-safe evaluation evidence.",
+  "context_summary": "The current Rust stack already exposes separate topology, geometry, and pocket/context encoders; learned slot decomposition; six directed gated cross-modal attention paths; conditioned denoising; geometry flow matching; and a config-gated de_novo_initialization path with molecular flow branches. The main risks are not missing scaffolding but weak or ambiguous training semantics: de novo auxiliary losses still assume target atom count compatibility in some paths, leakage penalties can train probes to fail instead of proving non-leakage, de novo target alignment is index-based rather than permutation-invariant, pocket_context flow reconstruction is not a strong ligand-pocket generation signal, slot semantics are weakly tied to the primary task, and trainer/evaluation metrics can overemphasize health checks or processed layers.",
+  "primary_risks": [
+    "De novo auxiliary probe and consistency losses may panic or silently mis-supervise when generated atom count differs from target ligand atom count.",
+    "Explicit leakage training currently mixes probe and encoder roles, so low leakage loss can mean a weak or sabotaged probe rather than low semantic leakage.",
+    "Full molecular flow de novo training aligns generated and target atoms by index, which is not permutation-invariant and can teach unstable atom ordering artifacts.",
+    "The pocket_context flow branch reconstructs conditioning context instead of directly constraining ligand-pocket contacts, interactions, or compatibility.",
+    "Slot decomposition is present but weakly coupled to task-critical atom, bond, geometry, and pocket decisions.",
+    "Cross-modal gates are path-level scalars, which is controllable but too coarse for local pocket-conditioned generation.",
+    "Rollout diagnostics are not consistently isolated from optimizer-facing training graphs in batched paths.",
+    "Default validation and gradient diagnostics can report training health without proving model quality or objective-family gradient behavior.",
+    "Config names such as enabled flow branches, branch schedules, and claim switches can be misunderstood by future experiments."
+  ],
+  "non_goals": [
+    "Do not collapse topology, geometry, and pocket/context encoders into a single unrestricted fusion encoder.",
+    "Do not replace directed gated cross-modal interaction with naive fusion except as an explicit negative-control ablation.",
+    "Do not rewrite core modeling, training, data loading, or evaluation logic into Python.",
+    "Do not promote smoke-test de novo execution into benchmark-quality molecular-generation claims.",
+    "Do not hide coordinate repair, valence pruning, reranking, or backend scoring inside raw model-native metrics.",
+    "Do not make unstable mutual-information estimators the central redundancy objective."
+  ],
+  "execution_rules": [
+    "Complete phases in order unless a later task is required to unblock an earlier one.",
+    "Delete a task object from todo.json only after its acceptance_criteria, verification, and completion_evidence are satisfied.",
+    "Do not delete a phase until every task in that phase has been completed and removed.",
+    "If a task is blocked, keep it in todo.json and add blocker_note with the concrete blocker and proposed next step.",
+    "After deleting tasks, update task_count_expected and phase_count so they match remaining tasks and phases.",
+    "Keep the crate compiling after each implementation phase.",
+    "Prefer Rust implementation and tests for core model, loss, trainer, data, and evaluation work.",
+    "Preserve separate modality encoders, explicit slot decomposition, directed gated cross-modal interaction, and ablation-friendly config surfaces.",
+    "Use targeted tests for touched modules first, then broader verification before removing phase-critical tasks.",
+    "Avoid reverting unrelated dirty worktree changes.",
+    "When context becomes large, update current_state_summary with completed phase outcomes before continuing."
+  ],
+  "workflow": {
+    "execution_order": "P0 baseline audit, P1 de novo shape-safe losses, P2 leakage-control redesign, P3 permutation-invariant full-flow matching, P4 pocket-conditioned molecular-flow semantics, P5 slot and interaction strengthening, P6 trainer/runtime cleanup, P7 data and coordinate contracts, P8 evaluation and claim safety, P9 documentation and final validation.",
+    "task_retention": "Never delete a task until concrete completion evidence exists in the working context.",
+    "task_count_policy": "task_count_expected must equal the total number of remaining task objects across all phases.",
+    "phase_count_policy": "phase_count must equal the number of phases that still contain task objects."
+  },
+  "verification_profiles": {
+    "json_only": [
+      "jq empty todo.json"
+    ],
+    "baseline_audit": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test --no-run"
+    ],
+    "losses": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test losses"
+    ],
+    "de_novo_flow": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test flow_matching",
+      "cargo test models::flow",
+      "cargo test de_novo"
+    ],
+    "leakage": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test leakage",
+      "cargo test leakage_calibration"
+    ],
+    "slot_interaction": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test slot",
+      "cargo test interaction",
+      "cargo test cross_attention"
+    ],
+    "trainer": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test scheduler",
+      "cargo test trainer",
+      "cargo test training"
+    ],
+    "data": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test data",
+      "cargo test parser",
+      "cargo test features"
+    ],
+    "evaluation": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test evaluation",
+      "cargo test experiments",
+      "cargo test reviewer_tooling"
+    ],
+    "final": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "git diff --check",
+      "cargo test --no-run",
+      "cargo test --no-fail-fast",
+      "tools/local_ci.sh fast"
     ]
   },
-  "global_rules": [
-    "Do not fabricate or manually enter claim-bearing metrics.",
-    "Do not promote docking_like_score as Vina, GNINA, or binding affinity.",
-    "Do not claim raw generative-model improvement from repaired or reranked layers unless raw-layer evidence independently supports it.",
-    "Prefer Rust for core modeling and experiment infrastructure; Python tools are acceptable for backend adapters, artifact conversion, and paper table rendering.",
-    "Keep topology, geometry, and pocket/context encoders structurally separate.",
-    "Preserve gated cross-modality interaction; do not introduce naive unrestricted fusion.",
-    "Every task must leave a machine-readable artifact and a short human-readable summary when applicable.",
-    "After completing any task, remove that task from todo.json."
+  "phases": [],
+  "task_count_expected": 0,
+  "phase_count": 0,
+  "claim_categories": [
+    "model_boundary",
+    "generation_boundary",
+    "de_novo_generation",
+    "shape_safe_training",
+    "permutation_invariant_matching",
+    "flow_geometry",
+    "flow_atom_type",
+    "flow_bond",
+    "flow_topology",
+    "flow_pocket_interaction",
+    "flow_synchronization",
+    "objective_scale",
+    "branch_schedule",
+    "training_signal_integrity",
+    "leakage_control",
+    "frozen_probe_audit",
+    "slot_semantics",
+    "controlled_interaction",
+    "coordinate_frame_contract",
+    "target_context_leakage",
+    "runtime_efficiency",
+    "evaluation_provenance",
+    "raw_vs_processed_layers",
+    "claim_safety"
   ],
-  "goal": "Move the project from an internally auditable research prototype to a Q1-SCI-ready study with strong method novelty, rigorous unseen-pocket experiments, real backend evidence, matched baselines, statistically defensible claims, and publication-grade artifacts.",
-  "journal_positioning_advice": {
-    "harder_targets_requiring_stronger_validation": [
-      "Nature Machine Intelligence style venues require much broader novelty and external validation.",
-      "Medicinal chemistry Q1 journals may require stronger docking protocol validation, pose analysis, or wet-lab/MD support."
-    ],
-    "likely_fit_if_evidence_is_strong": [
-      "Bioinformatics",
-      "Briefings in Bioinformatics",
-      "Journal of Chemical Information and Modeling",
-      "IEEE/ACM Transactions on Computational Biology and Bioinformatics",
-      "Computers in Biology and Medicine"
-    ],
-    "recommended_angle": "Position the paper as a modular, ablation-friendly, pocket-conditioned molecular generation framework with controlled cross-modal interaction and evidence-aware claim attribution, rather than only as another molecule generator."
+  "task_metadata_schema": {
+    "id": "Stable task id. Remove the entire task object only after completion.",
+    "title": "Short task name.",
+    "task_type": "audit | contract | design | implementation | validation | documentation | configuration",
+    "priority": "critical | high | medium | low",
+    "depends_on": "List of task ids that should be completed first.",
+    "problem": "Concrete issue the task protects against.",
+    "action": "Implementation, audit, validation, or documentation work to perform.",
+    "acceptance_criteria": "Checks required before deleting the task.",
+    "verification_profile": "Key in verification_profiles.",
+    "completion_evidence": "Concrete evidence required before removing the task from todo.json."
   },
-  "minimum_publishable_package": [
-    "Primary unseen-pocket benchmark with leakage checks.",
-    "Main method plus at least three credible baselines.",
-    "Three seeds for main method and primary baselines.",
-    "Candidate-level RDKit, Vina, GNINA, geometry, interaction, scaffold, and diversity metrics.",
-    "Layer-separated raw/repaired/reranked tables.",
-    "Core ablations and postprocessing ablations.",
-    "Statistical tests and effect sizes.",
-    "Artifact-generated paper tables and reproducibility manifest."
-  ],
-  "phases": [
-    {
-      "goal": "Create an honest, continuously updated gap report between current artifacts and Q1-SCI evidence requirements.",
-      "id": "P0",
-      "name": "Submission Readiness Audit",
-      "priority": "critical",
-      "tasks": []
-    },
-    {
-      "goal": "Replace proxy-only biological evidence with real, reproducible Vina/GNINA/RDKit candidate-level scoring.",
-      "id": "P1",
-      "name": "Real Backend Evidence",
-      "priority": "critical",
-      "tasks": []
-    },
-    {
-      "goal": "Define benchmark scope tightly enough for reproducible unseen-pocket claims.",
-      "id": "P2",
-      "name": "Benchmark And Splits",
-      "priority": "critical",
-      "tasks": []
-    },
-    {
-      "goal": "Show that the method is competitive against credible alternatives under identical evaluation conditions.",
-      "id": "P3",
-      "name": "Strong Baselines And Matched Budgets",
-      "priority": "critical",
-      "tasks": []
-    },
-    {
-      "goal": "Make improvements statistically defensible instead of anecdotal.",
-      "id": "P4",
-      "name": "Multi-Seed Statistics",
-      "priority": "critical",
-      "tasks": []
-    },
-    {
-      "goal": "Prove the research ideas matter: slot decomposition, redundancy reduction, semantic probes, leakage control, and gated cross-modal interaction.",
-      "id": "P5",
-      "name": "Ablations And Mechanistic Evidence",
-      "priority": "critical",
-      "tasks": []
-    },
-    {
-      "goal": "Explain what the model gets right and wrong, especially where proxy metrics disagree with docking or chemistry.",
-      "id": "P6",
-      "name": "Correlation, Failure, And Case Analysis",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "goal": "Improve the model only where evidence shows a real bottleneck.",
-      "id": "P7",
-      "name": "Method Improvement Only After Evidence",
-      "priority": "medium",
-      "tasks": []
-    },
-    {
-      "goal": "Turn artifacts into a coherent submission package.",
-      "id": "P8",
-      "name": "Manuscript And Reproducibility Package",
-      "priority": "high",
-      "tasks": []
-    }
-  ],
-  "project": "pocket_diffusion",
-  "recommended_execution_order": [],
-  "stop_conditions": [
-    "If real Vina/GNINA coverage remains below 70 percent after input preparation, do not submit Q1 claims about binding.",
-    "If strong baselines outperform the method on raw-flow and final-layer metrics, reposition the paper around auditability/modularity or improve the model before submission.",
-    "If gains disappear across seeds, downgrade the claim and focus on analysis or framework contribution.",
-    "If repair/reranking accounts for most improvement, state that explicitly and avoid claiming model-native generation superiority."
-  ],
-  "success_criteria_for_q1_submission_candidate": [
-    "At least one fixed unseen-pocket benchmark has complete generation, Vina/GNINA, RDKit, scaffold, interaction, and geometry artifacts.",
-    "At least three independent seeds are reported for the main method and all primary baselines.",
-    "At least three strong public baselines are compared under matched sampling budgets and identical evaluation backends.",
-    "Raw-flow, repaired, and reranked layer metrics are reported separately in every main result table.",
-    "Main claims include confidence intervals or hypothesis-test/effect-size statistics.",
-    "Correlation and failure analyses explain when geometry or pocket-fit proxies do or do not predict docking or drug-likeness.",
-    "Ablations isolate slot decomposition, redundancy reduction, semantic probes/leakage control, gated cross-attention, repair, and reranking.",
-    "The manuscript explicitly distinguishes model contribution from postprocessing contribution.",
-    "All reported tables and figures are generated from versioned artifacts by scripts."
-  ],
-  "version": "q1_sci_submission_gap_closure_plan"
+  "current_state_summary": "Q14 hardening plan completed on 2026-04-29. P0-P8 delivered shape-safe de novo losses, frozen leakage audit separation, permutation-invariant target matching, pocket interaction flow semantics, slot-local conditioning, controlled interaction diagnostics, trainer/runtime hardening, data/coordinate contracts, raw-native claim evidence, repair-case audits, and compact conditioned_denoising, geometry_flow, and de_novo_full_flow smokes in checkpoints/q14_final_smoke. Q14 final smoke results: validation/test finite-forward fraction 1.0 for all three surfaces, total nonfinite gradient tensors 0, and de_novo_full_flow records hungarian_distance non-index matching with target_matching_claim_safe=true plus leakage calibration status. P9 updated final documentation in architecture_module_map, q14_active_path_review, generation_objective_boundary, q14_leakage_training_contract, claim_readiness, dataset_training_methods_zh, q14_final_smoke_summary, and q14_final_documentation_summary; generated Chinese HTML/DOCX/ODT formats were refreshed with pandoc. Final verification passed: jq empty todo.json and Q14 JSON artifacts, cargo fmt --check, git diff --check, cargo test --no-run, cargo test --no-fail-fast, tools/local_ci.sh fast, cargo test evaluation, cargo test experiments, cargo test reviewer_tooling, cargo test --test reviewer_tooling, and stale-doc wording rg checks. todo.json is complete with phases=[], task_count_expected=0, and phase_count=0."
 }

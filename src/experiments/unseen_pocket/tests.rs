@@ -3,8 +3,68 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    fn unavailable_backend_metrics(status: &str) -> ReservedBackendMetrics {
+        ReservedBackendMetrics {
+            available: false,
+            backend_name: None,
+            metrics: BTreeMap::new(),
+            status: status.to_string(),
+        }
+    }
+
     #[test]
-    fn unseen_pocket_experiment_smoke_test() {
+    fn cross_attention_velocity_head_ablation_labels_are_stable() {
+        let mut research = ResearchConfig::default();
+        let baseline = flow_head_ablation_diagnostics(&research, false);
+        assert_eq!(baseline.ablation_label, "geometry_mean_pooling");
+        assert_eq!(baseline.head_kind, "geometry");
+        assert!(!baseline.local_atom_pocket_attention);
+        assert_eq!(baseline.enabled_flow_branches, vec!["geometry"]);
+        assert!(baseline
+            .disabled_flow_branches
+            .contains(&"atom_type".to_string()));
+        assert!(!baseline.full_molecular_flow_claim_allowed);
+        assert_eq!(baseline.claim_gate_reason, "claim_not_requested");
+        assert_eq!(
+            baseline.decoder_conditioning_kind,
+            "local_atom_slot_attention"
+        );
+        assert_eq!(
+            baseline.molecular_flow_conditioning_kind,
+            "local_atom_slot_attention"
+        );
+        assert!(baseline.slot_local_conditioning_enabled);
+        assert!(!baseline.mean_pooled_conditioning_ablation);
+
+        research.model.decoder_conditioning.kind =
+            crate::config::DecoderConditioningKind::MeanPooled;
+        let mean_pooled = flow_head_ablation_diagnostics(&research, false);
+        assert_eq!(mean_pooled.decoder_conditioning_kind, "mean_pooled");
+        assert_eq!(
+            mean_pooled.molecular_flow_conditioning_kind,
+            "mean_pooled"
+        );
+        assert!(!mean_pooled.slot_local_conditioning_enabled);
+        assert!(mean_pooled.mean_pooled_conditioning_ablation);
+        research.model.decoder_conditioning.kind =
+            crate::config::DecoderConditioningKind::LocalAtomSlotAttention;
+
+        research.model.flow_velocity_head.kind =
+            crate::config::FlowVelocityHeadKind::AtomPocketCrossAttention;
+        let local = flow_head_ablation_diagnostics(&research, true);
+        assert_eq!(local.ablation_label, "local_pocket_attention");
+        assert_eq!(local.head_kind, "atom_pocket_cross_attention");
+        assert!(local.local_atom_pocket_attention);
+        assert!(local.diagnostics_available);
+
+        research.model.pairwise_geometry.enabled = true;
+        let combined = flow_head_ablation_diagnostics(&research, true);
+        assert_eq!(combined.ablation_label, "pairwise_plus_local_pocket");
+        assert!(combined.pairwise_geometry_enabled);
+    }
+
+    #[test]
+    fn unseen_pocket_experiment_smoke_writes_leakage_audit_artifact() {
         let temp = tempfile::tempdir().unwrap();
         let mut config = UnseenPocketExperimentConfig::default();
         config.research.training.max_steps = 2;
@@ -40,6 +100,18 @@ mod tests {
             .checkpoint_dir
             .join("experiment_summary.json")
             .exists());
+        let slot_report_path = summary
+            .config
+            .research
+            .training
+            .checkpoint_dir
+            .join("slot_semantic_report.json");
+        assert!(slot_report_path.exists());
+        let slot_report: SlotSemanticReportArtifact =
+            serde_json::from_str(&std::fs::read_to_string(slot_report_path).unwrap()).unwrap();
+        assert_eq!(slot_report.schema_version, 1);
+        let latest_training = slot_report.latest_training.as_ref().unwrap();
+        assert_eq!(latest_training.slot_signatures.len(), 3);
         assert!(summary
             .config
             .research
@@ -54,7 +126,543 @@ mod tests {
             .checkpoint_dir
             .join("claim_summary.json")
             .exists());
+        let leakage_audit_path = summary
+            .config
+            .research
+            .training
+            .checkpoint_dir
+            .join("frozen_leakage_probe_audit.json");
+        assert!(leakage_audit_path.exists());
+        let leakage_audit: FrozenLeakageProbeCalibrationReport =
+            serde_json::from_str(&std::fs::read_to_string(&leakage_audit_path).unwrap()).unwrap();
+        assert_eq!(leakage_audit.split_name, "test");
+        assert!(matches!(
+            leakage_audit.calibration_status.as_str(),
+            "ok" | "insufficient_data"
+        ));
         assert_eq!(summary.dataset_validation.parsed_examples, 4);
+        assert_eq!(
+            summary.coordinate_frame.coordinate_frame_contract,
+            summary.dataset_validation.coordinate_frame_contract
+        );
+        assert_eq!(
+            summary.coordinate_frame.rotation_consistency_role,
+            "diagnostic_not_exact_equivariance_claim"
+        );
+
+        let claim_report_path = summary
+            .config
+            .research
+            .training
+            .checkpoint_dir
+            .join("claim_summary.json");
+        let claim_report_payload = std::fs::read_to_string(claim_report_path).unwrap();
+        let claim_report: ClaimReport = serde_json::from_str(&claim_report_payload).unwrap();
+        let raw_index = claim_report_payload.find("\"raw_native_evidence\"").unwrap();
+        let processed_index = claim_report_payload
+            .find("\"processed_generation_evidence\"")
+            .unwrap();
+        let validation_index = claim_report_payload.find("\"validation\"").unwrap();
+        assert!(raw_index < processed_index);
+        assert!(processed_index < validation_index);
+        assert!(claim_report.layer_provenance_audit.claim_safe);
+        assert!(claim_report.layer_provenance_audit.raw_layer_model_native);
+        assert!(
+            claim_report
+                .layer_provenance_audit
+                .processed_layer_has_contract
+                || claim_report.layer_provenance_audit.processed_layer == "unavailable"
+        );
+        assert_eq!(claim_report.model_design.raw_model_layer, "raw_rollout");
+        assert_eq!(
+            claim_report.raw_native_evidence.evidence_role,
+            "model_native_raw_first"
+        );
+        assert_eq!(
+            claim_report.raw_native_evidence.valid_fraction,
+            Some(claim_report.model_design.raw_model_valid_fraction)
+        );
+        assert_eq!(
+            claim_report.raw_native_evidence.native_graph_valid_fraction,
+            Some(claim_report.model_design.raw_native_graph_valid_fraction)
+        );
+        assert!(claim_report
+            .raw_native_evidence
+            .strict_pocket_fit_score
+            .is_some());
+        assert!(claim_report
+            .raw_native_evidence
+            .leakage_proxy_mean
+            .is_some());
+        assert_eq!(
+            claim_report
+                .method_comparison
+                .raw_native_evidence
+                .evidence_role,
+            "model_native_raw_first"
+        );
+        assert_eq!(
+            claim_report
+                .processed_generation_evidence
+                .evidence_role,
+            "additive_processed_or_reranked_evidence"
+        );
+        assert_eq!(
+            claim_report.postprocessing_repair_audit.split_label,
+            "test"
+        );
+        assert!(claim_report
+            .postprocessing_repair_audit
+            .claim_boundary
+            .contains("postprocessing evidence"));
+        assert_eq!(
+            claim_report
+                .postprocessing_repair_audit
+                .no_repair_ablation
+                .no_repair_layer,
+            "raw_rollout"
+        );
+        assert!(summary
+            .config
+            .research
+            .training
+            .checkpoint_dir
+            .join("repair_case_audit_test.json")
+            .exists());
+        assert_eq!(claim_report.train_eval_alignment.schema_version, 1);
+        assert_eq!(
+            claim_report
+                .leakage_calibration
+                .frozen_probe_calibration
+                .split_name,
+            "test"
+        );
+        assert_eq!(
+            claim_report
+                .leakage_calibration
+                .leakage_roles
+                .frozen_probe_audit
+                .status,
+            leakage_audit.calibration_status
+        );
+        assert!(claim_report
+            .leakage_calibration
+            .capacity_sweep_artifact
+            .as_deref()
+            .is_some_and(|path| path.ends_with("frozen_leakage_probe_audit.json")));
+
+        let mut missing_processed_provenance = summary.clone();
+        missing_processed_provenance.test.model_design.processed_layer =
+            "reranked_candidates".to_string();
+        missing_processed_provenance
+            .test
+            .layered_generation_metrics
+            .generation_path_contract
+            .clear();
+        let audit = build_layer_provenance_audit(&missing_processed_provenance);
+        assert!(!audit.claim_safe);
+        assert!(!audit.processed_layer_has_contract);
+    }
+
+    #[test]
+    fn evaluation_claim_summary_raw_native_gate_fails_even_when_processed_improves() {
+        let mut summary =
+            test_experiment_summary_with_interaction_mode(CrossAttentionMode::Transformer);
+        summary.config.performance_gates = PerformanceGateConfig {
+            min_test_raw_model_valid_fraction: Some(0.8),
+            min_test_raw_model_pocket_contact_fraction: Some(0.7),
+            max_test_raw_model_clash_fraction: Some(0.1),
+            min_test_raw_native_graph_valid_fraction: Some(0.9),
+            ..PerformanceGateConfig::default()
+        };
+        summary.test.model_design = ModelDesignEvaluationMetrics {
+            raw_model_layer: "raw_rollout".to_string(),
+            processed_layer: "reranked_candidates".to_string(),
+            raw_model_valid_fraction: 0.5,
+            raw_model_pocket_contact_fraction: 0.6,
+            raw_model_clash_fraction: 0.2,
+            raw_model_mean_displacement: 0.8,
+            raw_native_graph_valid_fraction: 0.4,
+            raw_native_bond_count_mean: 2.0,
+            raw_native_component_count_mean: 2.0,
+            raw_native_valence_violation_fraction: 0.3,
+            raw_native_topology_bond_sync_fraction: 0.9,
+            processed_valid_fraction: 1.0,
+            processed_pocket_contact_fraction: 1.0,
+            processed_clash_fraction: 0.0,
+            processing_valid_fraction_delta: 0.5,
+            processing_pocket_contact_delta: 0.4,
+            processing_clash_delta: -0.2,
+            slot_activation_mean: 0.4,
+            gate_activation_mean: 0.3,
+            leakage_proxy_mean: 0.05,
+            processed_postprocessor_chain: vec!["calibrated_reranking".to_string()],
+            processed_claim_boundary:
+                "reranked candidates are processed evidence, not raw-native model capability"
+                    .to_string(),
+            ..ModelDesignEvaluationMetrics::default()
+        };
+        summary.test.layered_generation_metrics.raw_rollout = CandidateLayerMetrics {
+            candidate_count: 4,
+            valid_fraction: 0.5,
+            pocket_contact_fraction: 0.6,
+            mean_centroid_offset: 4.0,
+            clash_fraction: 0.2,
+            mean_displacement: 0.8,
+            uniqueness_proxy_fraction: 0.5,
+            native_graph_valid_fraction: 0.4,
+            native_bond_count_mean: 2.0,
+            native_component_count_mean: 2.0,
+            native_valence_violation_fraction: 0.3,
+            topology_bond_sync_fraction: 0.9,
+            ..CandidateLayerMetrics::default()
+        };
+        summary.test.layered_generation_metrics.raw_flow =
+            summary.test.layered_generation_metrics.raw_rollout.clone();
+        summary.test.layered_generation_metrics.reranked_candidates = CandidateLayerMetrics {
+            candidate_count: 4,
+            valid_fraction: 1.0,
+            pocket_contact_fraction: 1.0,
+            mean_centroid_offset: 0.5,
+            clash_fraction: 0.0,
+            uniqueness_proxy_fraction: 1.0,
+            ..CandidateLayerMetrics::default()
+        };
+
+        let claim = build_claim_report(&summary);
+
+        assert!(!claim.raw_native_evidence.raw_native_gate.passed);
+        assert!(claim
+            .raw_native_evidence
+            .raw_native_gate
+            .processed_metrics_excluded);
+        assert!(claim
+            .raw_native_evidence
+            .raw_native_gate
+            .failed_reasons
+            .iter()
+            .any(|reason| reason.contains("raw_model_valid_fraction")));
+        assert_eq!(
+            claim.processed_generation_evidence.valid_fraction,
+            Some(1.0)
+        );
+        assert_eq!(
+            claim
+                .method_comparison
+                .raw_native_evidence
+                .raw_native_gate
+                .passed,
+            claim.raw_native_evidence.raw_native_gate.passed
+        );
+    }
+
+    #[test]
+    fn repair_case_audit_reports_help_harm_neutral_and_no_repair_ablation() {
+        let raw_help = test_candidate(vec![6], vec![[8.0, 0.0, 0.0]]);
+        let repaired_help = repaired_test_candidate(vec![6], vec![[1.0, 0.0, 0.0]]);
+        let raw_harm = test_candidate(vec![6], vec![[1.0, 0.0, 0.0]]);
+        let repaired_harm = repaired_test_candidate(vec![6], vec![[8.0, 0.0, 0.0]]);
+        let raw_neutral = test_candidate(vec![6], vec![[2.0, 0.0, 0.0]]);
+        let repaired_neutral = repaired_test_candidate(vec![6], vec![[2.05, 0.0, 0.0]]);
+        let raw = vec![raw_help, raw_harm, raw_neutral];
+        let repaired = vec![repaired_help, repaired_harm, repaired_neutral];
+        let novelty = NoveltyReferenceSignatures::default();
+        let raw_metrics = summarize_candidate_layer(&raw, &novelty);
+        let repaired_metrics = summarize_candidate_layer(&repaired, &novelty);
+
+        let audit =
+            build_repair_case_audit("test", &raw, &repaired, &raw_metrics, &repaired_metrics);
+
+        assert_eq!(audit.no_repair_ablation.no_repair_layer, "raw_rollout");
+        assert!(audit.no_repair_ablation.repair_enabled);
+        assert_eq!(audit.repair_helps.len(), 1);
+        assert_eq!(audit.repair_harms.len(), 1);
+        assert_eq!(audit.repair_neutral.len(), 1);
+        assert!(!audit.raw_failures.is_empty());
+        assert!(audit.raw_vs_repaired_delta.strict_pocket_fit_score_delta.is_finite());
+        assert!(audit
+            .claim_boundary
+            .contains("must not be cited as raw generation quality"));
+    }
+
+    #[test]
+    fn evaluation_reports_chemistry_collaboration_provenance() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.best_metric = "finite_forward_fraction".to_string();
+        let examples = crate::data::synthetic_phase1_examples()
+            .into_iter()
+            .take(2)
+            .map(|example| example.with_pocket_feature_dim(config.model.pocket_feature_dim))
+            .collect::<Vec<_>>();
+        let train_proteins = examples
+            .iter()
+            .map(|example| example.protein_id.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        let var_store = tch::nn::VarStore::new(tch::Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+
+        let metrics = evaluate_split(
+            &system,
+            &examples,
+            &examples,
+            &train_proteins,
+            &config,
+            AblationConfig::default(),
+            &ExternalEvaluationConfig::default(),
+            "validation",
+            tch::Device::Cpu,
+        );
+
+        assert!(!metrics
+            .chemistry_collaboration
+            .gate_usage_by_chemical_role
+            .is_empty());
+        assert!(metrics
+            .chemistry_collaboration
+            .bond_length_guardrail_mean
+            .value
+            .is_some());
+        assert_eq!(
+            metrics
+                .chemistry_collaboration
+                .key_residue_contact_coverage
+                .value,
+            None
+        );
+        assert_eq!(
+            metrics
+                .chemistry_collaboration
+                .key_residue_contact_coverage
+                .provenance,
+            ChemistryMetricProvenance::Unavailable
+        );
+        assert_eq!(
+            metrics
+                .comparison_summary
+                .chemistry_collaboration
+                .key_residue_contact_coverage
+                .provenance,
+            ChemistryMetricProvenance::Unavailable
+        );
+        assert_eq!(metrics.proxy_task_metrics.probe_baselines.len(), 6);
+        assert!(metrics.proxy_task_metrics.probe_baselines.iter().any(|row| {
+            row.target == "ligand_pharmacophore_roles"
+                && row.supervision_status == "available"
+                && row.available_count > 0
+        }));
+        assert!(metrics
+            .proxy_task_metrics
+            .probe_baselines
+            .iter()
+            .all(|row| !row.supervision_status.is_empty()));
+        assert_eq!(metrics.model_design.raw_model_layer, "raw_rollout");
+        assert!(metrics
+            .model_design
+            .raw_vs_processed_note
+            .contains("model-native rollout quality"));
+        assert!(!metrics.model_design.processed_claim_boundary.is_empty());
+        assert!(metrics.model_design.raw_native_bond_count_mean.is_finite());
+        assert!(metrics
+            .model_design
+            .raw_native_component_count_mean
+            .is_finite());
+        assert!(metrics
+            .model_design
+            .raw_native_valence_violation_fraction
+            .is_finite());
+        assert!(metrics
+            .model_design
+            .raw_native_topology_bond_sync_fraction
+            .is_finite());
+        assert!(metrics.model_design.raw_native_atom_type_entropy.is_finite());
+        assert!(metrics
+            .model_design
+            .raw_native_graph_valid_fraction
+            .is_finite());
+        assert!(metrics.model_design.geometry_consistency_score.is_finite());
+        assert!(metrics.model_design.examples_per_second.is_finite());
+        assert!(!metrics
+            .slot_stability
+            .topology_slot_alignment
+            .is_empty());
+        assert_eq!(metrics.slot_stability.signature_matching.len(), 3);
+        assert_eq!(metrics.slot_stability.collapse_warnings.len(), 3);
+        assert_eq!(metrics.slot_stability.modality_usage.len(), 3);
+        assert_eq!(
+            metrics.slot_stability.stage_guard_warning_count,
+            metrics
+                .slot_stability
+                .modality_usage
+                .iter()
+                .filter(|usage| usage.stage_guard_collapse_warning)
+                .count()
+        );
+        for usage in &metrics.slot_stability.modality_usage {
+            assert!(usage.sample_count > 0);
+            assert!(usage.slot_count > 0);
+            assert!(
+                usage.dead_slot_count + usage.diffuse_slot_count + usage.saturated_slot_count
+                    <= usage.slot_count
+            );
+            assert!(!usage.semantic_enrichment.target_family.is_empty());
+            assert!(usage.semantic_enrichment.role_enrichment_score.is_finite());
+        }
+        assert!(metrics.model_design.gate_saturation_fraction.is_finite());
+        assert_eq!(
+            metrics.resource_usage.evaluation_batch_size,
+            config.data.batch_size
+        );
+        assert_eq!(metrics.resource_usage.forward_batch_count, 1);
+        assert!(metrics.resource_usage.no_grad);
+        assert!(metrics.resource_usage.batched_forward);
+        assert!(metrics.resource_usage.examples_per_second.is_finite());
+        assert_eq!(metrics.train_eval_alignment.schema_version, 1);
+        assert!(metrics
+            .train_eval_alignment
+            .metric_rows
+            .iter()
+            .any(|row| row.metric_name == "rollout_eval_recovery"
+                && !row.optimizer_facing
+                && row.detached_diagnostic));
+        assert!(metrics
+            .train_eval_alignment
+            .metric_rows
+            .iter()
+            .any(|row| row.metric_name == "raw_model_valid_fraction"
+                && row.candidate_layer.as_deref() == Some("raw_rollout")
+                && row.model_native_raw));
+        assert!(metrics
+            .train_eval_alignment
+            .metric_rows
+            .iter()
+            .any(|row| row.metric_name == "raw_native_graph_valid_fraction"
+                && row.candidate_layer.as_deref() == Some("raw_rollout")
+                && row.model_native_raw
+                && row.claim_boundary.contains("before repair")));
+        assert!(metrics
+            .train_eval_alignment
+            .metric_rows
+            .iter()
+            .any(|row| row.metric_name == "processed_valid_fraction"
+                && row.claim_boundary.contains("must not overwrite raw fields")));
+        assert!(metrics
+            .train_eval_alignment
+            .backend_coverage
+            .iter()
+            .any(|row| row.backend_slot == "pocket_compatibility"));
+        assert_eq!(
+            metrics.train_eval_alignment.best_metric_review.status,
+            "smoke_default"
+        );
+    }
+
+    #[test]
+    fn slot_signature_matching_is_permutation_aware() {
+        let left = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let permuted = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
+        let report = match_slot_signatures("topology", "cross_seed_smoke", &left, &permuted, 0.9);
+
+        assert_eq!(report.matched_slot_count, 2);
+        assert_eq!(report.unmatched_left_slots, 0);
+        assert_eq!(report.unmatched_right_slots, 0);
+        assert!(!report.collapse_warning);
+        assert!(report.mean_matched_similarity > 0.99);
+        assert!(report.cross_seed_matching_score > 0.99);
+
+        let collapsed = vec![vec![1.0, 0.0], vec![1.0, 0.0]];
+        let collapsed_report =
+            match_slot_signatures("topology", "cross_seed_smoke", &left, &collapsed, 0.9);
+        assert_eq!(collapsed_report.matched_slot_count, 1);
+        assert!(collapsed_report.collapse_warning);
+    }
+
+    #[test]
+    fn slot_collapse_warning_statuses_cover_dead_saturated_and_balanced() {
+        let dead = slot_collapse_warning_from_stats("geometry", 0.0, 0.0, 0.0, 0.0);
+        assert_eq!(dead.status, "dead");
+
+        let saturated = slot_collapse_warning_from_stats("geometry", 1.0, 1.0, 1.3, 0.3);
+        assert_eq!(saturated.status, "saturated");
+
+        let dominated = slot_collapse_warning_from_stats("geometry", 0.5, 0.5, 0.2, 0.9);
+        assert_eq!(dominated.status, "single_slot_dominated");
+
+        let balanced = slot_collapse_warning_from_stats("geometry", 0.5, 0.5, 1.2, 0.4);
+        assert_eq!(balanced.status, "balanced");
+    }
+
+    #[test]
+    fn evaluation_batched_forward_matches_single_batch_metrics() {
+        let mut batched_config = ResearchConfig::default();
+        batched_config.data.batch_size = 2;
+        let mut single_config = batched_config.clone();
+        single_config.data.batch_size = 1;
+        let examples = crate::data::synthetic_phase1_examples()
+            .into_iter()
+            .take(2)
+            .map(|example| example.with_pocket_feature_dim(batched_config.model.pocket_feature_dim))
+            .collect::<Vec<_>>();
+        let train_proteins = examples
+            .iter()
+            .map(|example| example.protein_id.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        let var_store = tch::nn::VarStore::new(tch::Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &batched_config);
+
+        let batched = evaluate_split(
+            &system,
+            &examples,
+            &examples,
+            &train_proteins,
+            &batched_config,
+            AblationConfig::default(),
+            &ExternalEvaluationConfig::default(),
+            "validation",
+            tch::Device::Cpu,
+        );
+        let single = evaluate_split(
+            &system,
+            &examples,
+            &examples,
+            &train_proteins,
+            &single_config,
+            AblationConfig::default(),
+            &ExternalEvaluationConfig::default(),
+            "validation",
+            tch::Device::Cpu,
+        );
+
+        assert_eq!(batched.resource_usage.evaluation_batch_size, 2);
+        assert_eq!(single.resource_usage.evaluation_batch_size, 1);
+        assert_eq!(batched.resource_usage.forward_batch_count, 1);
+        assert_eq!(single.resource_usage.forward_batch_count, examples.len());
+        assert_eq!(batched.resource_usage.per_example_forward_count, 0);
+        assert_eq!(single.resource_usage.per_example_forward_count, examples.len());
+        assert!(batched.resource_usage.no_grad);
+        assert!(single.resource_usage.no_grad);
+        assert!(batched.resource_usage.batched_forward);
+        assert!(single.resource_usage.batched_forward);
+        assert_f64_close(
+            "finite forward fraction",
+            batched.representation_diagnostics.finite_forward_fraction,
+            single.representation_diagnostics.finite_forward_fraction,
+        );
+        assert_f64_close(
+            "distance probe rmse",
+            batched.representation_diagnostics.distance_probe_rmse,
+            single.representation_diagnostics.distance_probe_rmse,
+        );
+        assert_f64_close(
+            "topology reconstruction mse",
+            batched.representation_diagnostics.topology_reconstruction_mse,
+            single.representation_diagnostics.topology_reconstruction_mse,
+        );
+        assert_f64_close(
+            "leakage proxy mean",
+            batched.representation_diagnostics.leakage_proxy_mean,
+            single.representation_diagnostics.leakage_proxy_mean,
+        );
     }
 
     #[test]
@@ -87,6 +695,14 @@ mod tests {
         assert_eq!(summary.training_history[2].step, 2);
         assert_eq!(summary.training_history[3].step, 3);
         assert!(!summary.split_report.leakage_checks.protein_overlap_detected);
+    }
+
+    fn assert_f64_close(name: &str, left: f64, right: f64) {
+        let tolerance = 1e-5;
+        assert!(
+            (left - right).abs() <= tolerance,
+            "{name} differs: left={left:.8} right={right:.8}"
+        );
     }
 
     #[test]
@@ -134,11 +750,74 @@ mod tests {
             0.1,
             0.05,
             &metrics,
+            &ChemistryCollaborationMetrics::default(),
         );
 
         assert_eq!(summary.mean_centroid_offset, Some(1.75));
         assert_eq!(summary.strict_pocket_fit_score, Some(0.31));
         assert_eq!(summary.unique_smiles_fraction, None);
+        assert_eq!(
+            summary.primary_objective_provenance,
+            "decoder_anchored_conditioned_denoising"
+        );
+        assert_eq!(
+            summary.primary_objective_claim_boundary,
+            "target_ligand_denoising_or_refinement_training_signal"
+        );
+    }
+
+    #[test]
+    fn comparison_summary_labels_objective_claim_boundaries() {
+        let metrics = RealGenerationMetrics {
+            chemistry_validity: unavailable_backend_metrics("test"),
+            docking_affinity: unavailable_backend_metrics("test"),
+            pocket_compatibility: unavailable_backend_metrics("test"),
+        };
+        let mut surrogate = AblationConfig::default();
+        surrogate.primary_objective_override =
+            Some(crate::config::PrimaryObjectiveConfig::SurrogateReconstruction);
+        let surrogate_summary = build_comparison_summary(
+            &ResearchConfig::default(),
+            &surrogate,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            &metrics,
+            &ChemistryCollaborationMetrics::default(),
+        );
+        assert_eq!(
+            surrogate_summary.primary_objective_provenance,
+            "bootstrap_debug_shape_safe_surrogate"
+        );
+        assert_eq!(
+            surrogate_summary.primary_objective_claim_boundary,
+            "bootstrap_debug_or_shape_safe_baseline_not_generation_quality"
+        );
+
+        let mut hybrid = AblationConfig::default();
+        hybrid.primary_objective_override =
+            Some(crate::config::PrimaryObjectiveConfig::DenoisingFlowMatching);
+        let hybrid_summary = build_comparison_summary(
+            &ResearchConfig::default(),
+            &hybrid,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            &metrics,
+            &ChemistryCollaborationMetrics::default(),
+        );
+        assert_eq!(
+            hybrid_summary.primary_objective_claim_boundary,
+            "hybrid_training_composition_not_a_separate_generation_mode"
+        );
     }
 
     #[test]
@@ -178,6 +857,7 @@ mod tests {
             0.1,
             0.05,
             &metrics,
+            &ChemistryCollaborationMetrics::default(),
         );
 
         assert_eq!(summary.unique_smiles_fraction, Some(0.67));
@@ -204,6 +884,31 @@ mod tests {
     }
 
     #[test]
+    fn output_artifact_paths_keep_repo_roots() {
+        let base_dir = std::path::Path::new("configs");
+
+        assert_eq!(
+            resolve_output_artifact_path(
+                base_dir,
+                std::path::Path::new("./checkpoints/automated_search")
+            ),
+            PathBuf::from("./checkpoints/automated_search")
+        );
+        assert_eq!(
+            resolve_output_artifact_path(base_dir, std::path::Path::new("artifacts/evidence/q2")),
+            PathBuf::from("artifacts/evidence/q2")
+        );
+        assert_eq!(
+            resolve_output_artifact_path(base_dir, std::path::Path::new("../checkpoints/legacy")),
+            PathBuf::from("configs/../checkpoints/legacy")
+        );
+        assert_eq!(
+            resolve_relative_path(base_dir, std::path::Path::new("./surface.json")),
+            PathBuf::from("configs/./surface.json")
+        );
+    }
+
+    #[test]
     fn automated_search_hard_gates_block_cross_surface_regression() {
         let surface = AutomatedSearchSurfaceSummary {
             surface_label: "tight_geometry_pressure".to_string(),
@@ -212,6 +917,9 @@ mod tests {
             claim_report: ClaimReport {
                 artifact_dir: "checkpoints/tight_geometry_pressure".into(),
                 run_label: "test".to_string(),
+                raw_native_evidence: ClaimRawNativeEvidenceSummary::default(),
+                processed_generation_evidence: ClaimProcessedGenerationEvidenceSummary::default(),
+                postprocessing_repair_audit: RepairCaseAuditReport::default(),
                 validation: test_generation_quality_summary(),
                 test: GenerationQualitySummary {
                     strict_pocket_fit_score: Some(0.35),
@@ -244,7 +952,10 @@ mod tests {
                 backend_thresholds: BTreeMap::new(),
                 backend_review: BackendReviewReport::default(),
                 layered_generation_metrics: empty_layered_generation_metrics(),
+                model_design: ModelDesignEvaluationMetrics::default(),
+                layer_provenance_audit: ClaimLayerProvenanceAudit::default(),
                 chemistry_novelty_diversity: ChemistryNoveltyDiversitySummary::default(),
+                chemistry_collaboration: ChemistryCollaborationMetrics::default(),
                 claim_context: ClaimContext::default(),
                 backend_environment: None,
                 ablation_deltas: Vec::new(),
@@ -254,6 +965,7 @@ mod tests {
                 performance_gates: PerformanceGateReport::default(),
                 baseline_comparisons: Vec::new(),
                 method_comparison: MethodComparisonSummary::default(),
+                train_eval_alignment: TrainEvalAlignmentReport::default(),
             },
         };
 
@@ -383,9 +1095,52 @@ mod tests {
     }
 
     #[test]
+    fn leakage_calibration_reports_probe_capacity_and_trivial_baselines() {
+        let mut summary: UnseenPocketExperimentSummary = serde_json::from_str(
+            &std::fs::read_to_string("checkpoints/pdbbindpp_real_backends/experiment_summary.json")
+                .expect("existing experiment summary should be readable for leakage tests"),
+        )
+        .expect("existing experiment summary should deserialize");
+        summary.config.research.model.semantic_probes.hidden_layers = 1;
+        summary.config.research.model.semantic_probes.hidden_dim = 64;
+        summary.test.proxy_task_metrics.probe_baselines = vec![ProbeBaselineMetric {
+            target: "topology_adjacency".to_string(),
+            loss_kind: "binary_cross_entropy".to_string(),
+            observed_loss: Some(0.2),
+            trivial_baseline_loss: Some(0.5),
+            improves_over_trivial: Some(true),
+            supervision_status: "available".to_string(),
+            available_count: 2,
+            interpretation: "test".to_string(),
+        }];
+
+        let report = build_leakage_calibration_report(&summary, &[]);
+
+        assert_eq!(report.probe_capacity.hidden_layers, 1);
+        assert_eq!(report.probe_capacity.hidden_dim, 64);
+        assert_eq!(report.probe_capacity.architecture, "mlp_relu");
+        assert_eq!(report.probe_baseline_comparisons.len(), 1);
+        assert!(report.probe_baseline_comparisons[0].improves_over_trivial == Some(true));
+        assert_eq!(
+            report.frozen_probe_calibration.calibration_status,
+            "not_run"
+        );
+        assert!(report.leakage_roles.optimizer_penalty.active);
+        assert_eq!(
+            report.leakage_roles.frozen_probe_audit.status,
+            "not_run"
+        );
+        assert!(report.capacity_sweep_artifact.is_none());
+    }
+
+    #[test]
     fn split_review_counts_wins_losses_and_ties() {
         let lightweight = GenerationQualitySummary {
+            generation_mode: "target_ligand_denoising".to_string(),
             primary_objective: "conditioned_denoising".to_string(),
+            primary_objective_provenance: "decoder_anchored_conditioned_denoising".to_string(),
+            primary_objective_claim_boundary:
+                "target_ligand_denoising_or_refinement_training_signal".to_string(),
             variant_label: Some("interaction_lightweight".to_string()),
             interaction_mode: "lightweight".to_string(),
             candidate_valid_fraction: Some(1.0),
@@ -401,9 +1156,14 @@ mod tests {
             slot_activation_mean: 0.7,
             gate_activation_mean: 0.3,
             leakage_proxy_mean: 0.08,
+            chemistry_collaboration: ChemistryCollaborationMetrics::default(),
         };
         let transformer = GenerationQualitySummary {
+            generation_mode: "target_ligand_denoising".to_string(),
             primary_objective: "conditioned_denoising".to_string(),
+            primary_objective_provenance: "decoder_anchored_conditioned_denoising".to_string(),
+            primary_objective_claim_boundary:
+                "target_ligand_denoising_or_refinement_training_signal".to_string(),
             variant_label: Some("interaction_transformer".to_string()),
             interaction_mode: "transformer".to_string(),
             candidate_valid_fraction: Some(1.0),
@@ -419,6 +1179,7 @@ mod tests {
             slot_activation_mean: 0.8,
             gate_activation_mean: 0.4,
             leakage_proxy_mean: 0.04,
+            chemistry_collaboration: ChemistryCollaborationMetrics::default(),
         };
 
         let review = build_split_review(&lightweight, &transformer);
@@ -450,11 +1211,21 @@ mod tests {
             min_test_examples_per_second: Some(20.0),
             max_validation_memory_mb: Some(5.0),
             max_test_memory_mb: Some(5.0),
+            min_test_raw_model_valid_fraction: Some(0.8),
+            min_test_raw_model_pocket_contact_fraction: Some(0.7),
+            max_test_raw_model_clash_fraction: Some(0.1),
+            min_test_raw_native_graph_valid_fraction: Some(0.9),
         };
         let validation = ResourceUsageMetrics {
             memory_usage_mb: 6.0,
             evaluation_time_ms: 100.0,
             examples_per_second: 9.0,
+            evaluation_batch_size: 2,
+            forward_batch_count: 1,
+            per_example_forward_count: 0,
+            no_grad: true,
+            batched_forward: true,
+            de_novo_per_example_reason: None,
             average_ligand_atoms: 5.0,
             average_pocket_atoms: 10.0,
         };
@@ -462,14 +1233,42 @@ mod tests {
             memory_usage_mb: 1.0,
             evaluation_time_ms: 100.0,
             examples_per_second: 30.0,
+            evaluation_batch_size: 2,
+            forward_batch_count: 1,
+            per_example_forward_count: 0,
+            no_grad: true,
+            batched_forward: true,
+            de_novo_per_example_reason: None,
             average_ligand_atoms: 5.0,
             average_pocket_atoms: 10.0,
         };
 
-        let report = build_performance_gate_report(&config, &validation, &test);
+        let report = build_performance_gate_report(
+            &config,
+            &validation,
+            &test,
+            &ModelDesignEvaluationMetrics {
+                raw_model_valid_fraction: 0.5,
+                raw_model_pocket_contact_fraction: 0.6,
+                raw_model_clash_fraction: 0.2,
+                raw_native_graph_valid_fraction: 0.4,
+                processed_valid_fraction: 1.0,
+                processed_pocket_contact_fraction: 1.0,
+                processed_clash_fraction: 0.0,
+                ..ModelDesignEvaluationMetrics::default()
+            },
+        );
 
         assert!(!report.passed);
-        assert_eq!(report.failed_reasons.len(), 2);
+        assert_eq!(report.failed_reasons.len(), 6);
+        assert!(report
+            .failed_reasons
+            .iter()
+            .any(|reason| reason.contains("raw_model_valid_fraction")));
+        assert!(report
+            .failed_reasons
+            .iter()
+            .any(|reason| reason.contains("raw_native_graph_valid_fraction")));
     }
 
     #[test]
@@ -497,11 +1296,147 @@ mod tests {
     }
 
     #[test]
+    fn q7_core_ablation_matrix_covers_model_design_axes() {
+        let mut config = UnseenPocketExperimentConfig::default();
+        config.ablation_matrix.include_disable_slots = true;
+        config.ablation_matrix.include_disable_probes = true;
+        config.ablation_matrix.include_disable_leakage = true;
+        config.ablation_matrix.include_generation_mode_ablation = true;
+        config.ablation_matrix.include_topology_encoder_ablation = true;
+        config.ablation_matrix.include_geometry_operator_ablation = true;
+        config.ablation_matrix.include_pocket_encoder_ablation = true;
+        config.ablation_matrix.include_decoder_conditioning_ablation = true;
+        config.ablation_matrix.include_slot_count_ablation = true;
+        config.ablation_matrix.include_slot_attention_masking_ablation = true;
+        config.ablation_matrix.include_gate_sparsity_ablation = true;
+        config.ablation_matrix.include_gate_scale_ablation = true;
+        config.ablation_matrix.include_disable_candidate_repair = true;
+        config
+            .ablation_matrix
+            .include_direct_fusion_negative_control = true;
+        config.ablation_matrix.include_redundancy_ablation = true;
+        config.ablation_matrix.include_modality_focus_ablation = true;
+        config.ablation_matrix.include_staged_schedule_ablation = true;
+        config.research.model.num_slots = 8;
+        config.research.training.loss_weights.eta_gate = 0.05;
+        config.research.training.loss_weights.delta_leak = 0.05;
+
+        let variants = ablation_variants(&config);
+        let labels = variants
+            .iter()
+            .filter_map(|variant| variant.variant_label.as_deref())
+            .collect::<std::collections::BTreeSet<_>>();
+
+        for required in [
+            "generation_mode_ligand_refinement",
+            "generation_mode_pocket_only_initialization_baseline",
+            "de_novo_full_molecular_flow",
+            "topology_encoder_lightweight",
+            "topology_encoder_typed_message_passing",
+            "geometry_operator_raw_coordinate_projection",
+            "geometry_operator_local_frame_pair_message",
+            "pocket_encoder_feature_projection",
+            "pocket_encoder_ligand_relative_local_frame",
+            "disable_slots",
+            "slot_count_reduced",
+            "slot_attention_masking_disabled",
+            "disable_leakage",
+            "leakage_penalty_disabled",
+            "redundancy_disabled",
+            "disable_probes",
+            "gate_sparsity_disabled",
+            "interaction_gate_temperature_high",
+            "direct_fusion_negative_control",
+            "topology_only",
+            "geometry_only",
+            "pocket_only",
+            "staged_schedule_disabled",
+            "decoder_conditioning_mean_pooled",
+            "disable_candidate_repair",
+        ] {
+            assert!(labels.contains(required), "missing {required}");
+        }
+
+        let matrix_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("configs/q7_core_ablation_matrix.json");
+        let manifest: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(matrix_path).unwrap()).unwrap();
+        let axes = manifest["axes"].as_array().unwrap();
+        assert!(axes.iter().any(|axis| axis["axis"] == "generation_mode"
+            && axis["variant"] == "generation_mode_pocket_only_initialization_baseline"
+            && axis["supported"] == true));
+        assert!(axes.iter().any(|axis| axis["axis"] == "generation_mode"
+            && axis["variant"] == "de_novo_full_molecular_flow"
+            && axis["supported"] == true));
+        assert!(axes.iter().any(|axis| axis["axis"] == "topology_encoder"
+            && axis["variant"] == "topology_encoder_typed_message_passing"));
+        assert!(axes.iter().any(|axis| axis["axis"] == "slot_attention_masking"
+            && axis["variant"] == "slot_attention_masking_disabled"));
+        assert!(axes.iter().any(|axis| axis["axis"] == "gate_scale"
+            && axis["variant"] == "interaction_gate_temperature_high"));
+        assert!(axes.iter().any(|axis| axis["axis"] == "interaction_negative_control"
+            && axis["variant"] == "direct_fusion_negative_control"));
+        assert!(axes
+            .iter()
+            .any(|axis| axis["axis"] == "redundancy"
+                && axis["variant"] == "redundancy_disabled"));
+        assert!(axes.iter().any(|axis| axis["axis"] == "modality_focus"
+            && axis["variant"] == "topology_only"));
+        assert!(axes.iter().any(|axis| axis["axis"] == "training_schedule"
+            && axis["variant"] == "staged_schedule_disabled"));
+        assert!(axes
+            .iter()
+            .any(|axis| axis["axis"] == "decoder_conditioning"));
+        assert!(manifest["minimum_report_fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|field| field == "model_design.raw_model_valid_fraction"));
+    }
+
+    #[test]
+    fn claim_context_limits_direct_fusion_negative_control_surfaces() {
+        assert_eq!(
+            ResearchConfig::default().model.interaction_mode,
+            CrossAttentionMode::Transformer
+        );
+
+        let controlled = build_claim_report(&test_experiment_summary_with_interaction_mode(
+            CrossAttentionMode::Transformer,
+        ));
+        assert_eq!(controlled.claim_context.interaction_mode, "transformer");
+        assert!(!controlled.claim_context.direct_fusion_negative_control);
+        assert!(controlled
+            .claim_context
+            .preferred_architecture_claim_allowed);
+
+        let direct_fusion = build_claim_report(&test_experiment_summary_with_interaction_mode(
+            CrossAttentionMode::DirectFusionNegativeControl,
+        ));
+        assert_eq!(
+            direct_fusion.claim_context.interaction_mode,
+            "direct_fusion_negative_control"
+        );
+        assert!(direct_fusion
+            .claim_context
+            .direct_fusion_negative_control);
+        assert!(!direct_fusion
+            .claim_context
+            .preferred_architecture_claim_allowed);
+        assert!(direct_fusion
+            .claim_context
+            .interaction_claim_boundary
+            .contains("ablation-only"));
+    }
+
+    #[test]
     fn candidate_layer_reports_diversity_proxies() {
         let mut first = test_candidate(vec![6, 6], vec![[0.0, 0.0, 0.0], [1.5, 0.0, 0.0]]);
         first.inferred_bonds = vec![(0, 1)];
+        first.bond_count = first.inferred_bonds.len();
         let mut second = test_candidate(vec![6, 8], vec![[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]);
         second.inferred_bonds = vec![(0, 1)];
+        second.bond_count = second.inferred_bonds.len();
 
         let metrics =
             summarize_candidate_layer(&[first, second], &NoveltyReferenceSignatures::default());
@@ -513,6 +1448,12 @@ mod tests {
         assert_eq!(metrics.novel_atom_type_sequence_fraction, 1.0);
         assert_eq!(metrics.novel_bond_topology_fraction, 1.0);
         assert_eq!(metrics.novel_coordinate_shape_fraction, 1.0);
+        assert_eq!(metrics.native_bond_count_mean, 1.0);
+        assert_eq!(metrics.native_component_count_mean, 1.0);
+        assert_eq!(metrics.native_valence_violation_fraction, 0.0);
+        assert_eq!(metrics.topology_bond_sync_fraction, 1.0);
+        assert!(metrics.atom_type_entropy.is_finite());
+        assert_eq!(metrics.native_graph_valid_fraction, 1.0);
     }
 
     #[test]
@@ -534,6 +1475,7 @@ mod tests {
                     },
                 ],
                 bonds: vec![(0, 1)],
+                bond_types: vec![1],
                 fingerprint: None,
             },
             &crate::types::Pocket {
@@ -665,7 +1607,11 @@ mod tests {
 
     fn test_generation_quality_summary() -> GenerationQualitySummary {
         GenerationQualitySummary {
+            generation_mode: "target_ligand_denoising".to_string(),
             primary_objective: "conditioned_denoising".to_string(),
+            primary_objective_provenance: "decoder_anchored_conditioned_denoising".to_string(),
+            primary_objective_claim_boundary:
+                "target_ligand_denoising_or_refinement_training_signal".to_string(),
             variant_label: Some("test".to_string()),
             interaction_mode: "transformer".to_string(),
             candidate_valid_fraction: Some(1.0),
@@ -681,6 +1627,95 @@ mod tests {
             slot_activation_mean: 0.4,
             gate_activation_mean: 0.3,
             leakage_proxy_mean: 0.05,
+            chemistry_collaboration: ChemistryCollaborationMetrics::default(),
+        }
+    }
+
+    fn test_experiment_summary_with_interaction_mode(
+        mode: CrossAttentionMode,
+    ) -> UnseenPocketExperimentSummary {
+        let mut config = UnseenPocketExperimentConfig::default();
+        config.research.model.interaction_mode = mode;
+        let dataset_validation = crate::data::DatasetValidationReport::default();
+        let empty_train = InMemoryDataset::new(Vec::new());
+        let empty_val = InMemoryDataset::new(Vec::new());
+        let empty_test = InMemoryDataset::new(Vec::new());
+        let split_report = SplitReport::from_datasets(&empty_train, &empty_val, &empty_test);
+        let reproducibility = reproducibility_metadata(&config.research, &dataset_validation, None);
+        let evaluation = test_evaluation_metrics_for_research(&config.research);
+        let coordinate_frame = CoordinateFrameProvenance::from_dataset_validation(&dataset_validation);
+        UnseenPocketExperimentSummary {
+            config,
+            dataset_validation,
+            coordinate_frame,
+            split_report,
+            reproducibility,
+            training_history: Vec::new(),
+            validation: evaluation.clone(),
+            test: evaluation,
+            ablation_matrix: None,
+            performance_gates: PerformanceGateReport::default(),
+        }
+    }
+
+    fn test_evaluation_metrics_for_research(research: &ResearchConfig) -> EvaluationMetrics {
+        let mut comparison_summary = test_generation_quality_summary();
+        comparison_summary.interaction_mode = interaction_mode_label(research.model.interaction_mode);
+        comparison_summary.generation_mode = generation_mode_label(research);
+        EvaluationMetrics {
+            representation_diagnostics: RepresentationDiagnostics {
+                finite_forward_fraction: 0.0,
+                unique_complex_fraction: 0.0,
+                unseen_protein_fraction: 0.0,
+                distance_probe_rmse: 0.0,
+                topology_pocket_cosine_alignment: 0.0,
+                topology_reconstruction_mse: 0.0,
+                slot_activation_mean: 0.0,
+                slot_assignment_entropy_mean: 0.0,
+                slot_activation_probability_mean: 0.0,
+                attention_visible_slot_fraction: 0.0,
+                gate_activation_mean: 0.0,
+                leakage_proxy_mean: 0.0,
+            },
+            proxy_task_metrics: ProxyTaskMetrics {
+                affinity_probe_mae: 0.0,
+                affinity_probe_rmse: 0.0,
+                labeled_fraction: 0.0,
+                affinity_by_measurement: Vec::new(),
+                probe_baselines: Vec::new(),
+            },
+            split_context: SplitContextMetrics {
+                example_count: 0,
+                unique_complex_count: 0,
+                unique_protein_count: 0,
+                train_reference_protein_count: 0,
+                ligand_atom_count_bins: BTreeMap::new(),
+                pocket_atom_count_bins: BTreeMap::new(),
+                measurement_family_histogram: BTreeMap::new(),
+            },
+            resource_usage: ResourceUsageMetrics {
+                memory_usage_mb: 0.0,
+                evaluation_time_ms: 0.0,
+                examples_per_second: 0.0,
+                evaluation_batch_size: research.data.batch_size,
+                forward_batch_count: 0,
+                per_example_forward_count: 0,
+                no_grad: true,
+                batched_forward: true,
+                de_novo_per_example_reason: None,
+                average_ligand_atoms: 0.0,
+                average_pocket_atoms: 0.0,
+            },
+            model_design: ModelDesignEvaluationMetrics::default(),
+            real_generation_metrics: disabled_real_generation_metrics(),
+            layered_generation_metrics: empty_layered_generation_metrics(),
+            method_comparison: MethodComparisonSummary::default(),
+            train_eval_alignment: TrainEvalAlignmentReport::default(),
+            chemistry_collaboration: ChemistryCollaborationMetrics::default(),
+            frozen_leakage_probe_calibration: FrozenLeakageProbeCalibrationReport::default(),
+            comparison_summary,
+            slot_stability: SlotStabilityMetrics::default(),
+            strata: Vec::new(),
         }
     }
 
@@ -688,6 +1723,9 @@ mod tests {
         ClaimReport {
             artifact_dir: "checkpoints/test".into(),
             run_label: "test".to_string(),
+            raw_native_evidence: ClaimRawNativeEvidenceSummary::default(),
+            processed_generation_evidence: ClaimProcessedGenerationEvidenceSummary::default(),
+            postprocessing_repair_audit: RepairCaseAuditReport::default(),
             validation: test_generation_quality_summary(),
             test: test_generation_quality_summary(),
             backend_metrics: RealGenerationMetrics {
@@ -716,7 +1754,10 @@ mod tests {
             backend_thresholds: BTreeMap::new(),
             backend_review: BackendReviewReport::default(),
             layered_generation_metrics: empty_layered_generation_metrics(),
+            model_design: ModelDesignEvaluationMetrics::default(),
+            layer_provenance_audit: ClaimLayerProvenanceAudit::default(),
             chemistry_novelty_diversity: ChemistryNoveltyDiversitySummary::default(),
+            chemistry_collaboration: ChemistryCollaborationMetrics::default(),
             claim_context: ClaimContext::default(),
             backend_environment: None,
             ablation_deltas: Vec::new(),
@@ -726,6 +1767,7 @@ mod tests {
             performance_gates: PerformanceGateReport::default(),
             baseline_comparisons: Vec::new(),
             method_comparison: MethodComparisonSummary::default(),
+            train_eval_alignment: TrainEvalAlignmentReport::default(),
         }
     }
 
@@ -737,12 +1779,37 @@ mod tests {
             atom_types,
             coords,
             inferred_bonds: Vec::new(),
+            bond_count: 0,
+            valence_violation_count: 0,
             pocket_centroid: [0.0, 0.0, 0.0],
             pocket_radius: 6.0,
             coordinate_frame_origin: [0.0, 0.0, 0.0],
             source: "test".to_string(),
+            generation_mode: "target_ligand_denoising".to_string(),
+            generation_layer: "raw_flow".to_string(),
+            generation_path_class: "model_native_raw".to_string(),
+            model_native_raw: true,
+            postprocessor_chain: Vec::new(),
+            claim_boundary:
+                "raw model-native output before repair, constraints, reranking, or backend scoring"
+                    .to_string(),
             source_pocket_path: Some("pocket.pdb".to_string()),
             source_ligand_path: Some("ligand.sdf".to_string()),
         }
+    }
+
+    fn repaired_test_candidate(
+        atom_types: Vec<i64>,
+        coords: Vec<[f32; 3]>,
+    ) -> GeneratedCandidateRecord {
+        let mut candidate = test_candidate(atom_types, coords);
+        candidate.source = "repaired".to_string();
+        candidate.generation_layer = "repaired_candidates".to_string();
+        candidate.generation_path_class = "postprocessed_repaired".to_string();
+        candidate.model_native_raw = false;
+        candidate.postprocessor_chain = vec!["geometry_repair".to_string()];
+        candidate.claim_boundary =
+            "geometry-repaired candidate; postprocessing evidence only".to_string();
+        candidate
     }
 }

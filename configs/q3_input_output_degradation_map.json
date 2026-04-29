@@ -1,0 +1,191 @@
+{
+  "version": "q3_input_output_degradation_map",
+  "goal": "Audit the full path from pocket-ligand inputs to backend-ready candidates so metric degradation can be attributed to concrete pipeline mechanisms, not only final Vina/GNINA numbers.",
+  "pipeline_stages": [
+    {
+      "stage": "data_and_coordinate_frame",
+      "inputs": [
+        "protein pocket atoms",
+        "ligand atom types",
+        "ligand coordinates",
+        "coordinate_frame_origin",
+        "pocket centroid and radius"
+      ],
+      "degradation_mechanisms": [
+        "ligand and pocket coordinates can be evaluated in inconsistent frames",
+        "pocket radius or centroid can be inferred from a protein crop rather than the intended binding pocket",
+        "candidate export can double-apply or omit coordinate_frame_origin"
+      ],
+      "required_observables": [
+        "ligand_centroid_raw",
+        "pocket_centroid_raw",
+        "coordinate_frame_origin",
+        "ligand_to_pocket_centroid_distance",
+        "docking_box_center",
+        "docking_box_size"
+      ],
+      "failure_signal": "large docking degradation with little internal ligand geometry change"
+    },
+    {
+      "stage": "separate_encoders_and_slot_decomposition",
+      "inputs": [
+        "topology features",
+        "geometry features",
+        "pocket/context features"
+      ],
+      "degradation_mechanisms": [
+        "slot collapse can remove local pocket information before generation",
+        "pooled summaries can hide atom-level pocket contacts",
+        "off-modality leakage can blur topology, geometry, and context roles"
+      ],
+      "required_observables": [
+        "topology_slot_active_fraction",
+        "geometry_slot_active_fraction",
+        "pocket_slot_active_fraction",
+        "slot_balance_loss",
+        "leakage_probe_scores"
+      ],
+      "failure_signal": "raw_flow candidates have acceptable global pocket proxies but poor backend affinity"
+    },
+    {
+      "stage": "gated_cross_modal_conditioning",
+      "inputs": [
+        "topology context",
+        "geometry context",
+        "pocket context",
+        "gate summaries"
+      ],
+      "degradation_mechanisms": [
+        "weak geo_from_pocket gates can under-condition coordinates on pocket geometry",
+        "overly dense gates can collapse controlled interaction into noisy fusion",
+        "gate summaries alone cannot diagnose which pocket tokens influence which atoms"
+      ],
+      "required_observables": [
+        "geo_from_pocket_gate_mean",
+        "atom_pocket_attention_entropy",
+        "pocket_token_utilization",
+        "per-atom conditioning_norm"
+      ],
+      "failure_signal": "candidate placement is globally plausible but locally incompatible with receptor atoms"
+    },
+    {
+      "stage": "flow_velocity_prediction",
+      "inputs": [
+        "current coordinates",
+        "x0 coordinates",
+        "timestep",
+        "conditioning summary"
+      ],
+      "degradation_mechanisms": [
+        "current baseline velocity head mostly uses pooled conditioning summaries",
+        "per-atom velocity can miss local ligand-ligand geometry and receptor clashes",
+        "translation invariance is tested, but rotation consistency and local pocket equivariance are not yet sufficient"
+      ],
+      "required_observables": [
+        "velocity_norm",
+        "velocity_step_delta",
+        "nearest_pocket_atom_distance_before_after_step",
+        "nearest_ligand_neighbor_distance_before_after_step",
+        "rotation_consistency_error"
+      ],
+      "failure_signal": "raw_flow Vina/GNINA is poor before any repair or reranking"
+    },
+    {
+      "stage": "sampling_and_constraints",
+      "inputs": [
+        "flow trajectory",
+        "atom-type logits",
+        "coordinate deltas",
+        "constrained_flow rules"
+      ],
+      "degradation_mechanisms": [
+        "hard constraints can move candidates away from a dockable raw pose",
+        "atom-type sampling can generate chemically difficult candidates even if coordinates are plausible",
+        "coordinate noise or clipping can introduce receptor clashes"
+      ],
+      "required_observables": [
+        "raw_to_constrained_centroid_shift",
+        "raw_to_constrained_pair_distance_delta",
+        "raw_to_constrained_clash_delta",
+        "atom_type_entropy"
+      ],
+      "failure_signal": "constrained_flow is worse than raw_flow on docking backends"
+    },
+    {
+      "stage": "bond_inference_and_chemistry_refinement",
+      "inputs": [
+        "atom types",
+        "generated coordinates",
+        "distance-inferred bonds",
+        "valence rules"
+      ],
+      "degradation_mechanisms": [
+        "distance-only bond inference can create bad valence or synthetic accessibility patterns",
+        "chemistry refinement can change the backend molecular payload even when coordinates are fixed",
+        "coordinate-moving repair can be incorrectly mixed with bond-only refinement"
+      ],
+      "required_observables": [
+        "bond_count",
+        "valence_violation_count",
+        "sanitization_status",
+        "coordinate_max_abs_delta",
+        "SA_delta",
+        "QED_delta"
+      ],
+      "failure_signal": "SA/QED or RDKit validity degrades while coordinate-level docking stays similar"
+    },
+    {
+      "stage": "repair_postprocessing",
+      "inputs": [
+        "raw candidate coordinates",
+        "pocket centroid",
+        "pocket atoms",
+        "repair heuristics"
+      ],
+      "degradation_mechanisms": [
+        "centroid anchoring can translate candidates away from their raw dockable pose",
+        "pocket declash can push atoms into worse docking-box geometry",
+        "full repair combines coordinate movement and bond inference, making attribution difficult"
+      ],
+      "required_observables": [
+        "raw_to_repair_centroid_shift",
+        "raw_to_repair_rmsd",
+        "raw_to_repair_clash_delta",
+        "raw_to_repair_contact_delta",
+        "repair_acceptance_reason",
+        "repair_rejection_reason"
+      ],
+      "failure_signal": "centroid_only or full_repair produces large positive Vina/GNINA deltas"
+    },
+    {
+      "stage": "proxy_reranking_and_backend_export",
+      "inputs": [
+        "layered candidates",
+        "proxy scores",
+        "PDBQT conversion",
+        "Vina/GNINA candidate JSON"
+      ],
+      "degradation_mechanisms": [
+        "weak pocket-fit proxies can select candidates that dock badly",
+        "backend export can silently change atoms, coordinates, or docking boxes",
+        "posthoc backend-aware ranking can be mistaken for native model quality"
+      ],
+      "required_observables": [
+        "proxy_score_components",
+        "proxy_to_backend_rank_correlation",
+        "backend_candidate_atom_count",
+        "backend_candidate_coord_count",
+        "export_status",
+        "model_native"
+      ],
+      "failure_signal": "reranked or exported candidates improve proxy metrics but not backend docking"
+    }
+  ],
+  "diagnostic_order": [
+    "First verify coordinate frame and backend export, because mistakes here can dominate all downstream metrics.",
+    "Then compare raw_flow versus constrained_flow before repair, because native model quality must be isolated.",
+    "Then separate coordinate-preserving chemistry refinement from coordinate-moving repair.",
+    "Only after these checks should proxy reranking or preference data be used."
+  ],
+  "claim_boundary": "Only raw_flow or explicitly model-native coordinate-preserving outputs may support model improvement claims. Repaired, reranked, or backend-aware posthoc outputs remain diagnostic unless separately justified."
+}

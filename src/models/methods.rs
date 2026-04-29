@@ -66,6 +66,141 @@ mod tests {
     }
 
     #[test]
+    fn native_metric_layer_selection_is_method_family_aware() {
+        let base =
+            comparison_row_with_layers(CONDITIONED_DENOISING_METHOD_ID, true, false, false, false);
+        assert_eq!(base.method_family, "conditioneddenoising");
+        assert_eq!(base.selected_metric_layer.as_deref(), Some("raw_rollout"));
+        assert!(base.selected_metric_layer_model_native_raw);
+
+        let repair = comparison_row_with_layers(REPAIR_ONLY_METHOD_ID, false, true, false, false);
+        assert_eq!(repair.method_family, "repaironly");
+        assert_eq!(
+            repair.selected_metric_layer.as_deref(),
+            Some("repaired_candidates")
+        );
+        assert_eq!(
+            repair.selected_metric_layer_path_class.as_deref(),
+            Some("repaired")
+        );
+        assert!(!repair.selected_metric_layer_model_native_raw);
+
+        let deterministic_proxy = comparison_row_with_layers(
+            DETERMINISTIC_PROXY_RERANKER_METHOD_ID,
+            false,
+            true,
+            true,
+            false,
+        );
+        assert_eq!(deterministic_proxy.method_family, "rerankeronly");
+        assert_eq!(
+            deterministic_proxy.selected_metric_layer.as_deref(),
+            Some("deterministic_proxy_candidates")
+        );
+        assert_eq!(
+            deterministic_proxy
+                .selected_metric_layer_path_class
+                .as_deref(),
+            Some("reranked")
+        );
+
+        let calibrated =
+            comparison_row_with_layers(CALIBRATED_RERANKER_METHOD_ID, false, true, true, true);
+        assert_eq!(calibrated.method_family, "rerankeronly");
+        assert_eq!(
+            calibrated.selected_metric_layer.as_deref(),
+            Some("reranked_candidates")
+        );
+
+        let hybrid =
+            comparison_row_with_layers(CONDITIONED_DENOISING_METHOD_ID, true, true, true, true);
+        assert_eq!(hybrid.selected_metric_layer.as_deref(), Some("raw_rollout"));
+        assert_eq!(
+            hybrid.selected_metric_layer_path_class.as_deref(),
+            Some("model_native_raw")
+        );
+        assert!(hybrid.selected_metric_layer_model_native_raw);
+    }
+
+    fn comparison_row_with_layers(
+        method_id: &str,
+        native_raw: bool,
+        include_repaired: bool,
+        include_deterministic_proxy: bool,
+        include_reranked: bool,
+    ) -> MethodComparisonRow {
+        let metadata = PocketGenerationMethodRegistry::metadata(method_id).unwrap();
+        let mut output = LayeredGenerationOutput::empty(metadata.clone());
+        output.raw_rollout = Some(layer_output(
+            &metadata,
+            CandidateLayerKind::RawRollout,
+            native_raw,
+            Vec::new(),
+            vec![method_test_candidate("raw")],
+        ));
+        if include_repaired {
+            output.repaired = Some(layer_output(
+                &metadata,
+                CandidateLayerKind::Repaired,
+                false,
+                vec!["pocket_centroid_repair".to_string()],
+                vec![method_test_candidate("repaired")],
+            ));
+        }
+        if include_deterministic_proxy {
+            output.deterministic_proxy = Some(layer_output(
+                &metadata,
+                CandidateLayerKind::DeterministicProxy,
+                false,
+                vec!["deterministic_proxy_rerank".to_string()],
+                vec![method_test_candidate("deterministic_proxy")],
+            ));
+        }
+        if include_reranked {
+            output.reranked = Some(layer_output(
+                &metadata,
+                CandidateLayerKind::Reranked,
+                false,
+                vec!["bounded_calibrated_rerank".to_string()],
+                vec![method_test_candidate("reranked")],
+            ));
+        }
+
+        let row = summarize_method_output(&output);
+        let serialized = serde_json::to_value(&row).unwrap();
+        assert!(serialized.get("selected_metric_layer").is_some());
+        assert!(serialized.get("method_family").is_some());
+        row
+    }
+
+    fn method_test_candidate(source: &str) -> GeneratedCandidateRecord {
+        GeneratedCandidateRecord {
+            example_id: "example".to_string(),
+            protein_id: "protein".to_string(),
+            molecular_representation: None,
+            atom_types: vec![6, 8],
+            coords: vec![[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]],
+            inferred_bonds: vec![(0, 1)],
+            bond_count: 1,
+            valence_violation_count: 0,
+            pocket_centroid: [0.0, 0.0, 0.0],
+            pocket_radius: 4.0,
+            coordinate_frame_origin: [0.0, 0.0, 0.0],
+            source: source.to_string(),
+            generation_mode: crate::config::GenerationModeConfig::TargetLigandDenoising
+                .as_str()
+                .to_string(),
+            generation_layer: "unassigned".to_string(),
+            generation_path_class: "unassigned".to_string(),
+            model_native_raw: false,
+            postprocessor_chain: Vec::new(),
+            claim_boundary: String::new(),
+            source_pocket_path: None,
+            source_ligand_path: None,
+        }
+    }
+
+    #[test]
     fn promoted_backend_families_emit_distinct_runnable_candidates() {
         let config = crate::config::ResearchConfig::default();
         let var_store = tch::nn::VarStore::new(tch::Device::Cpu);

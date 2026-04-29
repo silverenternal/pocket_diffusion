@@ -8,15 +8,19 @@ use tch::nn;
 
 use crate::{
     config::{load_research_config, DatasetFormat},
-    data::{Dataset, DatasetValidationReport, InMemoryDataset},
-    experiments::{evaluate_split, AblationConfig},
+    data::{DatasetValidationReport, InMemoryDataset},
+    experiments::{evaluate_split, AblationConfig, EvaluationMetrics},
     models::Phase1ResearchSystem,
     training::{
         reproducibility_metadata, stable_json_hash, RunArtifactBundle, RunArtifactPaths, RunKind,
     },
 };
 
-use super::{DatasetSplitSizes, ResearchTrainer, SplitReport, StepMetrics, TrainingRunSummary};
+use super::{
+    metrics::objective_coverage_report, BestCheckpointSummary, CoordinateFrameProvenance,
+    DatasetSplitSizes, EarlyStoppingSummary, ResearchTrainer, SplitReport, StepMetrics,
+    TrainingRunSummary, ValidationHistoryEntry,
+};
 
 /// One sample row emitted by dataset inspection.
 #[derive(Debug, Clone)]
@@ -127,7 +131,12 @@ pub fn inspect_dataset_from_config(
         })
         .collect();
 
-    let split_report = SplitReport::from_datasets(&splits.train, &splits.val, &splits.test);
+    let split_report = SplitReport::from_datasets_with_quality_filters(
+        &splits.train,
+        &splits.val,
+        &splits.test,
+        &config.data.quality_filters,
+    );
     let validation_report_path = write_dataset_validation_report(
         &config.training.checkpoint_dir,
         "dataset_validation_report.json",
@@ -165,6 +174,13 @@ pub fn run_training_from_config(
         config.data.split_seed,
         config.data.stratify_by_measurement,
     );
+    let split_report = SplitReport::from_datasets_with_quality_filters(
+        &splits.train,
+        &splits.val,
+        &splits.test,
+        &config.data.quality_filters,
+    );
+    split_report.enforce_configured_quality_thresholds()?;
 
     let device = config.runtime.resolve_device()?;
     let mut var_store = nn::VarStore::new(device);
@@ -183,9 +199,10 @@ pub fn run_training_from_config(
                 trainer.replace_history(history);
             }
             log::info!(
-                "resumed training from step {} at {}",
+                "resumed training from step {} at {} with resume_mode={}",
                 checkpoint.metadata.step,
-                checkpoint.weights_path.display()
+                checkpoint.weights_path.display(),
+                checkpoint.metadata.resume_mode.as_str()
             );
         } else {
             log::info!(
@@ -195,24 +212,43 @@ pub fn run_training_from_config(
         }
     }
 
-    let train_examples: Vec<_> = splits
-        .train
-        .examples()
-        .iter()
-        .map(|example| example.to_device(device))
-        .collect();
-    trainer.fit(&var_store, &system, &train_examples)?;
-
     let train_proteins: BTreeSet<&str> = splits
         .train
         .examples()
         .iter()
         .map(|example| example.protein_id.as_str())
         .collect();
+    let train_reference_examples = splits.train.examples().to_vec();
+    let validation_examples = splits.val.examples().to_vec();
+    let mut validation_monitor = ValidationMonitor::new(&config);
+    trainer.fit_source_with_step_observer(
+        &var_store,
+        &system,
+        &splits.train,
+        |trainer, var_store, metrics| {
+            if config.training.validation_every == 0
+                || (metrics.step + 1) % config.training.validation_every != 0
+            {
+                return Ok(false);
+            }
+            let validation = evaluate_split(
+                &system,
+                &validation_examples,
+                &train_reference_examples,
+                &train_proteins,
+                &config,
+                AblationConfig::default(),
+                &crate::experiments::ExternalEvaluationConfig::default(),
+                "validation",
+                device,
+            );
+            validation_monitor.observe(trainer, var_store, metrics, validation)
+        },
+    )?;
     let validation = evaluate_split(
         &system,
-        splits.val.examples(),
-        splits.train.examples(),
+        &validation_examples,
+        &train_reference_examples,
         &train_proteins,
         &config,
         AblationConfig::default(),
@@ -220,10 +256,20 @@ pub fn run_training_from_config(
         "validation",
         device,
     );
+    if let Some(last_metrics) = trainer.history().last() {
+        if validation_monitor.last_validation_step() != Some(last_metrics.step) {
+            let _ = validation_monitor.observe(
+                &trainer,
+                &var_store,
+                last_metrics,
+                validation.clone(),
+            )?;
+        }
+    }
     let test = evaluate_split(
         &system,
         splits.test.examples(),
-        splits.train.examples(),
+        &train_reference_examples,
         &train_proteins,
         &config,
         AblationConfig::default(),
@@ -232,29 +278,198 @@ pub fn run_training_from_config(
         device,
     );
 
+    let early_stopping = validation_monitor.early_stopping_summary();
+    let validation_history = validation_monitor.history;
+    let best_checkpoint = validation_monitor.best_checkpoint;
+
+    let training_history = trainer.history().to_vec();
     let summary = TrainingRunSummary {
         config: config.clone(),
         dataset_validation: loaded.validation.clone(),
+        coordinate_frame: CoordinateFrameProvenance::from_dataset_validation(&loaded.validation),
         splits: DatasetSplitSizes {
             total: dataset.len(),
             train: splits.train.len(),
             val: splits.val.len(),
             test: splits.test.len(),
         },
-        split_report: SplitReport::from_datasets(&splits.train, &splits.val, &splits.test),
+        split_report,
         resumed_from_step,
         reproducibility: reproducibility_metadata(
             &config,
             &loaded.validation,
             resumed_checkpoint_metadata.as_ref(),
         ),
-        training_history: trainer.history().to_vec(),
+        objective_coverage: objective_coverage_report(&config, &training_history),
+        training_history,
+        validation_history,
+        best_checkpoint,
+        early_stopping,
         validation: validation.clone(),
         test: test.clone(),
     };
     persist_training_artifacts(&summary)?;
 
     Ok(summary)
+}
+
+#[derive(Debug)]
+struct ValidationMonitor {
+    metric_name: String,
+    higher_is_better: bool,
+    best_value: Option<f64>,
+    best_checkpoint: Option<BestCheckpointSummary>,
+    history: Vec<ValidationHistoryEntry>,
+    patience: Option<usize>,
+    checks_without_improvement: usize,
+    stopped_early: bool,
+    stop_step: Option<usize>,
+}
+
+impl ValidationMonitor {
+    fn new(config: &crate::config::ResearchConfig) -> Self {
+        let metric = validation_metric_descriptor(&config.resolved_best_metric());
+        Self {
+            metric_name: metric.name,
+            higher_is_better: metric.higher_is_better,
+            best_value: None,
+            best_checkpoint: None,
+            history: Vec::new(),
+            patience: config.training.early_stopping_patience,
+            checks_without_improvement: 0,
+            stopped_early: false,
+            stop_step: None,
+        }
+    }
+
+    fn observe(
+        &mut self,
+        trainer: &ResearchTrainer,
+        var_store: &nn::VarStore,
+        step_metrics: &StepMetrics,
+        metrics: EvaluationMetrics,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let metric_value =
+            validation_metric_value(&metrics, &self.metric_name).ok_or_else(|| {
+                format!(
+                    "validation metric {} is unavailable for best-checkpoint selection",
+                    self.metric_name
+                )
+            })?;
+        if !metric_value.is_finite() {
+            return Err(format!(
+                "validation metric {} is non-finite: {}",
+                self.metric_name, metric_value
+            )
+            .into());
+        }
+        let improved = self
+            .best_value
+            .map(|best| {
+                if self.higher_is_better {
+                    metric_value > best + 1.0e-12
+                } else {
+                    metric_value < best - 1.0e-12
+                }
+            })
+            .unwrap_or(true);
+
+        if improved {
+            self.best_value = Some(metric_value);
+            self.checks_without_improvement = 0;
+            trainer.save_best_checkpoint_for_step(
+                var_store,
+                step_metrics,
+                step_metrics.step,
+                &self.metric_name,
+                metric_value,
+                self.higher_is_better,
+            )?;
+            self.best_checkpoint = Some(BestCheckpointSummary {
+                step: step_metrics.step,
+                metric_name: self.metric_name.clone(),
+                metric_value,
+                higher_is_better: self.higher_is_better,
+                weights_path: trainer.checkpoints().dir().join("best.ot"),
+                metadata_path: trainer.checkpoints().dir().join("best.json"),
+            });
+        } else {
+            self.checks_without_improvement += 1;
+        }
+
+        self.history.push(ValidationHistoryEntry {
+            step: step_metrics.step,
+            split: "validation".to_string(),
+            metric_name: self.metric_name.clone(),
+            metric_value,
+            higher_is_better: self.higher_is_better,
+            improved,
+            metrics,
+        });
+
+        if let Some(patience) = self.patience {
+            if self.checks_without_improvement >= patience {
+                self.stopped_early = true;
+                self.stop_step = Some(step_metrics.step);
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    fn last_validation_step(&self) -> Option<usize> {
+        self.history.last().map(|entry| entry.step)
+    }
+
+    fn early_stopping_summary(&self) -> EarlyStoppingSummary {
+        EarlyStoppingSummary {
+            enabled: self.patience.is_some(),
+            patience: self.patience,
+            stopped_early: self.stopped_early,
+            stop_step: self.stop_step,
+            best_step: self.best_checkpoint.as_ref().map(|best| best.step),
+            checks_without_improvement: self.checks_without_improvement,
+        }
+    }
+}
+
+struct ValidationMetricDescriptor {
+    name: String,
+    higher_is_better: bool,
+}
+
+fn validation_metric_descriptor(metric: &str) -> ValidationMetricDescriptor {
+    let name = metric
+        .trim()
+        .strip_prefix("validation.")
+        .unwrap_or_else(|| metric.trim())
+        .to_string();
+    let higher_is_better = !matches!(
+        name.as_str(),
+        "leakage_proxy_mean" | "distance_probe_rmse" | "affinity_probe_mae"
+    );
+    ValidationMetricDescriptor {
+        name,
+        higher_is_better,
+    }
+}
+
+fn validation_metric_value(metrics: &EvaluationMetrics, metric_name: &str) -> Option<f64> {
+    match metric_name {
+        "finite_forward_fraction" => {
+            Some(metrics.representation_diagnostics.finite_forward_fraction)
+        }
+        "strict_pocket_fit_score" => metrics.comparison_summary.strict_pocket_fit_score,
+        "candidate_valid_fraction" => metrics
+            .comparison_summary
+            .candidate_valid_fraction
+            .or(Some(metrics.model_design.processed_valid_fraction)),
+        "leakage_proxy_mean" => Some(metrics.representation_diagnostics.leakage_proxy_mean),
+        "distance_probe_rmse" => Some(metrics.representation_diagnostics.distance_probe_rmse),
+        "affinity_probe_mae" => Some(metrics.proxy_task_metrics.affinity_probe_mae),
+        "examples_per_second" => Some(metrics.resource_usage.examples_per_second),
+        _ => None,
+    }
 }
 
 fn persist_training_artifacts(
@@ -385,6 +600,8 @@ mod tests {
         config.training.schedule.stage3_steps = 2;
         config.training.log_every = 100;
         config.training.checkpoint_every = 100;
+        config.training.validation_every = 1;
+        config.training.best_metric = "finite_forward_fraction".to_string();
         config.training.checkpoint_dir = temp.path().join("checkpoints");
 
         let config_path = temp.path().join("research_config.json");
@@ -409,6 +626,32 @@ mod tests {
         assert_eq!(summary.splits.val, 1);
         assert_eq!(summary.splits.test, 1);
         assert_eq!(summary.dataset_validation.parsed_examples, 4);
+        assert_eq!(
+            summary.coordinate_frame.coordinate_frame_contract,
+            summary.dataset_validation.coordinate_frame_contract
+        );
+        assert_eq!(
+            summary.coordinate_frame.rotation_consistency_role,
+            "diagnostic_not_exact_equivariance_claim"
+        );
+        assert_eq!(
+            summary.objective_coverage.primary_objective,
+            "conditioned_denoising"
+        );
+        assert!(summary.objective_coverage.records.iter().any(|record| {
+            record.component_name == "rollout_eval_stop"
+                && !record.optimizer_facing
+                && !record.differentiable
+        }));
+        assert!(summary.objective_coverage.records.iter().any(|record| {
+            record.component_name == "geometry" && record.optimizer_facing && record.differentiable
+        }));
+        assert!(!summary.validation_history.is_empty());
+        assert!(summary.best_checkpoint.is_some());
+        let best = summary.best_checkpoint.as_ref().unwrap();
+        assert_eq!(best.metric_name, "finite_forward_fraction");
+        assert!(best.weights_path.exists());
+        assert!(best.metadata_path.exists());
         assert!(summary
             .config
             .training

@@ -6,7 +6,14 @@ This project should separate implementation claims from evidence claims.
 
 - The Rust stack implements separate topology, geometry, and pocket encoders.
 - Slot decomposition, gated cross-modal interaction, staged losses, split diagnostics, multi-seed summaries, backend command adapters, and the method-aware generation comparison contract are implemented and runnable.
+- Conditioned denoising/refinement, geometry-only coordinate flow matching, de novo full molecular flow, and deterministic rollout diagnostics are implemented and runnable as separate surfaces.
+- Experiment summaries may cite `train_eval_alignment` when distinguishing optimizer-facing losses from detached rollout/backend diagnostics.
+- Dataset validation may cite coordinate-frame provenance, source-coordinate reconstruction support, and target-ligand context dependency when those fields are present in `dataset_validation_report.json`.
 - Compact artifacts may be described as local regression or smoke evidence.
+- The Q14 compact final smoke at `checkpoints/q14_final_smoke` may be cited as
+  execution and artifact-wiring evidence for conditioned denoising,
+  geometry-flow, and de novo full-flow surfaces. It is synthetic, two-step
+  smoke evidence only.
 - As of April 24, 2026, the repository may be described as a backend-supported research framework that is ready for real held-out-pocket iteration: the compact gate, repository real-backend gate, canonical larger-data PDBbind++ real-backend surface, and its refreshed three-seed companion all ran successfully in the current workspace.
 
 ## Provisional Only
@@ -14,7 +21,10 @@ This project should separate implementation claims from evidence claims.
 - Medium-profile results are provisional until the configured root contains enough labeled, diverse, held-out pocket families.
 - The current reviewer-facing larger-data surfaces are `checkpoints/pdbbindpp_real_backends` and `checkpoints/lp_pdbbind_refined_real_backends`; use `checkpoints/pdbbindpp_profile` only as the heuristic fallback when real backends are unavailable.
 - Real-backend chemistry and pocket results are provisional unless backend availability, missing-structure fraction, sanitization, uniqueness, clash, and pocket-fit gates pass in the target environment.
+- Train/eval alignment evidence is provisional unless `optimizer_facing` terms, detached `rollout_eval_*` diagnostics, backend coverage rows, and best-metric review are persisted in the same experiment/claim artifacts being cited.
+- Raw-native model evidence is provisional unless `raw_native_evidence`, `model_design.raw_model_*`, `model_design.raw_native_*`, and `layered_generation_metrics.raw_rollout` are present. Processed improvements must remain secondary and carry `postprocessor_chain` plus `claim_boundary`; repaired improvements must also cite `postprocessing_repair_audit` or `layered_generation_metrics.repair_case_audit` and must not be described as raw generation evidence.
 - Real-data claim wording is also provisional unless the retained dataset contract is explicit: source-structure provenance coverage, normalization-provenance coverage, approximate-label fraction, and measurement-family composition must be persisted in `dataset_validation.json`, not inferred informally.
+- Pocket-only or de novo wording is provisional unless target-ligand-centered context dependency is absent, rejected by `quality_filters.reject_target_ligand_context_leakage=true`, or the claim explicitly cites the de novo execution path that recenters pocket features and treats target ligand fields as training supervision only.
 - Label-table handling must also remain explicit for claim-bearing wording: duplicate-key overwrites, unmatched loaded labels, and skipped blank/comment rows should be taken from persisted dataset validation artifacts rather than assumed away.
 - The stronger Vina companion surface is claim-bearing only when `checkpoints/vina_backend/claim_summary.json` reports `backend_review.reviewer_status=pass`; if Vina or Vina-ready PDBQT inputs are absent, the same artifact should remain explicitly non-passing rather than being interpreted as heuristic-only chemistry evidence.
 - Tight-geometry interpretation now has a clean reviewer pass on the canonical surface: `checkpoints/tight_geometry_pressure` reports `test.leakage_proxy_mean=0.0613`, `strict_pocket_fit_score=0.6178`, `clash_fraction=0.0`, and `leakage_calibration.reviewer_status=pass`.
@@ -22,11 +32,21 @@ This project should separate implementation claims from evidence claims.
 ## Blocked Wording
 
 - Do not claim broad unseen-pocket generalization from mini or five-complex smoke surfaces.
+- Do not claim de novo benchmark quality from `checkpoints/q14_final_smoke`;
+  use it only for runnable-path, matching-provenance, leakage-audit, and
+  raw-vs-processed artifact checks.
 - Do not claim production docking quality from contact/clash/centroid proxy backends.
+- Do not describe backend score-only metrics as experimental binding affinity. Docking backends provide docking-supported score evidence only when backend availability, input completeness, and score coverage are explicit.
 - Do not claim human, docking, or experimental preference alignment from heuristic-only preference pairs. Use `rule-based preference proxy` unless human-curated labels, passing docking coverage, or experimental outcomes are explicitly present.
 - Do not claim a diffusion generator unless a diffusion-style objective and sampler are explicitly implemented and evaluated.
 - Treat the crate name `pocket_diffusion` as historical compatibility wording only; reviewer-facing text should describe the active system as modular representation learning / conditioned generation unless and until a true diffusion path is added.
 - Do not describe conditioned denoising as the repository's only generator interface anymore. Reviewer-facing wording should distinguish the active claim-bearing method from the broader method platform.
+- Do not claim true de novo generation from target-ligand denoising, ligand refinement, pocket-only baseline, or geometry-only flow configs. De novo wording requires `generation_mode=de_novo_initialization`, `generation_method.primary_backend.family=flow_matching`, `flow_matching.geometry_only=false`, and all five flow branches enabled.
+- Do not use de novo wording unless the artifact also has `claim_context.de_novo_claim_allowed=true`, pocket-centered conditioning provenance, and no target-ligand tensors used as conditioning input. Target ligand atom, topology, coordinate, and pocket-relative fields are supervision only for the de novo path.
+- Do not claim full molecular flow from geometry-only configs. Full molecular flow wording requires geometry, atom-type, bond, topology, and pocket/context branches, with branch losses and rollout diagnostics persisted.
+- Do not present `rollout_eval_*` recovery as a training loss. It is detached evaluation evidence unless `enable_trainable_rollout_loss` is backed by a tensor-preserving objective.
+- Do not use `finite_forward_fraction` as the best quality metric for claim-bearing model selection. It is acceptable for smoke health checks; reviewer-facing runs should use quality-aware metrics with availability review.
+- Do not cite ligand-centered pocket/context tensors as pocket-only conditioning evidence. They are acceptable for target-ligand refinement only when the dependency is recorded.
 - Do not claim strong chemistry novelty or diversity from uniqueness alone. Use the explicit novelty/diversity fields together with `benchmark_evidence`, which now separates proxy-only chemistry summaries, local benchmark-style chemistry aggregates, `reviewer_benchmark_plus`, and the explicit `external_benchmark_backed` tier on the canonical larger-data real-backend PDBbind++ surface.
 
 Proxy-only chemistry evidence is the structural-signature novelty/diversity summary. Local benchmark-style chemistry evidence combines backend-backed sanitization and unique-SMILES quality with held-out-pocket novelty/diversity aggregates. `reviewer_benchmark_plus` adds explicit reviewer checks on parseability, finite conformers, review-layer support, and novelty/diversity support. The current strongest reviewer-facing chemistry evidence is `benchmark_evidence.evidence_tier=external_benchmark_backed` on both `checkpoints/pdbbindpp_real_backends` and `checkpoints/lp_pdbbind_refined_real_backends`: they keep the reviewer benchmark-plus checks and make the external benchmark dataset layer first-class by requiring explicit benchmark dataset labels, passing data thresholds, and passing held-out family coverage. Strong chemistry-facing wording should now cite benchmark breadth rather than only the single strongest surface: the canonical PDBbind++ artifact remains the main anchor, the LP-PDBBind refined artifact is the second larger-data external benchmark surface, and `checkpoints/tight_geometry_pressure` plus `checkpoints/real_backends` remain persisted companion review surfaces summarized in `docs/evidence_bundle.json` and `docs/paper_claim_bundle.md`.
@@ -78,6 +98,7 @@ The current hard gate thresholds are intentionally conservative local-review def
 - Minimum retained normalization-provenance coverage for claim-ready language: `>= 0.95` across labeled examples.
 - Maximum retained approximate-label fraction for claim-ready language: `<= 0.25` unless the surface is explicitly described as proxy-family-heavy.
 - Minimum held-out diversity: `>= 10` validation proxy protein families and `>= 10` test proxy protein families, with no protein overlap or duplicate examples across splits.
+- Claim-bearing configs should encode held-out diversity thresholds directly in `data.quality_filters` using `min_validation_protein_families`, `min_test_protein_families`, `min_validation_measurement_families`, and `min_test_measurement_families` when those guarantees are part of the wording.
 - Required backend schema: every enabled external backend must emit `schema_version >= 1` and `backend_examples_scored > 0`.
 - Maximum missing structure fraction: `backend_missing_structure_fraction <= 0.0` for claim-bearing backend runs.
 - Minimum RDKit availability: `rdkit_available >= 1.0`.
@@ -94,6 +115,8 @@ The current hard gate thresholds are intentionally conservative local-review def
 - Leakage reviewer rule: `leakage_proxy_mean <= 0.08` is a clean pass, `0.08 < leakage_proxy_mean <= 0.12` is caution-only and must be called out explicitly, and `leakage_proxy_mean > 0.12` fails claim-ready review.
 - Leakage regression rule: a reviewed ablation increasing `leakage_proxy_mean` by more than `0.03` relative to the base claim surface is at least `caution` and must be called out explicitly. Treat it as `fail` only when the base run is already above the hard reviewer band or when split leakage checks are not clean.
 - Leakage split rule: any protein overlap or duplicated example identifiers across train/val/test is an automatic leakage-review failure regardless of scalar proxy values.
+- Coordinate/context leakage rule: pocket-only and de novo claim configs must reject target-ligand context dependency or use the de novo pocket-centered execution path; refinement configs may keep ligand-centered context only as an explicit recorded dependency.
+- Train/eval alignment rule: optimizer-facing auxiliary terms, detached rollout diagnostics, backend coverage, and best-metric review must be read from persisted `train_eval_alignment` fields rather than inferred from metric names.
 
 The repository now distinguishes four data-contract labels in reviewer-facing wording:
 

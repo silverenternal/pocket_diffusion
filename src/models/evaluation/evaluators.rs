@@ -1,3 +1,8 @@
+use super::candidates::{choose_candidate_atom_types, repair_candidate_geometry};
+use super::scoring::*;
+use super::*;
+use crate::models::CandidateLayerKind;
+
 /// Lightweight chemistry-validity backend for active experiment reporting.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct HeuristicChemistryValidityEvaluator;
@@ -31,8 +36,14 @@ pub struct CommandPocketCompatibilityEvaluator {
 /// Candidate records split by generation layer for model-vs-postprocessing review.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct CandidateGenerationLayers {
+    /// Raw final geometry before coordinate movement or bond-payload refinement.
+    pub raw_geometry: Vec<GeneratedCandidateRecord>,
     /// Direct final rollout state before geometry repair and bond inference.
     pub raw_rollout: Vec<GeneratedCandidateRecord>,
+    /// Raw-coordinate candidates with refined bond payloads before valence pruning.
+    pub bond_logits_refined: Vec<GeneratedCandidateRecord>,
+    /// Raw-coordinate candidates after conservative valence pruning.
+    pub valence_refined: Vec<GeneratedCandidateRecord>,
     /// Geometry-repaired candidates before bond inference and valence pruning.
     pub repaired: Vec<GeneratedCandidateRecord>,
     /// Repaired candidates after distance bond inference and valence pruning.
@@ -188,12 +199,64 @@ impl PocketCompatibilityEvaluator for CommandPocketCompatibilityEvaluator {
 }
 
 /// Build deterministic candidate records from one modular forward pass.
-pub(crate) fn generate_candidates_from_forward(
+#[allow(dead_code)]
+pub fn generate_raw_rollout_candidates_from_forward(
+    example: &MolecularExample,
+    forward: &ResearchForward,
+    num_candidates: usize,
+) -> Vec<GeneratedCandidateRecord> {
+    generate_layered_candidates_from_forward(example, forward, num_candidates).raw_rollout
+}
+
+/// Build explicit constrained-flow candidates from one modular forward pass.
+#[allow(dead_code)]
+pub fn generate_constrained_flow_candidates_from_forward(
     example: &MolecularExample,
     forward: &ResearchForward,
     num_candidates: usize,
 ) -> Vec<GeneratedCandidateRecord> {
     generate_layered_candidates_from_forward(example, forward, num_candidates).inferred_bond
+}
+
+/// Build explicit repaired-coordinate candidates from one modular forward pass.
+#[allow(dead_code)]
+pub fn generate_repaired_candidates_from_forward(
+    example: &MolecularExample,
+    forward: &ResearchForward,
+    num_candidates: usize,
+) -> Vec<GeneratedCandidateRecord> {
+    generate_layered_candidates_from_forward(example, forward, num_candidates).repaired
+}
+
+/// Build explicit inferred-bond candidates from one modular forward pass.
+#[allow(dead_code)]
+pub fn generate_inferred_bond_candidates_from_forward(
+    example: &MolecularExample,
+    forward: &ResearchForward,
+    num_candidates: usize,
+) -> Vec<GeneratedCandidateRecord> {
+    generate_layered_candidates_from_forward(example, forward, num_candidates).inferred_bond
+}
+
+/// Build explicit claim-facing candidates from one modular forward pass.
+pub fn generate_claim_facing_candidates_from_forward(
+    example: &MolecularExample,
+    forward: &ResearchForward,
+    num_candidates: usize,
+) -> Vec<GeneratedCandidateRecord> {
+    generate_inferred_bond_candidates_from_forward(example, forward, num_candidates)
+}
+
+#[deprecated(
+    note = "Compatibility wrapper retained for legacy callers; use `generate_claim_facing_candidates_from_forward` (or one explicit layer helper) instead."
+)]
+#[allow(dead_code)]
+pub fn generate_candidates_from_forward(
+    example: &MolecularExample,
+    forward: &ResearchForward,
+    num_candidates: usize,
+) -> Vec<GeneratedCandidateRecord> {
+    generate_claim_facing_candidates_from_forward(example, forward, num_candidates)
 }
 
 /// Build raw, repaired, and inferred-bond candidate layers from one modular forward pass.
@@ -214,7 +277,10 @@ pub(crate) fn generate_layered_candidates_with_options(
 ) -> CandidateGenerationLayers {
     if num_candidates == 0 {
         return CandidateGenerationLayers {
+            raw_geometry: Vec::new(),
             raw_rollout: Vec::new(),
+            bond_logits_refined: Vec::new(),
+            valence_refined: Vec::new(),
             repaired: Vec::new(),
             inferred_bond: Vec::new(),
         };
@@ -233,23 +299,92 @@ pub(crate) fn generate_layered_candidates_with_options(
     let pocket_centroid = tensor_centroid(&example.pocket.coords);
     let pocket_radius = pocket_radius(&example.pocket.coords, pocket_centroid);
     let pocket_points = tensor_to_coords(&example.pocket.coords);
-    let base_bonds = infer_bonds(&rollout_coords);
+    let native_bonds = final_step
+        .map(|step| step.native_bonds.clone())
+        .unwrap_or_default();
+    let native_bond_types = final_step
+        .map(|step| step.native_bond_types.clone())
+        .unwrap_or_default();
+    let constrained_native_bonds = final_step
+        .map(|step| step.constrained_native_bonds.clone())
+        .unwrap_or_default();
+    let base_bonds = if !constrained_native_bonds.is_empty() {
+        constrained_native_bonds
+    } else if native_bonds.is_empty() {
+        infer_bonds(&rollout_coords)
+    } else {
+        native_bonds.clone()
+    };
+    let raw_rollout_bonds = native_bonds;
+    let generation_mode = forward.generation.generation_mode.as_str().to_string();
 
+    let mut raw_geometry = Vec::with_capacity(num_candidates);
     let mut raw_rollout = Vec::with_capacity(num_candidates);
+    let mut bond_logits_refined = Vec::with_capacity(num_candidates);
+    let mut valence_refined = Vec::with_capacity(num_candidates);
     let mut repaired_candidates = Vec::with_capacity(num_candidates);
     let mut inferred_bond_candidates = Vec::with_capacity(num_candidates);
 
     for candidate_ix in 0..num_candidates {
-        raw_rollout.push(GeneratedCandidateRecord {
+        raw_geometry.push(GeneratedCandidateRecord {
             example_id: example.example_id.clone(),
             protein_id: example.protein_id.clone(),
             molecular_representation: Some(format!(
-                "source=raw_rollout;atoms={};bonds=0",
+                "source=raw_geometry;atoms={};bonds=0",
                 rollout_atom_types.len()
             )),
             atom_types: rollout_atom_types.clone(),
             coords: rollout_coords.clone(),
             inferred_bonds: Vec::new(),
+            bond_count: 0,
+            valence_violation_count: 0,
+            pocket_centroid: [
+                pocket_centroid[0] as f32,
+                pocket_centroid[1] as f32,
+                pocket_centroid[2] as f32,
+            ],
+            pocket_radius: pocket_radius as f32,
+            coordinate_frame_origin: example.coordinate_frame_origin,
+            source: format!(
+                "raw_geometry:steps={};candidate={candidate_ix}",
+                forward.generation.rollout.executed_steps
+            ),
+            generation_mode: generation_mode.clone(),
+            generation_layer: CandidateLayerKind::RawGeometry
+                .canonical_generation_layer()
+                .to_string(),
+            generation_path_class: CandidateLayerKind::RawGeometry
+                .generation_path_class()
+                .to_string(),
+            model_native_raw: CandidateLayerKind::RawGeometry.is_model_native_raw(),
+            postprocessor_chain: Vec::new(),
+            claim_boundary: CandidateLayerKind::RawGeometry.claim_boundary().to_string(),
+            source_pocket_path: example
+                .source_pocket_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+            source_ligand_path: example
+                .source_ligand_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+        });
+
+        raw_rollout.push(GeneratedCandidateRecord {
+            example_id: example.example_id.clone(),
+            protein_id: example.protein_id.clone(),
+            molecular_representation: Some(format!(
+                "source=raw_rollout;atoms={};bonds={}",
+                rollout_atom_types.len(),
+                raw_rollout_bonds.len()
+            )),
+            atom_types: rollout_atom_types.clone(),
+            coords: rollout_coords.clone(),
+            inferred_bonds: raw_rollout_bonds.clone(),
+            bond_count: raw_rollout_bonds.len(),
+            valence_violation_count: valence_violation_count(
+                &rollout_atom_types,
+                &raw_rollout_bonds,
+            ),
             pocket_centroid: [
                 pocket_centroid[0] as f32,
                 pocket_centroid[1] as f32,
@@ -261,6 +396,126 @@ pub(crate) fn generate_layered_candidates_with_options(
                 "raw_modular_rollout:steps={};candidate={candidate_ix}",
                 forward.generation.rollout.executed_steps
             ),
+            generation_mode: generation_mode.clone(),
+            generation_layer: CandidateLayerKind::RawRollout
+                .canonical_generation_layer()
+                .to_string(),
+            generation_path_class: CandidateLayerKind::RawRollout
+                .generation_path_class()
+                .to_string(),
+            model_native_raw: CandidateLayerKind::RawRollout.is_model_native_raw(),
+            postprocessor_chain: Vec::new(),
+            claim_boundary: CandidateLayerKind::RawRollout.claim_boundary().to_string(),
+            source_pocket_path: example
+                .source_pocket_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+            source_ligand_path: example
+                .source_ligand_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+        });
+
+        let bond_refined_atom_types = choose_candidate_atom_types(
+            &rollout_atom_types,
+            logits,
+            &topk,
+            topk_count,
+            &base_bonds,
+            &base_bonds,
+            candidate_ix,
+        );
+        bond_logits_refined.push(GeneratedCandidateRecord {
+            example_id: example.example_id.clone(),
+            protein_id: example.protein_id.clone(),
+            molecular_representation: Some(format!(
+                "source=bond_logits_refined;atoms={};bonds={};native_bond_types={}",
+                bond_refined_atom_types.len(),
+                base_bonds.len(),
+                native_bond_types.len()
+            )),
+            atom_types: bond_refined_atom_types.clone(),
+            coords: rollout_coords.clone(),
+            inferred_bonds: base_bonds.clone(),
+            bond_count: base_bonds.len(),
+            valence_violation_count: valence_violation_count(&bond_refined_atom_types, &base_bonds),
+            pocket_centroid: [
+                pocket_centroid[0] as f32,
+                pocket_centroid[1] as f32,
+                pocket_centroid[2] as f32,
+            ],
+            pocket_radius: pocket_radius as f32,
+            coordinate_frame_origin: example.coordinate_frame_origin,
+            source: format!(
+                "bond_logits_refined:no_coordinate_move;steps={};candidate={candidate_ix}",
+                forward.generation.rollout.executed_steps
+            ),
+            generation_mode: generation_mode.clone(),
+            generation_layer: CandidateLayerKind::BondLogitsRefined
+                .canonical_generation_layer()
+                .to_string(),
+            generation_path_class: CandidateLayerKind::BondLogitsRefined
+                .generation_path_class()
+                .to_string(),
+            model_native_raw: CandidateLayerKind::BondLogitsRefined.is_model_native_raw(),
+            postprocessor_chain: vec!["bond_logits_refinement_no_coordinate_move".to_string()],
+            claim_boundary: CandidateLayerKind::BondLogitsRefined
+                .claim_boundary()
+                .to_string(),
+            source_pocket_path: example
+                .source_pocket_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+            source_ligand_path: example
+                .source_ligand_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+        });
+
+        let valence_bonds =
+            prune_bonds_for_valence(&rollout_coords, &bond_refined_atom_types, &base_bonds);
+        valence_refined.push(GeneratedCandidateRecord {
+            example_id: example.example_id.clone(),
+            protein_id: example.protein_id.clone(),
+            molecular_representation: Some(format!(
+                "source=valence_refined;atoms={};bonds={}",
+                bond_refined_atom_types.len(),
+                valence_bonds.len()
+            )),
+            atom_types: bond_refined_atom_types.clone(),
+            coords: rollout_coords.clone(),
+            inferred_bonds: valence_bonds.clone(),
+            bond_count: valence_bonds.len(),
+            valence_violation_count: valence_violation_count(
+                &bond_refined_atom_types,
+                &valence_bonds,
+            ),
+            pocket_centroid: [
+                pocket_centroid[0] as f32,
+                pocket_centroid[1] as f32,
+                pocket_centroid[2] as f32,
+            ],
+            pocket_radius: pocket_radius as f32,
+            coordinate_frame_origin: example.coordinate_frame_origin,
+            source: format!(
+                "valence_refined:no_coordinate_move;steps={};candidate={candidate_ix}",
+                forward.generation.rollout.executed_steps
+            ),
+            generation_mode: generation_mode.clone(),
+            generation_layer: CandidateLayerKind::ValenceRefined
+                .canonical_generation_layer()
+                .to_string(),
+            generation_path_class: CandidateLayerKind::ValenceRefined
+                .generation_path_class()
+                .to_string(),
+            model_native_raw: CandidateLayerKind::ValenceRefined.is_model_native_raw(),
+            postprocessor_chain: vec![
+                "bond_logits_refinement_no_coordinate_move".to_string(),
+                "valence_pruning_no_coordinate_move".to_string(),
+            ],
+            claim_boundary: CandidateLayerKind::ValenceRefined
+                .claim_boundary()
+                .to_string(),
             source_pocket_path: example
                 .source_pocket_path
                 .as_ref()
@@ -294,6 +549,8 @@ pub(crate) fn generate_layered_candidates_with_options(
             atom_types: rollout_atom_types.clone(),
             coords: coords.clone(),
             inferred_bonds: Vec::new(),
+            bond_count: 0,
+            valence_violation_count: 0,
             pocket_centroid: [
                 pocket_centroid[0] as f32,
                 pocket_centroid[1] as f32,
@@ -305,6 +562,16 @@ pub(crate) fn generate_layered_candidates_with_options(
                 "geometry_repair:steps={};candidate={candidate_ix}",
                 forward.generation.rollout.executed_steps
             ),
+            generation_mode: generation_mode.clone(),
+            generation_layer: CandidateLayerKind::Repaired
+                .canonical_generation_layer()
+                .to_string(),
+            generation_path_class: CandidateLayerKind::Repaired
+                .generation_path_class()
+                .to_string(),
+            model_native_raw: CandidateLayerKind::Repaired.is_model_native_raw(),
+            postprocessor_chain: vec!["pocket_centroid_repair".to_string()],
+            claim_boundary: CandidateLayerKind::Repaired.claim_boundary().to_string(),
             source_pocket_path: example
                 .source_pocket_path
                 .as_ref()
@@ -325,6 +592,8 @@ pub(crate) fn generate_layered_candidates_with_options(
             candidate_ix,
         );
         let inferred_bonds = prune_bonds_for_valence(&coords, &atom_types, &inferred_bonds);
+        let bond_count = inferred_bonds.len();
+        let valence_violation_count = valence_violation_count(&atom_types, &inferred_bonds);
         inferred_bond_candidates.push(GeneratedCandidateRecord {
             example_id: example.example_id.clone(),
             protein_id: example.protein_id.clone(),
@@ -336,6 +605,8 @@ pub(crate) fn generate_layered_candidates_with_options(
             atom_types,
             coords,
             inferred_bonds,
+            bond_count,
+            valence_violation_count,
             pocket_centroid: [
                 pocket_centroid[0] as f32,
                 pocket_centroid[1] as f32,
@@ -347,6 +618,22 @@ pub(crate) fn generate_layered_candidates_with_options(
                 "modular_rollout_decoder:steps={}",
                 forward.generation.rollout.executed_steps
             ),
+            generation_mode: generation_mode.clone(),
+            generation_layer: CandidateLayerKind::InferredBond
+                .canonical_generation_layer()
+                .to_string(),
+            generation_path_class: CandidateLayerKind::InferredBond
+                .generation_path_class()
+                .to_string(),
+            model_native_raw: CandidateLayerKind::InferredBond.is_model_native_raw(),
+            postprocessor_chain: vec![
+                "pocket_centroid_repair".to_string(),
+                "distance_bond_inference".to_string(),
+                "valence_pruning".to_string(),
+            ],
+            claim_boundary: CandidateLayerKind::InferredBond
+                .claim_boundary()
+                .to_string(),
             source_pocket_path: example
                 .source_pocket_path
                 .as_ref()
@@ -359,9 +646,26 @@ pub(crate) fn generate_layered_candidates_with_options(
     }
 
     CandidateGenerationLayers {
+        raw_geometry,
         raw_rollout,
+        bond_logits_refined,
+        valence_refined,
         repaired: repaired_candidates,
         inferred_bond: inferred_bond_candidates,
     }
 }
 
+fn valence_violation_count(atom_types: &[i64], bonds: &[(usize, usize)]) -> usize {
+    let mut degrees = vec![0_usize; atom_types.len()];
+    for &(left, right) in bonds {
+        if left < degrees.len() && right < degrees.len() {
+            degrees[left] += 1;
+            degrees[right] += 1;
+        }
+    }
+    degrees
+        .iter()
+        .zip(atom_types.iter())
+        .filter(|(degree, atom_type)| **degree > max_valence(**atom_type))
+        .count()
+}

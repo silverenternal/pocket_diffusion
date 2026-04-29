@@ -8,7 +8,10 @@ from pathlib import Path
 
 
 LAYER_SOURCES = [
+    ("raw_geometry_candidates", "raw_geometry"),
     ("raw_rollout_candidates", "raw_rollout"),
+    ("bond_logits_refined_candidates", "bond_logits_refined"),
+    ("valence_refined_candidates", "valence_refined"),
     ("repaired_candidates", "repaired"),
     ("inferred_bond_candidates", "inferred_bond"),
     ("deterministic_proxy_candidates", "deterministic_proxy"),

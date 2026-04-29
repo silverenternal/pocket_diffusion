@@ -1,0 +1,88 @@
+{
+  "artifact_name": "q2_interaction_profile_metric_plan",
+  "schema_version": 1,
+  "claim_boundary": "All Q2 interaction-profile fields in this plan are deterministic geometry or chemistry proxies unless evidence_source is external_backend. They are not experimental interaction evidence.",
+  "backend_contract": {
+    "candidate_level_required": true,
+    "candidate_key_fields": [
+      "candidate_id",
+      "example_id",
+      "protein_id",
+      "method_id",
+      "layer"
+    ],
+    "coverage_field": "interaction_profile_coverage_fraction",
+    "missing_value_semantics": "Unavailable features must be omitted or null with explicit backend_status; unavailable must not be converted to numeric zero."
+  },
+  "feature_plan": [
+    {
+      "feature_name": "hydrogen_bond_proxy",
+      "candidate_json_field": "metrics.hydrogen_bond_proxy",
+      "description": "Fraction of generated ligand atoms with simple donor/acceptor-like atom_type and nearest pocket atom within 3.5 A.",
+      "evidence_source": "heuristic_proxy",
+      "backend_coverage_semantics": "covered when candidate coordinates, atom_types, and parseable pocket atoms are present",
+      "fallback_when_unavailable": "null; mark interaction_profile_coverage_fraction below 1.0",
+      "claim_label": "hydrogen-bond geometry proxy"
+    },
+    {
+      "feature_name": "hydrophobic_contact_proxy",
+      "candidate_json_field": "metrics.hydrophobic_contact_proxy",
+      "description": "Fraction of carbon-like generated ligand atoms with nearest pocket atom within 4.5 A.",
+      "evidence_source": "heuristic_proxy",
+      "backend_coverage_semantics": "covered when candidate coordinates, atom_types, and parseable pocket atoms are present",
+      "fallback_when_unavailable": "null; do not infer hydrophobicity without atom_types",
+      "claim_label": "hydrophobic-contact geometry proxy"
+    },
+    {
+      "feature_name": "residue_contact_count",
+      "candidate_json_field": "metrics.residue_contact_count",
+      "description": "Count of generated ligand atoms with nearest pocket atom within 4.5 A; residue identity is not claimed unless residue parsing is added.",
+      "evidence_source": "heuristic_proxy",
+      "backend_coverage_semantics": "covered when candidate coordinates and parseable pocket atoms are present",
+      "fallback_when_unavailable": "null",
+      "claim_label": "residue-contact count proxy"
+    },
+    {
+      "feature_name": "key_residue_interaction_proxy",
+      "candidate_json_field": "metrics.key_residue_interaction_proxy",
+      "description": "Reserved field for fraction or count of contacts to configured key residues after residue annotations are available.",
+      "evidence_source": "future_optional_proxy",
+      "backend_coverage_semantics": "unavailable until receptor residue ids and key-residue lists are configured",
+      "fallback_when_unavailable": "null with feature status unavailable",
+      "claim_label": "unavailable in Q2 core unless configured"
+    },
+    {
+      "feature_name": "clash_fraction",
+      "candidate_json_field": "metrics.clash_fraction",
+      "description": "Fraction of generated ligand atoms whose nearest pocket atom is closer than 1.2 A.",
+      "evidence_source": "heuristic_proxy",
+      "backend_coverage_semantics": "covered when candidate coordinates and parseable pocket atoms are present",
+      "fallback_when_unavailable": "null",
+      "claim_label": "steric-clash proxy"
+    },
+    {
+      "feature_name": "pocket_contact_fraction",
+      "candidate_json_field": "metrics.pocket_contact_fraction",
+      "description": "Fraction of generated ligand atoms whose nearest pocket atom is within 4.5 A.",
+      "evidence_source": "heuristic_proxy",
+      "backend_coverage_semantics": "covered when candidate coordinates and parseable pocket atoms are present",
+      "fallback_when_unavailable": "null",
+      "claim_label": "pocket-contact proxy"
+    },
+    {
+      "feature_name": "centroid_offset",
+      "candidate_json_field": "metrics.centroid_offset",
+      "description": "Distance between generated ligand centroid and parsed pocket centroid in the active coordinate frame.",
+      "evidence_source": "heuristic_proxy",
+      "backend_coverage_semantics": "covered when candidate coordinates and parseable pocket atoms are present",
+      "fallback_when_unavailable": "null",
+      "claim_label": "centroid-offset proxy"
+    }
+  ],
+  "integration_plan": {
+    "preferred_backend": "tools/pocket_contact_backend.py plus candidate-level enrichment in tools/build_candidate_metrics_from_generation_artifacts.py",
+    "rust_profile_contract": "src/models/preference.rs InteractionProfile should preserve feature value, provenance, backend_status, and missing-evidence flags.",
+    "ablation_policy": "Features must remain layer-attributed; raw_flow/raw_rollout, constrained_flow, repaired, reranked, and ablation layers are summarized separately.",
+    "training_policy": "No RL/DPO or generator-level preference training is part of this plan; features may support deterministic preference pairs after backend coverage is recorded."
+  }
+}

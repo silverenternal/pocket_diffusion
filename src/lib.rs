@@ -55,9 +55,8 @@ use crate::config::ResearchConfig;
 use crate::data::MolecularExample;
 use crate::egnn::EGNNConfig;
 use crate::generator::{GeneratorConfig, PocketLigandGenerator};
-use crate::models::{
-    candidate_records_to_legacy, generate_candidates_from_forward, Phase1ResearchSystem,
-};
+use crate::models::evaluation::generate_claim_facing_candidates_from_forward;
+use crate::models::{candidate_records_to_legacy, Phase1ResearchSystem};
 use crate::pocket::PocketFeatureExtractor;
 use crate::scorer::AffinityScorer;
 use crate::types::{Atom, AtomType, Ligand, Pocket};
@@ -152,7 +151,11 @@ impl PocketDiffusionPipeline {
         let system = Phase1ResearchSystem::new(&var_store.root(), &config);
         let example = bridge_example_from_pocket(pocket, &config);
         let forward = system.forward_example(&example);
-        let records = generate_candidates_from_forward(&example, &forward, num_candidates.max(1));
+        let records = generate_claim_facing_candidates_from_forward(
+            &example,
+            &forward,
+            num_candidates.max(1),
+        );
         let candidates = candidate_records_to_legacy(&records);
         let ligands: Vec<Ligand> = candidates
             .iter()
@@ -243,6 +246,7 @@ fn seed_ligand_from_pocket(pocket: &Pocket) -> Ligand {
     Ligand {
         atoms,
         bonds: vec![(0, 1), (1, 2), (1, 3), (1, 4)],
+        bond_types: vec![1, 1, 1, 1],
         fingerprint: None,
     }
 }

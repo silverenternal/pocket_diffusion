@@ -1,76 +1,52 @@
 # pocket_diffusion
 
-Rust-first modular research framework for pocket-conditioned representation learning and method-aware molecular generation comparison.
+Rust-first modular research framework for pocket-conditioned representation learning and method-aware molecular generation.
 
-The repository now has claim-facing, candidate-level RDKit, AutoDock Vina `score_only`, and GNINA `score_only` artifacts for a fixed 100-pocket public-baseline comparison. Reported docking backend values are backend scores, not experimental binding affinities. Proxy metrics such as `docking_like_score` are retained only as heuristic diagnostics.
+## Project Map
 
-## Core capabilities
+| Surface | Where to start | Status |
+| --- | --- | --- |
+| Active Rust research stack | `src/models/`, `src/data/`, `src/training/`, `src/experiments/` | Separate topology/geometry/pocket encoders, slot decomposition, gated cross-modal interaction, staged losses, flow matching, and unseen-pocket experiments |
+| Config-driven runs | `configs/research_manifest.json`, `configs/unseen_pocket_manifest.json` | Main path for inspection, training, validation, and experiments |
+| Generated evidence | `artifacts/evidence/`, selected `configs/q*_*summary.json`, linked docs under `docs/` | Curated claim artifacts with provenance and validation gates |
+| External baseline tooling | `tools/baseline_output_adapters/`, `tools/public_baseline_*`, `tools/*_backend.py` | Public-baseline adapters plus RDKit/Vina/GNINA/pocket backend wrappers |
+| Legacy compatibility | `pocket_diffusion -- legacy-demo`, `pocket_diffusion::legacy` | Deprecated compatibility surface; do not use for new research features |
 
-| Capability | Status |
-| --- | --- |
-| Topology / geometry / pocket encoders | ✅ Separate encoder paths |
-| Slot-based structured decomposition | ✅ Fixed upper-bound, soft gating, sparse utilization |
-| Gated cross-modal interaction | ✅ Lightweight and Transformer-style modes |
-| Staged auxiliary losses | ✅ Redundancy, leakage, gate, slot, consistency, probe |
-| MI monitoring (inter-modality decoupling) | ✅ Entropy-based estimator with pairwise tracking |
-| Flow-matching generator | ✅ ODE-based velocity prediction, Euler/Heun integration |
-| Unseen-pocket split experiments | ✅ Protein-level train/val/test with external backends |
-| Affinity supervision | ✅ Mixed Kd/Ki/IC50 with normalization provenance |
+The crate name still says `diffusion` for compatibility. The active path is a modular representation-learning system with conditioned denoising/refinement, de novo pocket-conditioned molecular flow, deterministic rollout diagnostics, and explicit evidence attribution. Full molecular flow is config-gated: `de_novo_initialization` requires `flow_matching.geometry_only=false` plus geometry, atom-type, bond, topology, and pocket/context branches.
 
-## Current Evidence Status (2026-04-28)
+## Evidence Boundaries
 
-The strongest current public-baseline artifact is the layer-separated matched-budget run:
+Claim-facing artifacts include candidate-level RDKit, AutoDock Vina `score_only`, and GNINA `score_only` outputs. These are backend scores, not experimental binding affinities. Proxy metrics such as `docking_like_score` are heuristic diagnostics only.
 
-- Summary: [`configs/q1_method_comparison_summary.json`](configs/q1_method_comparison_summary.json)
-- Table: [`docs/q1_method_comparison_table.md`](docs/q1_method_comparison_table.md)
-- Runtime: [`docs/q1_runtime_efficiency_table.md`](docs/q1_runtime_efficiency_table.md)
-- Run status: [`docs/q1_public_baseline_run_status.md`](docs/q1_public_baseline_run_status.md)
-- Merged candidate metrics: `checkpoints/q1_public_baselines_full100_layered/merged/candidate_metrics_q1_public_full100_budget1.jsonl`
+Layer attribution is strict:
 
-Scope:
+- `raw_rollout` and `raw_flow` are native model evidence.
+- `constrained_flow` is constrained-sampling evidence derived from raw flow output.
+- `inferred_bond_candidates`, `repaired`, `repaired_candidates`, `deterministic_proxy_candidates`, and `reranked_candidates` are postprocessing or selection evidence.
 
-- 100 official public-test pockets.
-- Three public baselines: Pocket2Mol, TargetDiff, DiffSBDD.
-- Matched budget: 1 candidate per pocket, per method, per layer.
-- Layers: `raw_rollout`, `repaired`, `reranked`.
-- Total candidate rows: 900.
-- Coverage: RDKit 1.0000, GNINA 1.0000, Vina 0.9656.
+Training/evaluation alignment is explicit in experiment artifacts:
 
-Raw public-baseline backend scores:
+- `L_probe` and `L_leak` are optimizer-facing auxiliary losses when enabled by the staged trainer.
+- `rollout_eval_*` fields are detached diagnostics unless a future tensor-preserving trainable rollout objective is implemented.
+- `finite_forward_fraction` is a smoke/default health metric; claim-bearing configs should select quality-aware best metrics with availability checks.
+- Backend score rows report coverage, missing-structure fraction, fallback use, and candidate counts before they can support stronger wording.
 
-| Method | Layer | Candidates | Vina mean | Vina coverage | GNINA affinity mean | GNINA CNN score mean | QED mean |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| DiffSBDD | `raw_rollout` | 100 | -0.3601 | 0.89 | -0.8585 | 0.3738 | 0.4398 |
-| Pocket2Mol | `raw_rollout` | 100 | -2.1086 | 0.91 | -2.1092 | 0.5881 | 0.4411 |
-| TargetDiff | `raw_rollout` | 100 | -4.1380 | 0.89 | -3.9248 | 0.3862 | 0.4166 |
+Current public-baseline details live in:
 
-Layer attribution:
+- [`configs/q1_method_comparison_summary.json`](configs/q1_method_comparison_summary.json)
+- [`docs/q1_method_comparison_table.md`](docs/q1_method_comparison_table.md)
+- [`docs/q1_runtime_efficiency_table.md`](docs/q1_runtime_efficiency_table.md)
+- [`docs/postprocessing_failure_audit.md`](docs/postprocessing_failure_audit.md)
+- [`docs/q2_claim_contract.md`](docs/q2_claim_contract.md)
+- [`docs/q8_reviewer_scale_runbook.md`](docs/q8_reviewer_scale_runbook.md)
 
-- `raw_rollout` rows are native public-baseline evidence.
-- `repaired` and `reranked` rows are shared deterministic postprocessing evidence generated from raw outputs by [`tools/public_baseline_postprocess_layers.py`](tools/public_baseline_postprocess_layers.py).
-- Current repaired/reranked docking scores are often much worse than raw scores, with large positive Vina/GNINA score values. These rows should be used to audit postprocessing effects, not to claim model-native improvement.
-
-Runtime:
-
-| Component | Measured runtime |
-| --- | ---: |
-| DiffSBDD generation, 100 candidates at 1000 timesteps | 4637.9 s |
-| Vina layered rescoring, 900 candidates | 602.8 s, 869 scored |
-| GNINA layered rescoring, 900 candidates | 939.9 s, 900 scored |
-| Shared Vina + GNINA layered backend batch | 1542.7 s |
-
-The validation gate passes on the current artifact set:
+The fast validation gate is:
 
 ```bash
-python tools/q1_readiness_audit.py --gate
 python tools/validation_suite.py --mode quick --timeout 240
+# or
+tools/local_ci.sh fast
 ```
-
-Residual publication caveats:
-
-- Public-baseline multi-seed evidence is still not complete.
-- Vina has 31 command failures in the 900-row layered run, all in `raw_rollout`; coverage is reported rather than imputed.
-- Backend scores are produced by local score-only adapters and should not be described as experimental binding affinity.
 
 ## Quick start
 
@@ -96,6 +72,21 @@ Paper-quality training (100 steps, 1024 examples):
 ```bash
 ./run_paper_training.sh
 ```
+
+## Generation Demo Boundaries
+
+```bash
+cargo run --bin pocket_diffusion -- research generate --config configs/research_manifest.json --num-candidates 2
+```
+
+For the demo run, inspect:
+
+- `training.checkpoint_dir/generation_demo_candidates_raw.json` for `raw_flow` candidates (`candidate_layer=raw_flow`, `evidence_role=raw_model_native`).
+- `training.checkpoint_dir/generation_demo_candidates_constrained_flow.json` for `constrained_flow` candidates (`candidate_layer=constrained_flow`, `evidence_role=constrained_sampling`).
+- `training.checkpoint_dir/generation_demo_summary.json` for the attributed metric blocks.
+- `training.checkpoint_dir/generation_demo_candidates.json` for backward-compatible demo candidates (same constrained-flow output).
+
+The demo summary keeps raw metrics and constrained-flow metrics explicit; constrained-flow metrics are used for legacy-facing demo reporting.
 
 ## Config files
 
@@ -143,6 +134,8 @@ dataset_root/
 | `fallback-heavy` | Retained examples depend on fallback/extrapolation |
 | `claim-bearing` | Reproducible quality gates on label coverage, provenance, metadata |
 
+Ligand-centered coordinate and pocket extraction are tracked in `dataset_validation_report.json`. Target-ligand refinement configs may allow ligand-centered context but must keep that dependency visible in the report. De novo model execution recenters pocket features for the generated scaffold and uses target ligand fields only as training supervision; claim-bearing dataset configs should still enable `quality_filters.reject_target_ligand_context_leakage=true` to keep retained data contracts strict. Source-coordinate reconstruction support and generation coordinate-frame contracts are also persisted so candidate artifacts cannot silently mix coordinate frames.
+
 ### Included sample
 
 Tiny dataset under [`examples/datasets/mini_pdbbind`](examples/datasets/mini_pdbbind) for smoke tests and format validation.
@@ -155,6 +148,7 @@ Unseen-pocket experiments report:
 - **Probe metrics**: `distance_probe_rmse`, `topology_pocket_cosine_alignment`, `affinity_probe_mae/rmse`
 - **Generation metrics**: chemistry validity, docking rescoring, pocket compatibility
 - **Utilization**: slot/gate/leakage diagnostics, semantic specialization scores
+- **Train/eval alignment**: objective coverage, detached rollout diagnostics, backend coverage, and best-metric review
 
 External backends (executables reading candidate JSON, emitting metrics JSON):
 - [`tools/rdkit_validity_backend.py`](tools/rdkit_validity_backend.py) — chemistry validity via RDKit
@@ -183,6 +177,8 @@ Config-driven runs write to `training.checkpoint_dir`:
 | `claim_summary.json` | Compact publishability view |
 | `run_artifacts.json` | Stable pointer bundle |
 | `latest.ot` / `step-N.ot` | Checkpoint weights |
+| `candidate_metrics_<split>.jsonl` | Candidate-level generation/backend metrics with layer attribution |
+| `generation_layers_<split>.json` | Layered generation summary and coordinate-frame contract |
 
 Q1 public-baseline artifacts:
 
@@ -218,11 +214,14 @@ Q1 public-baseline artifacts:
 | `stratify_by_measurement` | Preserve measurement-family balance in splits |
 | `quality_filters` | Reproducible quality gates for claim-bearing surfaces |
 
+`quality_filters` can also enforce held-out diversity thresholds through `min_validation_protein_families`, `min_test_protein_families`, `min_validation_measurement_families`, and `min_test_measurement_families`. Training and unseen-pocket experiment entrypoints enforce those thresholds for claim-bearing runs; dataset inspection reports the same split-quality contract without turning it into a training failure.
+
 ### `TrainingConfig` fields
 
 | Field | Description |
 | --- | --- |
-| `primary_objective` | `surrogate_reconstruction`, `conditioned_denoising`, `flow_matching`, `denoising_flow_matching` |
+| `primary_objective` | `surrogate_reconstruction` (bootstrap/debug or shape-safe baseline), `conditioned_denoising` (decoder-anchored denoising/refinement), `flow_matching` (flow-refinement velocity objective), `denoising_flow_matching` (hybrid training-objective composition, not a separate generation mode) |
+| `enable_trainable_rollout_loss` | Reserved future switch; currently must remain `false` because rollout recovery is logged only as detached `rollout_eval_*` diagnostics |
 | `affinity_weighting` | `none` or `inverse_frequency` |
 | `flow_matching_loss_weight` | Scalar weight for flow-only objective |
 | `hybrid_denoising_weight`, `hybrid_flow_weight` | Hybrid objective weights |
@@ -273,11 +272,11 @@ use pocket_diffusion::legacy;
 
 ## Capability Boundaries
 
-**Present**: modular encoders, slot decomposition, gated cross-modal interaction, staged training with auxiliary losses, MI monitoring, flow-matching generator, unseen-pocket experiments, RDKit chemistry metrics, AutoDock Vina score-only rescoring, GNINA score-only rescoring, public-baseline adaptation, and layer-separated raw/repaired/reranked audit tables.
+**Present**: modular encoders, slot decomposition, gated cross-modal interaction, staged training with auxiliary losses, MI monitoring, conditioned denoising/refinement, de novo pocket-conditioned full molecular flow branches, unseen-pocket experiments, RDKit chemistry metrics, AutoDock Vina score-only rescoring, GNINA score-only rescoring, public-baseline adaptation, and layer-separated raw/constrained/repaired/reranked audit tables.
 
 **Not present**: wet-lab validation, MD validation, production-grade docking protocol validation, public-baseline multi-seed closure, or evidence that repaired/reranked postprocessing improves native generation quality. Current Vina/GNINA rows are score-only backend evidence, not experimental binding-affinity measurements.
 
-The word `diffusion` remains in the crate name for compatibility. The config-driven path is a modular representation-learning framework with conditioned denoising, flow matching, deterministic rollout supervision, and explicit evidence attribution.
+The word `diffusion` remains in the crate name for compatibility. The config-driven path is a modular representation-learning framework with conditioned denoising/refinement, full molecular flow when explicitly enabled, deterministic rollout diagnostics, and evidence attribution. `geometry_only=true` preserves the older coordinate-flow baseline; `geometry_only=false` plus all five flow branches enables de novo atom-count initialization, atom-type flow, bond flow, topology synchronization, pocket/context flow, and coordinate flow.
 
 ## Full config list
 

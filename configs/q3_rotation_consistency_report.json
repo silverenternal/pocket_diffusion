@@ -1,0 +1,28 @@
+{
+  "artifact_name": "q3_rotation_consistency_report",
+  "schema_version": 1,
+  "status": "metric_and_config_wired",
+  "augmentation": {
+    "config_path": "data.rotation_augmentation",
+    "default_enabled": false,
+    "disableable_for_ablation": true,
+    "same_rotation_for_complex": true,
+    "seed_field": "data.rotation_augmentation.seed",
+    "probability_field": "data.rotation_augmentation.probability"
+  },
+  "metric": {
+    "name": "rotation_velocity_consistency_error",
+    "implementation": "src/models/flow_matching.rs::rotation_velocity_consistency_error",
+    "definition": "relative mean L2 error between v(Rx) and R v(x)",
+    "layer": "raw_flow",
+    "unit_test": "rotation_consistency_metric_is_finite_for_geometry_head"
+  },
+  "architecture_boundary": {
+    "is_e3_equivariant_architecture": false,
+    "statement": "This is default-off augmentation and a diagnostic metric, not an exact E(3)-equivariant architecture."
+  },
+  "run_status": {
+    "public100_checkpoint_scored": false,
+    "reason": "No q3 rotation-augmented public100 checkpoint artifact is present in this workspace."
+  }
+}

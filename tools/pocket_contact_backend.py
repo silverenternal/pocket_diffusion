@@ -4,6 +4,10 @@ import math
 import sys
 
 
+PDB_COORD_CACHE = {}
+POCKET_GEOMETRY_CACHE = {}
+
+
 def load_candidates(path):
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -27,6 +31,8 @@ def parse_mode(argv):
 
 
 def parse_pdb_coords(path):
+    if path in PDB_COORD_CACHE:
+        return PDB_COORD_CACHE[path]
     coords = []
     with open(path, "r", encoding="utf-8") as handle:
         for line in handle:
@@ -39,6 +45,7 @@ def parse_pdb_coords(path):
             except ValueError:
                 continue
             coords.append((x, y, z))
+    PDB_COORD_CACHE[path] = coords
     return coords
 
 
@@ -51,6 +58,44 @@ def centroid(points):
 
 def distance(a, b):
     return math.sqrt(sum((a[dim] - b[dim]) ** 2 for dim in range(3)))
+
+
+def pocket_geometry(path, cell_size=4.5):
+    if path in POCKET_GEOMETRY_CACHE:
+        return POCKET_GEOMETRY_CACHE[path]
+    coords = parse_pdb_coords(path)
+    center = centroid(coords)
+    grid = {}
+    for coord in coords:
+        key = tuple(int(math.floor(coord[dim] / cell_size)) for dim in range(3))
+        grid.setdefault(key, []).append(coord)
+    geometry = {
+        "coords": coords,
+        "centroid": center,
+        "grid": grid,
+        "cell_size": cell_size,
+    }
+    POCKET_GEOMETRY_CACHE[path] = geometry
+    return geometry
+
+
+def local_pocket_atoms(atom, geometry):
+    cell_size = geometry["cell_size"]
+    key = tuple(int(math.floor(atom[dim] / cell_size)) for dim in range(3))
+    atoms = []
+    grid = geometry["grid"]
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                atoms.extend(grid.get((key[0] + dx, key[1] + dy, key[2] + dz), ()))
+    return atoms
+
+
+def min_pocket_distance(atom, geometry):
+    local_atoms = local_pocket_atoms(atom, geometry)
+    if local_atoms:
+        return min(distance(atom, pocket_atom) for pocket_atom in local_atoms)
+    return distance(atom, geometry["centroid"])
 
 
 def parse_candidate_coords(candidate):
@@ -83,16 +128,17 @@ def candidate_metrics(candidate, mode):
         return None
 
     try:
-        pocket_coords = parse_pdb_coords(pocket_path)
+        geometry = pocket_geometry(pocket_path)
     except OSError:
         return None
+    pocket_coords = geometry["coords"]
     if not pocket_coords:
         return None
 
-    pocket_centroid = centroid(pocket_coords)
+    pocket_centroid = geometry["centroid"]
     pocket_radius = float(candidate.get("pocket_radius", 0.0) or 0.0)
 
-    per_atom_min = [min(distance(atom, pocket_atom) for pocket_atom in pocket_coords) for atom in candidate_coords]
+    per_atom_min = [min_pocket_distance(atom, geometry) for atom in candidate_coords]
     atom_count = max(len(per_atom_min), 1)
     contact_fraction = sum(1 for value in per_atom_min if value <= 4.5) / atom_count
     clash_fraction = sum(1 for value in per_atom_min if value < 1.2) / atom_count
@@ -105,12 +151,14 @@ def candidate_metrics(candidate, mode):
         return {
             "contact_fraction": contact_fraction,
             "clash_fraction": clash_fraction,
+            "centroid_offset": centroid_offset,
             "mean_min_contact_distance": sum(per_atom_min) / atom_count,
             "docking_like_score": docking_like_score,
         }
 
     return {
         "centroid_inside_fraction": centroid_inside,
+        "centroid_offset": centroid_offset,
         "atom_coverage_fraction": pocket_coverage,
         "clash_fraction": clash_fraction,
     }

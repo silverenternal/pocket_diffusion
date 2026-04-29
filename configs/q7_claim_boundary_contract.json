@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-29",
+  "scope": "q7_model_training_evaluation_claim_boundaries",
+  "evidence_tiers": [
+    {
+      "tier": "synthetic_smoke",
+      "allowed_claim_use": "compile, wiring, numerical-health, and regression checks only",
+      "forbidden_promotions": [
+        "real-data generalization",
+        "backend-supported chemistry",
+        "docking-supported pocket fit",
+        "experimental binding or efficacy"
+      ],
+      "canonical_inputs": [
+        "configs/q7_smoke_training_preset.json"
+      ]
+    },
+    {
+      "tier": "real_data_debug",
+      "allowed_claim_use": "parser, trainer, and metric-path debugging on capped manifest data",
+      "forbidden_promotions": [
+        "reviewer-scale generalization",
+        "publication-scale benchmark coverage",
+        "experimental binding or efficacy"
+      ],
+      "canonical_inputs": [
+        "configs/q7_small_real_debug_training_preset.json"
+      ]
+    },
+    {
+      "tier": "reviewer_scale_unseen_pocket",
+      "allowed_claim_use": "held-out-pocket reviewer evidence when split, backend, leakage, replay, and model-design checks are present",
+      "forbidden_promotions": [
+        "experimental binding or efficacy",
+        "human preference evidence",
+        "broad publication-scale benchmark coverage without external benchmark metadata"
+      ],
+      "canonical_inputs": [
+        "configs/q7_reviewer_unseen_pocket_training_preset.json",
+        "configs/q7_core_ablation_matrix.json"
+      ]
+    },
+    {
+      "tier": "heuristic_metric",
+      "allowed_claim_use": "diagnostic proxy only with explicit heuristic provenance",
+      "forbidden_promotions": [
+        "backend-supported",
+        "docking-supported",
+        "experimental"
+      ]
+    },
+    {
+      "tier": "backend_supported",
+      "allowed_claim_use": "backend-supported chemistry or pocket metric only when candidate-level backend coverage and provenance are recorded",
+      "forbidden_promotions": [
+        "experimental"
+      ]
+    },
+    {
+      "tier": "docking_supported",
+      "allowed_claim_use": "score-only docking or pocket-fit evidence when docking backend availability, input completeness, and score coverage are recorded",
+      "forbidden_promotions": [
+        "experimental affinity",
+        "binding efficacy"
+      ]
+    },
+    {
+      "tier": "experimental",
+      "allowed_claim_use": "reserved for explicit experimental-evidence records",
+      "current_status": "unavailable in this repository"
+    }
+  ],
+  "q7_required_model_design_fields": [
+    "test.model_design.heldout_unseen_protein_fraction",
+    "test.model_design.geometry_consistency_score",
+    "test.model_design.raw_model_valid_fraction",
+    "test.model_design.raw_model_pocket_contact_fraction",
+    "test.model_design.raw_model_clash_fraction",
+    "test.model_design.raw_native_bond_count_mean",
+    "test.model_design.raw_native_component_count_mean",
+    "test.model_design.raw_native_valence_violation_fraction",
+    "test.model_design.raw_native_topology_bond_sync_fraction",
+    "test.model_design.raw_native_atom_type_entropy",
+    "test.model_design.raw_native_graph_valid_fraction",
+    "test.model_design.processed_valid_fraction",
+    "test.model_design.processed_pocket_contact_fraction",
+    "test.model_design.processed_clash_fraction",
+    "test.model_design.processed_postprocessor_chain",
+    "test.model_design.processed_claim_boundary",
+    "test.model_design.examples_per_second",
+    "test.model_design.slot_activation_mean",
+    "test.model_design.gate_activation_mean",
+    "test.model_design.gate_saturation_fraction",
+    "test.model_design.leakage_proxy_mean"
+  ],
+  "q7_required_ablation_variants": [
+    "generation_mode_ligand_refinement",
+    "generation_mode_pocket_only_initialization_baseline",
+    "de_novo_full_molecular_flow",
+    "topology_encoder_lightweight",
+    "topology_encoder_typed_message_passing",
+    "geometry_operator_raw_coordinate_projection",
+    "geometry_operator_local_frame_pair_message",
+    "pocket_encoder_feature_projection",
+    "pocket_encoder_ligand_relative_local_frame",
+    "disable_slots",
+    "slot_attention_masking_disabled",
+    "slot_count_reduced",
+    "disable_leakage",
+    "leakage_penalty_disabled",
+    "redundancy_disabled",
+    "disable_probes",
+    "gate_sparsity_disabled",
+    "interaction_gate_temperature_high",
+    "direct_fusion_negative_control",
+    "topology_only",
+    "geometry_only",
+    "pocket_only",
+    "staged_schedule_disabled",
+    "decoder_conditioning_mean_pooled",
+    "disable_candidate_repair"
+  ],
+  "raw_vs_processed_rule": "Raw model-native quality must be read from raw_model_*, raw_native_*, and raw_rollout fields. Processed, constrained, repaired, inferred-bond, reranked, and backend-scored fields may be cited only with their postprocessing chain and claim boundary.",
+  "claim_report_layer_provenance_fields": [
+    "claim_report.model_design.raw_model_layer",
+    "claim_report.model_design.processed_layer",
+    "claim_report.model_design.processed_postprocessor_chain",
+    "claim_report.model_design.processed_claim_boundary",
+    "claim_report.layer_provenance_audit.raw_layer_model_native",
+    "claim_report.layer_provenance_audit.processed_layer_has_contract",
+    "claim_report.layer_provenance_audit.processed_postprocessor_chain",
+    "claim_report.layer_provenance_audit.claim_safe"
+  ],
+  "candidate_record_layer_provenance_fields": [
+    "generation_mode",
+    "generation_layer",
+    "generation_path_class",
+    "model_native_raw",
+    "postprocessor_chain",
+    "claim_boundary"
+  ],
+  "generation_mode_contract": {
+    "required_artifact_field": "generation_mode",
+    "input_availability_contract": {
+      "pocket_context_features": "inference_available",
+      "target_ligand_atom_types": "target_supervision_only",
+      "target_ligand_topology": "target_supervision_only",
+      "target_ligand_coordinates": "target_supervision_only",
+      "processed_candidate_layers": "postprocessing_only"
+    },
+    "allowed_values": [
+      "target_ligand_denoising",
+      "ligand_refinement",
+      "flow_refinement",
+      "pocket_only_initialization_baseline",
+      "de_novo_initialization"
+    ],
+    "de_novo_claim_rule": "Artifacts may use de novo generation wording only when generation_mode=de_novo_initialization, the flow-matching backend is active, flow_matching.geometry_only=false, all five molecular flow branches are enabled, and claim_context.de_novo_claim_allowed=true.",
+    "current_supported_modes": [
+      "target_ligand_denoising",
+      "ligand_refinement",
+      "flow_refinement",
+      "pocket_only_initialization_baseline",
+      "de_novo_initialization"
+    ],
+    "primary_objective_compatibility": {
+      "target_ligand_denoising": [
+        "surrogate_reconstruction",
+        "conditioned_denoising"
+      ],
+      "ligand_refinement": [
+        "surrogate_reconstruction",
+        "conditioned_denoising"
+      ],
+      "flow_refinement": [
+        "surrogate_reconstruction",
+        "flow_matching",
+        "denoising_flow_matching"
+      ],
+      "pocket_only_initialization_baseline": [
+        "surrogate_reconstruction"
+      ],
+      "de_novo_initialization": [
+        "flow_matching",
+        "denoising_flow_matching"
+      ]
+    },
+    "unsupported_modes": []
+  },
+  "promotion_rules": [
+    "Synthetic smoke artifacts cannot support real-data, backend, docking, or experimental claims.",
+    "Real-data debug artifacts with max_examples caps cannot support reviewer-scale claims.",
+    "Reviewer-scale claims require the Q7 model_design block, raw native graph metrics, split leakage checks, reproducibility metadata, and the core ablation matrix.",
+    "Heuristic metrics must remain diagnostic unless a backend-supported, docking-supported, or experimental provenance field is present.",
+    "Target-ligand denoising, ligand refinement, flow refinement, and pocket-only initialization baseline artifacts must not be described as de novo generation. De novo wording requires the de_novo_initialization full molecular flow contract, claim_context.de_novo_claim_allowed=true, and pocket-centered no-target-conditioning provenance.",
+    "Docking backend scores are docking-supported score evidence only; score-only metrics must not be described as experimental binding affinity.",
+    "No artifact in the current repository may claim experimental binding affinity, selectivity, efficacy, or human preference evidence."
+  ]
+}

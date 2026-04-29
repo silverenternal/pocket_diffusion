@@ -1,22 +1,25 @@
 {
   "schema_version": 1,
   "contract_name": "q1_claim_contract",
-  "updated_at": "2026-04-27",
+  "updated_at": "2026-04-28",
   "purpose": "Restrict manuscript vocabulary to metric sources that can be traced to machine-generated artifacts.",
   "global_rules": [
     "Do not fabricate or manually enter claim-bearing metrics.",
     "Do not promote docking_like_score, pocket_fit_proxy, or docking_score_proxy as Vina, GNINA, binding affinity, or real docking.",
-    "Raw-flow claims must be computed from raw_flow, raw_rollout, or constrained_flow layers only.",
+    "Raw-flow claims must be computed from raw_flow or raw_rollout layers only.",
+    "constrained_flow layers must be labeled as constrained_sampling evidence.",
     "Repaired, inferred_bond, deterministic_proxy, and reranked layers must be labeled as postprocessed evidence.",
     "Every claim-facing table must list the source artifact paths."
   ],
   "layer_groups": {
-    "raw_model_capability": [
+    "raw_model_native": [
       "raw_flow",
-      "raw_rollout",
+      "raw_rollout"
+    ],
+    "constrained_sampling": [
       "constrained_flow"
     ],
-    "postprocessed_performance": [
+    "postprocessing": [
       "repaired",
       "inferred_bond",
       "deterministic_proxy",
@@ -119,10 +122,10 @@
     "raw_model_capability": {
       "allowed_layers": [
         "raw_flow",
-        "raw_rollout",
-        "constrained_flow"
+        "raw_rollout"
       ],
       "forbidden_layers": [
+        "constrained_flow",
         "repaired",
         "inferred_bond",
         "deterministic_proxy",

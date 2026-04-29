@@ -16,7 +16,10 @@ impl PocketGenerationMethod for ConditionedDenoisingMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
                 CandidateLayerKind::Repaired,
                 CandidateLayerKind::InferredBond,
                 CandidateLayerKind::DeterministicProxy,
@@ -62,7 +65,12 @@ impl PocketGenerationMethod for HeuristicRawRolloutMethod {
                 external_wrapper: false,
                 stub: false,
             },
-            layered_output_support: vec![CandidateLayerKind::RawRollout],
+            layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
+                CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
+            ],
             evidence_role: GenerationEvidenceRole::ComparisonOnly,
             execution_mode: GenerationExecutionMode::Batched,
         }
@@ -80,7 +88,10 @@ impl PocketGenerationMethod for HeuristicRawRolloutMethod {
             false,
         );
         let raw_only = CandidateGenerationLayers {
+            raw_geometry: layers.raw_geometry,
             raw_rollout: layers.raw_rollout,
+            bond_logits_refined: layers.bond_logits_refined,
+            valence_refined: layers.valence_refined,
             repaired: Vec::new(),
             inferred_bond: Vec::new(),
         };
@@ -106,6 +117,7 @@ impl PocketGenerationMethod for PocketCentroidRepairMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
                 CandidateLayerKind::Repaired,
             ],
@@ -126,7 +138,10 @@ impl PocketGenerationMethod for PocketCentroidRepairMethod {
             true,
         );
         let repair_layers = CandidateGenerationLayers {
+            raw_geometry: layers.raw_geometry,
             raw_rollout: layers.raw_rollout,
+            bond_logits_refined: Vec::new(),
+            valence_refined: Vec::new(),
             repaired: layers.repaired,
             inferred_bond: Vec::new(),
         };
@@ -152,7 +167,10 @@ impl PocketGenerationMethod for DeterministicProxyRerankerMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
                 CandidateLayerKind::Repaired,
                 CandidateLayerKind::InferredBond,
                 CandidateLayerKind::DeterministicProxy,
@@ -196,7 +214,10 @@ impl PocketGenerationMethod for CalibratedRerankerMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
                 CandidateLayerKind::Repaired,
                 CandidateLayerKind::InferredBond,
                 CandidateLayerKind::DeterministicProxy,
@@ -243,7 +264,10 @@ impl PocketGenerationMethod for PreferenceAwareRerankerMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
                 CandidateLayerKind::Repaired,
                 CandidateLayerKind::InferredBond,
                 CandidateLayerKind::DeterministicProxy,
@@ -305,7 +329,10 @@ impl PocketGenerationMethod for FlowMatchingMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
                 CandidateLayerKind::Repaired,
                 CandidateLayerKind::InferredBond,
             ],
@@ -325,9 +352,10 @@ impl PocketGenerationMethod for FlowMatchingMethod {
             context.candidate_limit.max(1),
             context.enable_repair,
         );
-        let request = context.conditioned_request.as_ref().expect(
-            "decomposed_forward only returns Some when conditioned_request is present",
-        );
+        let request = context
+            .conditioned_request
+            .as_ref()
+            .expect("decomposed_forward only returns Some when conditioned_request is present");
         layered_output_from_legacy(
             metadata,
             flow_matching_layers(layers, request),
@@ -356,7 +384,10 @@ impl PocketGenerationMethod for AutoregressiveGraphGeometryMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
                 CandidateLayerKind::Repaired,
                 CandidateLayerKind::InferredBond,
             ],
@@ -378,9 +409,12 @@ impl PocketGenerationMethod for AutoregressiveGraphGeometryMethod {
         );
         layered_output_from_legacy(
             metadata,
-            autoregressive_layers(layers, context.conditioned_request.as_ref().expect(
-                "decomposed_forward only returns Some when conditioned_request is present",
-            )),
+            autoregressive_layers(
+                layers,
+                context.conditioned_request.as_ref().expect(
+                    "decomposed_forward only returns Some when conditioned_request is present",
+                ),
+            ),
             None,
             None,
             true,
@@ -406,7 +440,10 @@ impl PocketGenerationMethod for EnergyGuidedRefinementMethod {
                 stub: false,
             },
             layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
                 CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
                 CandidateLayerKind::Repaired,
                 CandidateLayerKind::InferredBond,
                 CandidateLayerKind::DeterministicProxy,
@@ -427,9 +464,10 @@ impl PocketGenerationMethod for EnergyGuidedRefinementMethod {
             context.candidate_limit.max(1),
             true,
         );
-        let request = context.conditioned_request.as_ref().expect(
-            "decomposed_forward only returns Some when conditioned_request is present",
-        );
+        let request = context
+            .conditioned_request
+            .as_ref()
+            .expect("decomposed_forward only returns Some when conditioned_request is present");
         let layers = energy_refinement_layers(layers, request);
         let proxy = proxy_rerank_candidates(&layers.inferred_bond);
         layered_output_from_legacy(
@@ -454,7 +492,12 @@ impl PocketGenerationMethod for ExternalWrapperDryRunMethod {
                 external_wrapper: true,
                 ..GenerationMethodCapability::default()
             },
-            layered_output_support: vec![CandidateLayerKind::RawRollout],
+            layered_output_support: vec![
+                CandidateLayerKind::RawGeometry,
+                CandidateLayerKind::RawRollout,
+                CandidateLayerKind::BondLogitsRefined,
+                CandidateLayerKind::ValenceRefined,
+            ],
             evidence_role: GenerationEvidenceRole::ExternalWrapper,
             execution_mode: GenerationExecutionMode::ExternalCommand,
         }
@@ -469,7 +512,10 @@ impl PocketGenerationMethod for ExternalWrapperDryRunMethod {
         let response = dry_run_external_response(&wrapper_request, &context.example);
         let candidates = response.candidates;
         let layers = CandidateGenerationLayers {
+            raw_geometry: Vec::new(),
             raw_rollout: candidates,
+            bond_logits_refined: Vec::new(),
+            valence_refined: Vec::new(),
             repaired: Vec::new(),
             inferred_bond: Vec::new(),
         };
@@ -497,6 +543,7 @@ fn external_wrapper_request(
         example_id: request.example_id.clone(),
         protein_id: request.protein_id.clone(),
         candidate_limit,
+        generation_mode: request.generation_mode.as_str().to_string(),
         conditioning: crate::models::ExternalConditioningSummary {
             topology_slot_activation: request.topology.active_slot_fraction,
             geometry_slot_activation: request.geometry.active_slot_fraction,
@@ -528,17 +575,33 @@ fn dry_run_external_response(
                 coord[0] += 0.01 * candidate_index as f32;
                 coord[1] -= 0.01 * candidate_index as f32;
             }
+            let inferred_bonds = infer_method_bonds(&shifted, &atom_types);
+            let bond_count = inferred_bonds.len();
+            let valence_violation_count =
+                method_valence_violation_count(&atom_types, &inferred_bonds);
             GeneratedCandidateRecord {
                 example_id: request.example_id.clone(),
                 protein_id: request.protein_id.clone(),
                 molecular_representation: Some("external_wrapper_dry_run_jsonl_v1".to_string()),
-                inferred_bonds: infer_method_bonds(&shifted, &atom_types),
+                inferred_bonds,
+                bond_count,
+                valence_violation_count,
                 atom_types: atom_types.clone(),
                 coords: shifted,
                 pocket_centroid: [0.0, 0.0, 0.0],
                 pocket_radius: 4.0,
                 coordinate_frame_origin: example.coordinate_frame_origin,
                 source: EXTERNAL_WRAPPER_DRY_RUN_METHOD_ID.to_string(),
+                generation_mode: request.generation_mode.clone(),
+                generation_layer: CandidateLayerKind::RawRollout
+                    .canonical_generation_layer()
+                    .to_string(),
+                generation_path_class: CandidateLayerKind::RawRollout
+                    .generation_path_class()
+                    .to_string(),
+                model_native_raw: true,
+                postprocessor_chain: Vec::new(),
+                claim_boundary: CandidateLayerKind::RawRollout.claim_boundary().to_string(),
                 source_pocket_path: example
                     .source_pocket_path
                     .as_ref()
@@ -602,6 +665,15 @@ fn layered_output_from_legacy(
     native_raw: bool,
 ) -> LayeredGenerationOutput {
     let mut output = LayeredGenerationOutput::empty(metadata.clone());
+    if !layers.raw_geometry.is_empty() {
+        output.raw_geometry = Some(layer_output(
+            &metadata,
+            CandidateLayerKind::RawGeometry,
+            native_raw,
+            Vec::new(),
+            layers.raw_geometry,
+        ));
+    }
     if !layers.raw_rollout.is_empty() {
         output.raw_rollout = Some(layer_output(
             &metadata,
@@ -609,6 +681,27 @@ fn layered_output_from_legacy(
             native_raw,
             Vec::new(),
             layers.raw_rollout,
+        ));
+    }
+    if !layers.bond_logits_refined.is_empty() {
+        output.bond_logits_refined = Some(layer_output(
+            &metadata,
+            CandidateLayerKind::BondLogitsRefined,
+            false,
+            vec!["bond_logits_refinement_no_coordinate_move".to_string()],
+            layers.bond_logits_refined,
+        ));
+    }
+    if !layers.valence_refined.is_empty() {
+        output.valence_refined = Some(layer_output(
+            &metadata,
+            CandidateLayerKind::ValenceRefined,
+            false,
+            vec![
+                "bond_logits_refinement_no_coordinate_move".to_string(),
+                "valence_pruning_no_coordinate_move".to_string(),
+            ],
+            layers.valence_refined,
         ));
     }
     if !layers.repaired.is_empty() {
@@ -662,7 +755,10 @@ fn layered_output_from_legacy(
     output
 }
 
-fn tag_candidates(mut candidates: Vec<GeneratedCandidateRecord>, source: &str) -> Vec<GeneratedCandidateRecord> {
+fn tag_candidates(
+    mut candidates: Vec<GeneratedCandidateRecord>,
+    source: &str,
+) -> Vec<GeneratedCandidateRecord> {
     tag_candidates_in_place(&mut candidates, source);
     candidates
 }
@@ -677,9 +773,26 @@ fn flow_matching_layers(
     mut layers: CandidateGenerationLayers,
     request: &crate::models::ConditionedGenerationRequest,
 ) -> CandidateGenerationLayers {
-    transform_layer_candidates(&mut layers.raw_rollout, "flow_matching", |candidate, index| {
-        apply_flow_transport(candidate, request, index)
-    });
+    transform_layer_candidates(
+        &mut layers.raw_geometry,
+        "flow_matching",
+        |candidate, index| apply_flow_transport(candidate, request, index),
+    );
+    transform_layer_candidates(
+        &mut layers.raw_rollout,
+        "flow_matching",
+        |candidate, index| apply_flow_transport(candidate, request, index),
+    );
+    transform_layer_candidates(
+        &mut layers.bond_logits_refined,
+        "flow_matching",
+        |candidate, index| apply_flow_transport(candidate, request, index),
+    );
+    transform_layer_candidates(
+        &mut layers.valence_refined,
+        "flow_matching",
+        |candidate, index| apply_flow_transport(candidate, request, index),
+    );
     transform_layer_candidates(&mut layers.repaired, "flow_matching", |candidate, index| {
         apply_flow_transport(candidate, request, index)
     });
@@ -696,7 +809,22 @@ fn autoregressive_layers(
     request: &crate::models::ConditionedGenerationRequest,
 ) -> CandidateGenerationLayers {
     transform_layer_candidates(
+        &mut layers.raw_geometry,
+        "autoregressive_graph_geometry",
+        |candidate, index| apply_autoregressive_commit(candidate, request, index),
+    );
+    transform_layer_candidates(
         &mut layers.raw_rollout,
+        "autoregressive_graph_geometry",
+        |candidate, index| apply_autoregressive_commit(candidate, request, index),
+    );
+    transform_layer_candidates(
+        &mut layers.bond_logits_refined,
+        "autoregressive_graph_geometry",
+        |candidate, index| apply_autoregressive_commit(candidate, request, index),
+    );
+    transform_layer_candidates(
+        &mut layers.valence_refined,
         "autoregressive_graph_geometry",
         |candidate, index| apply_autoregressive_commit(candidate, request, index),
     );
@@ -718,7 +846,22 @@ fn energy_refinement_layers(
     request: &crate::models::ConditionedGenerationRequest,
 ) -> CandidateGenerationLayers {
     transform_layer_candidates(
+        &mut layers.raw_geometry,
+        "energy_guided_refinement",
+        |candidate, index| apply_energy_refinement(candidate, request, index),
+    );
+    transform_layer_candidates(
         &mut layers.raw_rollout,
+        "energy_guided_refinement",
+        |candidate, index| apply_energy_refinement(candidate, request, index),
+    );
+    transform_layer_candidates(
+        &mut layers.bond_logits_refined,
+        "energy_guided_refinement",
+        |candidate, index| apply_energy_refinement(candidate, request, index),
+    );
+    transform_layer_candidates(
+        &mut layers.valence_refined,
         "energy_guided_refinement",
         |candidate, index| apply_energy_refinement(candidate, request, index),
     );
@@ -744,6 +887,9 @@ fn transform_layer_candidates(
         transform(candidate, index);
         candidate.source = source.to_string();
         candidate.inferred_bonds = infer_method_bonds(&candidate.coords, &candidate.atom_types);
+        candidate.bond_count = candidate.inferred_bonds.len();
+        candidate.valence_violation_count =
+            method_valence_violation_count(&candidate.atom_types, &candidate.inferred_bonds);
     }
 }
 
@@ -776,7 +922,8 @@ fn apply_autoregressive_commit(
             coord[2] += 0.015 * candidate_index as f32;
         }
     }
-    candidate.molecular_representation = Some("autoregressive_graph_geometry_policy_v1".to_string());
+    candidate.molecular_representation =
+        Some("autoregressive_graph_geometry_policy_v1".to_string());
 }
 
 fn apply_energy_refinement(
@@ -907,6 +1054,21 @@ fn max_method_valence(atom_type: i64) -> usize {
     }
 }
 
+fn method_valence_violation_count(atom_types: &[i64], bonds: &[(usize, usize)]) -> usize {
+    let mut degrees = vec![0_usize; atom_types.len()];
+    for &(left, right) in bonds {
+        if left < degrees.len() && right < degrees.len() {
+            degrees[left] += 1;
+            degrees[right] += 1;
+        }
+    }
+    degrees
+        .iter()
+        .zip(atom_types.iter())
+        .filter(|(degree, atom_type)| **degree > max_method_valence(**atom_type))
+        .count()
+}
+
 fn method_coord_distance(left: &[f32; 3], right: &[f32; 3]) -> f64 {
     let dx = left[0] as f64 - right[0] as f64;
     let dy = left[1] as f64 - right[1] as f64;
@@ -919,8 +1081,27 @@ fn layer_output(
     layer_kind: CandidateLayerKind,
     method_native: bool,
     postprocessor_chain: Vec<String>,
-    candidates: Vec<GeneratedCandidateRecord>,
+    mut candidates: Vec<GeneratedCandidateRecord>,
 ) -> CandidateLayerOutput {
+    let canonical_generation_layer = layer_kind.canonical_generation_layer().to_string();
+    let generation_path_class = layer_kind.generation_path_class().to_string();
+    let claim_boundary = layer_kind.claim_boundary().to_string();
+    let model_native_raw = method_native && layer_kind.is_model_native_raw();
+    for candidate in &mut candidates {
+        candidate.generation_layer = canonical_generation_layer.clone();
+        candidate.generation_path_class = generation_path_class.clone();
+        candidate.model_native_raw = model_native_raw;
+        candidate.postprocessor_chain = postprocessor_chain.clone();
+        candidate.claim_boundary = claim_boundary.clone();
+    }
+    let generation_mode = candidates
+        .first()
+        .map(|candidate| candidate.generation_mode.clone())
+        .unwrap_or_else(|| {
+            crate::config::GenerationModeConfig::TargetLigandDenoising
+                .as_str()
+                .to_string()
+        });
     CandidateLayerOutput {
         provenance: CandidateLayerProvenance {
             source_method_id: metadata.method_id.clone(),
@@ -928,8 +1109,13 @@ fn layer_output(
             source_method_family: metadata.method_family,
             layer_kind,
             legacy_field_name: layer_kind.legacy_field_name().to_string(),
+            canonical_generation_layer,
+            generation_path_class,
+            generation_mode,
             method_native,
             postprocessor_chain,
+            backend_supported: false,
+            claim_boundary,
             available: true,
         },
         candidates,

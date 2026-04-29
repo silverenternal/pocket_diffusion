@@ -1,0 +1,1555 @@
+{
+  "artifact_name": "q3_docking_aware_reranker_summary",
+  "backend_aware_posthoc": {
+    "candidate_count": 100,
+    "clash_fraction_mean": 0.0,
+    "gnina_affinity_mean": -6.6625149,
+    "gnina_cnn_score_mean": 0.4286895,
+    "method_layer_counts": {
+      "diffsbdd_public:raw_rollout": 23,
+      "flow_matching:raw_flow": 1,
+      "pocket2mol_public:raw_rollout": 14,
+      "targetdiff_public:raw_rollout": 62
+    },
+    "pocket_contact_fraction_mean": 0.9649753570624306,
+    "qed_mean": 0.39147132849418453,
+    "raw_model_native_fraction": 1.0,
+    "sa_score_mean": 2.7034,
+    "vina_score_mean": -6.2845
+  },
+  "candidate_pool_count": 1100,
+  "claim_boundary": "The backend-aware reranker is an offline posthoc baseline over already scored candidates. Raw model capability remains reported only from raw_flow/raw_rollout/no_repair rows.",
+  "example_count": 100,
+  "examples": [
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:000_BSD_ASPTE_1_130_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -43.21072,
+        "qed": 0.07234867095707104,
+        "sa_score": 0.54,
+        "vina_score": -43.229
+      },
+      "example_id": "000_BSD_ASPTE_1_130_0",
+      "protein_id": "BSD_ASPTE_1_130_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:000_BSD_ASPTE_1_130_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:001_GLMU_STRPN_2_459_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -63.51439,
+        "qed": 0.0013426571178719593,
+        "sa_score": -2.54,
+        "vina_score": null
+      },
+      "example_id": "001_GLMU_STRPN_2_459_0",
+      "protein_id": "GLMU_STRPN_2_459_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:001_GLMU_STRPN_2_459_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:002_GRK4_HUMAN_1_578_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -2.2322300000000004,
+        "qed": -0.26654659638186795,
+        "sa_score": 0.5600000000000005,
+        "vina_score": -2.2329999999999997
+      },
+      "example_id": "002_GRK4_HUMAN_1_578_0",
+      "protein_id": "GRK4_HUMAN_1_578_0",
+      "proxy_candidate_id": "targetdiff_public:raw_rollout:002_GRK4_HUMAN_1_578_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:003_GSTP1_HUMAN_2_210_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -24.88111,
+        "qed": -0.0753561366618199,
+        "sa_score": -1.8599999999999999,
+        "vina_score": -24.883
+      },
+      "example_id": "003_GSTP1_HUMAN_2_210_0",
+      "protein_id": "GSTP1_HUMAN_2_210_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:003_GSTP1_HUMAN_2_210_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:004_GUX1_HYPJE_18_451_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -29.426810000000003,
+        "qed": 0.04970033456023004,
+        "sa_score": 0.09999999999999964,
+        "vina_score": -29.431
+      },
+      "example_id": "004_GUX1_HYPJE_18_451_0",
+      "protein_id": "GUX1_HYPJE_18_451_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:004_GUX1_HYPJE_18_451_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:005_HDAC8_HUMAN_1_377_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -289.73981000000003,
+        "qed": 0.05476750573562278,
+        "sa_score": -3.2200000000000006,
+        "vina_score": -289.777
+      },
+      "example_id": "005_HDAC8_HUMAN_1_377_0",
+      "protein_id": "HDAC8_HUMAN_1_377_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:005_HDAC8_HUMAN_1_377_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:006_HDHA_ECOLI_1_255_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -25.92317,
+        "qed": -0.0498294343912658,
+        "sa_score": -1.2600000000000007,
+        "vina_score": -25.907
+      },
+      "example_id": "006_HDHA_ECOLI_1_255_0",
+      "protein_id": "HDHA_ECOLI_1_255_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:006_HDHA_ECOLI_1_255_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:007_HMD_METJA_1_358_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -11.285829999999999,
+        "qed": -0.07516959637709875,
+        "sa_score": 2.8400000000000007,
+        "vina_score": null
+      },
+      "example_id": "007_HMD_METJA_1_358_0",
+      "protein_id": "HMD_METJA_1_358_0",
+      "proxy_candidate_id": "pocket2mol_public:raw_rollout:007_HMD_METJA_1_358_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:008_CCPR_YEAST_69_361_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -11.05718,
+        "qed": -0.058030643016675265,
+        "sa_score": 1.1399999999999997,
+        "vina_score": -11.065
+      },
+      "example_id": "008_CCPR_YEAST_69_361_0",
+      "protein_id": "CCPR_YEAST_69_361_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:008_CCPR_YEAST_69_361_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:009_IPMK_HUMAN_49_416_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -240.05239,
+        "qed": -0.05190407746367304,
+        "sa_score": -1.9800000000000009,
+        "vina_score": -240.055
+      },
+      "example_id": "009_IPMK_HUMAN_49_416_0",
+      "protein_id": "IPMK_HUMAN_49_416_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:009_IPMK_HUMAN_49_416_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:010_CD38_HUMAN_44_300_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -85.31629000000001,
+        "qed": 0.0831381390659639,
+        "sa_score": -2.4600000000000004,
+        "vina_score": -85.316
+      },
+      "example_id": "010_CD38_HUMAN_44_300_0",
+      "protein_id": "CD38_HUMAN_44_300_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:010_CD38_HUMAN_44_300_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:011_KS6A3_HUMAN_41_357_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -29.665680000000002,
+        "qed": -0.1089505784212974,
+        "sa_score": -1.8600000000000003,
+        "vina_score": -29.647
+      },
+      "example_id": "011_KS6A3_HUMAN_41_357_0",
+      "protein_id": "KS6A3_HUMAN_41_357_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:011_KS6A3_HUMAN_41_357_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:012_CHOD_BREST_46_552_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -12.16784,
+        "qed": 0.015760174386372117,
+        "sa_score": 0.0,
+        "vina_score": -12.169
+      },
+      "example_id": "012_CHOD_BREST_46_552_0",
+      "protein_id": "CHOD_BREST_46_552_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:012_CHOD_BREST_46_552_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:013_LAT_MYCTU_1_449_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -31.53987,
+        "qed": -0.14399762655321685,
+        "sa_score": -0.1200000000000001,
+        "vina_score": -31.529
+      },
+      "example_id": "013_LAT_MYCTU_1_449_0",
+      "protein_id": "LAT_MYCTU_1_449_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:013_LAT_MYCTU_1_449_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:014_LMBL1_HUMAN_198_526_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -65.0878,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": -65.052
+      },
+      "example_id": "014_LMBL1_HUMAN_198_526_0",
+      "protein_id": "LMBL1_HUMAN_198_526_0",
+      "proxy_candidate_id": "targetdiff_public:reranked:014_LMBL1_HUMAN_198_526_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:015_LMBL1_HUMAN_198_526_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -32.46605,
+        "qed": -0.03941001298579727,
+        "sa_score": -0.9000000000000004,
+        "vina_score": -32.495
+      },
+      "example_id": "015_LMBL1_HUMAN_198_526_0",
+      "protein_id": "LMBL1_HUMAN_198_526_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:015_LMBL1_HUMAN_198_526_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:016_M3K14_HUMAN_321_678_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -40.13114,
+        "qed": -0.35644838700414605,
+        "sa_score": -1.4000000000000004,
+        "vina_score": -40.134
+      },
+      "example_id": "016_M3K14_HUMAN_321_678_0",
+      "protein_id": "M3K14_HUMAN_321_678_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:016_M3K14_HUMAN_321_678_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:017_MENE_BACSU_2_486_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -94.51485,
+        "qed": -0.049669714150878064,
+        "sa_score": -1.6000000000000005,
+        "vina_score": -94.467
+      },
+      "example_id": "017_MENE_BACSU_2_486_0",
+      "protein_id": "MENE_BACSU_2_486_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:017_MENE_BACSU_2_486_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:018_NAGZ_VIBCH_1_330_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -321.40008,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": -321.438
+      },
+      "example_id": "018_NAGZ_VIBCH_1_330_0",
+      "protein_id": "NAGZ_VIBCH_1_330_0",
+      "proxy_candidate_id": "targetdiff_public:reranked:018_NAGZ_VIBCH_1_330_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:019_NEP_HUMAN_54_750_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -53.35165,
+        "qed": 0.01697778114387466,
+        "sa_score": -1.2200000000000006,
+        "vina_score": -53.345
+      },
+      "example_id": "019_NEP_HUMAN_54_750_0",
+      "protein_id": "NEP_HUMAN_54_750_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:019_NEP_HUMAN_54_750_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:020_NQO1_HUMAN_2_274_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -30.00508,
+        "qed": -0.028287775258916348,
+        "sa_score": -0.9199999999999999,
+        "vina_score": -30.049
+      },
+      "example_id": "020_NQO1_HUMAN_2_274_0",
+      "protein_id": "NQO1_HUMAN_2_274_0",
+      "proxy_candidate_id": "targetdiff_public:raw_rollout:020_NQO1_HUMAN_2_274_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:021_NQO1_HUMAN_2_274_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -215.23192,
+        "qed": 0.22135331618296905,
+        "sa_score": -0.08000000000000007,
+        "vina_score": -215.27700000000002
+      },
+      "example_id": "021_NQO1_HUMAN_2_274_0",
+      "protein_id": "NQO1_HUMAN_2_274_0",
+      "proxy_candidate_id": "targetdiff_public:reranked:021_NQO1_HUMAN_2_274_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:022_NR1H4_HUMAN_258_486_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -114.71283,
+        "qed": 0.01819661358600841,
+        "sa_score": -3.1799999999999997,
+        "vina_score": -114.663
+      },
+      "example_id": "022_NR1H4_HUMAN_258_486_0",
+      "protein_id": "NR1H4_HUMAN_258_486_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:022_NR1H4_HUMAN_258_486_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:023_OLIAC_CANSA_1_101_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -30.12518,
+        "qed": -0.17105577010724715,
+        "sa_score": -0.6400000000000001,
+        "vina_score": -30.165
+      },
+      "example_id": "023_OLIAC_CANSA_1_101_0",
+      "protein_id": "OLIAC_CANSA_1_101_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:023_OLIAC_CANSA_1_101_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:024_PA21B_PIG_23_146_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -37.03224,
+        "qed": 0.14616920974018782,
+        "sa_score": -0.3799999999999999,
+        "vina_score": -37.002
+      },
+      "example_id": "024_PA21B_PIG_23_146_0",
+      "protein_id": "PA21B_PIG_23_146_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:024_PA21B_PIG_23_146_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:025_PAK4_HUMAN_291_591_ATP_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -6.58356,
+        "qed": 0.09975087665211474,
+        "sa_score": -2.9199999999999995,
+        "vina_score": -6.584
+      },
+      "example_id": "025_PAK4_HUMAN_291_591_ATP_0",
+      "protein_id": "PAK4_HUMAN_291_591_ATP_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:025_PAK4_HUMAN_291_591_ATP_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:026_PHKG1_RABIT_6_296_ATPsite_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -30.990229999999997,
+        "qed": -0.14383129439935952,
+        "sa_score": 0.52,
+        "vina_score": -30.950000000000003
+      },
+      "example_id": "026_PHKG1_RABIT_6_296_ATPsite_0",
+      "protein_id": "PHKG1_RABIT_6_296_ATPsite_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:026_PHKG1_RABIT_6_296_ATPsite_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:027_PHP_SULSO_1_314_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -14.583,
+        "qed": -0.2436748773994616,
+        "sa_score": 1.38,
+        "vina_score": -14.579
+      },
+      "example_id": "027_PHP_SULSO_1_314_0",
+      "protein_id": "PHP_SULSO_1_314_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:027_PHP_SULSO_1_314_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:028_COTA_BACSU_1_513_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -26.03121,
+        "qed": -0.14061681215439242,
+        "sa_score": -0.6000000000000001,
+        "vina_score": -26.035000000000004
+      },
+      "example_id": "028_COTA_BACSU_1_513_0",
+      "protein_id": "COTA_BACSU_1_513_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:028_COTA_BACSU_1_513_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:029_PLCD1_RAT_134_756_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -83.304,
+        "qed": 0.058335478013833986,
+        "sa_score": 1.2599999999999998,
+        "vina_score": null
+      },
+      "example_id": "029_PLCD1_RAT_134_756_0",
+      "protein_id": "PLCD1_RAT_134_756_0",
+      "proxy_candidate_id": "pocket2mol_public:reranked:029_PLCD1_RAT_134_756_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:030_PNTM_STRAE_2_398_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -28.420650000000002,
+        "qed": -0.03493930831644437,
+        "sa_score": 1.7000000000000002,
+        "vina_score": -28.413
+      },
+      "example_id": "030_PNTM_STRAE_2_398_0",
+      "protein_id": "PNTM_STRAE_2_398_0",
+      "proxy_candidate_id": "pocket2mol_public:reranked:030_PNTM_STRAE_2_398_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:031_CPXB_BACMB_2_464_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -45.15745,
+        "qed": -0.24010480142208218,
+        "sa_score": 1.52,
+        "vina_score": -45.118
+      },
+      "example_id": "031_CPXB_BACMB_2_464_0",
+      "protein_id": "CPXB_BACMB_2_464_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:031_CPXB_BACMB_2_464_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:032_PPIA_HUMAN_1_165_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -101.41687,
+        "qed": -0.20979523790170262,
+        "sa_score": -1.0800000000000005,
+        "vina_score": -101.39999999999999
+      },
+      "example_id": "032_PPIA_HUMAN_1_165_0",
+      "protein_id": "PPIA_HUMAN_1_165_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:032_PPIA_HUMAN_1_165_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:033_PTGIS_HUMAN_20_500_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -162.61446,
+        "qed": -0.18861279321387708,
+        "sa_score": 0.45999999999999996,
+        "vina_score": -162.71099999999998
+      },
+      "example_id": "033_PTGIS_HUMAN_20_500_0",
+      "protein_id": "PTGIS_HUMAN_20_500_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:033_PTGIS_HUMAN_20_500_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:034_QPCT_HUMAN_33_361_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -20.74122,
+        "qed": 0.024304244298662958,
+        "sa_score": -1.1199999999999997,
+        "vina_score": -20.773
+      },
+      "example_id": "034_QPCT_HUMAN_33_361_0",
+      "protein_id": "QPCT_HUMAN_33_361_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:034_QPCT_HUMAN_33_361_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:035_RIBB_VIBCH_2_218_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -9.51152,
+        "qed": -0.003207426225106058,
+        "sa_score": -0.76,
+        "vina_score": -9.491
+      },
+      "example_id": "035_RIBB_VIBCH_2_218_0",
+      "protein_id": "RIBB_VIBCH_2_218_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:035_RIBB_VIBCH_2_218_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:036_RG1_RAUSE_1_513_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -109.76965,
+        "qed": -0.1079096605869923,
+        "sa_score": -2.5199999999999996,
+        "vina_score": null
+      },
+      "example_id": "036_RG1_RAUSE_1_513_0",
+      "protein_id": "RG1_RAUSE_1_513_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:036_RG1_RAUSE_1_513_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:037_ROCO4_DICDI_1009_1292_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0
+      },
+      "example_id": "037_ROCO4_DICDI_1009_1292_0",
+      "protein_id": "ROCO4_DICDI_1009_1292_0",
+      "proxy_candidate_id": "targetdiff_public:raw_rollout:037_ROCO4_DICDI_1009_1292_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:038_DPO4_SULSO_1_347_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -6.9315999999999995,
+        "qed": -0.2815068142925749,
+        "sa_score": -0.2799999999999998,
+        "vina_score": -6.954
+      },
+      "example_id": "038_DPO4_SULSO_1_347_0",
+      "protein_id": "DPO4_SULSO_1_347_0",
+      "proxy_candidate_id": "targetdiff_public:raw_rollout:038_DPO4_SULSO_1_347_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:039_SDIA_ECOLI_1_171_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -22.79943,
+        "qed": -0.20800142506339753,
+        "sa_score": 0.35999999999999943,
+        "vina_score": -22.797
+      },
+      "example_id": "039_SDIA_ECOLI_1_171_0",
+      "protein_id": "SDIA_ECOLI_1_171_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:039_SDIA_ECOLI_1_171_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:040_DPP2_HUMAN_27_492_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -21.35432,
+        "qed": -0.10889597164433218,
+        "sa_score": 0.21999999999999975,
+        "vina_score": -21.302
+      },
+      "example_id": "040_DPP2_HUMAN_27_492_0",
+      "protein_id": "DPP2_HUMAN_27_492_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:040_DPP2_HUMAN_27_492_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:041_TBK1_HUMAN_1_303_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -78.19601,
+        "qed": -0.2965458165123585,
+        "sa_score": 0.22000000000000064,
+        "vina_score": null
+      },
+      "example_id": "041_TBK1_HUMAN_1_303_0",
+      "protein_id": "TBK1_HUMAN_1_303_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:041_TBK1_HUMAN_1_303_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:042_TRAR_RHIRD_1_234_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -62.01074,
+        "qed": -0.24618781169782578,
+        "sa_score": 0.3199999999999994,
+        "vina_score": -62.028999999999996
+      },
+      "example_id": "042_TRAR_RHIRD_1_234_0",
+      "protein_id": "TRAR_RHIRD_1_234_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:042_TRAR_RHIRD_1_234_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:043_UBE2T_HUMAN_1_156_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -41.135040000000004,
+        "qed": -0.20784622550361148,
+        "sa_score": -0.23999999999999932,
+        "vina_score": -41.115
+      },
+      "example_id": "043_UBE2T_HUMAN_1_156_0",
+      "protein_id": "UBE2T_HUMAN_1_156_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:043_UBE2T_HUMAN_1_156_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:044_VAOX_PENSI_1_560_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -30.299229999999998,
+        "qed": -0.07911984761237356,
+        "sa_score": 0.54,
+        "vina_score": null
+      },
+      "example_id": "044_VAOX_PENSI_1_560_0",
+      "protein_id": "VAOX_PENSI_1_560_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:044_VAOX_PENSI_1_560_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:045_XANLY_BACGL_26_777_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -47.11011,
+        "qed": -0.22017764012268737,
+        "sa_score": -0.7599999999999998,
+        "vina_score": -47.123
+      },
+      "example_id": "045_XANLY_BACGL_26_777_0",
+      "protein_id": "XANLY_BACGL_26_777_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:045_XANLY_BACGL_26_777_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:046_EFTU1_ECOLI_2_178_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -226.92845000000003,
+        "qed": 0.034534544972251835,
+        "sa_score": -2.9799999999999995,
+        "vina_score": -226.791
+      },
+      "example_id": "046_EFTU1_ECOLI_2_178_0",
+      "protein_id": "EFTU1_ECOLI_2_178_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:046_EFTU1_ECOLI_2_178_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:047_F16P1_HUMAN_1_338_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -66.49843,
+        "qed": -0.1817876581669043,
+        "sa_score": -1.1600000000000006,
+        "vina_score": null
+      },
+      "example_id": "047_F16P1_HUMAN_1_338_0",
+      "protein_id": "F16P1_HUMAN_1_338_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:047_F16P1_HUMAN_1_338_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:048_FKB1A_HUMAN_2_108_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": 0.0,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 0.0
+      },
+      "example_id": "048_FKB1A_HUMAN_2_108_0",
+      "protein_id": "FKB1A_HUMAN_2_108_0",
+      "proxy_candidate_id": "targetdiff_public:raw_rollout:048_FKB1A_HUMAN_2_108_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:049_IDHP_HUMAN_40_452_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -36.59563,
+        "qed": -0.1754447987316874,
+        "sa_score": -1.1000000000000005,
+        "vina_score": -36.552
+      },
+      "example_id": "049_IDHP_HUMAN_40_452_0",
+      "protein_id": "IDHP_HUMAN_40_452_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:049_IDHP_HUMAN_40_452_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:050_IMA1_HUMAN_68_497_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -136.22487999999998,
+        "qed": -0.14654354682117465,
+        "sa_score": -1.52,
+        "vina_score": -136.316
+      },
+      "example_id": "050_IMA1_HUMAN_68_497_0",
+      "protein_id": "IMA1_HUMAN_68_497_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:050_IMA1_HUMAN_68_497_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:051_MCCF_ECOLX_1_344_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -52.96114,
+        "qed": -0.03284256782856784,
+        "sa_score": 0.7600000000000002,
+        "vina_score": -52.947
+      },
+      "example_id": "051_MCCF_ECOLX_1_344_0",
+      "protein_id": "MCCF_ECOLX_1_344_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:051_MCCF_ECOLX_1_344_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:052_MURA_ECOLI_1_419_catalytic_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -24.70948,
+        "qed": 0.20463594851955597,
+        "sa_score": -0.33999999999999986,
+        "vina_score": -24.705000000000002
+      },
+      "example_id": "052_MURA_ECOLI_1_419_catalytic_0",
+      "protein_id": "MURA_ECOLI_1_419_catalytic_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:052_MURA_ECOLI_1_419_catalytic_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:053_NOS1_HUMAN_302_723_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -8.321280000000002,
+        "qed": -0.24868169691586034,
+        "sa_score": 2.58,
+        "vina_score": -8.312
+      },
+      "example_id": "053_NOS1_HUMAN_302_723_0",
+      "protein_id": "NOS1_HUMAN_302_723_0",
+      "proxy_candidate_id": "pocket2mol_public:raw_rollout:053_NOS1_HUMAN_302_723_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:054_NOS1_HUMAN_302_723_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -10.115639999999999,
+        "qed": -0.09414284967881825,
+        "sa_score": 1.06,
+        "vina_score": -10.117
+      },
+      "example_id": "054_NOS1_HUMAN_302_723_0",
+      "protein_id": "NOS1_HUMAN_302_723_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:054_NOS1_HUMAN_302_723_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:055_NOS2_HUMAN_78_505_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -50.41713,
+        "qed": 0.08201427499196529,
+        "sa_score": -0.020000000000000018,
+        "vina_score": -50.452
+      },
+      "example_id": "055_NOS2_HUMAN_78_505_0",
+      "protein_id": "NOS2_HUMAN_78_505_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:055_NOS2_HUMAN_78_505_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:056_NOS3_HUMAN_65_480_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -20.02845,
+        "qed": -0.02545655909644684,
+        "sa_score": 0.10000000000000009,
+        "vina_score": -20.042
+      },
+      "example_id": "056_NOS3_HUMAN_65_480_0",
+      "protein_id": "NOS3_HUMAN_65_480_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:056_NOS3_HUMAN_65_480_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:057_NOS3_HUMAN_65_480_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -26.177999999999997,
+        "qed": -0.13460400010483836,
+        "sa_score": 2.3200000000000003,
+        "vina_score": -26.15
+      },
+      "example_id": "057_NOS3_HUMAN_65_480_0",
+      "protein_id": "NOS3_HUMAN_65_480_0",
+      "proxy_candidate_id": "pocket2mol_public:reranked:057_NOS3_HUMAN_65_480_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:058_NPD_THEMA_1_246_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -83.71791999999999,
+        "qed": -0.142640350775686,
+        "sa_score": -0.6400000000000006,
+        "vina_score": -83.721
+      },
+      "example_id": "058_NPD_THEMA_1_246_0",
+      "protein_id": "NPD_THEMA_1_246_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:058_NPD_THEMA_1_246_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:059_ODBB_THET8_1_324_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -41.76871,
+        "qed": -0.18574886880293107,
+        "sa_score": -0.6199999999999997,
+        "vina_score": -41.802
+      },
+      "example_id": "059_ODBB_THET8_1_324_0",
+      "protein_id": "ODBB_THET8_1_324_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:059_ODBB_THET8_1_324_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:060_P2Y12_HUMAN_1_342_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -52.47035,
+        "qed": -0.08827603579837384,
+        "sa_score": -2.0599999999999996,
+        "vina_score": null
+      },
+      "example_id": "060_P2Y12_HUMAN_1_342_0",
+      "protein_id": "P2Y12_HUMAN_1_342_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:060_P2Y12_HUMAN_1_342_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:061_PA2B8_DABRR_1_121_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -142.728,
+        "qed": -0.07879905079828531,
+        "sa_score": -1.98,
+        "vina_score": -142.694
+      },
+      "example_id": "061_PA2B8_DABRR_1_121_0",
+      "protein_id": "PA2B8_DABRR_1_121_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:061_PA2B8_DABRR_1_121_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:062_PAC_ECOLX_27_846_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -31.066000000000003,
+        "qed": -0.12868791513010014,
+        "sa_score": 0.07999999999999963,
+        "vina_score": -31.072000000000003
+      },
+      "example_id": "062_PAC_ECOLX_27_846_0",
+      "protein_id": "PAC_ECOLX_27_846_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:062_PAC_ECOLX_27_846_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "flow_matching:raw_flow:063_POL_FOAMV_861_1060_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_flow",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -272.32377,
+        "qed": -0.19663859145104232,
+        "sa_score": -2.54,
+        "vina_score": -272.398
+      },
+      "example_id": "063_POL_FOAMV_861_1060_0",
+      "protein_id": "POL_FOAMV_861_1060_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:063_POL_FOAMV_861_1060_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:064_AROE_THET8_1_263_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -56.74615,
+        "qed": -0.01438724461754498,
+        "sa_score": -0.5999999999999999,
+        "vina_score": -56.781000000000006
+      },
+      "example_id": "064_AROE_THET8_1_263_0",
+      "protein_id": "AROE_THET8_1_263_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:064_AROE_THET8_1_263_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:065_PYRD_TRYCC_2_314_catalytic_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -0.5541,
+        "qed": -0.10424109165536288,
+        "sa_score": -0.30000000000000027,
+        "vina_score": -0.5599999999999998
+      },
+      "example_id": "065_PYRD_TRYCC_2_314_catalytic_0",
+      "protein_id": "PYRD_TRYCC_2_314_catalytic_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:065_PYRD_TRYCC_2_314_catalytic_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:066_PYRD_TRYCC_2_314_catalytic_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -2.5048500000000002,
+        "qed": -0.036293560805536806,
+        "sa_score": 0.15999999999999992,
+        "vina_score": -2.513
+      },
+      "example_id": "066_PYRD_TRYCC_2_314_catalytic_0",
+      "protein_id": "PYRD_TRYCC_2_314_catalytic_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:066_PYRD_TRYCC_2_314_catalytic_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:067_PYRE_BACAN_1_210_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -196.83081,
+        "qed": 0.04139135624139961,
+        "sa_score": -0.4600000000000004,
+        "vina_score": -196.928
+      },
+      "example_id": "067_PYRE_BACAN_1_210_0",
+      "protein_id": "PYRE_BACAN_1_210_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:067_PYRE_BACAN_1_210_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:068_SIR3_HUMAN_117_398_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -30.78997,
+        "qed": 0.17208658893028442,
+        "sa_score": -0.020000000000000462,
+        "vina_score": -30.788000000000004
+      },
+      "example_id": "068_SIR3_HUMAN_117_398_0",
+      "protein_id": "SIR3_HUMAN_117_398_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:068_SIR3_HUMAN_117_398_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:069_BAZ2A_HUMAN_1795_1898_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -11.22936,
+        "qed": 0.017244925817277545,
+        "sa_score": -0.8000000000000003,
+        "vina_score": -11.236
+      },
+      "example_id": "069_BAZ2A_HUMAN_1795_1898_0",
+      "protein_id": "BAZ2A_HUMAN_1795_1898_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:069_BAZ2A_HUMAN_1795_1898_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:070_SQHC_ALIAD_1_631_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -17.85811,
+        "qed": -0.15321168437801466,
+        "sa_score": 0.4800000000000004,
+        "vina_score": null
+      },
+      "example_id": "070_SQHC_ALIAD_1_631_0",
+      "protein_id": "SQHC_ALIAD_1_631_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:070_SQHC_ALIAD_1_631_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:071_TIAM1_HUMAN_840_931_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -198.37381,
+        "qed": -0.1447561555955968,
+        "sa_score": -1.58,
+        "vina_score": -198.378
+      },
+      "example_id": "071_TIAM1_HUMAN_840_931_0",
+      "protein_id": "TIAM1_HUMAN_840_931_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:071_TIAM1_HUMAN_840_931_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:072_TNKS1_HUMAN_1099_1319_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -118.90884,
+        "qed": -0.01941862129021657,
+        "sa_score": -0.21999999999999886,
+        "vina_score": -118.88199999999999
+      },
+      "example_id": "072_TNKS1_HUMAN_1099_1319_0",
+      "protein_id": "TNKS1_HUMAN_1099_1319_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:072_TNKS1_HUMAN_1099_1319_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:073_TNKS2_HUMAN_948_1162_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -20.814079999999997,
+        "qed": 0.13804845832704904,
+        "sa_score": -3.6400000000000006,
+        "vina_score": -20.819
+      },
+      "example_id": "073_TNKS2_HUMAN_948_1162_0",
+      "protein_id": "TNKS2_HUMAN_948_1162_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:073_TNKS2_HUMAN_948_1162_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:074_UPPS_ECOLI_1_253_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -4.694369999999999,
+        "qed": -0.11483520722385049,
+        "sa_score": 0.8399999999999999,
+        "vina_score": -4.691000000000001
+      },
+      "example_id": "074_UPPS_ECOLI_1_253_0",
+      "protein_id": "UPPS_ECOLI_1_253_0",
+      "proxy_candidate_id": "pocket2mol_public:raw_rollout:074_UPPS_ECOLI_1_253_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:075_Y635_MYCTU_1_158_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -14.85936,
+        "qed": -0.27056056802852546,
+        "sa_score": -0.7199999999999998,
+        "vina_score": -14.846
+      },
+      "example_id": "075_Y635_MYCTU_1_158_0",
+      "protein_id": "Y635_MYCTU_1_158_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:075_Y635_MYCTU_1_158_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:076_ABL2_HUMAN_274_551_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -102.1245,
+        "qed": -0.2398385212114173,
+        "sa_score": -2.980000000000001,
+        "vina_score": -102.056
+      },
+      "example_id": "076_ABL2_HUMAN_274_551_0",
+      "protein_id": "ABL2_HUMAN_274_551_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:076_ABL2_HUMAN_274_551_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:077_ACE_HUMAN_650_1230_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -35.898270000000004,
+        "qed": 0.1392758693103998,
+        "sa_score": -0.16000000000000014,
+        "vina_score": -35.933
+      },
+      "example_id": "077_ACE_HUMAN_650_1230_0",
+      "protein_id": "ACE_HUMAN_650_1230_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:077_ACE_HUMAN_650_1230_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:078_BGAT_HUMAN_63_353_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -2.82326,
+        "qed": -0.018534923410799986,
+        "sa_score": 1.1999999999999997,
+        "vina_score": -2.819
+      },
+      "example_id": "078_BGAT_HUMAN_63_353_0",
+      "protein_id": "BGAT_HUMAN_63_353_0",
+      "proxy_candidate_id": "diffsbdd_public:raw_rollout:078_BGAT_HUMAN_63_353_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:079_AK1BA_HUMAN_1_316_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -38.71334,
+        "qed": -0.05161890188998114,
+        "sa_score": -1.3399999999999994,
+        "vina_score": -38.733000000000004
+      },
+      "example_id": "079_AK1BA_HUMAN_1_316_0",
+      "protein_id": "AK1BA_HUMAN_1_316_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:079_AK1BA_HUMAN_1_316_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:080_AKT1_HUMAN_1_137_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -36.02649,
+        "qed": 0.20678706081616696,
+        "sa_score": -0.6599999999999997,
+        "vina_score": -36.004
+      },
+      "example_id": "080_AKT1_HUMAN_1_137_0",
+      "protein_id": "AKT1_HUMAN_1_137_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:080_AKT1_HUMAN_1_137_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:081_BGL07_ORYSJ_25_504_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -120.60427999999999,
+        "qed": -0.040377364921241166,
+        "sa_score": -5.019999999999999,
+        "vina_score": -120.731
+      },
+      "example_id": "081_BGL07_ORYSJ_25_504_0",
+      "protein_id": "BGL07_ORYSJ_25_504_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:081_BGL07_ORYSJ_25_504_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:082_ATS5_HUMAN_262_480_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -31.10733,
+        "qed": -0.11628847453922053,
+        "sa_score": -2.1000000000000005,
+        "vina_score": -31.088
+      },
+      "example_id": "082_ATS5_HUMAN_262_480_0",
+      "protein_id": "ATS5_HUMAN_262_480_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:082_ATS5_HUMAN_262_480_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:083_BACE2_HUMAN_76_460_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -60.38799,
+        "qed": -0.21054732283138727,
+        "sa_score": 2.52,
+        "vina_score": -60.386
+      },
+      "example_id": "083_BACE2_HUMAN_76_460_0",
+      "protein_id": "BACE2_HUMAN_76_460_0",
+      "proxy_candidate_id": "pocket2mol_public:reranked:083_BACE2_HUMAN_76_460_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:084_BAPA_SPHXN_30_402_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -36.84693,
+        "qed": 0.16908116097072817,
+        "sa_score": -1.7799999999999998,
+        "vina_score": -36.871
+      },
+      "example_id": "084_BAPA_SPHXN_30_402_0",
+      "protein_id": "BAPA_SPHXN_30_402_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:084_BAPA_SPHXN_30_402_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:085_BTRN_BACCI_2_250_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -52.078869999999995,
+        "qed": -0.11058777493977762,
+        "sa_score": -1.6800000000000006,
+        "vina_score": -52.088
+      },
+      "example_id": "085_BTRN_BACCI_2_250_0",
+      "protein_id": "BTRN_BACCI_2_250_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:085_BTRN_BACCI_2_250_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:086_CAT_ECOLX_1_219_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -35.18617,
+        "qed": -0.17027892439581166,
+        "sa_score": 2.4799999999999995,
+        "vina_score": -35.186
+      },
+      "example_id": "086_CAT_ECOLX_1_219_0",
+      "protein_id": "CAT_ECOLX_1_219_0",
+      "proxy_candidate_id": "pocket2mol_public:reranked:086_CAT_ECOLX_1_219_0:0",
+      "proxy_layer": "reranked"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:087_CDK6_HUMAN_1_312_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -149.77957,
+        "qed": -0.057970459801097496,
+        "sa_score": -1.6400000000000001,
+        "vina_score": -149.81699999999998
+      },
+      "example_id": "087_CDK6_HUMAN_1_312_0",
+      "protein_id": "CDK6_HUMAN_1_312_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:087_CDK6_HUMAN_1_312_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:088_CDK6_HUMAN_1_312_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -93.40608999999999,
+        "qed": -0.15414655384068338,
+        "sa_score": -1.42,
+        "vina_score": -93.42500000000001
+      },
+      "example_id": "088_CDK6_HUMAN_1_312_0",
+      "protein_id": "CDK6_HUMAN_1_312_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:088_CDK6_HUMAN_1_312_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:089_CHIB1_ASPFM_39_433_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -15.08421,
+        "qed": -0.0067971333906367,
+        "sa_score": 1.0399999999999996,
+        "vina_score": -15.057
+      },
+      "example_id": "089_CHIB1_ASPFM_39_433_0",
+      "protein_id": "CHIB1_ASPFM_39_433_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:089_CHIB1_ASPFM_39_433_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "diffsbdd_public:raw_rollout:090_CHIA_SERMA_19_563_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -15.60067,
+        "qed": 0.006415160892454086,
+        "sa_score": 0.16000000000000014,
+        "vina_score": -15.587
+      },
+      "example_id": "090_CHIA_SERMA_19_563_0",
+      "protein_id": "CHIA_SERMA_19_563_0",
+      "proxy_candidate_id": "flow_matching:raw_flow:090_CHIA_SERMA_19_563_0:0",
+      "proxy_layer": "raw_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:091_CHIB_SERMA_1_499_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -71.10391,
+        "qed": -0.12978626976009106,
+        "sa_score": -1.2,
+        "vina_score": -71.11500000000001
+      },
+      "example_id": "091_CHIB_SERMA_1_499_0",
+      "protein_id": "CHIB_SERMA_1_499_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:091_CHIB_SERMA_1_499_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -9.259340000000002,
+        "qed": -0.2956986234799229,
+        "sa_score": 2.3200000000000003,
+        "vina_score": -9.25
+      },
+      "example_id": "092_CHIB_SERMA_1_499_0",
+      "protein_id": "CHIB_SERMA_1_499_0",
+      "proxy_candidate_id": "pocket2mol_public:raw_rollout:092_CHIB_SERMA_1_499_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:093_COAA_MYCTU_1_312_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -3.15585,
+        "qed": 0.24597834092970255,
+        "sa_score": 1.28,
+        "vina_score": -3.147
+      },
+      "example_id": "093_COAA_MYCTU_1_312_0",
+      "protein_id": "COAA_MYCTU_1_312_0",
+      "proxy_candidate_id": "pocket2mol_public:raw_rollout:093_COAA_MYCTU_1_312_0:0",
+      "proxy_layer": "raw_rollout"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:094_CONA_CANCT_1_237_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -168.75180999999998,
+        "qed": -0.13410834451079096,
+        "sa_score": -2.899999999999999,
+        "vina_score": -168.808
+      },
+      "example_id": "094_CONA_CANCT_1_237_0",
+      "protein_id": "CONA_CANCT_1_237_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:094_CONA_CANCT_1_237_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:095_DFPA_LOLVU_2_314_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -89.35262999999999,
+        "qed": 0.023681613149072245,
+        "sa_score": -0.5,
+        "vina_score": -89.387
+      },
+      "example_id": "095_DFPA_LOLVU_2_314_0",
+      "protein_id": "DFPA_LOLVU_2_314_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:095_DFPA_LOLVU_2_314_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:096_DHAK_ECOLI_1_356_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -27.40689,
+        "qed": -0.03190051263236732,
+        "sa_score": -0.6399999999999999,
+        "vina_score": -27.398
+      },
+      "example_id": "096_DHAK_ECOLI_1_356_0",
+      "protein_id": "DHAK_ECOLI_1_356_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:096_DHAK_ECOLI_1_356_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:097_DIDH_RAT_1_319_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -28.81521,
+        "qed": -0.15875824786214404,
+        "sa_score": -0.8400000000000003,
+        "vina_score": null
+      },
+      "example_id": "097_DIDH_RAT_1_319_0",
+      "protein_id": "DIDH_RAT_1_319_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:097_DIDH_RAT_1_319_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "pocket2mol_public:raw_rollout:098_DYRK2_HUMAN_145_550_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -27.406080000000003,
+        "qed": -0.040709079056308606,
+        "sa_score": -2.2199999999999998,
+        "vina_score": -27.406000000000002
+      },
+      "example_id": "098_DYRK2_HUMAN_145_550_0",
+      "protein_id": "DYRK2_HUMAN_145_550_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:098_DYRK2_HUMAN_145_550_0:0",
+      "proxy_layer": "constrained_flow"
+    },
+    {
+      "backend_aware_candidate_id": "targetdiff_public:raw_rollout:099_EXG1_CANAL_41_438_0:0",
+      "backend_aware_label": "backend_aware_posthoc",
+      "backend_aware_layer": "raw_rollout",
+      "delta_backend_minus_proxy": {
+        "gnina_affinity": -40.05898,
+        "qed": -0.13145771690563057,
+        "sa_score": 0.07999999999999963,
+        "vina_score": -40.081
+      },
+      "example_id": "099_EXG1_CANAL_41_438_0",
+      "protein_id": "EXG1_CANAL_41_438_0",
+      "proxy_candidate_id": "flow_matching:constrained_flow:099_EXG1_CANAL_41_438_0:0",
+      "proxy_layer": "constrained_flow"
+    }
+  ],
+  "label": "backend_aware_posthoc",
+  "mean_delta_backend_aware_minus_proxy": {
+    "gnina_affinity": -61.3122818,
+    "qed": -0.06909713580608062,
+    "sa_score": -0.5314,
+    "vina_score": -62.10631111111111
+  },
+  "proxy_reranker": {
+    "candidate_count": 100,
+    "clash_fraction_mean": 0.0017375541125541124,
+    "gnina_affinity_mean": 54.6497669,
+    "gnina_cnn_score_mean": 0.1733654,
+    "method_layer_counts": {
+      "diffsbdd_public:raw_rollout": 1,
+      "flow_matching:constrained_flow": 57,
+      "flow_matching:raw_flow": 24,
+      "pocket2mol_public:raw_rollout": 5,
+      "pocket2mol_public:reranked": 5,
+      "targetdiff_public:raw_rollout": 5,
+      "targetdiff_public:reranked": 3
+    },
+    "pocket_contact_fraction_mean": 0.9987592911953312,
+    "qed_mean": 0.46056846430026516,
+    "raw_model_native_fraction": 0.35,
+    "sa_score_mean": 3.2348000000000003,
+    "vina_score_mean": 55.220474747474746
+  },
+  "raw_model_capability_source": "raw_flow/raw_rollout/no_repair only",
+  "schema_version": 1,
+  "split_label": "q1_public_full100_budget1"
+}

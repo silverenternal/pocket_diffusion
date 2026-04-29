@@ -64,13 +64,11 @@ fn build_chemistry_benchmark_evidence(
     let stronger_passed = stronger_checks
         .iter()
         .all(|result| matches!(result, Some(true)));
-    let stronger_support_score = Some(
-        stronger_checks
-            .iter()
-            .filter(|result| matches!(result, Some(true)))
-            .count() as f64
-            / stronger_check_count as f64,
-    );
+    let stronger_support_score = stronger_checks
+        .iter()
+        .filter(|result| matches!(result, Some(true)))
+        .count() as f64
+        / stronger_check_count as f64;
     let val_family_count = summary
         .split_report
         .val
@@ -133,10 +131,8 @@ fn build_chemistry_benchmark_evidence(
         stronger_passed,
     ];
     let external_benchmark_backed = external_checks.iter().all(|passed| *passed);
-    let external_benchmark_support_score = Some(
-        external_checks.iter().filter(|passed| **passed).count() as f64
-            / external_checks.len() as f64,
-    );
+    let external_benchmark_support_score = external_checks.iter().filter(|passed| **passed).count() as f64
+        / external_checks.len() as f64;
     let benchmark_components = if backend_backed {
         let mut components = vec![
             "rdkit_sanitized_fraction".to_string(),
@@ -197,7 +193,7 @@ fn build_chemistry_benchmark_evidence(
     } else {
         format!(
             "This surface stays at local benchmark-style chemistry evidence because the stronger reviewer gate is only {:.3} supported; it requires parseable, finite-conformer, sanitized, and unique-SMILES backend quality plus at least {} review-layer candidates and novelty_diversity_score >= 0.75.",
-            stronger_support_score.unwrap_or(0.0),
+            stronger_support_score,
             stronger_candidate_threshold,
         )
     };
@@ -215,7 +211,7 @@ fn build_chemistry_benchmark_evidence(
     } else {
         format!(
             "This surface does not yet clear the explicit external benchmark-dataset chemistry tier; support is {:.3} and requires a configured benchmark dataset label, parsed_examples>=100, retained_label_coverage>=0.8, held-out family counts>=10 on validation/test, and reviewer benchmark-plus chemistry already passing.",
-            external_benchmark_support_score.unwrap_or(0.0),
+            external_benchmark_support_score,
         )
     };
     let interpretation = if backend_backed && external_benchmark_backed {
@@ -224,15 +220,15 @@ fn build_chemistry_benchmark_evidence(
             external_benchmark_label,
             validity_quality_score.unwrap_or(0.0),
             novelty_diversity_score,
-            stronger_support_score.unwrap_or(0.0),
-            external_benchmark_support_score.unwrap_or(0.0),
+            stronger_support_score,
+            external_benchmark_support_score,
         )
     } else if backend_backed && stronger_passed {
         format!(
             "Combines backend-backed chemistry quality, held-out-pocket novelty/diversity aggregates, and explicit reviewer benchmark checks (validity_quality_score={:.4}, novelty_diversity_score={:.4}, support_score={:.4}) for a stronger reviewer benchmark-plus chemistry summary.",
             validity_quality_score.unwrap_or(0.0),
             novelty_diversity_score,
-            stronger_support_score.unwrap_or(0.0),
+            stronger_support_score,
         )
     } else if backend_backed {
         format!(
@@ -263,8 +259,8 @@ fn build_chemistry_benchmark_evidence(
         },
         stronger_review_candidate_threshold: stronger_candidate_threshold,
         stronger_required_backend_metrics,
-        stronger_benchmark_support_score: stronger_support_score,
-        external_benchmark_support_score,
+        stronger_benchmark_support_score: Some(stronger_support_score),
+        external_benchmark_support_score: Some(external_benchmark_support_score),
         stronger_benchmark_note,
         external_required_checks,
         external_benchmark_note,
@@ -272,4 +268,3 @@ fn build_chemistry_benchmark_evidence(
         interpretation,
     }
 }
-

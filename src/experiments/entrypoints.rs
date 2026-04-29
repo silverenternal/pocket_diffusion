@@ -1,7 +1,8 @@
 //! Config-driven entrypoints for modular research experiments.
 
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::experiments::unseen_pocket::{run_automated_search, run_multi_seed_experiment};
 use crate::experiments::{
@@ -13,13 +14,14 @@ use crate::{
     config::load_research_config,
     data::InMemoryDataset,
     models::{
-        generate_candidates_from_forward, report_to_metrics, ChemistryValidityEvaluator,
+        generate_layered_candidates_from_forward, report_to_metrics, ChemistryValidityEvaluator,
         DockingEvaluator, HeuristicChemistryValidityEvaluator, HeuristicDockingEvaluator,
         HeuristicPocketCompatibilityEvaluator, Phase1ResearchSystem, PocketCompatibilityEvaluator,
     },
     training::CheckpointManager,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use tch::nn;
 
 /// Execute the unseen-pocket experiment from a JSON config path.
@@ -27,7 +29,12 @@ pub fn run_experiment_from_config(
     path: impl AsRef<Path>,
     resume: bool,
 ) -> Result<UnseenPocketExperimentSummary, Box<dyn std::error::Error>> {
-    let config = load_experiment_config(path)?;
+    let config_path = path.as_ref().to_path_buf();
+    let config = load_experiment_config(&config_path)?;
+    crate::experiments::unseen_pocket::validate_experiment_config_with_source(
+        &config,
+        &config_path,
+    )?;
     UnseenPocketExperiment::run_with_options(config, resume)
 }
 
@@ -35,8 +42,13 @@ pub fn run_experiment_from_config(
 pub fn run_ablation_matrix_from_config(
     path: impl AsRef<Path>,
 ) -> Result<AblationMatrixSummary, Box<dyn std::error::Error>> {
-    let mut config = load_experiment_config(path)?;
+    let config_path = path.as_ref().to_path_buf();
+    let mut config = load_experiment_config(&config_path)?;
     config.ablation_matrix.enabled = true;
+    crate::experiments::unseen_pocket::validate_experiment_config_with_source(
+        &config,
+        &config_path,
+    )?;
     let summary = UnseenPocketExperiment::run_with_options(config, false)?;
     summary
         .ablation_matrix
@@ -64,16 +76,100 @@ pub struct ResearchGenerationDemoSummary {
     pub example_id: String,
     /// Protein identifier used for conditioned generation.
     pub protein_id: String,
-    /// Number of candidates emitted by the modular decoder path.
+    /// Number of constrained-flow demo candidates emitted by the generation path.
     pub candidate_count: usize,
+    /// Number of raw-flow candidates persisted for the same example.
+    pub raw_candidate_count: usize,
     /// Number of rollout steps executed for the selected example.
     pub rollout_steps: usize,
     /// Full per-step refinement trace for the selected example.
     pub rollout: crate::models::GenerationRolloutRecord,
     /// Whether a latest checkpoint was loaded before generation.
     pub loaded_checkpoint: bool,
-    /// Chemistry, docking, and pocket-compatibility metrics over emitted candidates.
-    pub real_generation_metrics: RealGenerationMetrics,
+    /// Path to persisted raw-flow demo candidates.
+    pub raw_candidate_path: PathBuf,
+    /// Path to persisted constrained-flow demo candidates.
+    pub constrained_candidate_path: PathBuf,
+    /// Chemistry, docking, and pocket-compatibility metrics over raw-flow candidates.
+    pub raw_generation_metrics: DemoGenerationMetrics,
+    /// Chemistry, docking, and pocket-compatibility metrics over constrained-flow candidates.
+    pub constrained_generation_metrics: DemoGenerationMetrics,
+}
+
+/// Candidate-metric block with explicit layer and evidence-role attribution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DemoGenerationMetric {
+    /// Candidate layer used to compute this metric block.
+    pub candidate_layer: String,
+    /// Evidence role for this metric block.
+    pub evidence_role: String,
+    /// Whether this metric backend is enabled for the run.
+    pub available: bool,
+    /// Backend identifier if available.
+    pub backend_name: Option<String>,
+    /// Metric payload emitted by the backend/heuristic.
+    pub metrics: BTreeMap<String, f64>,
+    /// Human-readable status for compatibility provenance.
+    pub status: String,
+}
+
+impl DemoGenerationMetric {
+    fn from_reserved(
+        metric: crate::experiments::ReservedBackendMetrics,
+        candidate_layer: &str,
+        evidence_role: &str,
+    ) -> Self {
+        Self {
+            candidate_layer: candidate_layer.to_string(),
+            evidence_role: evidence_role.to_string(),
+            available: metric.available,
+            backend_name: metric.backend_name,
+            metrics: metric.metrics,
+            status: metric.status,
+        }
+    }
+
+    pub fn to_reserved(&self) -> crate::experiments::ReservedBackendMetrics {
+        crate::experiments::ReservedBackendMetrics {
+            available: self.available,
+            backend_name: self.backend_name.clone(),
+            metrics: self.metrics.clone(),
+            status: self.status.clone(),
+        }
+    }
+}
+
+/// Layer-bound demo metrics with explicit evidence attribution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DemoGenerationMetrics {
+    pub chemistry_validity: DemoGenerationMetric,
+    pub docking_affinity: DemoGenerationMetric,
+    pub pocket_compatibility: DemoGenerationMetric,
+}
+
+impl DemoGenerationMetrics {
+    pub fn to_reserved(&self) -> RealGenerationMetrics {
+        RealGenerationMetrics {
+            chemistry_validity: self.chemistry_validity.to_reserved(),
+            docking_affinity: self.docking_affinity.to_reserved(),
+            pocket_compatibility: self.pocket_compatibility.to_reserved(),
+        }
+    }
+}
+
+/// Summary for an all-example layered generation artifact.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayeredGenerationRunSummary {
+    /// Path of the persisted generation layer artifact.
+    pub artifact_path: PathBuf,
+    /// Number of conditioning examples processed.
+    pub example_count: usize,
+    /// Number of raw flow candidates persisted.
+    pub raw_flow_candidate_count: usize,
+    /// Number of constrained flow candidates persisted.
+    pub constrained_flow_candidate_count: usize,
+    /// Whether model weights were loaded from the configured latest checkpoint.
+    pub loaded_checkpoint: bool,
 }
 
 /// Run a small config-driven modular generation demo.
@@ -116,41 +212,75 @@ pub fn run_generation_demo_from_config(
     };
 
     let forward = system.forward_example(&example);
-    let candidates = generate_candidates_from_forward(&example, &forward, num_candidates.max(1));
-    let chemistry = report_to_metrics(
-        HeuristicChemistryValidityEvaluator.evaluate_chemistry(&candidates),
-        "active heuristic chemistry-validity backend on modular rollout generation demo",
+    let layers =
+        generate_layered_candidates_from_forward(&example, &forward, num_candidates.max(1));
+    let raw_generation_metrics =
+        evaluate_demo_metrics(&layers.raw_rollout, "raw_flow", "raw_model_native");
+    let constrained_generation_metrics = evaluate_demo_metrics(
+        &layers.inferred_bond,
+        "constrained_flow",
+        "constrained_sampling",
     );
-    let docking = report_to_metrics(
-        HeuristicDockingEvaluator.evaluate_docking(&candidates),
-        "active heuristic docking-oriented hook on modular rollout generation demo",
-    );
-    let pocket = report_to_metrics(
-        HeuristicPocketCompatibilityEvaluator.evaluate_pocket_compatibility(&candidates),
-        "active heuristic pocket-compatibility hook on modular rollout generation demo",
-    );
+
+    let raw_candidate_path = config
+        .training
+        .checkpoint_dir
+        .join("generation_demo_candidates_raw.json");
+    let constrained_candidate_path = config
+        .training
+        .checkpoint_dir
+        .join("generation_demo_candidates_constrained_flow.json");
+    let compatibility_candidate_path = config
+        .training
+        .checkpoint_dir
+        .join("generation_demo_candidates.json");
+    let raw_candidates = enrich_candidates(
+        layers.raw_rollout,
+        "raw_flow",
+        "raw_flow",
+        true,
+        false,
+        &[],
+        "raw_model_capability",
+    )?;
+    let constrained_candidates = enrich_candidates(
+        layers.inferred_bond,
+        "constrained_flow",
+        "raw_flow",
+        false,
+        true,
+        &["geometry_repair", "bond_inference"],
+        "constrained_sampling_only",
+    )?;
 
     fs::create_dir_all(&config.training.checkpoint_dir)?;
     fs::write(
-        config
-            .training
-            .checkpoint_dir
-            .join("generation_demo_candidates.json"),
-        serde_json::to_string_pretty(&candidates)?,
+        &raw_candidate_path,
+        serde_json::to_string_pretty(&raw_candidates)?,
+    )?;
+    fs::write(
+        &constrained_candidate_path,
+        serde_json::to_string_pretty(&constrained_candidates)?,
+    )?;
+    // Keep a compatibility path for existing tooling. This file contains post-processed
+    // constrained-flow candidates to preserve the old demo UX.
+    fs::write(
+        &compatibility_candidate_path,
+        serde_json::to_string_pretty(&constrained_candidates)?,
     )?;
 
     let summary = ResearchGenerationDemoSummary {
         example_id: example.example_id.clone(),
         protein_id: example.protein_id.clone(),
-        candidate_count: candidates.len(),
+        candidate_count: constrained_candidates.len(),
+        raw_candidate_count: raw_candidates.len(),
         rollout_steps: forward.generation.rollout.executed_steps,
         rollout: forward.generation.rollout.clone(),
         loaded_checkpoint,
-        real_generation_metrics: RealGenerationMetrics {
-            chemistry_validity: chemistry,
-            docking_affinity: docking,
-            pocket_compatibility: pocket,
-        },
+        raw_candidate_path,
+        constrained_candidate_path,
+        raw_generation_metrics,
+        constrained_generation_metrics,
     };
 
     fs::write(
@@ -161,6 +291,187 @@ pub fn run_generation_demo_from_config(
         serde_json::to_string_pretty(&summary)?,
     )?;
     Ok(summary)
+}
+
+fn evaluate_demo_metrics(
+    candidates: &[crate::models::GeneratedCandidateRecord],
+    candidate_layer: &str,
+    evidence_role: &str,
+) -> DemoGenerationMetrics {
+    DemoGenerationMetrics {
+        chemistry_validity: DemoGenerationMetric::from_reserved(
+            report_to_metrics(
+                HeuristicChemistryValidityEvaluator.evaluate_chemistry(candidates),
+                &format!(
+                    "active heuristic chemistry-validity hook on {candidate_layer} demo candidates"
+                ),
+            ),
+            candidate_layer,
+            evidence_role,
+        ),
+        docking_affinity: DemoGenerationMetric::from_reserved(
+            report_to_metrics(
+                HeuristicDockingEvaluator.evaluate_docking(candidates),
+                &format!(
+                    "active heuristic docking-oriented hook on {candidate_layer} demo candidates"
+                ),
+            ),
+            candidate_layer,
+            evidence_role,
+        ),
+        pocket_compatibility: DemoGenerationMetric::from_reserved(
+            report_to_metrics(
+                HeuristicPocketCompatibilityEvaluator.evaluate_pocket_compatibility(candidates),
+                &format!(
+                    "active heuristic pocket-compatibility hook on {candidate_layer} demo candidates"
+                ),
+            ),
+            candidate_layer,
+            evidence_role,
+        ),
+    }
+}
+
+/// Run one native forward pass for every configured example and persist Q2 layers.
+pub fn run_generation_layers_from_config(
+    path: impl AsRef<Path>,
+    resume: bool,
+    split_label: &str,
+    num_candidates: usize,
+) -> Result<LayeredGenerationRunSummary, Box<dyn std::error::Error>> {
+    let config_path = path.as_ref().to_path_buf();
+    let config = load_research_config(config_path.clone())?;
+    config.validate()?;
+    config.runtime.apply_tch_thread_settings();
+
+    let loaded = InMemoryDataset::load_from_config(&config.data)?;
+    let dataset = loaded
+        .dataset
+        .with_pocket_feature_dim(config.model.pocket_feature_dim);
+    let device = config.runtime.resolve_device()?;
+    let mut var_store = nn::VarStore::new(device);
+    let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+    let checkpoint_manager = CheckpointManager::new(config.training.checkpoint_dir.clone());
+    let loaded_checkpoint = if resume {
+        checkpoint_manager.load_latest(&mut var_store)?.is_some()
+    } else {
+        false
+    };
+
+    let candidate_limit = num_candidates.max(1);
+    let mut raw_flow = Vec::new();
+    let mut constrained_flow = Vec::new();
+    for example in dataset.examples() {
+        let example = example.to_device(device);
+        let forward = system.forward_example(&example);
+        let layers = generate_layered_candidates_from_forward(&example, &forward, candidate_limit);
+        raw_flow.extend(enrich_candidates(
+            layers.raw_rollout,
+            "raw_flow",
+            "raw_flow",
+            true,
+            false,
+            &[],
+            "raw_model_capability",
+        )?);
+        constrained_flow.extend(enrich_candidates(
+            layers.inferred_bond,
+            "constrained_flow",
+            "raw_flow",
+            false,
+            true,
+            &["geometry_repair", "bond_inference"],
+            "constrained_sampling_only",
+        )?);
+    }
+
+    fs::create_dir_all(&config.training.checkpoint_dir)?;
+    let artifact_path = config
+        .training
+        .checkpoint_dir
+        .join(format!("generation_layers_{split_label}.json"));
+    let artifact = json!({
+        "schema_version": 3,
+        "artifact_name": "q2_ours_public100_generation_layers",
+        "split_label": split_label,
+        "method_id": "flow_matching",
+        "source_config": config_path.display().to_string(),
+        "source_manifest": config.data.manifest_path.as_ref().map(|path| path.display().to_string()),
+        "loaded_checkpoint": loaded_checkpoint,
+        "candidate_budget_per_example": candidate_limit,
+        "example_count": dataset.examples().len(),
+        "raw_flow_candidates": raw_flow,
+        "constrained_flow_candidates": constrained_flow,
+        "claim_boundary": "raw_flow is native geometry-first flow evidence; constrained_flow includes deterministic geometry repair and bond inference and must not be used as raw model-native evidence."
+    });
+    fs::write(&artifact_path, serde_json::to_string_pretty(&artifact)?)?;
+
+    Ok(LayeredGenerationRunSummary {
+        artifact_path,
+        example_count: dataset.examples().len(),
+        raw_flow_candidate_count: artifact["raw_flow_candidates"]
+            .as_array()
+            .map(Vec::len)
+            .unwrap_or(0),
+        constrained_flow_candidate_count: artifact["constrained_flow_candidates"]
+            .as_array()
+            .map(Vec::len)
+            .unwrap_or(0),
+        loaded_checkpoint,
+    })
+}
+
+fn enrich_candidates(
+    candidates: Vec<crate::models::GeneratedCandidateRecord>,
+    layer: &str,
+    source_layer: &str,
+    model_native: bool,
+    constrained_sampling: bool,
+    postprocessing_steps: &[&str],
+    claim_allowed: &str,
+) -> Result<Vec<Value>, serde_json::Error> {
+    candidates
+        .into_iter()
+        .enumerate()
+        .map(|(index, candidate)| {
+            let mut value = serde_json::to_value(&candidate)?;
+            let candidate_id = format!("flow_matching:{layer}:{}:{index}", candidate.example_id);
+            if let Some(object) = value.as_object_mut() {
+                object.insert("candidate_id".to_string(), json!(candidate_id));
+                object.insert("method_id".to_string(), json!("flow_matching"));
+                object.insert("layer".to_string(), json!(layer));
+                object.insert("source_layer".to_string(), json!(source_layer));
+                object.insert("model_native".to_string(), json!(model_native));
+                object.insert(
+                    "coordinate_frame_contract".to_string(),
+                    json!("candidate.coords are ligand-centered model-frame coordinates; coordinate_frame_origin reconstructs source-frame coordinates"),
+                );
+                object.insert(
+                    "constrained_sampling".to_string(),
+                    json!(constrained_sampling),
+                );
+                object.insert(
+                    "postprocessing_steps".to_string(),
+                    json!(postprocessing_steps),
+                );
+                object.insert("claim_allowed".to_string(), json!(claim_allowed));
+                object.insert(
+                    "transformation_provenance".to_string(),
+                    json!({
+                        "algorithm": "native_rust_generation_layers",
+                        "source_layer": source_layer,
+                        "source_candidate_id": if layer == "raw_flow" {
+                            candidate_id.clone()
+                        } else {
+                            format!("flow_matching:{source_layer}:{}:{index}", candidate.example_id)
+                        },
+                        "transformations": postprocessing_steps,
+                    }),
+                );
+            }
+            Ok(value)
+        })
+        .collect()
 }
 
 fn select_demo_example<'a>(
@@ -320,7 +631,49 @@ mod tests {
         let summary = run_generation_demo_from_config(&config_path, false, None, 3).unwrap();
 
         assert_eq!(summary.candidate_count, 3);
+        assert_eq!(summary.raw_candidate_count, 3);
+        assert_eq!(
+            summary
+                .raw_generation_metrics
+                .chemistry_validity
+                .candidate_layer,
+            "raw_flow"
+        );
+        assert_eq!(
+            summary
+                .raw_generation_metrics
+                .chemistry_validity
+                .evidence_role,
+            "raw_model_native"
+        );
+        assert_eq!(
+            summary
+                .constrained_generation_metrics
+                .chemistry_validity
+                .candidate_layer,
+            "constrained_flow"
+        );
+        assert_eq!(
+            summary
+                .constrained_generation_metrics
+                .chemistry_validity
+                .evidence_role,
+            "constrained_sampling"
+        );
         assert!(summary.rollout_steps >= 1);
+        assert!(summary.raw_candidate_path.exists());
+        assert!(summary.constrained_candidate_path.exists());
+        let raw_candidate_payload: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&summary.raw_candidate_path).unwrap())
+                .unwrap();
+        assert!(raw_candidate_payload
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|candidate| candidate["coordinate_frame_contract"]
+                .as_str()
+                .unwrap()
+                .contains("coordinate_frame_origin")));
         assert!(config
             .training
             .checkpoint_dir

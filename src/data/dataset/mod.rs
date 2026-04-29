@@ -5,6 +5,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    convert::Infallible,
     path::PathBuf,
 };
 
@@ -15,7 +16,10 @@ use super::{
     load_manifest_entry, synthetic_phase1_examples, DataParseError, DatasetValidationReport,
     MolecularExample,
 };
-use crate::config::{DataConfig, DataQualityFilterConfig, DatasetFormat};
+use crate::config::{
+    DataConfig, DataQualityFilterConfig, DatasetFormat, GenerationModeConfig,
+    GenerationTargetConfig,
+};
 
 include!("core.rs");
 include!("quality.rs");

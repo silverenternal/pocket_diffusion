@@ -37,6 +37,13 @@ impl UnseenPocketExperiment {
             config.research.data.split_seed,
             config.research.data.stratify_by_measurement,
         );
+        let split_report = SplitReport::from_datasets_with_quality_filters(
+            &splits.train,
+            &splits.val,
+            &splits.test,
+            &config.research.data.quality_filters,
+        );
+        split_report.enforce_configured_quality_thresholds()?;
 
         if splits.train.examples().is_empty() {
             return Err(
@@ -60,19 +67,14 @@ impl UnseenPocketExperiment {
                     trainer.replace_history(history);
                 }
                 log::info!(
-                    "resumed experiment training from step {} at {}",
+                    "resumed experiment training from step {} at {} with resume_mode={}",
                     checkpoint.metadata.step,
-                    checkpoint.weights_path.display()
+                    checkpoint.weights_path.display(),
+                    checkpoint.metadata.resume_mode.as_str()
                 );
             }
         }
-        let train_examples: Vec<_> = splits
-            .train
-            .examples()
-            .iter()
-            .map(|example| example.to_device(device))
-            .collect();
-        trainer.fit(&var_store, &system, &train_examples)?;
+        trainer.fit_source(&var_store, &system, &splits.train)?;
 
         let train_proteins: std::collections::BTreeSet<&str> = splits
             .train
@@ -110,10 +112,12 @@ impl UnseenPocketExperiment {
             resumed_checkpoint_metadata.as_ref(),
         );
         let dataset_validation = loaded.validation;
+        let coordinate_frame = CoordinateFrameProvenance::from_dataset_validation(&dataset_validation);
         let mut summary = UnseenPocketExperimentSummary {
             config,
             dataset_validation,
-            split_report: SplitReport::from_datasets(&splits.train, &splits.val, &splits.test),
+            coordinate_frame,
+            split_report,
             reproducibility,
             training_history: trainer.history().to_vec(),
             validation,
@@ -125,6 +129,7 @@ impl UnseenPocketExperiment {
             &summary.config.performance_gates,
             &summary.validation.resource_usage,
             &summary.test.resource_usage,
+            &summary.test.model_design,
         );
         if summary.config.ablation_matrix.enabled {
             let matrix = run_ablation_matrix(&summary.config)?;
@@ -145,6 +150,10 @@ fn persist_experiment_summary(
     let validation_path = artifact_dir.join("dataset_validation_report.json");
     let validation_alias_path = artifact_dir.join("dataset_validation.json");
     let split_report_path = artifact_dir.join("split_report.json");
+    let frozen_leakage_probe_audit_path = artifact_dir.join("frozen_leakage_probe_audit.json");
+    let repair_case_audit_validation_path = artifact_dir.join("repair_case_audit_validation.json");
+    let repair_case_audit_test_path = artifact_dir.join("repair_case_audit_test.json");
+    let slot_semantic_report_path = artifact_dir.join("slot_semantic_report.json");
     let summary_path = artifact_dir.join("experiment_summary.json");
     let claim_summary_path = artifact_dir.join("claim_summary.json");
     let bundle_path = artifact_dir.join("run_artifacts.json");
@@ -158,6 +167,22 @@ fn persist_experiment_summary(
     fs::write(
         &split_report_path,
         serde_json::to_string_pretty(&summary.split_report)?,
+    )?;
+    fs::write(
+        &frozen_leakage_probe_audit_path,
+        serde_json::to_string_pretty(&summary.test.frozen_leakage_probe_calibration)?,
+    )?;
+    fs::write(
+        &repair_case_audit_validation_path,
+        serde_json::to_string_pretty(&summary.validation.layered_generation_metrics.repair_case_audit)?,
+    )?;
+    fs::write(
+        &repair_case_audit_test_path,
+        serde_json::to_string_pretty(&summary.test.layered_generation_metrics.repair_case_audit)?,
+    )?;
+    fs::write(
+        &slot_semantic_report_path,
+        serde_json::to_string_pretty(&build_slot_semantic_report(summary))?,
     )?;
     fs::write(&summary_path, serde_json::to_string_pretty(summary)?)?;
     fs::write(
@@ -189,10 +214,31 @@ fn persist_experiment_summary(
     Ok(())
 }
 
+fn build_slot_semantic_report(summary: &UnseenPocketExperimentSummary) -> SlotSemanticReportArtifact {
+    let latest_training = summary
+        .training_history
+        .last()
+        .map(|step| SlotSemanticTrainingSnapshot {
+            step: step.step,
+            stage_index: step.slot_utilization.stage_index,
+            collapse_warning_count: step.slot_utilization.collapse_warning_count,
+            warnings: step.slot_utilization.warnings.clone(),
+            slot_signatures: step.slot_utilization.slot_signatures.clone(),
+        });
+    SlotSemanticReportArtifact {
+        schema_version: 1,
+        validation: summary.validation.slot_stability.clone(),
+        test: summary.test.slot_stability.clone(),
+        latest_training,
+        cross_seed_matching: Vec::new(),
+    }
+}
+
 fn build_performance_gate_report(
     config: &PerformanceGateConfig,
     validation: &ResourceUsageMetrics,
     test: &ResourceUsageMetrics,
+    test_model_design: &ModelDesignEvaluationMetrics,
 ) -> PerformanceGateReport {
     let mut failed_reasons = Vec::new();
     if let Some(minimum) = config.min_validation_examples_per_second {
@@ -224,6 +270,38 @@ fn build_performance_gate_report(
             failed_reasons.push(format!(
                 "test memory delta {:.4} MB above maximum {:.4}",
                 test.memory_usage_mb, maximum
+            ));
+        }
+    }
+    if let Some(minimum) = config.min_test_raw_model_valid_fraction {
+        if test_model_design.raw_model_valid_fraction < minimum {
+            failed_reasons.push(format!(
+                "test raw_model_valid_fraction {:.4} below minimum {:.4}",
+                test_model_design.raw_model_valid_fraction, minimum
+            ));
+        }
+    }
+    if let Some(minimum) = config.min_test_raw_model_pocket_contact_fraction {
+        if test_model_design.raw_model_pocket_contact_fraction < minimum {
+            failed_reasons.push(format!(
+                "test raw_model_pocket_contact_fraction {:.4} below minimum {:.4}",
+                test_model_design.raw_model_pocket_contact_fraction, minimum
+            ));
+        }
+    }
+    if let Some(maximum) = config.max_test_raw_model_clash_fraction {
+        if test_model_design.raw_model_clash_fraction > maximum {
+            failed_reasons.push(format!(
+                "test raw_model_clash_fraction {:.4} above maximum {:.4}",
+                test_model_design.raw_model_clash_fraction, maximum
+            ));
+        }
+    }
+    if let Some(minimum) = config.min_test_raw_native_graph_valid_fraction {
+        if test_model_design.raw_native_graph_valid_fraction < minimum {
+            failed_reasons.push(format!(
+                "test raw_native_graph_valid_fraction {:.4} below minimum {:.4}",
+                test_model_design.raw_native_graph_valid_fraction, minimum
             ));
         }
     }
@@ -510,7 +588,7 @@ fn surface_label_from_dir(path: &std::path::Path) -> String {
         .to_string()
 }
 
-fn find_interaction_summary<'a>(
+fn find_interaction_summary(
     summary: &UnseenPocketExperimentSummary,
     matrix: &AblationMatrixSummary,
     mode: CrossAttentionMode,
@@ -541,6 +619,11 @@ fn find_interaction_summary<'a>(
                     .cloned()
             }
         }
+        CrossAttentionMode::DirectFusionNegativeControl => matrix
+            .variants
+            .iter()
+            .find(|variant| variant.test.interaction_mode == "direct_fusion_negative_control")
+            .cloned(),
     }
 }
 
@@ -570,6 +653,11 @@ fn find_interaction_summary_from_artifacts(
                     .cloned()
             }
         }
+        CrossAttentionMode::DirectFusionNegativeControl => matrix
+            .variants
+            .iter()
+            .find(|variant| variant.test.interaction_mode == "direct_fusion_negative_control")
+            .cloned(),
     }
 }
 
@@ -591,4 +679,3 @@ fn load_experiment_history(
             .collect(),
     ))
 }
-

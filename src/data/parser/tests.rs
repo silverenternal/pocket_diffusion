@@ -18,6 +18,7 @@ fn toy_ligand(offset: f64) -> Ligand {
             },
         ],
         bonds: vec![(0, 1), (1, 2)],
+        bond_types: vec![1, 1],
         fingerprint: None,
     }
 }
@@ -48,8 +49,10 @@ fn toy_pocket(name: &str, offset: f64) -> Pocket {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use rand::{rngs::StdRng, SeedableRng};
 
     use super::*;
+    use crate::config::types::RotationAugmentationConfig;
 
     #[test]
     fn malformed_sdf_is_rejected() {
@@ -68,6 +71,10 @@ mod tests {
             Some((34, 100))
         );
         assert_eq!(parse_v2000_bond_indices("  2  5  1  0  0  0"), Some((2, 5)));
+        assert_eq!(
+            parse_v2000_bond_record("  2  5  2  0  0  0"),
+            Some((2, 5, 2))
+        );
     }
 
     #[test]
@@ -97,7 +104,98 @@ mod tests {
             affinity_normalization_warning: None,
         };
 
-        let err = load_manifest_entry(&entry, 6.0, ParsingMode::Strict).unwrap_err();
+        let mut rotation_rng = StdRng::seed_from_u64(17);
+        let err = load_manifest_entry(
+            &entry,
+            6.0,
+            ParsingMode::Strict,
+            &RotationAugmentationConfig::default(),
+            &mut rotation_rng,
+        )
+        .unwrap_err();
         assert!(matches!(err, DataParseError::InvalidPdb { .. }));
+    }
+
+    #[test]
+    fn rotation_augmentation_changes_geometry_but_preserves_distances() {
+        let temp = tempfile::tempdir().unwrap();
+        let ligand_path = temp.path().join("ligand.sdf");
+        let pocket_path = temp.path().join("pocket.pdb");
+
+        fs::write(
+            &ligand_path,
+            "ligand\n  codex\n\n  3  0  0  0  0  0            999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.2000    0.0000    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000    1.2000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\nM  END\n$$$$\n",
+        )
+        .unwrap();
+        fs::write(
+            &pocket_path,
+            "ATOM      1  C   GLY A   1       0.200   0.100   0.300  1.00 20.00           C\nATOM      2  N   GLY A   2       1.000   0.500   0.500  1.00 20.00           N\nATOM      3  O   GLY A   3       0.200   1.200  -0.200  1.00 20.00           O\n",
+        )
+        .unwrap();
+
+        let entry = ManifestEntry {
+            example_id: "rot-1".to_string(),
+            protein_id: "prot-1".to_string(),
+            pocket_path,
+            ligand_path,
+            affinity_kcal_mol: None,
+            affinity_measurement_type: None,
+            affinity_raw_value: None,
+            affinity_raw_unit: None,
+            affinity_normalization_provenance: None,
+            affinity_is_approximate: false,
+            affinity_normalization_warning: None,
+        };
+
+        let mut no_aug_rng = StdRng::seed_from_u64(1);
+        let (baseline, baseline_parsed) = load_manifest_entry(
+            &entry,
+            6.0,
+            ParsingMode::Lightweight,
+            &RotationAugmentationConfig::default(),
+            &mut no_aug_rng,
+        )
+        .unwrap();
+        let mut aug_rng = StdRng::seed_from_u64(1);
+        let (rotated, rotated_parsed) = load_manifest_entry(
+            &entry,
+            6.0,
+            ParsingMode::Lightweight,
+            &RotationAugmentationConfig {
+                enabled: true,
+                probability: 1.0,
+                ..RotationAugmentationConfig::default()
+            },
+            &mut aug_rng,
+        )
+        .unwrap();
+
+        assert!(!baseline_parsed.rotation_augmentation_applied);
+        assert!(rotated_parsed.rotation_augmentation_attempted);
+        assert!(rotated_parsed.rotation_augmentation_applied);
+
+        let mut max_coord_delta = 0.0f64;
+        for i in 0..3 {
+            for j in 0..3 {
+                let baseline_coord = baseline.geometry.coords.double_value(&[i, j]);
+                let rotated_coord = rotated.geometry.coords.double_value(&[i, j]);
+                max_coord_delta = max_coord_delta.max((baseline_coord - rotated_coord).abs());
+            }
+        }
+        assert!(
+            max_coord_delta > 1e-6,
+            "rotation augmentation should change geometry coordinates when applied"
+        );
+
+        for i in 0..3 {
+            for j in 0..3 {
+                let d0 = baseline.geometry.pairwise_distances.double_value(&[i, j]);
+                let d1 = rotated.geometry.pairwise_distances.double_value(&[i, j]);
+                assert!(
+                    (d0 - d1).abs() <= 1e-6,
+                    "pairwise distances should remain invariant under rigid rotation"
+                );
+            }
+        }
     }
 }

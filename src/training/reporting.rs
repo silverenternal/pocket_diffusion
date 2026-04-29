@@ -1,7 +1,10 @@
 //! Terminal reporting helpers for config-driven research runs.
 
 use crate::{
-    experiments::{AutomatedSearchSummary, EvaluationMetrics, UnseenPocketExperimentSummary},
+    experiments::{
+        AutomatedSearchSummary, ChemistryCollaborationMetric, EvaluationMetrics,
+        UnseenPocketExperimentSummary,
+    },
     training::{DatasetInspection, StepMetrics, TrainingRunSummary},
 };
 
@@ -74,6 +77,14 @@ pub fn print_training_run(summary: &TrainingRunSummary) {
     }
     println!("reproducibility:");
     println!(
+        "  resume mode: {}",
+        summary
+            .reproducibility
+            .resume_provenance
+            .resume_mode
+            .as_str()
+    );
+    println!(
         "  continuity mode: {:?}",
         summary.reproducibility.resume_provenance.continuity_mode
     );
@@ -93,6 +104,23 @@ pub fn print_training_run(summary: &TrainingRunSummary) {
             summary.training_history.len(),
             last.stage,
             last.losses.total
+        );
+    }
+    println!("validation checkpoints:");
+    println!("  validation checks: {}", summary.validation_history.len());
+    if let Some(best) = &summary.best_checkpoint {
+        println!(
+            "  best step: {} ({}={:.4}, higher_is_better={})",
+            best.step, best.metric_name, best.metric_value, best.higher_is_better
+        );
+        println!("  best checkpoint: {}", best.weights_path.display());
+    }
+    if summary.early_stopping.enabled {
+        println!(
+            "  early stopping: stopped={} stop_step={:?} patience={:?}",
+            summary.early_stopping.stopped_early,
+            summary.early_stopping.stop_step,
+            summary.early_stopping.patience
         );
     }
     println!("validation:");
@@ -159,6 +187,14 @@ pub fn print_experiment_run(summary: &UnseenPocketExperimentSummary) {
         );
     }
     println!("reproducibility:");
+    println!(
+        "  resume mode: {}",
+        summary
+            .reproducibility
+            .resume_provenance
+            .resume_mode
+            .as_str()
+    );
     println!(
         "  continuity mode: {:?}",
         summary.reproducibility.resume_provenance.continuity_mode
@@ -275,7 +311,7 @@ pub fn print_automated_search(summary: &AutomatedSearchSummary) {
 /// Print one training step record.
 pub fn print_step_metrics(metrics: &StepMetrics) {
     println!(
-        "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} leak={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4}",
+        "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} probe_ligand_pharmacophore={:.4} probe_pocket_pharmacophore={:.4} leak={:.4} leak_core={:.4} leak_similarity_proxy_diagnostic={:.4} leak_explicit_probe_diagnostic={:.4} leak_topology_to_geometry={:.4} leak_geometry_to_topology={:.4} leak_pocket_to_geometry={:.4} leak_topology_to_pocket_role={:.4} leak_geometry_to_pocket_role={:.4} leak_pocket_to_ligand_role={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4} pocket_envelope={:.4} valence_guardrail={:.4} bond_length_guardrail={:.4} interaction_gate={:.4} interaction_sparsity={:.4} interaction_entropy={:.4} grad_norm={:.4} grad_nonfinite={} grad_clipped={} optimizer_step_skipped={} sync_mask_mismatch={} sync_slot_mismatch={} sync_frame_mismatch={} stale_context_steps={} refresh_count={} batch_slice_sync_pass={}",
         metrics.step,
         metrics.stage,
         metrics.losses.total,
@@ -284,13 +320,96 @@ pub fn print_step_metrics(metrics: &StepMetrics) {
         metrics.losses.primary.decoder_anchored,
         metrics.losses.auxiliaries.intra_red,
         metrics.losses.auxiliaries.probe,
+        metrics.losses.auxiliaries.probe_ligand_pharmacophore,
+        metrics.losses.auxiliaries.probe_pocket_pharmacophore,
         metrics.losses.auxiliaries.leak,
+        metrics.losses.auxiliaries.leak_core,
+        metrics
+            .losses
+            .auxiliaries
+            .leak_similarity_proxy_diagnostic,
+        metrics.losses.auxiliaries.leak_explicit_probe_diagnostic,
+        metrics.losses.auxiliaries.leak_topology_to_geometry,
+        metrics.losses.auxiliaries.leak_geometry_to_topology,
+        metrics.losses.auxiliaries.leak_pocket_to_geometry,
+        metrics
+            .losses
+            .auxiliaries
+            .leak_topology_to_pocket_role,
+        metrics
+            .losses
+            .auxiliaries
+            .leak_geometry_to_pocket_role,
+        metrics.losses.auxiliaries.leak_pocket_to_ligand_role,
         metrics.losses.auxiliaries.gate,
         metrics.losses.auxiliaries.slot,
         metrics.losses.auxiliaries.consistency,
         metrics.losses.auxiliaries.pocket_contact,
         metrics.losses.auxiliaries.pocket_clash,
+        metrics.losses.auxiliaries.pocket_envelope,
+        metrics.losses.auxiliaries.valence_guardrail,
+        metrics.losses.auxiliaries.bond_length_guardrail,
+        metrics.interaction.mean_gate,
+        metrics.interaction.mean_gate_sparsity,
+        metrics.interaction.mean_attention_entropy,
+        metrics.gradient_health.global_grad_l2_norm,
+        metrics.gradient_health.nonfinite_gradient_tensors,
+        metrics.gradient_health.clipped,
+        metrics.gradient_health.optimizer_step_skipped,
+        metrics.synchronization.mask_count_mismatch,
+        metrics.synchronization.slot_count_mismatch,
+        metrics.synchronization.coordinate_frame_mismatch,
+        metrics.synchronization.stale_context_steps,
+        metrics.synchronization.refresh_count,
+        metrics.synchronization.batch_slice_sync_pass,
     );
+    for record in &metrics.losses.primary.component_provenance {
+        println!(
+            "  primary component {} anchor={} role={} differentiable={} optimizer_facing={}",
+            record.component_name,
+            record.anchor,
+            record.role,
+            record.differentiable,
+            record.optimizer_facing
+        );
+    }
+    println!(
+        "  stage ramp={:.4} active_objectives={}",
+        metrics.stage_progress.stage_ramp,
+        metrics.stage_progress.active_objective_families.join(",")
+    );
+    println!(
+        "  slot utilization active_count={:.4} active_fraction={:.4} visible_fraction={:.4} entropy={:.4} dead_fraction={:.4} collapse_warnings={}",
+        metrics.slot_utilization.mean_active_slot_count,
+        metrics.slot_utilization.mean_active_slot_fraction,
+        metrics.slot_utilization.mean_attention_visible_slot_fraction,
+        metrics.slot_utilization.mean_slot_entropy,
+        metrics.slot_utilization.dead_slot_fraction,
+        metrics.slot_utilization.collapse_warning_count
+    );
+    println!(
+        "  primary weight={:.4} weighted={:.4} enabled={}",
+        metrics.losses.primary.effective_weight,
+        metrics.losses.primary.weighted_value,
+        metrics.losses.primary.enabled
+    );
+    for entry in &metrics
+        .losses
+        .auxiliaries
+        .auxiliary_objective_report
+        .entries
+    {
+        println!(
+            "  objective {} unweighted={:.4} weight={:.4} weighted={:.4} enabled={} status={} warning={}",
+            entry.family.as_str(),
+            entry.unweighted_value,
+            entry.effective_weight,
+            entry.weighted_value,
+            entry.enabled,
+            entry.status,
+            entry.warning.as_deref().unwrap_or("")
+        );
+    }
 }
 
 /// Print evaluation metrics for validation/test reporting.
@@ -325,6 +444,24 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
         metrics.representation_diagnostics.slot_activation_mean
     );
     println!(
+        "    slot assignment entropy mean: {:.4}",
+        metrics
+            .representation_diagnostics
+            .slot_assignment_entropy_mean
+    );
+    println!(
+        "    slot activation probability mean: {:.4}",
+        metrics
+            .representation_diagnostics
+            .slot_activation_probability_mean
+    );
+    println!(
+        "    attention-visible slot fraction: {:.4}",
+        metrics
+            .representation_diagnostics
+            .attention_visible_slot_fraction
+    );
+    println!(
         "    gate activation mean: {:.4}",
         metrics.representation_diagnostics.gate_activation_mean
     );
@@ -332,6 +469,38 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
         "    leakage proxy mean: {:.4}",
         metrics.representation_diagnostics.leakage_proxy_mean
     );
+    println!("  chemistry collaboration:");
+    println!(
+        "    pharmacophore role coverage: {}",
+        format_chemistry_metric(&metrics.chemistry_collaboration.pharmacophore_role_coverage)
+    );
+    println!(
+        "    role conflict rate: {}",
+        format_chemistry_metric(&metrics.chemistry_collaboration.role_conflict_rate)
+    );
+    println!(
+        "    severe clash fraction: {}",
+        format_chemistry_metric(&metrics.chemistry_collaboration.severe_clash_fraction)
+    );
+    println!(
+        "    valence violation fraction: {}",
+        format_chemistry_metric(&metrics.chemistry_collaboration.valence_violation_fraction)
+    );
+    println!(
+        "    bond length guardrail mean: {}",
+        format_chemistry_metric(&metrics.chemistry_collaboration.bond_length_guardrail_mean)
+    );
+    println!(
+        "    key residue contact coverage: {}",
+        format_chemistry_metric(&metrics.chemistry_collaboration.key_residue_contact_coverage)
+    );
+    for role in &metrics.chemistry_collaboration.gate_usage_by_chemical_role {
+        println!(
+            "    gate {}: {}",
+            role.chemical_role,
+            format_chemistry_metric(&role.gate_mean)
+        );
+    }
     println!("  proxy task metrics:");
     println!(
         "    affinity probe mae: {:.4}",
@@ -391,8 +560,43 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
         metrics.resource_usage.examples_per_second
     );
     println!(
+        "    eval batches: size={} count={} no_grad={} batched={}",
+        metrics.resource_usage.evaluation_batch_size,
+        metrics.resource_usage.forward_batch_count,
+        metrics.resource_usage.no_grad,
+        metrics.resource_usage.batched_forward
+    );
+    println!(
         "    avg atoms ligand/pocket: {:.2}/{:.2}",
         metrics.resource_usage.average_ligand_atoms, metrics.resource_usage.average_pocket_atoms
+    );
+    println!("  model-design diagnostics:");
+    println!(
+        "    heldout unseen={:.4} finite_forward={:.4} geometry_score={:.4}",
+        metrics.model_design.heldout_unseen_protein_fraction,
+        metrics.model_design.finite_forward_fraction,
+        metrics.model_design.geometry_consistency_score
+    );
+    println!(
+        "    raw [{}]: valid={:.4} contact={:.4} clash={:.4}",
+        metrics.model_design.raw_model_layer,
+        metrics.model_design.raw_model_valid_fraction,
+        metrics.model_design.raw_model_pocket_contact_fraction,
+        metrics.model_design.raw_model_clash_fraction
+    );
+    println!(
+        "    processed [{}]: valid={:.4} contact={:.4} clash={:.4}",
+        metrics.model_design.processed_layer,
+        metrics.model_design.processed_valid_fraction,
+        metrics.model_design.processed_pocket_contact_fraction,
+        metrics.model_design.processed_clash_fraction
+    );
+    println!(
+        "    slot={:.4} gate={:.4} gate_saturation={:.4} leakage={:.4}",
+        metrics.model_design.slot_activation_mean,
+        metrics.model_design.gate_activation_mean,
+        metrics.model_design.gate_saturation_fraction,
+        metrics.model_design.leakage_proxy_mean
     );
     println!("  real-generation metrics:");
     print_reserved_backend(
@@ -438,6 +642,14 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
     println!(
         "    primary objective: {}",
         metrics.comparison_summary.primary_objective
+    );
+    println!(
+        "    primary objective provenance: {}",
+        metrics.comparison_summary.primary_objective_provenance
+    );
+    println!(
+        "    primary objective claim boundary: {}",
+        metrics.comparison_summary.primary_objective_claim_boundary
     );
     println!(
         "    variant label: {:?}",
@@ -487,6 +699,13 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
         metrics.comparison_summary.gate_activation_mean,
         metrics.comparison_summary.leakage_proxy_mean
     );
+}
+
+fn format_chemistry_metric(metric: &ChemistryCollaborationMetric) -> String {
+    match metric.value {
+        Some(value) => format!("{value:.4} [{:?}; {}]", metric.provenance, metric.status),
+        None => format!("NA [{:?}; {}]", metric.provenance, metric.status),
+    }
 }
 
 fn print_candidate_layer(label: &str, layer: &crate::experiments::CandidateLayerMetrics) {
@@ -631,12 +850,16 @@ fn print_reserved_backend(label: &str, backend: &crate::experiments::ReservedBac
 
 fn print_split_stats(name: &str, stats: &crate::training::SplitStats) {
     println!(
-        "  {}: examples={} proteins={} labeled={} ({:.4}) measurements={:?}",
+        "  {}: examples={} proteins={} labeled={} ({:.4}) measurements={:?} protein_families={:?} pocket_families={:?} ligand_scaffolds={:?} unavailable={:?}",
         name,
         stats.example_count,
         stats.unique_protein_count,
         stats.labeled_example_count,
         stats.labeled_fraction,
-        stats.dominant_measurement_histogram
+        stats.affinity_measurement_family_histogram,
+        stats.protein_family_proxy_histogram,
+        stats.pocket_family_proxy_histogram,
+        stats.ligand_scaffold_proxy_histogram,
+        stats.metadata_availability.unavailable_fields
     );
 }

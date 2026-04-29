@@ -251,21 +251,46 @@ fn apply_raw_rollout_stability(layer: &mut CandidateLayerMetrics, forwards: &[Re
         / denom;
 }
 
+fn aggregate_final_flow_diagnostics(forwards: &[ResearchForward]) -> BTreeMap<String, f64> {
+    let mut sums: BTreeMap<String, (f64, usize)> = BTreeMap::new();
+    for diagnostics in forwards
+        .iter()
+        .filter_map(|forward| forward.generation.rollout.steps.last())
+        .map(|step| &step.flow_diagnostics)
+    {
+        for (key, value) in diagnostics {
+            if value.is_finite() {
+                let entry = sums.entry(key.clone()).or_insert((0.0, 0));
+                entry.0 += *value;
+                entry.1 += 1;
+            }
+        }
+    }
+    sums.into_iter()
+        .filter_map(|(key, (sum, count))| (count > 0).then(|| (key, sum / count as f64)))
+        .collect()
+}
+
 #[derive(Debug, Serialize)]
 struct LayeredGenerationArtifact<'a> {
     schema_version: u32,
     split_label: &'a str,
     active_method: &'a PocketGenerationMethodMetadata,
     candidate_metrics_artifact: String,
+    coordinate_frame_contract: &'static str,
     backend_selection: BackendSelectionArtifact,
     layered_metrics: &'a LayeredGenerationMetrics,
+    raw_geometry_candidates: Vec<GeneratedCandidateRecord>,
     raw_rollout_candidates: &'a [GeneratedCandidateRecord],
+    bond_logits_refined_candidates: Vec<GeneratedCandidateRecord>,
+    valence_refined_candidates: Vec<GeneratedCandidateRecord>,
     repaired_candidates: &'a [GeneratedCandidateRecord],
     inferred_bond_candidates: &'a [GeneratedCandidateRecord],
     deterministic_proxy_candidates: &'a [GeneratedCandidateRecord],
     reranked_candidates: &'a [GeneratedCandidateRecord],
     method_layer_outputs: &'a LayeredGenerationOutput,
     backend_metrics: &'a RealGenerationMetrics,
+    repair_case_audit: &'a RepairCaseAuditReport,
     backend_failure_examples: Vec<BackendFailureExample>,
 }
 
@@ -380,6 +405,214 @@ struct BackendFailureExample {
     source_ligand_path: Option<String>,
 }
 
+fn build_repair_case_audit(
+    split_label: &str,
+    raw_rollout: &[GeneratedCandidateRecord],
+    repaired: &[GeneratedCandidateRecord],
+    raw_metrics: &CandidateLayerMetrics,
+    repaired_metrics: &CandidateLayerMetrics,
+) -> RepairCaseAuditReport {
+    let paired_count = raw_rollout.len().min(repaired.len());
+    let mut help_cases = Vec::new();
+    let mut harm_cases = Vec::new();
+    let mut neutral_cases = Vec::new();
+    let mut raw_failure_cases = Vec::new();
+
+    for index in 0..paired_count {
+        let raw = &raw_rollout[index];
+        let repaired_candidate = &repaired[index];
+        let delta =
+            repair_candidate_quality_score(repaired_candidate) - repair_candidate_quality_score(raw);
+        if delta > 0.05 {
+            help_cases.push(repair_case_record(
+                "repair_helps",
+                index,
+                index,
+                raw,
+                repaired_candidate,
+            ));
+        } else if delta < -0.05 {
+            harm_cases.push(repair_case_record(
+                "repair_harms",
+                index,
+                index,
+                raw,
+                repaired_candidate,
+            ));
+        } else {
+            neutral_cases.push(repair_case_record(
+                "repair_neutral",
+                index,
+                index,
+                raw,
+                repaired_candidate,
+            ));
+        }
+        if repair_raw_failure(raw) {
+            raw_failure_cases.push(repair_case_record(
+                "raw_failure",
+                index,
+                index,
+                raw,
+                repaired_candidate,
+            ));
+        }
+    }
+
+    if paired_count == 0 {
+        for (index, raw) in raw_rollout.iter().enumerate() {
+            if repair_raw_failure(raw) {
+                raw_failure_cases.push(repair_case_record(
+                    "raw_failure",
+                    index,
+                    index,
+                    raw,
+                    raw,
+                ));
+            }
+        }
+    }
+
+    help_cases.sort_by(|left, right| {
+        right
+            .strict_pocket_fit_delta
+            .partial_cmp(&left.strict_pocket_fit_delta)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    harm_cases.sort_by(|left, right| {
+        left.strict_pocket_fit_delta
+            .partial_cmp(&right.strict_pocket_fit_delta)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    neutral_cases.sort_by(|left, right| {
+        left.strict_pocket_fit_delta
+            .abs()
+            .partial_cmp(&right.strict_pocket_fit_delta.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    raw_failure_cases.sort_by(|left, right| {
+        left.raw_metrics
+            .strict_pocket_fit_score
+            .partial_cmp(&right.raw_metrics.strict_pocket_fit_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let mut case_counts = BTreeMap::new();
+    case_counts.insert("repair_helps".to_string(), help_cases.len());
+    case_counts.insert("repair_harms".to_string(), harm_cases.len());
+    case_counts.insert("repair_neutral".to_string(), neutral_cases.len());
+    case_counts.insert("raw_failure".to_string(), raw_failure_cases.len());
+
+    RepairCaseAuditReport {
+        schema_version: default_repair_case_audit_schema_version(),
+        split_label: split_label.to_string(),
+        raw_vs_repaired_delta: RepairLayerDeltaSummary {
+            raw_layer: "raw_rollout".to_string(),
+            repaired_layer: "repaired_candidates".to_string(),
+            raw_candidate_count: raw_metrics.candidate_count,
+            repaired_candidate_count: repaired_metrics.candidate_count,
+            valid_fraction_delta: repaired_metrics.valid_fraction - raw_metrics.valid_fraction,
+            pocket_contact_fraction_delta: repaired_metrics.pocket_contact_fraction
+                - raw_metrics.pocket_contact_fraction,
+            strict_pocket_fit_score_delta: layer_native_quality(repaired_metrics)
+                - layer_native_quality(raw_metrics),
+            mean_centroid_offset_delta: repaired_metrics.mean_centroid_offset
+                - raw_metrics.mean_centroid_offset,
+            clash_fraction_delta: repaired_metrics.clash_fraction - raw_metrics.clash_fraction,
+            native_graph_valid_fraction_delta: repaired_metrics.native_graph_valid_fraction
+                - raw_metrics.native_graph_valid_fraction,
+        },
+        no_repair_ablation: NoRepairAblationMetrics {
+            repair_enabled: !repaired.is_empty(),
+            no_repair_layer: "raw_rollout".to_string(),
+            no_repair_metrics: raw_metrics.clone(),
+            interpretation:
+                "raw_rollout is the no-repair baseline for this run; repaired layers are postprocessing evidence only"
+                    .to_string(),
+        },
+        case_counts,
+        repair_helps: help_cases.into_iter().take(8).collect(),
+        repair_harms: harm_cases.into_iter().take(8).collect(),
+        repair_neutral: neutral_cases.into_iter().take(8).collect(),
+        raw_failures: raw_failure_cases.into_iter().take(8).collect(),
+        artifact_name: Some(format!("repair_case_audit_{split_label}.json")),
+        claim_boundary:
+            "Repair-case audit is postprocessing evidence: raw_rollout remains the raw model-native no-repair baseline, and repaired improvements must not be cited as raw generation quality."
+                .to_string(),
+    }
+}
+
+fn repair_case_record(
+    role: &str,
+    raw_index: usize,
+    repaired_index: usize,
+    raw: &GeneratedCandidateRecord,
+    repaired: &GeneratedCandidateRecord,
+) -> RepairCaseRecord {
+    let raw_metrics = repair_candidate_snapshot(raw);
+    let repaired_metrics = repair_candidate_snapshot(repaired);
+    let strict_pocket_fit_delta =
+        repaired_metrics.strict_pocket_fit_score - raw_metrics.strict_pocket_fit_score;
+    RepairCaseRecord {
+        case_role: role.to_string(),
+        example_id: raw.example_id.clone(),
+        protein_id: raw.protein_id.clone(),
+        raw_candidate_index: raw_index,
+        repaired_candidate_index: repaired_index,
+        strict_pocket_fit_delta,
+        raw_metrics,
+        repaired_metrics,
+        postprocessor_chain: repaired.postprocessor_chain.clone(),
+        interpretation: match role {
+            "repair_helps" => {
+                "repair improves strict pocket-fit proxy for this paired candidate; cite only as postprocessing-dependent evidence"
+            }
+            "repair_harms" => {
+                "repair degrades strict pocket-fit proxy for this paired candidate; preserve as a failure case"
+            }
+            "raw_failure" => {
+                "raw no-repair candidate fails at least one validity, graph, contact, clash, or pocket-fit check before repair"
+            }
+            _ => "repair is approximately neutral for this paired candidate under the strict pocket-fit proxy",
+        }
+        .to_string(),
+    }
+}
+
+fn repair_candidate_snapshot(candidate: &GeneratedCandidateRecord) -> RepairCandidateMetricSnapshot {
+    RepairCandidateMetricSnapshot {
+        valid: candidate_is_valid(candidate),
+        native_graph_valid: candidate_native_graph_valid(candidate),
+        pocket_contact: candidate_has_pocket_contact(candidate),
+        centroid_offset: candidate_centroid_offset(candidate),
+        clash_fraction: candidate_clash_fraction(candidate),
+        strict_pocket_fit_score: repair_candidate_quality_score(candidate),
+        bond_count: candidate.bond_count,
+        component_count: native_component_count(candidate),
+        valence_violation_fraction: candidate_valence_violation_fraction(candidate),
+    }
+}
+
+fn repair_candidate_quality_score(candidate: &GeneratedCandidateRecord) -> f64 {
+    let valid = if candidate_is_valid(candidate) { 1.0 } else { 0.0 };
+    let contact = if candidate_has_pocket_contact(candidate) {
+        1.0
+    } else {
+        0.0
+    };
+    let centroid_fit = 1.0 / (1.0 + candidate_centroid_offset(candidate).max(0.0));
+    let clash_fit = 1.0 - candidate_clash_fraction(candidate).clamp(0.0, 1.0);
+    (valid * contact * centroid_fit * clash_fit).clamp(0.0, 1.0)
+}
+
+fn repair_raw_failure(candidate: &GeneratedCandidateRecord) -> bool {
+    !candidate_is_valid(candidate)
+        || !candidate_native_graph_valid(candidate)
+        || !candidate_has_pocket_contact(candidate)
+        || candidate_clash_fraction(candidate) > 0.1
+        || repair_candidate_quality_score(candidate) < 0.25
+}
+
 fn maybe_persist_generation_artifacts(
     research: &ResearchConfig,
     external_evaluation: &ExternalEvaluationConfig,
@@ -400,19 +633,36 @@ fn maybe_persist_generation_artifacts(
         return;
     }
     let artifact = LayeredGenerationArtifact {
-        schema_version: 2,
+        schema_version: 3,
         split_label,
         active_method: &method_layer_outputs.metadata,
         candidate_metrics_artifact: format!("candidate_metrics_{split_label}.jsonl"),
+        coordinate_frame_contract: candidate_coordinate_frame_contract(),
         backend_selection: BackendSelectionArtifact::from_research(research),
         layered_metrics,
+        raw_geometry_candidates: method_layer_outputs
+            .raw_geometry
+            .as_ref()
+            .map(|layer| layer.candidates.clone())
+            .unwrap_or_default(),
         raw_rollout_candidates: raw_rollout,
+        bond_logits_refined_candidates: method_layer_outputs
+            .bond_logits_refined
+            .as_ref()
+            .map(|layer| layer.candidates.clone())
+            .unwrap_or_default(),
+        valence_refined_candidates: method_layer_outputs
+            .valence_refined
+            .as_ref()
+            .map(|layer| layer.candidates.clone())
+            .unwrap_or_default(),
         repaired_candidates: repaired,
         inferred_bond_candidates: inferred_bond,
         deterministic_proxy_candidates: deterministic_proxy,
         reranked_candidates: reranked,
         method_layer_outputs,
         backend_metrics,
+        repair_case_audit: &layered_metrics.repair_case_audit,
         backend_failure_examples: backend_failure_examples(inferred_bond, backend_metrics, 16),
     };
     if let Ok(content) = serde_json::to_string_pretty(&artifact) {
@@ -444,6 +694,14 @@ fn maybe_persist_generation_artifacts(
         ],
         backend_metrics,
     );
+    persist_json_artifact(
+        &research
+            .training
+            .checkpoint_dir
+            .join(format!("repair_case_audit_{split_label}.json")),
+        &layered_metrics.repair_case_audit,
+        "repair case audit",
+    );
 }
 
 #[derive(Debug, Serialize)]
@@ -456,6 +714,8 @@ struct CandidateMetricRecord<'a> {
     layer: &'a str,
     method_id: &'a str,
     candidate_source: &'a str,
+    coordinate_frame_contract: &'static str,
+    coordinate_frame_origin: [f32; 3],
     metrics: BTreeMap<String, f64>,
     backend_statuses: BTreeMap<String, String>,
     source_artifacts: BTreeMap<String, String>,
@@ -495,6 +755,8 @@ fn persist_candidate_metrics_jsonl<'a>(
                 layer,
                 method_id,
                 candidate_source: &candidate.source,
+                coordinate_frame_contract: candidate_coordinate_frame_contract(),
+                coordinate_frame_origin: candidate.coordinate_frame_origin,
                 metrics: candidate_metric_map(candidate),
                 backend_statuses: backend_statuses.clone(),
                 source_artifacts: candidate_source_artifacts(candidate),
@@ -511,6 +773,10 @@ fn persist_candidate_metrics_jsonl<'a>(
             error
         );
     }
+}
+
+fn candidate_coordinate_frame_contract() -> &'static str {
+    "candidate.coords are ligand-centered model-frame coordinates; coordinate_frame_origin reconstructs source-frame coordinates"
 }
 
 fn candidate_metric_map(candidate: &GeneratedCandidateRecord) -> BTreeMap<String, f64> {

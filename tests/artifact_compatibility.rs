@@ -1,5 +1,6 @@
 use pocket_diffusion::experiments::{
     CandidateLayerMetrics, ClaimReport, EvaluationMetrics, LayeredGenerationMetrics,
+    TrainEvalAlignmentReport,
 };
 use pocket_diffusion::models::{
     extract_interaction_profiles, CandidateLayerKind, GeneratedCandidateRecord,
@@ -7,10 +8,12 @@ use pocket_diffusion::models::{
     PreferenceReasonCode, RuleBasedPreferenceDatasetBuilder, INTERACTION_PROFILE_SCHEMA_VERSION,
     PREFERENCE_PAIR_SCHEMA_VERSION,
 };
-use pocket_diffusion::training::{ResumeContinuityMode, SplitReport, TrainingRunSummary};
+use pocket_diffusion::training::{
+    PrimaryBranchWeightRecord, ResumeContinuityMode, ResumeMode, SplitReport, TrainingRunSummary,
+};
 
 #[test]
-fn older_claim_artifact_defaults_recent_optional_sections() {
+fn artifact_compatibility_older_claim_artifact_defaults_recent_optional_sections() {
     let json = r#"{
       "artifact_dir": "./checkpoints/legacy",
       "run_label": "legacy_base",
@@ -64,6 +67,42 @@ fn older_claim_artifact_defaults_recent_optional_sections() {
     assert!(report.backend_thresholds.is_empty());
     assert_eq!(report.backend_review.reviewer_status, "");
     assert!(report.method_comparison.methods.is_empty());
+    assert_eq!(report.validation.generation_mode, "target_ligand_denoising");
+    assert_eq!(
+        report.claim_context.generation_mode,
+        "target_ligand_denoising"
+    );
+    assert!(!report.claim_context.de_novo_claim_allowed);
+    assert_eq!(
+        report.claim_context.target_alignment_policy,
+        "pad_with_mask"
+    );
+    assert!(!report.claim_context.target_matching_claim_safe);
+    assert!(!report.claim_context.full_molecular_flow_claim_allowed);
+    assert_eq!(report.model_design.raw_model_layer, "raw_rollout");
+    assert!(!report.layer_provenance_audit.claim_safe);
+    assert_eq!(
+        report.layer_provenance_audit.decision,
+        "layer provenance audit unavailable"
+    );
+    assert_eq!(
+        report.raw_native_evidence.evidence_role,
+        "model_native_raw_first"
+    );
+    assert_eq!(report.raw_native_evidence.raw_model_layer, "unavailable");
+    assert!(!report.raw_native_evidence.raw_native_gate.passed);
+    assert_eq!(
+        report.processed_generation_evidence.processed_layer,
+        "unavailable"
+    );
+    assert!(report
+        .postprocessing_repair_audit
+        .claim_boundary
+        .contains("do not cite repaired layers"));
+    assert_eq!(
+        report.train_eval_alignment.decision,
+        TrainEvalAlignmentReport::default().decision
+    );
 }
 
 #[test]
@@ -110,6 +149,8 @@ fn drug_level_claim_contract_declares_layered_backend_provenance() {
 #[test]
 fn layered_generation_metrics_emit_canonical_and_legacy_layers() {
     let mut layers = LayeredGenerationMetrics::default();
+    layers.generation_path_contract =
+        pocket_diffusion::experiments::canonical_generation_path_contract();
     layers.raw_flow.candidate_count = 2;
     layers.raw_rollout = layers.raw_flow.clone();
     layers.constrained_flow.candidate_count = 3;
@@ -125,6 +166,97 @@ fn layered_generation_metrics_emit_canonical_and_legacy_layers() {
     assert!(payload.contains("\"raw_rollout\""));
     assert!(payload.contains("\"repaired_candidates\""));
     assert!(payload.contains("\"inferred_bond_candidates\""));
+    assert!(payload.contains("\"generation_path_contract\""));
+    assert!(payload.contains("\"model_native_raw\""));
+    assert!(payload.contains("\"claim_boundary\""));
+    assert!(payload.contains("\"raw_molecular_flow_logits\""));
+    assert!(payload.contains("\"raw_native_graph_extraction\""));
+    assert!(payload.contains("\"constrained_native_graph\""));
+    assert!(payload.contains("\"target_matching_artifact_fields\""));
+    assert!(payload.contains("\"decoder_conditioning_kind\""));
+    assert!(payload.contains("\"molecular_flow_conditioning_kind\""));
+    assert!(payload.contains("\"slot_local_conditioning_enabled\""));
+    assert!(payload.contains("\"mean_pooled_conditioning_ablation\""));
+    assert!(payload.contains("target_matching_coverage"));
+    assert!(layers
+        .generation_path_contract
+        .iter()
+        .any(|row| row.legacy_field_name == "raw_flow"));
+    assert!(layers
+        .generation_path_contract
+        .iter()
+        .any(|row| row.legacy_field_name == "constrained_flow"));
+    assert!(layers
+        .generation_path_contract
+        .iter()
+        .any(|row| row.legacy_field_name == "deterministic_proxy_candidates"));
+}
+
+#[test]
+fn branch_weight_record_serializes_matching_provenance_fields() {
+    let record = PrimaryBranchWeightRecord {
+        branch_name: "geometry".to_string(),
+        unweighted_value: 2.0,
+        effective_weight: 1.0,
+        schedule_multiplier: 1.0,
+        weighted_value: 2.0,
+        optimizer_facing: true,
+        provenance: "molecular_flow_contract_v1".to_string(),
+        target_matching_policy: Some("hungarian_distance".to_string()),
+        target_matching_mean_cost: Some(0.25),
+        target_matching_max_cost: Some(0.5),
+        target_matching_total_cost: Some(1.0),
+        target_matching_coverage: Some(0.8),
+        target_matching_matched_count: Some(4),
+        target_matching_unmatched_generated_count: Some(1),
+        target_matching_unmatched_target_count: Some(0),
+        target_matching_exact_assignment: Some(true),
+    };
+
+    let value = serde_json::to_value(&record).unwrap();
+    assert_eq!(value["unweighted_value"], 2.0);
+    assert_eq!(value["schedule_multiplier"], 1.0);
+    assert_eq!(value["weighted_value"], 2.0);
+    assert_eq!(value["target_matching_policy"], "hungarian_distance");
+    assert_eq!(value["target_matching_coverage"], 0.8);
+    assert_eq!(value["target_matching_matched_count"], 4);
+    assert_eq!(value["target_matching_unmatched_generated_count"], 1);
+    assert_eq!(value["target_matching_exact_assignment"], true);
+
+    let legacy: PrimaryBranchWeightRecord = serde_json::from_value(serde_json::json!({
+        "branch_name": "geometry",
+        "effective_weight": 1.0,
+        "optimizer_facing": true,
+        "provenance": "molecular_flow_contract_v1"
+    }))
+    .unwrap();
+    assert_eq!(legacy.unweighted_value, 0.0);
+    assert_eq!(legacy.schedule_multiplier, 0.0);
+    assert_eq!(legacy.weighted_value, 0.0);
+    assert!(legacy.target_matching_policy.is_none());
+    assert!(legacy.target_matching_coverage.is_none());
+}
+
+#[test]
+fn candidate_layer_provenance_declares_generation_path_contract() {
+    assert_eq!(
+        CandidateLayerKind::RawRollout.canonical_generation_layer(),
+        "raw_flow"
+    );
+    assert_eq!(
+        CandidateLayerKind::Reranked.generation_path_class(),
+        "reranked"
+    );
+    assert!(CandidateLayerKind::RawRollout.is_model_native_raw());
+    assert!(!CandidateLayerKind::Repaired.is_model_native_raw());
+    assert!(CandidateLayerKind::Repaired
+        .claim_boundary()
+        .contains("geometry-repaired"));
+    let candidate = preference_candidate("layered", vec![[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]]);
+    assert_eq!(candidate.generation_mode, "target_ligand_denoising");
+    assert_eq!(candidate.generation_layer, "raw_flow");
+    assert_eq!(candidate.generation_path_class, "model_native_raw");
+    assert!(candidate.model_native_raw);
 }
 
 #[test]
@@ -253,6 +385,8 @@ fn evaluation_metrics_accepts_pre_strata_resource_schema() {
 
     let metrics: EvaluationMetrics = serde_json::from_str(json).unwrap();
     assert!(metrics.strata.is_empty());
+    assert_eq!(metrics.model_design.raw_model_layer, "raw_rollout");
+    assert_eq!(metrics.model_design.processed_layer, "unavailable");
     assert_eq!(CandidateLayerMetrics::default().candidate_count, 0);
     assert!(metrics.method_comparison.methods.is_empty());
     assert!(
@@ -261,6 +395,58 @@ fn evaluation_metrics_accepts_pre_strata_resource_schema() {
             .preference_alignment
             .missing_artifacts_mean_unavailable
     );
+}
+
+#[test]
+fn q7_claim_boundary_contract_keeps_evidence_tiers_explicit() {
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let contract_path = root.join("configs/q7_claim_boundary_contract.json");
+    let contract: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(contract_path).unwrap()).unwrap();
+    let tiers = contract["evidence_tiers"].as_array().unwrap();
+    for required in [
+        "synthetic_smoke",
+        "real_data_debug",
+        "reviewer_scale_unseen_pocket",
+        "heuristic_metric",
+        "backend_supported",
+        "docking_supported",
+        "experimental",
+    ] {
+        assert!(
+            tiers.iter().any(|tier| tier["tier"] == required),
+            "missing evidence tier {required}"
+        );
+    }
+    assert!(contract["q7_required_model_design_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|field| field == "test.model_design.raw_model_valid_fraction"));
+    assert!(contract["q7_required_ablation_variants"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|variant| variant == "decoder_conditioning_mean_pooled"));
+    assert!(contract["raw_vs_processed_rule"]
+        .as_str()
+        .unwrap()
+        .contains("postprocessing chain"));
+    assert!(contract["candidate_record_layer_provenance_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|field| field == "generation_layer"));
+    assert!(contract["claim_report_layer_provenance_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|field| field == "claim_report.layer_provenance_audit.claim_safe"));
+
+    let doc = std::fs::read_to_string(root.join("docs/q7_claim_boundaries.md")).unwrap();
+    assert!(doc.contains("experimental binding affinity"));
+    assert!(doc.contains("model_design.raw_model_*"));
+    assert!(doc.contains("layer_provenance_audit"));
 }
 
 #[test]
@@ -438,6 +624,7 @@ fn training_summary_defaults_new_resume_continuity_fields() {
     let mut json = serde_json::to_value(TrainingRunSummary {
         config: pocket_diffusion::config::ResearchConfig::default(),
         dataset_validation: pocket_diffusion::data::DatasetValidationReport::default(),
+        coordinate_frame: pocket_diffusion::training::CoordinateFrameProvenance::default(),
         splits: pocket_diffusion::training::DatasetSplitSizes {
             total: 1,
             train: 1,
@@ -458,7 +645,8 @@ fn training_summary_defaults_new_resume_continuity_fields() {
                 restores_model_weights: true,
                 restores_step: true,
                 restores_history: true,
-                restores_optimizer_state: true,
+                restores_optimizer_state: false,
+                resume_mode: ResumeMode::WeightsOnlyResume,
                 continuity_mode: ResumeContinuityMode::MetadataOnlyContinuation,
                 supports_strict_replay: false,
                 notes: "legacy summary without continuity mode".to_string(),
@@ -470,11 +658,16 @@ fn training_summary_defaults_new_resume_continuity_fields() {
                 checkpoint_dataset_fingerprint: None,
                 restored_optimizer_state_metadata: false,
                 restored_scheduler_state_metadata: false,
+                resume_mode: ResumeMode::FreshRun,
                 continuity_mode: ResumeContinuityMode::FreshRun,
                 strict_replay_achieved: false,
             },
         },
         training_history: Vec::new(),
+        objective_coverage: pocket_diffusion::training::ObjectiveCoverageReport::default(),
+        validation_history: Vec::new(),
+        best_checkpoint: None,
+        early_stopping: pocket_diffusion::training::EarlyStoppingSummary::default(),
         validation: evaluation.clone(),
         test: evaluation,
     })
@@ -483,6 +676,15 @@ fn training_summary_defaults_new_resume_continuity_fields() {
         .as_object_mut()
         .unwrap()
         .remove("continuity_mode");
+    json.as_object_mut().unwrap().remove("validation_history");
+    json.as_object_mut().unwrap().remove("best_checkpoint");
+    json.as_object_mut().unwrap().remove("early_stopping");
+    json.as_object_mut().unwrap().remove("objective_coverage");
+    json.as_object_mut().unwrap().remove("coordinate_frame");
+    json["reproducibility"]["resume_contract"]
+        .as_object_mut()
+        .unwrap()
+        .remove("resume_mode");
     json["reproducibility"]
         .as_object_mut()
         .unwrap()
@@ -510,6 +712,10 @@ fn training_summary_defaults_new_resume_continuity_fields() {
     json["reproducibility"]["resume_provenance"]
         .as_object_mut()
         .unwrap()
+        .remove("resume_mode");
+    json["reproducibility"]["resume_provenance"]
+        .as_object_mut()
+        .unwrap()
         .remove("strict_replay_achieved");
     let json = serde_json::to_string(&json).unwrap();
 
@@ -525,14 +731,30 @@ fn training_summary_defaults_new_resume_continuity_fields() {
             .supports_strict_replay
     );
     assert_eq!(
+        summary.reproducibility.resume_contract.resume_mode,
+        ResumeMode::FreshRun
+    );
+    assert_eq!(
         summary.reproducibility.resume_provenance.continuity_mode,
         ResumeContinuityMode::FreshRun
+    );
+    assert_eq!(
+        summary.reproducibility.resume_provenance.resume_mode,
+        ResumeMode::FreshRun
     );
     assert!(
         !summary
             .reproducibility
             .resume_provenance
             .strict_replay_achieved
+    );
+    assert!(summary.validation_history.is_empty());
+    assert!(summary.best_checkpoint.is_none());
+    assert!(!summary.early_stopping.enabled);
+    assert!(summary.objective_coverage.records.is_empty());
+    assert_eq!(
+        summary.coordinate_frame.rotation_consistency_role,
+        "diagnostic_not_exact_equivariance_claim"
     );
 }
 
@@ -544,10 +766,20 @@ fn preference_candidate(example_id: &str, coords: Vec<[f32; 3]>) -> GeneratedCan
         atom_types: vec![6; coords.len()],
         coords,
         inferred_bonds: vec![(0, 1)],
+        bond_count: 1,
+        valence_violation_count: 0,
         pocket_centroid: [0.0, 0.0, 0.0],
         pocket_radius: 3.0,
         coordinate_frame_origin: [0.0, 0.0, 0.0],
         source: "test".to_string(),
+        generation_mode: "target_ligand_denoising".to_string(),
+        generation_layer: "raw_flow".to_string(),
+        generation_path_class: "model_native_raw".to_string(),
+        model_native_raw: true,
+        postprocessor_chain: Vec::new(),
+        claim_boundary:
+            "raw model-native output before repair, constraints, reranking, or backend scoring"
+                .to_string(),
         source_pocket_path: None,
         source_ligand_path: None,
     }

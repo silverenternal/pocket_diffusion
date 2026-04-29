@@ -1,0 +1,82 @@
+{
+  "contract_name": "q2_claim_contract",
+  "schema_version": 1,
+  "updated_at": "2026-04-28",
+  "purpose": "Guard Q2 artifacts against layer mixing, placeholder metrics, and unsupported binding-affinity claims.",
+  "shared_provenance_contract": "configs/drug_metric_artifact_manifest.json#claim_provenance_contract",
+  "global_rules": [
+    "All claim-facing numeric values must come from machine-generated JSON or JSONL artifacts.",
+    "Do not use placeholders such as placeholder_zero_xxx_token or narrative-only approximate values.",
+    "Geometry-only flow configs are not full molecular flow; full molecular flow claims require geometry, atom_type, bond, topology, and pocket_context branches.",
+    "AutoDock Vina and GNINA values are score_only backend outputs and not experimental binding affinities.",
+    "Do not claim statistical dominance over public baselines until matched-budget multi-seed public-baseline evidence exists."
+  ],
+  "layer_groups": {
+    "raw_model_native": [
+      "raw_flow",
+      "raw_rollout",
+      "no_repair"
+    ],
+    "constrained_sampling": [
+      "constrained_flow"
+    ],
+    "postprocessing": [
+      "repaired",
+      "reranked",
+      "inferred_bond",
+      "deterministic_proxy",
+      "centroid_only",
+      "clash_only",
+      "bond_inference_only",
+      "full_repair"
+    ]
+  },
+  "required_artifacts": [
+    "configs/q2_ours_vs_public_baselines_summary.json",
+    "configs/q2_postprocessing_ablation_summary.json",
+    "artifacts/evidence/q2/q2_proxy_backend_correlation.json",
+    "artifacts/evidence/q2/postprocessing_failure_audit.json"
+  ],
+  "audit_rules": {
+    "reject_placeholder_patterns": [
+      "placeholder_zero_xxx_token",
+      "narrative_approximate_numeric_token"
+    ],
+    "require_backend_coverage_fields": true,
+    "require_layer_role_fields": true,
+    "forbid_raw_postprocessed_table_merge": true
+  },
+  "claim_terms": {
+    "raw_model_capability": {
+      "allowed_layers": [
+        "raw_flow",
+        "raw_rollout",
+        "no_repair"
+      ],
+      "forbidden_layers": [
+        "constrained_flow",
+        "repaired",
+        "inferred_bond",
+        "deterministic_proxy",
+        "reranked",
+        "centroid_only",
+        "clash_only",
+        "bond_inference_only",
+        "full_repair"
+      ]
+    },
+    "docking": {
+      "allowed_metric_sources": [
+        "vina_score",
+        "gnina_affinity",
+        "gnina_cnn_score"
+      ],
+      "required_label": "score_only backend output",
+      "forbidden_wording": [
+        "experimental binding affinity",
+        "measured binding affinity",
+        "wet-lab affinity"
+      ]
+    }
+  }
+}

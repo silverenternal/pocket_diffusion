@@ -35,6 +35,10 @@ fn empty_layered_generation_metrics() -> LayeredGenerationMetrics {
         reranker_calibration: RerankerCalibrationReport::default(),
         backend_scored_candidates: BTreeMap::new(),
         method_comparison: MethodComparisonSummary::default(),
+        flow_head_ablation: FlowHeadAblationDiagnostics::default(),
+        flow_head_diagnostics: BTreeMap::new(),
+        generation_path_contract: canonical_generation_path_contract(),
+        repair_case_audit: RepairCaseAuditReport::default(),
     }
 }
 
@@ -124,12 +128,26 @@ fn build_method_comparison_summary(
         })
         .collect::<Vec<_>>();
     let flow_vs_denoising = flow_vs_denoising_delta(&methods);
+    let active_method = PocketGenerationMethodRegistry::metadata(
+        research.generation_method.primary_backend_id(),
+    )
+    .ok();
+    let active_row = active_method
+        .as_ref()
+        .and_then(|metadata| methods.iter().find(|row| row.method_id == metadata.method_id));
 
     MethodComparisonSummary {
-        active_method: PocketGenerationMethodRegistry::metadata(
-            research.generation_method.primary_backend_id(),
-        )
-        .ok(),
+        active_method: active_method.clone(),
+        active_method_family: active_row
+            .map(|row| row.method_family.clone())
+            .or_else(|| {
+                active_method
+                    .as_ref()
+                    .map(|metadata| format!("{:?}", metadata.method_family).to_ascii_lowercase())
+            }),
+        raw_native_evidence: ClaimRawNativeEvidenceSummary::default(),
+        processed_generation_evidence: ClaimProcessedGenerationEvidenceSummary::default(),
+        active_selected_metric_layer: active_row.and_then(|row| row.selected_metric_layer.clone()),
         methods,
         planned_metric_interfaces: planned_metric_interfaces(),
         preference_alignment: PreferenceAlignmentSummary::default(),
@@ -180,6 +198,80 @@ fn mean_finite(values: &[f64]) -> Option<f64> {
         .filter(|value| value.is_finite())
         .collect::<Vec<_>>();
     (!finite.is_empty()).then(|| finite.iter().sum::<f64>() / finite.len() as f64)
+}
+
+fn flow_head_ablation_diagnostics(
+    research: &ResearchConfig,
+    diagnostics_available: bool,
+) -> FlowHeadAblationDiagnostics {
+    let flow_contract =
+        crate::models::flow::current_multimodal_flow_contract(&research.generation_method.flow_matching);
+    let head_kind = flow_head_kind_label(research.model.flow_velocity_head.kind);
+    let pairwise_geometry_enabled = research.model.pairwise_geometry.enabled;
+    let local_atom_pocket_attention = research.model.flow_velocity_head.kind
+        == crate::config::FlowVelocityHeadKind::AtomPocketCrossAttention;
+    let decoder_conditioning_kind =
+        decoder_conditioning_kind_label(research.model.decoder_conditioning.kind);
+    let slot_local_conditioning_enabled = research.model.decoder_conditioning.kind
+        == crate::config::DecoderConditioningKind::LocalAtomSlotAttention;
+    let ablation_label = match (local_atom_pocket_attention, pairwise_geometry_enabled) {
+        (false, false) => "geometry_mean_pooling",
+        (false, true) => "pairwise_geometry",
+        (true, false) => "local_pocket_attention",
+        (true, true) => "pairwise_plus_local_pocket",
+    };
+    FlowHeadAblationDiagnostics {
+        schema_version: 1,
+        head_kind: head_kind.to_string(),
+        local_atom_pocket_attention,
+        pairwise_geometry_enabled,
+        ablation_label: ablation_label.to_string(),
+        decoder_conditioning_kind: decoder_conditioning_kind.to_string(),
+        molecular_flow_conditioning_kind: decoder_conditioning_kind.to_string(),
+        slot_local_conditioning_enabled,
+        mean_pooled_conditioning_ablation: !slot_local_conditioning_enabled,
+        diagnostics_available,
+        claim_boundary: "geometry-first coordinate velocity only; no topology or bond flow"
+            .to_string(),
+        enabled_flow_branches: flow_contract.enabled_branches,
+        disabled_flow_branches: flow_contract.disabled_branches,
+        full_molecular_flow_claim_allowed: flow_contract.full_molecular_flow_claim_allowed,
+        claim_gate_reason: flow_contract.claim_gate_reason,
+        target_alignment_policy: flow_contract.target_alignment_policy,
+        target_matching_claim_safe: flow_contract.target_matching_claim_safe,
+        target_matching_artifact_fields: vec![
+            "training_history[].losses.primary.branch_schedule.entries[].target_matching_policy"
+                .to_string(),
+            "training_history[].losses.primary.branch_schedule.entries[].target_matching_coverage"
+                .to_string(),
+            "training_history[].losses.primary.branch_schedule.entries[].target_matching_mean_cost"
+                .to_string(),
+            "training_history[].losses.primary.branch_schedule.entries[].unweighted_value"
+                .to_string(),
+            "training_history[].losses.primary.branch_schedule.entries[].weighted_value"
+                .to_string(),
+            "training_history[].losses.primary.branch_schedule.entries[].schedule_multiplier"
+                .to_string(),
+        ],
+    }
+}
+
+fn decoder_conditioning_kind_label(kind: crate::config::DecoderConditioningKind) -> &'static str {
+    match kind {
+        crate::config::DecoderConditioningKind::MeanPooled => "mean_pooled",
+        crate::config::DecoderConditioningKind::LocalAtomSlotAttention => {
+            "local_atom_slot_attention"
+        }
+    }
+}
+
+fn flow_head_kind_label(kind: crate::config::FlowVelocityHeadKind) -> &'static str {
+    match kind {
+        crate::config::FlowVelocityHeadKind::Geometry => "geometry",
+        crate::config::FlowVelocityHeadKind::AtomPocketCrossAttention => {
+            "atom_pocket_cross_attention"
+        }
+    }
 }
 
 fn flow_vs_denoising_delta(methods: &[MethodComparisonRow]) -> Option<FlowVsDenoisingDelta> {
@@ -268,9 +360,11 @@ fn evaluate_real_generation_metrics(
     let candidate_limit = research.generation_method.candidate_count.max(1);
     let active_method =
         PocketGenerationMethodRegistry::build(research.generation_method.primary_backend_id())
-            .unwrap_or_else(|_| {
-                PocketGenerationMethodRegistry::build("conditioned_denoising")
-                    .expect("conditioned_denoising registry entry must exist")
+            .unwrap_or_else(|message| {
+                panic!(
+                    "invalid generation_method.primary_backend_id `{}` reached evaluation after validation: {message}",
+                    research.generation_method.primary_backend_id()
+                )
             });
     let method_outputs = active_method.generate_batch(
         examples
@@ -339,9 +433,23 @@ fn evaluate_real_generation_metrics(
         reranker_calibration: calibrated_reranker.report(),
         backend_scored_candidates: BTreeMap::new(),
         method_comparison: method_comparison.clone(),
+        flow_head_ablation: flow_head_ablation_diagnostics(research, false),
+        flow_head_diagnostics: BTreeMap::new(),
+        generation_path_contract: canonical_generation_path_contract(),
+        repair_case_audit: RepairCaseAuditReport::default(),
     };
     apply_raw_rollout_stability(&mut layered.raw_rollout, forwards);
+    layered.flow_head_diagnostics = aggregate_final_flow_diagnostics(forwards);
+    layered.flow_head_ablation =
+        flow_head_ablation_diagnostics(research, !layered.flow_head_diagnostics.is_empty());
     layered.raw_flow = layered.raw_rollout.clone();
+    layered.repair_case_audit = build_repair_case_audit(
+        split_label,
+        &raw_rollout,
+        &repaired,
+        &layered.raw_rollout,
+        &layered.repaired_candidates,
+    );
 
     if candidates.is_empty() {
         let disabled = disabled_real_generation_metrics();
@@ -575,6 +683,7 @@ fn summarize_candidate_layer(
 ) -> CandidateLayerMetrics {
     if candidates.is_empty() {
         return CandidateLayerMetrics {
+            generation_mode: "unavailable".to_string(),
             candidate_count: 0,
             valid_fraction: 0.0,
             pocket_contact_fraction: 0.0,
@@ -597,13 +706,25 @@ fn summarize_candidate_layer(
             hydrogen_bond_proxy: 0.0,
             hydrophobic_contact_proxy: 0.0,
             residue_contact_count: 0.0,
+            residue_identity_coverage_fraction: 0.0,
             key_residue_contact_coverage: 0.0,
             clash_burden: 0.0,
             contact_balance: 0.0,
             interaction_profile_coverage_fraction: 0.0,
+            native_bond_count_mean: 0.0,
+            native_component_count_mean: 0.0,
+            native_valence_violation_fraction: 0.0,
+            topology_bond_sync_fraction: 0.0,
+            atom_type_entropy: 0.0,
+            native_graph_valid_fraction: 0.0,
+            native_graph_metric_source: "unavailable".to_string(),
         };
     }
     let total = candidates.len() as f64;
+    let generation_mode = candidates
+        .first()
+        .map(|candidate| candidate.generation_mode.clone())
+        .unwrap_or_else(|| "unavailable".to_string());
     let valid_fraction = candidates
         .iter()
         .filter(|candidate| candidate_is_valid(candidate))
@@ -675,6 +796,16 @@ fn summarize_candidate_layer(
         .map(candidate_residue_contact_count_proxy)
         .sum::<f64>()
         / total;
+    let residue_identity_coverage_fraction = candidates
+        .iter()
+        .filter(|candidate| {
+            candidate
+                .source_pocket_path
+                .as_deref()
+                .is_some_and(|path| !path.is_empty())
+        })
+        .count() as f64
+        / total;
     let key_residue_contact_coverage = candidates
         .iter()
         .map(candidate_key_residue_contact_coverage_proxy)
@@ -691,8 +822,45 @@ fn summarize_candidate_layer(
         .filter(|candidate| candidate_is_valid(candidate))
         .count() as f64
         / total;
+    let native_bond_count_mean = candidates
+        .iter()
+        .map(|candidate| candidate.bond_count as f64)
+        .sum::<f64>()
+        / total;
+    let native_component_count_mean = candidates
+        .iter()
+        .map(native_component_count)
+        .sum::<f64>()
+        / total;
+    let native_valence_violation_fraction = candidates
+        .iter()
+        .map(candidate_valence_violation_fraction)
+        .sum::<f64>()
+        / total;
+    let topology_bond_sync_fraction = candidates
+        .iter()
+        .filter(|candidate| candidate_topology_bond_payload_synced(candidate))
+        .count() as f64
+        / total;
+    let atom_type_entropy = candidate_atom_type_entropy(candidates);
+    let native_graph_valid_fraction = candidates
+        .iter()
+        .filter(|candidate| candidate_native_graph_valid(candidate))
+        .count() as f64
+        / total;
+    let native_graph_metric_source = candidates
+        .first()
+        .map(|candidate| {
+            if candidate.model_native_raw {
+                "raw_model_native_pre_repair".to_string()
+            } else {
+                format!("postprocessed_or_constrained:{}", candidate.generation_layer)
+            }
+        })
+        .unwrap_or_else(|| "unavailable".to_string());
 
     CandidateLayerMetrics {
+        generation_mode,
         candidate_count: candidates.len(),
         valid_fraction,
         pocket_contact_fraction,
@@ -715,11 +883,104 @@ fn summarize_candidate_layer(
         hydrogen_bond_proxy,
         hydrophobic_contact_proxy,
         residue_contact_count,
+        residue_identity_coverage_fraction,
         key_residue_contact_coverage,
         clash_burden,
         contact_balance,
         interaction_profile_coverage_fraction,
+        native_bond_count_mean,
+        native_component_count_mean,
+        native_valence_violation_fraction,
+        topology_bond_sync_fraction,
+        atom_type_entropy,
+        native_graph_valid_fraction,
+        native_graph_metric_source,
     }
+}
+
+fn native_component_count(candidate: &GeneratedCandidateRecord) -> f64 {
+    let atom_count = candidate.atom_types.len();
+    if atom_count == 0 {
+        return 0.0;
+    }
+    let mut parent = (0..atom_count).collect::<Vec<_>>();
+    for &(left, right) in &candidate.inferred_bonds {
+        if left < atom_count && right < atom_count {
+            union_components(&mut parent, left, right);
+        }
+    }
+    (0..atom_count)
+        .map(|index| find_component(&mut parent, index))
+        .collect::<std::collections::BTreeSet<_>>()
+        .len() as f64
+}
+
+fn union_components(parent: &mut [usize], left: usize, right: usize) {
+    let left_root = find_component(parent, left);
+    let right_root = find_component(parent, right);
+    if left_root != right_root {
+        parent[right_root] = left_root;
+    }
+}
+
+fn find_component(parent: &mut [usize], index: usize) -> usize {
+    let mut root = index;
+    while parent[root] != root {
+        root = parent[root];
+    }
+    let mut current = index;
+    while parent[current] != current {
+        let next = parent[current];
+        parent[current] = root;
+        current = next;
+    }
+    root
+}
+
+fn candidate_valence_violation_fraction(candidate: &GeneratedCandidateRecord) -> f64 {
+    let atom_count = candidate.atom_types.len();
+    if atom_count == 0 {
+        0.0
+    } else {
+        candidate.valence_violation_count as f64 / atom_count as f64
+    }
+}
+
+fn candidate_topology_bond_payload_synced(candidate: &GeneratedCandidateRecord) -> bool {
+    let atom_count = candidate.atom_types.len();
+    candidate.bond_count == candidate.inferred_bonds.len()
+        && candidate
+            .inferred_bonds
+            .iter()
+            .all(|&(left, right)| left < atom_count && right < atom_count && left != right)
+}
+
+fn candidate_native_graph_valid(candidate: &GeneratedCandidateRecord) -> bool {
+    candidate_is_valid(candidate)
+        && candidate_topology_bond_payload_synced(candidate)
+        && candidate.valence_violation_count == 0
+        && native_component_count(candidate) <= 1.0
+}
+
+fn candidate_atom_type_entropy(candidates: &[GeneratedCandidateRecord]) -> f64 {
+    let mut counts = std::collections::BTreeMap::<i64, usize>::new();
+    let mut total = 0usize;
+    for candidate in candidates {
+        for atom_type in &candidate.atom_types {
+            *counts.entry(*atom_type).or_default() += 1;
+            total += 1;
+        }
+    }
+    if total == 0 {
+        return 0.0;
+    }
+    counts
+        .values()
+        .map(|count| {
+            let probability = *count as f64 / total as f64;
+            -probability * probability.max(1.0e-12).ln()
+        })
+        .sum()
 }
 
 fn diversity_fraction(
@@ -1050,7 +1311,7 @@ fn candidate_contact_balance(candidate: &GeneratedCandidateRecord) -> f64 {
 }
 
 fn ligand_atom_is_polar(atom_type: i64) -> bool {
-    matches!(atom_type, 1 | 2 | 3)
+    (1..=3).contains(&atom_type)
 }
 
 fn ligand_atom_is_hydrophobic(atom_type: i64) -> bool {

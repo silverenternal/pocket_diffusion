@@ -1,0 +1,21 @@
+{
+  "artifact_name": "candidate_metric_coverage",
+  "backend_row_counts": {
+    "gnina": 200,
+    "vina": 200
+  },
+  "collision_count": 0,
+  "collisions": [],
+  "schema_version": 1,
+  "split_reports": {
+    "test": {
+      "candidate_count": 200,
+      "gnina_affinity_coverage_fraction": 1.0,
+      "gnina_cnn_score_coverage_fraction": 1.0,
+      "output_path": "checkpoints/q3_pairwise_geometry_public100/no_pairwise/merged/candidate_metrics_test.jsonl",
+      "proxy_docking_like_fraction": 1.0,
+      "rdkit_metric_coverage_fraction": 1.0,
+      "vina_score_coverage_fraction": 1.0
+    }
+  }
+}

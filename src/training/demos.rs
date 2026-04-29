@@ -4,7 +4,7 @@ use tch::nn;
 
 use crate::{
     config::ResearchConfig,
-    data::{synthetic_phase1_examples, Dataset, InMemoryDataset},
+    data::{synthetic_phase1_examples, InMemoryDataset},
     experiments::{UnseenPocketExperiment, UnseenPocketExperimentConfig},
     models::Phase1ResearchSystem,
 };

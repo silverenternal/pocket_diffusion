@@ -1,155 +1,203 @@
+/// Grouped topology, geometry, and pocket encoder/slot branches.
+#[derive(Debug)]
+pub struct EncoderStack {
+    /// Topology semantic branch: graph encoder plus topology slots.
+    pub topology_branch: TopologySemanticBranch,
+    /// Geometry semantic branch: coordinate encoder plus geometry slots.
+    pub geometry_branch: GeometrySemanticBranch,
+    /// Pocket semantic branch: context encoder plus pocket slots.
+    pub pocket_branch: PocketSemanticBranch,
+}
+
+/// Grouped controlled cross-modality interaction components.
+#[derive(Debug)]
+pub struct InteractionStack {
+    /// Explicit gated cross-modal interaction block.
+    pub block: CrossModalInteractionBlock,
+}
+
+/// Grouped generation and flow heads.
+#[derive(Debug)]
+pub struct GeneratorStack {
+    /// Minimal modular ligand decoder.
+    pub ligand_decoder: ModularLigandDecoder,
+    /// Config-selected flow-matching velocity head.
+    pub flow_matching_head: FlowVelocityHead,
+    /// Full molecular flow branches for atom type, bond, topology, and context transport.
+    pub molecular_flow_head: FullMolecularFlowHead,
+}
+
+/// Grouped semantic and leakage probe heads.
+#[derive(Debug)]
+pub struct ProbeStack {
+    /// Semantic probe heads.
+    pub probes: SemanticProbeHeads,
+}
+
 /// Research system that keeps encoders separate and adds structured interactions on top.
 #[derive(Debug)]
 pub struct Phase1ResearchSystem {
-    /// Topology encoder.
-    pub topo_encoder: TopologyEncoderImpl,
-    /// Geometry encoder.
-    pub geo_encoder: GeometryEncoderImpl,
-    /// Pocket encoder.
-    pub pocket_encoder: PocketEncoderImpl,
-    /// Topology slot decomposer.
-    pub topo_slots: SoftSlotDecomposer,
-    /// Geometry slot decomposer.
-    pub geo_slots: SoftSlotDecomposer,
-    /// Pocket slot decomposer.
-    pub pocket_slots: SoftSlotDecomposer,
-    /// Directed interactions into topology.
-    pub topo_from_geo: GatedCrossAttention,
-    pub topo_from_pocket: GatedCrossAttention,
-    /// Directed interactions into geometry.
-    pub geo_from_topo: GatedCrossAttention,
-    pub geo_from_pocket: GatedCrossAttention,
-    /// Directed interactions into pocket.
-    pub pocket_from_topo: GatedCrossAttention,
-    pub pocket_from_geo: GatedCrossAttention,
-    /// Minimal modular ligand decoder.
-    pub ligand_decoder: ModularLigandDecoder,
-    /// Semantic probe heads.
-    pub probes: SemanticProbeHeads,
-    /// Geometry-only flow-matching velocity head.
-    pub flow_matching_head: GeometryFlowMatchingHead,
+    /// Structurally separate topology, geometry, and pocket encoder branches.
+    pub encoder_stack: EncoderStack,
+    /// Explicit directed gated interaction stack.
+    pub interaction_stack: InteractionStack,
+    /// Decoder and flow heads used by generation paths.
+    pub generator_stack: GeneratorStack,
+    /// Semantic probe stack.
+    pub probe_stack: ProbeStack,
     generation_target: GenerationTargetConfig,
     generation_backend_family: GenerationBackendFamilyConfig,
+    generation_mode: GenerationModeConfig,
     flow_matching_config: crate::config::FlowMatchingConfig,
-    geometry_attention_bias_scale: f64,
+    modality_focus: crate::config::ModalityFocusConfig,
+    atom_vocab_size: i64,
 }
 
 impl Phase1ResearchSystem {
     /// Construct the modular Phase 2 system from configuration.
     pub fn new(vs: &nn::Path, config: &ResearchConfig) -> Self {
-        let topo_encoder = TopologyEncoderImpl::new(
-            &(vs / "topology"),
-            config.model.atom_vocab_size,
-            config.model.hidden_dim,
+        let topology_branch = TopologySemanticBranch::from_parts(
+            TopologyEncoderImpl::new_with_config(
+                &(vs / "topology"),
+                config.model.atom_vocab_size,
+                config.model.hidden_dim,
+                &config.model.topology_encoder,
+            ),
+            SoftSlotDecomposer::new_with_config(
+                &(vs / "slot_topology"),
+                config.model.hidden_dim,
+                config.model.num_slots,
+                &config.model.slot_decomposition,
+            ),
         );
-        let geo_encoder = GeometryEncoderImpl::new(&(vs / "geometry"), config.model.hidden_dim);
-        let pocket_encoder = PocketEncoderImpl::new(
-            &(vs / "pocket"),
-            config.model.pocket_feature_dim,
-            config.model.hidden_dim,
+        let geometry_branch = GeometrySemanticBranch::from_parts(
+            GeometryEncoderImpl::new_with_config(
+                &(vs / "geometry"),
+                config.model.hidden_dim,
+                &config.model.geometry_encoder,
+            ),
+            SoftSlotDecomposer::new_with_config(
+                &(vs / "slot_geometry"),
+                config.model.hidden_dim,
+                config.model.num_slots,
+                &config.model.slot_decomposition,
+            ),
         );
-        let topo_slots = SoftSlotDecomposer::new(
-            &(vs / "slot_topology"),
-            config.model.hidden_dim,
-            config.model.num_slots,
+        let pocket_branch = PocketSemanticBranch::from_parts(
+            PocketEncoderImpl::new_with_config(
+                &(vs / "pocket"),
+                config.model.pocket_feature_dim,
+                config.model.hidden_dim,
+                &config.model.pocket_encoder,
+            ),
+            SoftSlotDecomposer::new_with_config(
+                &(vs / "slot_pocket"),
+                config.model.hidden_dim,
+                config.model.num_slots,
+                &config.model.slot_decomposition,
+            ),
         );
-        let geo_slots = SoftSlotDecomposer::new(
-            &(vs / "slot_geometry"),
-            config.model.hidden_dim,
-            config.model.num_slots,
-        );
-        let pocket_slots = SoftSlotDecomposer::new(
-            &(vs / "slot_pocket"),
-            config.model.hidden_dim,
-            config.model.num_slots,
-        );
-        let topo_from_geo = GatedCrossAttention::new(
-            &(vs / "topo_from_geo"),
-            config.model.hidden_dim,
-            config.model.interaction_mode,
-            config.model.interaction_ff_multiplier,
-            config.model.interaction_tuning.clone(),
-        );
-        let topo_from_pocket = GatedCrossAttention::new(
-            &(vs / "topo_from_pocket"),
-            config.model.hidden_dim,
-            config.model.interaction_mode,
-            config.model.interaction_ff_multiplier,
-            config.model.interaction_tuning.clone(),
-        );
-        let geo_from_topo = GatedCrossAttention::new(
-            &(vs / "geo_from_topo"),
-            config.model.hidden_dim,
-            config.model.interaction_mode,
-            config.model.interaction_ff_multiplier,
-            config.model.interaction_tuning.clone(),
-        );
-        let geo_from_pocket = GatedCrossAttention::new(
-            &(vs / "geo_from_pocket"),
-            config.model.hidden_dim,
-            config.model.interaction_mode,
-            config.model.interaction_ff_multiplier,
-            config.model.interaction_tuning.clone(),
-        );
-        let pocket_from_topo = GatedCrossAttention::new(
-            &(vs / "pocket_from_topo"),
-            config.model.hidden_dim,
-            config.model.interaction_mode,
-            config.model.interaction_ff_multiplier,
-            config.model.interaction_tuning.clone(),
-        );
-        let pocket_from_geo = GatedCrossAttention::new(
-            &(vs / "pocket_from_geo"),
-            config.model.hidden_dim,
-            config.model.interaction_mode,
-            config.model.interaction_ff_multiplier,
-            config.model.interaction_tuning.clone(),
-        );
-        let ligand_decoder = ModularLigandDecoder::new(
+        let interaction_block = CrossModalInteractionBlock::new(vs, config);
+        let ligand_decoder = ModularLigandDecoder::new_with_config(
             &(vs / "ligand_decoder"),
             config.model.atom_vocab_size,
             config.model.hidden_dim,
+            &config.model.decoder_conditioning,
         );
-        let probes = SemanticProbeHeads::new(
+        let probes = SemanticProbeHeads::new_with_config(
             &(vs / "probes"),
             config.model.hidden_dim,
             config.model.pocket_feature_dim,
+            &config.model.semantic_probes,
         );
-        let flow_matching_head =
-            GeometryFlowMatchingHead::new(&(vs / "flow_matching_head"), config.model.hidden_dim);
+        let pairwise_geometry = config.model.pairwise_geometry.enabled.then_some(
+            crate::models::PairwiseGeometryConfig {
+                radius: config.model.pairwise_geometry.radius as f32,
+                max_neighbors: config.model.pairwise_geometry.max_neighbors,
+                residual_scale: config.model.pairwise_geometry.residual_scale,
+            },
+        );
+        let flow_matching_head = match config.model.flow_velocity_head.kind {
+            FlowVelocityHeadKind::Geometry => {
+                FlowVelocityHead::Geometry(Box::new(match pairwise_geometry.clone() {
+                    Some(pairwise) => GeometryFlowMatchingHead::new_with_pairwise(
+                        &(vs / "flow_matching_head"),
+                        config.model.hidden_dim,
+                        pairwise,
+                    ),
+                    None => GeometryFlowMatchingHead::new(
+                        &(vs / "flow_matching_head"),
+                        config.model.hidden_dim,
+                    ),
+                }))
+            }
+            FlowVelocityHeadKind::AtomPocketCrossAttention => {
+                FlowVelocityHead::AtomPocketCrossAttention(Box::new(
+                    crate::models::AtomPocketCrossAttentionVelocityHead::new(
+                        &(vs / "flow_matching_head"),
+                        crate::models::AtomPocketCrossAttentionVelocityConfig {
+                            enabled: true,
+                            hidden_dim: config.model.hidden_dim,
+                            gate_initial_bias: config.model.flow_velocity_head.gate_initial_bias,
+                            pairwise_geometry,
+                        },
+                    ),
+                ))
+            }
+        };
+        let molecular_flow_head = FullMolecularFlowHead::new_with_conditioning_kind(
+            &(vs / "molecular_flow_head"),
+            config.model.atom_vocab_size,
+            config.model.bond_vocab_size,
+            config.model.hidden_dim,
+            config.model.decoder_conditioning.kind,
+        );
+
+        let generation_backend_family = resolved_generation_backend_family(config);
+        let generation_mode = config
+            .data
+            .generation_target
+            .generation_mode
+            .resolved_for_backend(generation_backend_family);
 
         Self {
-            topo_encoder,
-            geo_encoder,
-            pocket_encoder,
-            topo_slots,
-            geo_slots,
-            pocket_slots,
-            topo_from_geo,
-            topo_from_pocket,
-            geo_from_topo,
-            geo_from_pocket,
-            pocket_from_topo,
-            pocket_from_geo,
-            ligand_decoder,
-            probes,
-            flow_matching_head,
+            encoder_stack: EncoderStack {
+                topology_branch,
+                geometry_branch,
+                pocket_branch,
+            },
+            interaction_stack: InteractionStack {
+                block: interaction_block,
+            },
+            generator_stack: GeneratorStack {
+                ligand_decoder,
+                flow_matching_head,
+                molecular_flow_head,
+            },
+            probe_stack: ProbeStack { probes },
             generation_target: config.data.generation_target.clone(),
-            generation_backend_family: resolved_generation_backend_family(config),
+            generation_backend_family,
+            generation_mode,
             flow_matching_config: config.generation_method.flow_matching.clone(),
-            geometry_attention_bias_scale: config
-                .model
-                .interaction_tuning
-                .geometry_attention_bias_scale,
+            modality_focus: config.model.modality_focus,
+            atom_vocab_size: config.model.atom_vocab_size,
         }
     }
 
     /// Run the three modality encoders for one example.
     pub(crate) fn encode_example(&self, example: &MolecularExample) -> EncodedModalities {
+        if self.generation_mode == GenerationModeConfig::DeNovoInitialization {
+            let (topology, geometry, pocket) = self.de_novo_conditioning_modalities(example);
+            return EncodedModalities {
+                topology: self.encoder_stack.topology_branch.encode(&topology),
+                geometry: self.encoder_stack.geometry_branch.encode(&geometry),
+                pocket: self.encoder_stack.pocket_branch.encode(&pocket),
+            };
+        }
         EncodedModalities {
-            topology: self.topo_encoder.encode(&example.topology),
-            geometry: self.geo_encoder.encode(&example.geometry),
-            pocket: self.pocket_encoder.encode(&example.pocket),
+            topology: self.encoder_stack.topology_branch.encode(&example.topology),
+            geometry: self.encoder_stack.geometry_branch.encode(&example.geometry),
+            pocket: self.encoder_stack.pocket_branch.encode(&example.pocket),
         }
     }
 
@@ -157,17 +205,18 @@ impl Phase1ResearchSystem {
     pub(crate) fn encode_batch_inputs(&self, batch: &MolecularBatch) -> BatchedEncodedModalities {
         let inputs = &batch.encoder_inputs;
         BatchedEncodedModalities {
-            topology: self.topo_encoder.encode_batch(
+            topology: self.encoder_stack.topology_branch.encode_batch(
                 &inputs.atom_types,
                 &inputs.adjacency,
+                &inputs.bond_type_adjacency,
                 &inputs.ligand_mask,
             ),
-            geometry: self.geo_encoder.encode_batch(
+            geometry: self.encoder_stack.geometry_branch.encode_batch(
                 &inputs.ligand_coords,
                 &inputs.pairwise_distances,
                 &inputs.ligand_mask,
             ),
-            pocket: self.pocket_encoder.encode_batch(
+            pocket: self.encoder_stack.pocket_branch.encode_batch(
                 &inputs.pocket_atom_features,
                 &inputs.pocket_coords,
                 &inputs.pocket_pooled_features,
@@ -181,11 +230,11 @@ impl Phase1ResearchSystem {
         &self,
         encodings: &EncodedModalities,
     ) -> DecomposedModalities {
-        DecomposedModalities {
-            topology: self.topo_slots.decompose(&encodings.topology),
-            geometry: self.geo_slots.decompose(&encodings.geometry),
-            pocket: self.pocket_slots.decompose(&encodings.pocket),
-        }
+        self.apply_modality_focus(DecomposedModalities {
+            topology: self.encoder_stack.topology_branch.decompose(&encodings.topology),
+            geometry: self.encoder_stack.geometry_branch.decompose(&encodings.geometry),
+            pocket: self.encoder_stack.pocket_branch.decompose(&encodings.pocket),
+        })
     }
 
     /// Decompose batched modality encodings into learned slots.
@@ -193,566 +242,430 @@ impl Phase1ResearchSystem {
         &self,
         encodings: &BatchedEncodedModalities,
     ) -> BatchedDecomposedModalities {
-        BatchedDecomposedModalities {
-            topology: self.topo_slots.decompose_batch(&encodings.topology),
-            geometry: self.geo_slots.decompose_batch(&encodings.geometry),
-            pocket: self.pocket_slots.decompose_batch(&encodings.pocket),
+        self.apply_batched_modality_focus(BatchedDecomposedModalities {
+            topology: self
+                .encoder_stack
+                .topology_branch
+                .decompose_batch(&encodings.topology),
+            geometry: self
+                .encoder_stack
+                .geometry_branch
+                .decompose_batch(&encodings.geometry),
+            pocket: self
+                .encoder_stack
+                .pocket_branch
+                .decompose_batch(&encodings.pocket),
+        })
+    }
+
+    pub(crate) fn apply_modality_focus_to_encodings(
+        &self,
+        mut encodings: EncodedModalities,
+    ) -> EncodedModalities {
+        if !self.modality_focus.keep_topology() {
+            zero_modality_encoding(&mut encodings.topology);
         }
+        if !self.modality_focus.keep_geometry() {
+            zero_modality_encoding(&mut encodings.geometry);
+        }
+        if !self.modality_focus.keep_pocket() {
+            zero_modality_encoding(&mut encodings.pocket);
+        }
+        encodings
+    }
+
+    pub(crate) fn apply_batched_modality_focus_to_encodings(
+        &self,
+        mut encodings: BatchedEncodedModalities,
+    ) -> BatchedEncodedModalities {
+        if !self.modality_focus.keep_topology() {
+            zero_batched_modality_encoding(&mut encodings.topology);
+        }
+        if !self.modality_focus.keep_geometry() {
+            zero_batched_modality_encoding(&mut encodings.geometry);
+        }
+        if !self.modality_focus.keep_pocket() {
+            zero_batched_modality_encoding(&mut encodings.pocket);
+        }
+        encodings
+    }
+
+    pub(crate) fn apply_modality_focus_to_probes(&self, mut probes: ProbeOutputs) -> ProbeOutputs {
+        let keep_topology = self.modality_focus.keep_topology();
+        let keep_geometry = self.modality_focus.keep_geometry();
+        let keep_pocket = self.modality_focus.keep_pocket();
+
+        if !keep_topology {
+            zero_probe_tensor(&mut probes.topology_adjacency_logits);
+            zero_probe_tensor(&mut probes.ligand_pharmacophore_role_logits);
+        }
+        if !keep_geometry {
+            zero_probe_tensor(&mut probes.geometry_distance_predictions);
+        }
+        if !keep_pocket {
+            zero_probe_tensor(&mut probes.pocket_feature_predictions);
+            zero_probe_tensor(&mut probes.pocket_pharmacophore_role_logits);
+        }
+        if !(keep_topology && keep_geometry) {
+            zero_probe_tensor(&mut probes.topology_to_geometry_scalar_logits);
+            zero_probe_tensor(&mut probes.geometry_to_topology_scalar_logits);
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_probe_fit
+                    .topology_to_geometry_scalar_logits,
+            );
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_probe_fit
+                    .geometry_to_topology_scalar_logits,
+            );
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_encoder_penalty
+                    .topology_to_geometry_scalar_logits,
+            );
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_encoder_penalty
+                    .geometry_to_topology_scalar_logits,
+            );
+        }
+        if !(keep_geometry && keep_pocket) {
+            zero_probe_tensor(&mut probes.pocket_to_geometry_scalar_logits);
+            zero_probe_tensor(&mut probes.geometry_to_pocket_role_logits);
+            zero_probe_tensor(
+                &mut probes.leakage_probe_fit.pocket_to_geometry_scalar_logits,
+            );
+            zero_probe_tensor(&mut probes.leakage_probe_fit.geometry_to_pocket_role_logits);
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_encoder_penalty
+                    .pocket_to_geometry_scalar_logits,
+            );
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_encoder_penalty
+                    .geometry_to_pocket_role_logits,
+            );
+        }
+        if !(keep_topology && keep_pocket) {
+            zero_probe_tensor(&mut probes.topology_to_pocket_role_logits);
+            zero_probe_tensor(&mut probes.pocket_to_ligand_role_logits);
+            zero_probe_tensor(&mut probes.pocket_to_topology_role_logits);
+            zero_probe_tensor(&mut probes.leakage_probe_fit.topology_to_pocket_role_logits);
+            zero_probe_tensor(&mut probes.leakage_probe_fit.pocket_to_ligand_role_logits);
+            zero_probe_tensor(&mut probes.leakage_probe_fit.pocket_to_topology_role_logits);
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_encoder_penalty
+                    .topology_to_pocket_role_logits,
+            );
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_encoder_penalty
+                    .pocket_to_ligand_role_logits,
+            );
+            zero_probe_tensor(
+                &mut probes
+                    .leakage_encoder_penalty
+                    .pocket_to_topology_role_logits,
+            );
+        }
+        if !(keep_topology && keep_geometry && keep_pocket) {
+            zero_probe_tensor(&mut probes.affinity_prediction);
+        }
+        probes
+    }
+
+    fn apply_modality_focus(&self, mut slots: DecomposedModalities) -> DecomposedModalities {
+        if !self.modality_focus.keep_topology() {
+            zero_slot_encoding(&mut slots.topology);
+        }
+        if !self.modality_focus.keep_geometry() {
+            zero_slot_encoding(&mut slots.geometry);
+        }
+        if !self.modality_focus.keep_pocket() {
+            zero_slot_encoding(&mut slots.pocket);
+        }
+        slots
+    }
+
+    fn apply_batched_modality_focus(
+        &self,
+        mut slots: BatchedDecomposedModalities,
+    ) -> BatchedDecomposedModalities {
+        if !self.modality_focus.keep_topology() {
+            zero_batched_slot_encoding(&mut slots.topology);
+        }
+        if !self.modality_focus.keep_geometry() {
+            zero_batched_slot_encoding(&mut slots.geometry);
+        }
+        if !self.modality_focus.keep_pocket() {
+            zero_batched_slot_encoding(&mut slots.pocket);
+        }
+        slots
     }
 
     /// Apply all directed cross-modality interactions.
+    #[allow(dead_code)] // Compatibility wrapper for ablations that bypass diagnostics.
     pub(crate) fn interact_modalities(
         &self,
         slots: &DecomposedModalities,
     ) -> CrossModalInteractions {
-        CrossModalInteractions {
-            topo_from_geo: self.topo_from_geo.forward(&slots.topology, &slots.geometry),
-            topo_from_pocket: self
-                .topo_from_pocket
-                .forward(&slots.topology, &slots.pocket),
-            geo_from_topo: self.geo_from_topo.forward(&slots.geometry, &slots.topology),
-            geo_from_pocket: self.geo_from_pocket.forward(&slots.geometry, &slots.pocket),
-            pocket_from_topo: self
-                .pocket_from_topo
-                .forward(&slots.pocket, &slots.topology),
-            pocket_from_geo: self.pocket_from_geo.forward(&slots.pocket, &slots.geometry),
-        }
+        self.interaction_stack.block.forward(slots)
+    }
+
+    #[allow(dead_code)] // Compatibility wrapper for default-context diagnostic callers.
+    pub(crate) fn interact_modalities_with_diagnostics(
+        &self,
+        slots: &DecomposedModalities,
+    ) -> (
+        CrossModalInteractions,
+        crate::models::interaction::CrossModalInteractionDiagnostics,
+    ) {
+        self.interaction_stack.block.forward_with_diagnostics(slots)
     }
 
     /// Apply all directed cross-modality interactions over slot batches.
+    #[allow(dead_code)] // Compatibility wrapper for batched ablations that bypass diagnostics.
     pub(crate) fn interact_batched_modalities(
         &self,
         batch: &MolecularBatch,
         slots: &BatchedDecomposedModalities,
     ) -> BatchedCrossModalInteractions {
-        let geo_pocket_bias = ligand_pocket_slot_attention_bias(
-            &batch.encoder_inputs.ligand_coords,
-            &batch.encoder_inputs.ligand_mask,
-            &batch.encoder_inputs.pocket_coords,
-            &batch.encoder_inputs.pocket_mask,
-            slots.geometry.slots.size()[1],
-            slots.pocket.slots.size()[1],
-        ) * self.geometry_attention_bias_scale;
-        let pocket_geo_bias = geo_pocket_bias.transpose(1, 2);
-        BatchedCrossModalInteractions {
-            topo_from_geo: self
-                .topo_from_geo
-                .forward_batch(&slots.topology, &slots.geometry, None),
-            topo_from_pocket: self.topo_from_pocket.forward_batch(
-                &slots.topology,
-                &slots.pocket,
-                None,
-            ),
-            geo_from_topo: self
-                .geo_from_topo
-                .forward_batch(&slots.geometry, &slots.topology, None),
-            geo_from_pocket: self.geo_from_pocket.forward_batch(
-                &slots.geometry,
-                &slots.pocket,
-                Some(&geo_pocket_bias),
-            ),
-            pocket_from_topo: self.pocket_from_topo.forward_batch(
-                &slots.pocket,
-                &slots.topology,
-                None,
-            ),
-            pocket_from_geo: self.pocket_from_geo.forward_batch(
-                &slots.pocket,
-                &slots.geometry,
-                Some(&pocket_geo_bias),
-            ),
-        }
+        self.interaction_stack.block.forward_batch(batch, slots)
     }
 
-    /// Run the full Phase 2 forward pass for one example.
-    pub(crate) fn forward_example(&self, example: &MolecularExample) -> ResearchForward {
-        let encodings = self.encode_example(example);
-        let slots = self.decompose_modalities(&encodings);
-        let interactions = self.interact_modalities(&slots);
-        let probes = self.probes.forward(
-            &encodings.topology,
-            &encodings.geometry,
-            &encodings.pocket,
-            &slots.topology,
-            &slots.geometry,
-            &slots.pocket,
-        );
-        let generation_state = self.build_generation_state(example, &slots, &interactions);
-        let decoded = self.ligand_decoder.decode(&generation_state);
-        let flow_matching =
-            self.flow_matching_training_record(example, &generation_state, &interactions);
-        let rollout = self.rollout_generation(example, &generation_state);
-
-        ResearchForward {
-            encodings,
-            slots,
-            interactions,
-            probes,
-            generation: GenerationForward {
-                state: generation_state,
-                decoded,
-                rollout,
-                flow_matching,
-            },
-        }
-    }
-
-    /// Collate and encode a small batch.
-    #[allow(dead_code)]
-    pub(crate) fn encode_batch(
+    #[allow(dead_code)] // Compatibility wrapper for batched default-context diagnostic callers.
+    pub(crate) fn interact_batched_modalities_with_diagnostics(
         &self,
-        examples: &[MolecularExample],
-    ) -> (MolecularBatch, Vec<EncodedModalities>) {
-        let batch = MolecularBatch::collate(examples);
-        let batched = self.encode_batch_inputs(&batch);
-        let outputs = examples
-            .iter()
-            .enumerate()
-            .map(|(index, example)| slice_encoded_modalities(&batched, index as i64, example))
-            .collect();
-        (batch, outputs)
-    }
-
-    /// Collate and run the full Phase 2 forward pass on a small batch.
-    pub(crate) fn forward_batch(
-        &self,
-        examples: &[MolecularExample],
-    ) -> (MolecularBatch, Vec<ResearchForward>) {
-        let batch = MolecularBatch::collate(examples);
-        let batched_encodings = self.encode_batch_inputs(&batch);
-        let batched_slots = self.decompose_batched_modalities(&batched_encodings);
-        let batched_interactions = self.interact_batched_modalities(&batch, &batched_slots);
-        let outputs = examples
-            .iter()
-            .enumerate()
-            .map(|(index, example)| {
-                self.forward_from_batched_parts(
-                    example,
-                    index as i64,
-                    &batched_encodings,
-                    &batched_slots,
-                    &batched_interactions,
-                )
-            })
-            .collect();
-        (batch, outputs)
-    }
-
-    fn forward_from_batched_parts(
-        &self,
-        example: &MolecularExample,
-        batch_index: i64,
-        encodings: &BatchedEncodedModalities,
+        batch: &MolecularBatch,
         slots: &BatchedDecomposedModalities,
-        interactions: &BatchedCrossModalInteractions,
-    ) -> ResearchForward {
-        let encodings = slice_encoded_modalities(encodings, batch_index, example);
-        let slots = slice_decomposed_modalities(slots, batch_index, example);
-        let interactions = slice_cross_modal_interactions(interactions, batch_index);
-        let probes = self.probes.forward(
-            &encodings.topology,
-            &encodings.geometry,
-            &encodings.pocket,
-            &slots.topology,
-            &slots.geometry,
-            &slots.pocket,
-        );
-        let generation_state = self.build_generation_state(example, &slots, &interactions);
-        let decoded = self.ligand_decoder.decode(&generation_state);
-        let flow_matching =
-            self.flow_matching_training_record(example, &generation_state, &interactions);
-        let rollout = self.rollout_generation(example, &generation_state);
-
-        ResearchForward {
-            encodings,
-            slots,
-            interactions,
-            probes,
-            generation: GenerationForward {
-                state: generation_state,
-                decoded,
-                rollout,
-                flow_matching,
-            },
-        }
+    ) -> (
+        BatchedCrossModalInteractions,
+        crate::models::interaction::BatchedCrossModalInteractionDiagnostics,
+    ) {
+        self.interaction_stack
+            .block
+            .forward_batch_with_diagnostics(batch, slots)
     }
 
-    fn build_generation_state(
+    pub(crate) fn interact_batched_modalities_with_diagnostics_with_context(
         &self,
-        example: &MolecularExample,
-        slots: &DecomposedModalities,
-        interactions: &CrossModalInteractions,
-    ) -> ConditionedGenerationState {
-        let num_atoms = example.decoder_supervision.corrupted_atom_types.size()[0];
-        let device = example.decoder_supervision.corrupted_atom_types.device();
-
-        ConditionedGenerationState {
-            example_id: example.example_id.clone(),
-            protein_id: example.protein_id.clone(),
-            partial_ligand: PartialLigandState {
-                atom_types: example
-                    .decoder_supervision
-                    .corrupted_atom_types
-                    .shallow_clone(),
-                coords: example.decoder_supervision.noisy_coords.shallow_clone(),
-                atom_mask: Tensor::ones([num_atoms], (Kind::Float, device)),
-                step_index: 0,
-            },
-            topology_context: merge_slot_contexts(
-                &slots.topology.slots,
-                &[&interactions.topo_from_geo, &interactions.topo_from_pocket],
-            ),
-            geometry_context: merge_slot_contexts(
-                &slots.geometry.slots,
-                &[&interactions.geo_from_topo, &interactions.geo_from_pocket],
-            ),
-            pocket_context: merge_slot_contexts(
-                &slots.pocket.slots,
-                &[
-                    &interactions.pocket_from_topo,
-                    &interactions.pocket_from_geo,
-                ],
-            ),
-        }
+        batch: &MolecularBatch,
+        slots: &BatchedDecomposedModalities,
+        context: InteractionExecutionContext,
+    ) -> (
+        BatchedCrossModalInteractions,
+        crate::models::interaction::BatchedCrossModalInteractionDiagnostics,
+    ) {
+        self.interaction_stack
+            .block
+            .forward_batch_with_diagnostics_with_context(batch, slots, context)
     }
 
-    fn flow_matching_training_record(
+    fn batched_geo_from_pocket_attention_bias(
         &self,
-        example: &MolecularExample,
-        generation_state: &ConditionedGenerationState,
-        interactions: &CrossModalInteractions,
-    ) -> Option<FlowMatchingTrainingRecord> {
-        if self.generation_backend_family != GenerationBackendFamilyConfig::FlowMatching {
-            return None;
-        }
-        let x1 = example.decoder_supervision.target_coords.shallow_clone();
-        let x0 = flow_matching_x0(
-            example,
-            self.flow_matching_config.noise_scale,
-            self.flow_matching_config.use_corrupted_x0,
-        );
-        if x1.size() != x0.size() {
-            return None;
-        }
-        let t = flow_matching_t_from_example(example);
-        let xt = &x0 * (1.0 - t) + &x1 * t;
-        let flow_state = FlowState {
-            coords: xt.shallow_clone(),
-            x0_coords: x0.shallow_clone(),
-            target_coords: Some(x1.shallow_clone()),
-            t,
-        };
-        let conditioning =
-            flow_conditioning_state(generation_state, gate_summary_from_interactions(interactions));
-        let predicted_velocity = self
-            .flow_matching_head
-            .predict_velocity(&flow_state, &conditioning)
-            .ok()?
-            .velocity;
-        Some(FlowMatchingTrainingRecord {
-            predicted_velocity,
-            target_velocity: x1 - x0,
-            sampled_coords: xt,
-            t,
-            atom_mask: generation_state.partial_ligand.atom_mask.shallow_clone(),
-        })
+        batch: &MolecularBatch,
+        slots: &BatchedDecomposedModalities,
+    ) -> crate::models::interaction::LigandPocketSlotAttentionBias {
+        self.interaction_stack
+            .block
+            .ligand_pocket_bias_for_batch(batch, slots)
     }
 
-    fn rollout_generation(
-        &self,
-        example: &MolecularExample,
-        initial_state: &ConditionedGenerationState,
-    ) -> GenerationRolloutRecord {
-        if self.generation_backend_family == GenerationBackendFamilyConfig::FlowMatching {
-            return self.rollout_flow_matching(example, initial_state);
-        }
-        let mut state = initial_state.clone();
-        let mut steps = Vec::with_capacity(self.generation_target.rollout_steps);
-        let mut stopped_early = false;
-        let mut stable_steps = 0_usize;
-        let mut previous_coord_delta: Option<Tensor> = None;
-        let mut previous_atom_logits: Option<Tensor> = None;
-
-        for step_index in 0..self.generation_target.rollout_steps {
-            state.partial_ligand.step_index = step_index as i64;
-            let decoded = self.ligand_decoder.decode(&state);
-            let stop_probability = decoded
-                .stop_logit
-                .sigmoid()
-                .mean(Kind::Float)
-                .double_value(&[]);
-            let (next_atom_types, atom_change_fraction, updated_atom_logits) = self
-                .next_atom_state(
-                    &state.partial_ligand.atom_types,
-                    &decoded.atom_type_logits,
-                    previous_atom_logits.as_ref(),
-                    step_index,
-                );
-            let (next_coords, mean_displacement, coordinate_step_scale, updated_coord_delta) = self
-                .next_coordinate_state(
-                    example,
-                    &state.partial_ligand.coords,
-                    &decoded.coordinate_deltas,
-                    step_index,
-                    previous_coord_delta.as_ref(),
-                );
-            previous_atom_logits = updated_atom_logits;
-            previous_coord_delta = updated_coord_delta;
-            let stable_now = mean_displacement <= self.generation_target.stop_delta_threshold
-                && atom_change_fraction <= self.generation_target.stop_delta_threshold;
-            stable_steps = if stable_now { stable_steps + 1 } else { 0 };
-            let stop_ready = step_index + 1 >= self.generation_target.min_rollout_steps;
-            let should_stop = stop_ready
-                && match self.generation_target.rollout_mode {
-                    GenerationRolloutMode::Lightweight => {
-                        stop_probability >= self.generation_target.stop_probability_threshold
-                    }
-                    GenerationRolloutMode::MomentumRefine => {
-                        stop_probability >= self.generation_target.stop_probability_threshold
-                            || stable_steps >= self.generation_target.stop_patience
-                    }
-                };
-
-            steps.push(GenerationStepRecord {
-                step_index,
-                stop_probability,
-                stopped: should_stop,
-                atom_types: tensor_to_i64_vec(&next_atom_types),
-                coords: tensor_to_coords(&next_coords),
-                mean_displacement,
-                atom_change_fraction,
-                coordinate_step_scale,
-            });
-
-            state.partial_ligand.atom_types = next_atom_types;
-            state.partial_ligand.coords = next_coords;
-
-            if should_stop {
-                stopped_early = true;
-                break;
-            }
-        }
-
-        if steps.is_empty() {
-            steps.push(GenerationStepRecord {
-                step_index: 0,
-                stop_probability: 0.0,
-                stopped: false,
-                atom_types: tensor_to_i64_vec(&example.decoder_supervision.corrupted_atom_types),
-                coords: tensor_to_coords(&example.decoder_supervision.noisy_coords),
-                mean_displacement: 0.0,
-                atom_change_fraction: 0.0,
-                coordinate_step_scale: self.generation_target.coordinate_step_scale,
-            });
-        }
-
-        GenerationRolloutRecord {
-            example_id: initial_state.example_id.clone(),
-            protein_id: initial_state.protein_id.clone(),
-            configured_steps: self.generation_target.rollout_steps,
-            executed_steps: steps.len(),
-            stopped_early,
-            steps,
-        }
+    fn decoder_capability_label(&self) -> &'static str {
+        self.generation_mode
+            .compatibility_contract()
+            .decoder_capability_label
     }
 
-    fn rollout_flow_matching(
-        &self,
-        example: &MolecularExample,
-        initial_state: &ConditionedGenerationState,
-    ) -> GenerationRolloutRecord {
-        let configured_steps = self.flow_matching_config.steps.max(1);
-        let mut coords = flow_matching_x0(
-            example,
-            self.flow_matching_config.noise_scale,
-            self.flow_matching_config.use_corrupted_x0,
-        );
-        let atom_types = tensor_to_i64_vec(&initial_state.partial_ligand.atom_types);
-        let conditioning =
-            flow_conditioning_state(initial_state, GenerationGateSummary::default());
-        let x0_coords = coords.shallow_clone();
-        let dt = 1.0 / configured_steps as f64;
-        let mut steps = Vec::with_capacity(configured_steps);
-        let mut previous = coords.shallow_clone();
-
-        for step_index in 0..configured_steps {
-            let t = step_index as f64 / configured_steps as f64;
-            let flow_state = FlowState {
-                coords: coords.shallow_clone(),
-                x0_coords: x0_coords.shallow_clone(),
-                target_coords: None,
-                t,
-            };
-            let velocity_1 = self
-                .flow_matching_head
-                .predict_velocity(&flow_state, &conditioning)
-                .map(|field| field.velocity)
-                .unwrap_or_else(|_| Tensor::zeros_like(&coords));
-            let update = match self.flow_matching_config.integration_method {
-                FlowMatchingIntegrationMethod::Euler => velocity_1 * dt,
-                FlowMatchingIntegrationMethod::Heun => {
-                    let predictor = &coords + &(velocity_1.shallow_clone() * dt);
-                    let predictor_state = FlowState {
-                        coords: predictor,
-                        x0_coords: x0_coords.shallow_clone(),
-                        target_coords: None,
-                        t: (t + dt).min(1.0),
-                    };
-                    let velocity_2 = self
-                        .flow_matching_head
-                        .predict_velocity(&predictor_state, &conditioning)
-                        .map(|field| field.velocity)
-                        .unwrap_or_else(|_| Tensor::zeros_like(&coords));
-                    (velocity_1 + velocity_2) * (0.5 * dt)
-                }
-            };
-            coords += update;
-            coords = constrain_to_pocket_envelope(
-                &coords,
-                &example.pocket.coords,
-                self.generation_target.pocket_guidance_scale,
-            );
-            let delta = &coords - &previous;
-            let mean_displacement = per_atom_displacement_mean(&delta);
-            previous = coords.shallow_clone();
-            steps.push(GenerationStepRecord {
-                step_index,
-                stop_probability: 0.0,
-                stopped: false,
-                atom_types: atom_types.clone(),
-                coords: tensor_to_coords(&coords),
-                mean_displacement,
-                atom_change_fraction: 0.0,
-                coordinate_step_scale: dt,
-            });
-        }
-
-        GenerationRolloutRecord {
-            example_id: initial_state.example_id.clone(),
-            protein_id: initial_state.protein_id.clone(),
-            configured_steps,
-            executed_steps: steps.len(),
-            stopped_early: false,
-            steps,
-        }
-    }
-
-    fn next_atom_state(
-        &self,
-        current_atom_types: &Tensor,
-        atom_type_logits: &Tensor,
-        previous_atom_logits: Option<&Tensor>,
-        step_index: usize,
-    ) -> (Tensor, f64, Option<Tensor>) {
-        if atom_type_logits.numel() == 0 {
-            return (
-                current_atom_types.shallow_clone(),
-                0.0,
-                previous_atom_logits.map(Tensor::shallow_clone),
-            );
-        }
-
-        let committed_logits = match self.generation_target.rollout_mode {
-            GenerationRolloutMode::Lightweight => atom_type_logits.shallow_clone(),
-            GenerationRolloutMode::MomentumRefine => {
-                let blended = if let Some(previous) = previous_atom_logits {
-                    previous * self.generation_target.atom_momentum
-                        + atom_type_logits * (1.0 - self.generation_target.atom_momentum)
+    fn atom_count_prior_provenance_label(&self) -> &'static str {
+        match self.generation_mode {
+            GenerationModeConfig::PocketOnlyInitializationBaseline => "fixed",
+            GenerationModeConfig::DeNovoInitialization => {
+                if self
+                    .generation_target
+                    .de_novo_initialization
+                    .dataset_calibrated_atom_count
+                    .is_some()
+                {
+                    "dataset_calibrated"
                 } else {
-                    atom_type_logits.shallow_clone()
-                };
-                blended / self.generation_target.atom_commit_temperature
-            }
-        };
-        let next_atom_types = if self.generation_target.sampling_temperature > 0.0 {
-            sample_atom_types(
-                &committed_logits,
-                self.generation_target.sampling_temperature,
-                self.generation_target.sampling_top_k,
-                self.generation_target.sampling_top_p,
-                self.generation_target.sampling_seed,
-                step_index,
-            )
-        } else {
-            committed_logits.argmax(-1, false)
-        };
-        let atom_change_fraction = atom_change_fraction(current_atom_types, &next_atom_types);
-        (
-            next_atom_types,
-            atom_change_fraction,
-            Some(committed_logits),
-        )
-    }
-
-    fn next_coordinate_state(
-        &self,
-        example: &MolecularExample,
-        current_coords: &Tensor,
-        coordinate_deltas: &Tensor,
-        step_index: usize,
-        previous_coord_delta: Option<&Tensor>,
-    ) -> (Tensor, f64, f64, Option<Tensor>) {
-        if coordinate_deltas.numel() == 0 {
-            return (
-                current_coords.shallow_clone(),
-                0.0,
-                self.generation_target.coordinate_step_scale,
-                previous_coord_delta.map(Tensor::shallow_clone),
-            );
-        }
-
-        let normalized_delta = clip_coordinate_delta_norm(
-            coordinate_deltas,
-            self.generation_target.max_coordinate_delta_norm,
-        );
-        let effective_delta = match self.generation_target.rollout_mode {
-            GenerationRolloutMode::Lightweight => normalized_delta,
-            GenerationRolloutMode::MomentumRefine => {
-                if let Some(previous) = previous_coord_delta {
-                    previous * self.generation_target.coordinate_momentum
-                        + normalized_delta * (1.0 - self.generation_target.coordinate_momentum)
-                } else {
-                    normalized_delta
+                    "pocket_volume"
                 }
             }
-        };
-        let anneal = match self.generation_target.rollout_mode {
-            GenerationRolloutMode::Lightweight => 1.0,
-            GenerationRolloutMode::MomentumRefine => {
-                let fraction =
-                    step_index as f64 / self.generation_target.rollout_steps.max(1) as f64;
-                (1.0 - 0.35 * fraction).max(0.5)
-            }
-        };
-        let coordinate_step_scale = self.generation_target.coordinate_step_scale * anneal;
-        let scaled_delta = &effective_delta * coordinate_step_scale;
-        let pocket_guidance = pocket_guidance_delta(
-            current_coords,
-            &example.pocket.coords,
-            coordinate_step_scale,
-            step_index,
-            self.generation_target.rollout_steps,
-        ) * self.generation_target.pocket_guidance_scale;
-        let sampling_noise = deterministic_coordinate_noise(
-            current_coords,
-            self.generation_target.coordinate_sampling_noise_std,
-            self.generation_target.sampling_seed,
-            step_index,
-        );
-        let effective_update = &scaled_delta + &pocket_guidance + &sampling_noise;
-        let unconstrained_next = current_coords + &effective_update;
-        let next_coords = constrain_to_pocket_envelope(
-            &unconstrained_next,
-            &example.pocket.coords,
-            self.generation_target.pocket_guidance_scale,
-        );
-        let realized_update = &next_coords - current_coords;
-        let mean_displacement = per_atom_displacement_mean(&realized_update);
-        (
-            next_coords,
-            mean_displacement,
-            coordinate_step_scale,
-            Some((&realized_update / coordinate_step_scale.max(1e-6)).detach()),
-        )
+            GenerationModeConfig::TargetLigandDenoising
+            | GenerationModeConfig::LigandRefinement
+            | GenerationModeConfig::FlowRefinement => "target_ligand",
+        }
     }
+
+    fn conditioning_coordinate_frame_label(&self) -> &'static str {
+        match self.generation_mode {
+            GenerationModeConfig::DeNovoInitialization => {
+                "pocket_centroid_centered_conditioning_no_target_ligand_frame"
+            }
+            GenerationModeConfig::PocketOnlyInitializationBaseline => {
+                "pocket_model_frame_fixed_atom_baseline"
+            }
+            GenerationModeConfig::TargetLigandDenoising
+            | GenerationModeConfig::LigandRefinement
+            | GenerationModeConfig::FlowRefinement => {
+                "ligand_centered_training_supervision_only"
+            }
+        }
+    }
+
+    fn de_novo_conditioning_modalities(
+        &self,
+        example: &MolecularExample,
+    ) -> (TopologyFeatures, GeometryFeatures, PocketFeatures) {
+        let scaffold = self.initial_partial_ligand_state(example);
+        let device = scaffold.coords.device();
+        let topology = topology_from_partial_ligand(&scaffold, self.flow_matching_config.noise_scale)
+            .to_device(device);
+        let geometry = geometry_from_coords(&scaffold.coords);
+        let pocket = pocket_centered_features(&example.pocket);
+        (topology, geometry, pocket)
+    }
+}
+
+fn topology_from_partial_ligand(
+    ligand: &PartialLigandState,
+    distance_bond_threshold: f64,
+) -> TopologyFeatures {
+    let atom_count = ligand.atom_types.size().first().copied().unwrap_or(0).max(0);
+    let device = ligand.atom_types.device();
+    let adjacency = scaffold_adjacency_from_coords(&ligand.coords, distance_bond_threshold);
+    let mut edge_rows = Vec::new();
+    let mut edge_cols = Vec::new();
+    let mut bond_types = Vec::new();
+    for left in 0..atom_count {
+        for right in (left + 1)..atom_count {
+            if adjacency.double_value(&[left, right]) > 0.5 {
+                edge_rows.push(left);
+                edge_cols.push(right);
+                bond_types.push(1_i64);
+            }
+        }
+    }
+    let edge_index = if edge_rows.is_empty() {
+        Tensor::zeros([2, 0], (Kind::Int64, device))
+    } else {
+        Tensor::stack(
+            &[
+                Tensor::from_slice(&edge_rows).to_device(device),
+                Tensor::from_slice(&edge_cols).to_device(device),
+            ],
+            0,
+        )
+    };
+    let bond_types = if bond_types.is_empty() {
+        Tensor::zeros([0], (Kind::Int64, device))
+    } else {
+        Tensor::from_slice(&bond_types).to_device(device)
+    };
+    let role_atom_types = (0..atom_count)
+        .map(|index| atom_type_from_token(ligand.atom_types.int64_value(&[index])))
+        .collect::<Vec<_>>();
+    let chemistry_roles =
+        chemistry_role_features_from_atom_types(&role_atom_types).to_device(device);
+    TopologyFeatures {
+        atom_types: ligand.atom_types.shallow_clone(),
+        edge_index,
+        bond_types,
+        adjacency,
+        chemistry_roles,
+    }
+}
+
+pub(super) fn scaffold_adjacency_from_coords(coords: &Tensor, noise_scale: f64) -> Tensor {
+    let atom_count = coords.size().first().copied().unwrap_or(0).max(0);
+    if atom_count <= 1 {
+        return Tensor::zeros([atom_count, atom_count], (Kind::Float, coords.device()));
+    }
+    let diffs = coords.unsqueeze(1) - coords.unsqueeze(0);
+    let distances = diffs
+        .pow_tensor_scalar(2.0)
+        .sum_dim_intlist([2].as_slice(), false, Kind::Float)
+        .sqrt();
+    let threshold = (1.75 + noise_scale.max(0.0)).min(3.0);
+    let adjacency = distances.lt(threshold).to_kind(Kind::Float);
+    let eye = Tensor::eye(atom_count, (Kind::Float, coords.device()));
+    adjacency * (Tensor::ones_like(&eye) - eye)
+}
+
+fn geometry_from_coords(coords: &Tensor) -> GeometryFeatures {
+    let diffs = coords.unsqueeze(1) - coords.unsqueeze(0);
+    let pairwise_distances = diffs
+        .pow_tensor_scalar(2.0)
+        .sum_dim_intlist([2].as_slice(), false, Kind::Float)
+        .sqrt();
+    GeometryFeatures {
+        coords: coords.shallow_clone(),
+        pairwise_distances,
+    }
+}
+
+fn pocket_centered_features(pocket: &PocketFeatures) -> PocketFeatures {
+    if pocket.coords.numel() == 0 {
+        return pocket.clone();
+    }
+    let centroid = pocket.coords.mean_dim([0].as_slice(), false, Kind::Float);
+    PocketFeatures {
+        coords: &pocket.coords - centroid.unsqueeze(0),
+        atom_features: pocket.atom_features.shallow_clone(),
+        pooled_features: pocket.pooled_features.shallow_clone(),
+        chemistry_roles: pocket.chemistry_roles.clone(),
+    }
+}
+
+fn atom_type_from_token(token: i64) -> AtomType {
+    match token {
+        0 => AtomType::Carbon,
+        1 => AtomType::Nitrogen,
+        2 => AtomType::Oxygen,
+        3 => AtomType::Sulfur,
+        4 => AtomType::Hydrogen,
+        _ => AtomType::Other,
+    }
+}
+
+fn zero_modality_encoding(encoding: &mut ModalityEncoding) {
+    encoding.token_embeddings = Tensor::zeros_like(&encoding.token_embeddings);
+    encoding.pooled_embedding = Tensor::zeros_like(&encoding.pooled_embedding);
+}
+
+fn zero_batched_modality_encoding(encoding: &mut BatchedModalityEncoding) {
+    encoding.token_embeddings = Tensor::zeros_like(&encoding.token_embeddings);
+    encoding.token_mask = Tensor::zeros_like(&encoding.token_mask);
+    encoding.pooled_embedding = Tensor::zeros_like(&encoding.pooled_embedding);
+}
+
+fn zero_probe_tensor(tensor: &mut Tensor) {
+    *tensor = Tensor::zeros([0], (Kind::Float, tensor.device()));
+}
+
+fn zero_slot_encoding(encoding: &mut SlotEncoding) {
+    encoding.slots = Tensor::zeros_like(&encoding.slots);
+    encoding.slot_weights = Tensor::zeros_like(&encoding.slot_weights);
+    encoding.token_assignments = Tensor::zeros_like(&encoding.token_assignments);
+    encoding.slot_activation_logits = Tensor::zeros_like(&encoding.slot_activation_logits);
+    encoding.slot_activations = Tensor::zeros_like(&encoding.slot_activations);
+    encoding.active_slot_mask = Tensor::zeros_like(&encoding.active_slot_mask);
+    encoding.active_slot_count = 0.0;
+    encoding.reconstructed_tokens = Tensor::zeros_like(&encoding.reconstructed_tokens);
+}
+
+fn zero_batched_slot_encoding(encoding: &mut BatchedSlotEncoding) {
+    encoding.slots = Tensor::zeros_like(&encoding.slots);
+    encoding.slot_weights = Tensor::zeros_like(&encoding.slot_weights);
+    encoding.token_assignments = Tensor::zeros_like(&encoding.token_assignments);
+    encoding.slot_activation_logits = Tensor::zeros_like(&encoding.slot_activation_logits);
+    encoding.slot_activations = Tensor::zeros_like(&encoding.slot_activations);
+    encoding.active_slot_mask = Tensor::zeros_like(&encoding.active_slot_mask);
+    encoding.active_slot_count = Tensor::zeros_like(&encoding.active_slot_count);
+    encoding.reconstructed_tokens = Tensor::zeros_like(&encoding.reconstructed_tokens);
+    encoding.token_mask = Tensor::zeros_like(&encoding.token_mask);
 }

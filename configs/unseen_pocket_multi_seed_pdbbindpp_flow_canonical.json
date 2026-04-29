@@ -30,7 +30,7 @@
         "min_rollout_steps": 2,
         "stop_probability_threshold": 0.82,
         "coordinate_step_scale": 0.8,
-        "training_step_weight_decay": 0.9,
+        "rollout_eval_step_weight_decay": 0.9,
         "rollout_mode": "momentum_refine",
         "coordinate_momentum": 0.55,
         "atom_momentum": 0.4,

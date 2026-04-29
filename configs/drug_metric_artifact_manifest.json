@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "artifact_root": "artifacts/evidence",
+  "purpose": "Keep drug-metric evidence grouped by research phase while preserving validation and paper-claim references.",
+  "claim_provenance_contract": {
+    "schema_version": 1,
+    "record_shape": "Each claim-facing metric record must carry value, provenance, and status fields.",
+    "values": [
+      {
+        "value": "heuristic",
+        "claim_use": "diagnostic only; cannot be promoted to backend-supported, docking-supported, or experimental evidence"
+      },
+      {
+        "value": "backend_supported",
+        "claim_use": "supported by an available non-docking backend with explicit backend_name, status, and coverage metrics"
+      },
+      {
+        "value": "docking_supported",
+        "claim_use": "supported by an available docking backend with explicit backend_name, status, and coverage metrics"
+      },
+      {
+        "value": "experimental",
+        "claim_use": "reserved for explicit experimental_evidence records; currently unavailable in this repository"
+      },
+      {
+        "value": "unavailable",
+        "claim_use": "must use value=null; do not substitute zero or heuristic fallback values"
+      }
+    ],
+    "backend_metric_requirements": [
+      "backend_name",
+      "status",
+      "backend_examples_scored or candidate_metric_rows or backend_missing_structure_fraction"
+    ],
+    "forbidden_promotions": [
+      "heuristic_to_backend_supported",
+      "heuristic_to_docking_supported",
+      "heuristic_to_experimental",
+      "unavailable_to_zero"
+    ]
+  },
+  "metric_contract": {
+    "schema_version": 2,
+    "rust_wrapper": "pocket_diffusion::models::DrugMetricPanel",
+    "domains": [
+      "Docking",
+      "DrugLikeness",
+      "ChemistryValidity",
+      "PocketCompatibility",
+      "BackendQuality",
+      "Auxiliary"
+    ],
+    "metrics": [
+      {
+        "metric_name": "vina_score",
+        "domain": "Docking",
+        "direction": "LowerIsBetter",
+        "primary_claim_metric": true
+      },
+      {
+        "metric_name": "gnina_affinity",
+        "domain": "Docking",
+        "direction": "LowerIsBetter",
+        "primary_claim_metric": true
+      },
+      {
+        "metric_name": "gnina_cnn_score",
+        "domain": "DrugLikeness",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "qed",
+        "domain": "DrugLikeness",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": true
+      },
+      {
+        "metric_name": "logp",
+        "domain": "DrugLikeness",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "sa_score",
+        "domain": "DrugLikeness",
+        "direction": "LowerIsBetter",
+        "primary_claim_metric": true
+      },
+      {
+        "metric_name": "valid_fraction",
+        "domain": "ChemistryValidity",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": true
+      },
+      {
+        "metric_name": "valence_sanity_fraction",
+        "domain": "ChemistryValidity",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": true
+      },
+      {
+        "metric_name": "structural_pass_fraction",
+        "domain": "ChemistryValidity",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": true
+      },
+      {
+        "metric_name": "pocket_contact_fraction",
+        "domain": "PocketCompatibility",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "centroid_inside_fraction",
+        "domain": "PocketCompatibility",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "atom_coverage_fraction",
+        "domain": "PocketCompatibility",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "clash_free_fraction",
+        "domain": "PocketCompatibility",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "strict_pocket_fit_score",
+        "domain": "PocketCompatibility",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "centroid_fit_score",
+        "domain": "PocketCompatibility",
+        "direction": "HigherIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "clash_fraction",
+        "domain": "PocketCompatibility",
+        "direction": "LowerIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "mean_centroid_offset",
+        "domain": "PocketCompatibility",
+        "direction": "LowerIsBetter",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "backend_missing_schema_version",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "candidate_metric_rows",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "schema_version",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "metric_schema_version",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "examples_scored",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "backend_coverage_fraction",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "gnina_score_success_fraction",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "vina_score_success_fraction",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "gnina_score_coverage_fraction",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      },
+      {
+        "metric_name": "vina_score_coverage_fraction",
+        "domain": "BackendQuality",
+        "direction": "Guardrail",
+        "primary_claim_metric": false
+      }
+    ]
+  },
+  "artifact_registry": [
+    {
+      "path": "artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl",
+      "artifact_role": "q2.candidate_metrics",
+      "provenance_command": "python3 tools/merge_candidate_metric_backends.py --input-dir checkpoints/q2_ours_public100 --output-jsonl artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl",
+      "required": true,
+      "producer": "merge_candidate_metric_backends.py",
+      "validation_consumer": ["validation_suite.validate_q2_artifacts"]
+    },
+    {
+      "path": "artifacts/evidence/q2/q2_proxy_backend_correlation.json",
+      "artifact_role": "q2.proxy_backend_correlation",
+      "provenance_command": "python3 tools/correlation_table.py --candidate-metrics artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl --output-json artifacts/evidence/q2/q2_proxy_backend_correlation.json",
+      "required": true,
+      "producer": "correlation_table.py",
+      "validation_consumer": ["validation_suite.validate_q2_artifacts"]
+    },
+    {
+      "path": "artifacts/evidence/q2/postprocessing_failure_audit.json",
+      "artifact_role": "q2.postprocessing_failure_audit",
+      "provenance_command": "python3 tools/public_baseline_postprocess_layers.py --candidate-metrics artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl --output-json artifacts/evidence/q2/postprocessing_failure_audit.json",
+      "required": true,
+      "producer": "public_baseline_postprocess_layers.py",
+      "validation_consumer": ["validation_suite.validate_q2_artifacts"]
+    },
+    {
+      "path": "configs/q2_ours_vs_public_baselines_summary.json",
+      "artifact_role": "q2.ours_vs_public_baselines_summary",
+      "provenance_command": "python3 tools/public_baseline_method_comparison.py --candidate-metrics artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl --summary-json configs/q2_ours_vs_public_baselines_summary.json",
+      "required": true,
+      "producer": "public_baseline_method_comparison.py",
+      "validation_consumer": ["validation_suite.validate_q2_artifacts"]
+    },
+    {
+      "path": "configs/q2_postprocessing_ablation_summary.json",
+      "artifact_role": "q2.postprocessing_ablation_summary",
+      "provenance_command": "python3 tools/postprocessing_ablation_summary.py --output-json configs/q2_postprocessing_ablation_summary.json",
+      "required": true,
+      "producer": "postprocessing_ablation_summary.py",
+      "validation_consumer": ["validation_suite.validate_q2_artifacts", "validation_suite.validate_coordinate_frame_consistency"]
+    },
+    {
+      "path": "configs/q2_claim_contract.json",
+      "artifact_role": "q2.claim_contract",
+      "provenance_command": "python3 tools/claim_regression_gate.py --output-json configs/q2_claim_contract.json",
+      "required": true,
+      "producer": "claim_regression_gate.py",
+      "validation_consumer": ["validation_suite.validate_q2_artifacts"]
+    },
+    {
+      "path": "configs/q3_rotation_consistency_report.json",
+      "artifact_role": "q3.rotation_consistency_report",
+      "provenance_command": "python3 tools/q3_model_improvement_leaderboard.py --rotation-report configs/q3_rotation_consistency_report.json",
+      "required": false,
+      "producer": "q3_model_improvement_leaderboard.py",
+      "validation_consumer": ["validation_suite.validate_q3_non_degradation_gate"]
+    },
+    {
+      "path": "configs/q3_model_improvement_leaderboard.json",
+      "artifact_role": "q3.model_improvement_leaderboard",
+      "provenance_command": "python3 tools/q3_model_improvement_leaderboard.py --output-json configs/q3_model_improvement_leaderboard.json",
+      "required": false,
+      "producer": "q3_model_improvement_leaderboard.py",
+      "validation_consumer": ["validation_suite.validate_q3_non_degradation_gate"]
+    },
+    {
+      "path": "configs/q3_non_degradation_gate.json",
+      "artifact_role": "q3.non_degradation_gate",
+      "provenance_command": "python3 tools/claim_regression_gate.py --kind q3 --output-json configs/q3_non_degradation_gate.json",
+      "required": false,
+      "producer": "claim_regression_gate.py",
+      "validation_consumer": ["validation_suite.validate_q3_non_degradation_gate"]
+    }
+  ],
+  "phase_artifacts": {
+    "q2": [
+      "artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl",
+      "artifacts/evidence/q2/q2_proxy_backend_correlation.json",
+      "artifacts/evidence/q2/postprocessing_failure_audit.json"
+    ]
+  }
+}

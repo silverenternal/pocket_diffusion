@@ -1,4 +1,7 @@
-fn choose_candidate_atom_types(
+use super::scoring::{atom_type_from_index, euclidean, max_valence};
+use super::*;
+
+pub(super) fn choose_candidate_atom_types(
     rollout_atom_types: &[i64],
     logits: &Tensor,
     topk: &Tensor,
@@ -91,25 +94,15 @@ fn fallback_atom_type_for_degree(degree: usize, candidate_ix: usize) -> i64 {
             2 => 1,
             _ => 0,
         },
-        2 => {
-            if candidate_ix % 2 == 0 {
-                2
-            } else {
-                0
-            }
-        }
-        3 => {
-            if candidate_ix % 2 == 0 {
-                1
-            } else {
-                0
-            }
-        }
+        2 if candidate_ix % 2 == 0 => 2,
+        2 => 0,
+        3 if candidate_ix % 2 == 0 => 1,
+        3 => 0,
         _ => 0,
     }
 }
 
-fn repair_candidate_geometry(
+pub(super) fn repair_candidate_geometry(
     coords: &[[f32; 3]],
     pocket_points: &[[f32; 3]],
     pocket_centroid: [f64; 3],
@@ -286,6 +279,7 @@ pub(crate) fn candidate_records_to_legacy(
                         index,
                     })
                     .collect(),
+                bond_types: vec![0; record.inferred_bonds.len()],
                 bonds: record.inferred_bonds.clone(),
                 fingerprint: None,
             },
@@ -313,4 +307,3 @@ pub(crate) fn report_to_metrics(
         status: enabled_status.into(),
     }
 }
-

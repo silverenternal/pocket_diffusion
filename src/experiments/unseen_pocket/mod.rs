@@ -11,7 +11,7 @@ use std::time::Instant;
 use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use serde::{Deserialize, Serialize};
 use sysinfo::{MemoryRefreshKind, RefreshKind, System};
-use tch::nn;
+use tch::{nn, no_grad};
 
 use crate::{
     config::{
@@ -22,7 +22,7 @@ use crate::{
     data::InMemoryDataset,
     models::{
         build_bounded_preference_pairs, extract_interaction_profiles, flatten_layered_output,
-        report_to_metrics, summarize_method_output, ChemistryValidityEvaluator,
+        report_to_metrics, summarize_method_output, CandidateLayerKind, ChemistryValidityEvaluator,
         CommandChemistryValidityEvaluator, CommandDockingEvaluator,
         CommandPocketCompatibilityEvaluator, DockingEvaluator, ExternalEvaluationReport,
         ExternalMetricRecord, GeneratedCandidateRecord, HeuristicChemistryValidityEvaluator,
@@ -35,8 +35,8 @@ use crate::{
     },
     runtime::parse_runtime_device,
     training::{
-        reproducibility_metadata, stable_json_hash, ResearchTrainer, RunArtifactBundle,
-        RunArtifactPaths, RunKind, SplitReport, StepMetrics,
+        reproducibility_metadata, stable_json_hash, CoordinateFrameProvenance, ResearchTrainer,
+        RunArtifactBundle, RunArtifactPaths, RunKind, SplitReport, StepMetrics,
     },
 };
 
@@ -46,4 +46,5 @@ include!("metrics.rs");
 include!("run.rs");
 include!("evaluation.rs");
 include!("claims.rs");
+include!("leakage_calibration.rs");
 include!("tests.rs");

@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "artifact_name": "q2_layer_attribution_contract",
+  "updated_at": "2026-04-28",
+  "purpose": "Keep raw model-native generation, constrained sampling, repair, and reranking structurally separated in Q2 artifacts and claims.",
+  "required_candidate_fields": [
+    "method_id",
+    "layer",
+    "candidate_id",
+    "example_id",
+    "protein_id",
+    "source_pocket_path",
+    "source_ligand_path",
+    "coordinate_frame_origin",
+    "postprocessing_steps",
+    "model_native",
+    "constrained_sampling",
+    "claim_allowed"
+  ],
+  "layers": {
+    "raw_flow": {
+      "model_native": true,
+      "constrained_sampling": false,
+      "postprocessing_steps": [],
+      "claim_allowed": "raw_model_capability",
+      "description": "Unconstrained geometry-flow rollout emitted directly from the learned velocity field."
+    },
+    "constrained_flow": {
+      "model_native": false,
+      "constrained_sampling": true,
+      "postprocessing_steps": [
+        "pocket_envelope_constraint"
+      ],
+      "claim_allowed": "constrained_sampling_only",
+      "description": "Flow rollout after hard pocket-envelope or analogous geometric correction."
+    },
+    "raw_rollout": {
+      "model_native": true,
+      "constrained_sampling": false,
+      "postprocessing_steps": [],
+      "claim_allowed": "legacy_raw_model_capability",
+      "description": "Legacy native generation layer used by existing artifacts; Q2 flow artifacts should prefer raw_flow when available."
+    },
+    "repaired": {
+      "model_native": false,
+      "constrained_sampling": false,
+      "postprocessing_steps": [
+        "coordinate_or_chemistry_repair"
+      ],
+      "claim_allowed": "postprocessing_only",
+      "description": "Candidate after repair. Must not be used as raw model-native evidence."
+    },
+    "inferred_bond": {
+      "model_native": false,
+      "constrained_sampling": false,
+      "postprocessing_steps": [
+        "bond_inference"
+      ],
+      "claim_allowed": "postprocessing_only",
+      "description": "Candidate after downstream bond inference."
+    },
+    "deterministic_proxy": {
+      "model_native": false,
+      "constrained_sampling": false,
+      "postprocessing_steps": [
+        "deterministic_proxy_selection"
+      ],
+      "claim_allowed": "proxy_analysis_only",
+      "description": "Deterministic proxy-selected candidate; not backend docking evidence by itself."
+    },
+    "reranked": {
+      "model_native": false,
+      "constrained_sampling": false,
+      "postprocessing_steps": [
+        "preference_or_proxy_reranking"
+      ],
+      "claim_allowed": "postprocessing_only",
+      "description": "Candidate selected by reranking. Must not mask weak raw_flow output."
+    }
+  },
+  "forbidden_claim_patterns": [
+    "Using repaired, inferred_bond, deterministic_proxy, or reranked values as raw model-native evidence.",
+    "Merging raw_flow and constrained_flow into a single summary row.",
+    "Reporting score_only backend values as experimental binding affinity.",
+    "Dropping coordinate_frame_origin or source pocket provenance from candidate rows."
+  ]
+}

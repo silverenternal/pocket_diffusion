@@ -5,11 +5,18 @@ pub mod dataset;
 pub mod features;
 pub mod parser;
 
-pub use batch::{DecoderBatchTargets, EncoderBatchInputs, ExampleBatchIter, MolecularBatch};
-pub use dataset::{Dataset, DatasetSplits, InMemoryDataset, LoadedDataset};
+pub use batch::{
+    sample_order_seed_for_epoch, DecoderBatchTargets, EncoderBatchInputs, ExampleBatchIter,
+    ExampleBatchSampler, MolecularBatch, SampledExampleBatch,
+};
+pub use dataset::{
+    collect_examples_from_source, Dataset, DatasetSplits, InMemoryDataset, LoadedDataset,
+    MolecularExampleSource,
+};
 pub use features::{
+    ChemistryRoleFeature, ChemistryRoleFeatureMatrix, ChemistryRoleFeatureProvenance,
     DecoderSupervision, ExampleTargets, GeometryFeatures, MolecularExample, PocketFeatures,
-    TopologyFeatures,
+    TopologyFeatures, CHEMISTRY_ROLE_FEATURE_DIM, CHEMISTRY_ROLE_FEATURE_DIM_USIZE,
 };
 pub use parser::{
     apply_affinity_labels, discover_pdbbind_like_entries, load_affinity_labels, load_manifest,

@@ -1,0 +1,74 @@
+{
+  "artifact_name": "q3_local_pocket_flow_summary",
+  "baseline_q2_flow_matching_raw_flow": {
+    "candidate_count": 100,
+    "metrics_mean": {
+      "clash_fraction": 0.015474549257536711,
+      "gnina_affinity": 24.940400800000003,
+      "gnina_cnn_score": 0.1377411,
+      "pocket_contact_fraction": 0.9431348572734547,
+      "qed": 0.41741879116678454,
+      "sa_score": 2.6946,
+      "vina_score": 24.94337
+    },
+    "pocket_count": 100
+  },
+  "claim_boundary": "Only raw_flow rows are model-native evidence; constrained_flow is reported as a separate constrained-sampling layer. Vina/GNINA are score_only backend metrics, not experimental affinity.",
+  "schema_version": 1,
+  "status": "completed",
+  "variants": [
+    {
+      "checkpoint_dir": "checkpoints/q3_local_pocket_flow_public100",
+      "config": "configs/q3_local_pocket_flow_research_config.json",
+      "layers": [
+        {
+          "candidate_count": 100,
+          "layer": "raw_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.09597385403201915,
+            "gnina_affinity": 85.4712434,
+            "gnina_cnn_score": 0.0516317,
+            "pocket_contact_fraction": 0.939803562459214,
+            "qed": 0.41741879116678454,
+            "sa_score": 2.6946,
+            "vina_score": 85.47963
+          },
+          "metrics_std": {
+            "clash_fraction": 0.10999943031677561,
+            "gnina_affinity": 60.377030488862104,
+            "gnina_cnn_score": 0.1139845010170681,
+            "pocket_contact_fraction": 0.11869726902288198,
+            "qed": 0.15263037381302924,
+            "sa_score": 0.7462270699994741,
+            "vina_score": 60.38783922573402
+          },
+          "pocket_count": 100
+        },
+        {
+          "candidate_count": 100,
+          "layer": "constrained_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.01897624341013121,
+            "gnina_affinity": 100.21928299999999,
+            "gnina_cnn_score": 0.076556,
+            "pocket_contact_fraction": 0.9877838961780856,
+            "qed": 0.46886516432384945,
+            "sa_score": 3.9888,
+            "vina_score": 100.23916
+          },
+          "metrics_std": {
+            "clash_fraction": 0.032945579773275245,
+            "gnina_affinity": 75.09392416475752,
+            "gnina_cnn_score": 0.15873271354701904,
+            "pocket_contact_fraction": 0.030990064364428496,
+            "qed": 0.0893510443581567,
+            "sa_score": 1.4879168525156237,
+            "vina_score": 75.11544057019435
+          },
+          "pocket_count": 100
+        }
+      ],
+      "variant_id": "q3_local_pocket_flow"
+    }
+  ]
+}

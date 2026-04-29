@@ -1,0 +1,136 @@
+{
+  "artifact_name": "q2_flow_head_v2_integration_plan",
+  "schema_version": 1,
+  "baseline_preserved": {
+    "head": "GeometryFlowMatchingHead",
+    "status": "must remain default baseline",
+    "reason": "Q2 evidence treats the current geometry-first velocity head as the stable baseline; local pocket conditioning is an ablation-ready extension, not a replacement."
+  },
+  "candidate_head": {
+    "name": "AtomPocketCrossAttentionVelocityHead",
+    "source_file": "src/models/flow/cross_attention_velocity_head.rs",
+    "pattern": "gate(atom,pocket) * Attention(Q_atom, K_pocket, V_pocket)",
+    "modality_specific_projections": {
+      "query": "atom_query over centered atom coordinates",
+      "key": "pocket_key over pocket_context tokens",
+      "value": "pocket_value over pocket_context tokens",
+      "gate": "gate_projection over atom_hidden and attended pocket context"
+    },
+    "current_status": "implemented and config-selectable through model.flow_velocity_head.kind=atom_pocket_cross_attention; geometry remains the default baseline"
+  },
+  "config_plan": {
+    "new_config_block": "model.flow_velocity_head",
+    "fields": [
+      {
+        "name": "kind",
+        "type": "enum",
+        "values": [
+          "geometry",
+          "atom_pocket_cross_attention"
+        ],
+        "default": "geometry"
+      },
+      {
+        "name": "hidden_dim",
+        "type": "i64",
+        "default": "model.hidden_dim"
+      },
+      {
+        "name": "gate_initial_bias",
+        "type": "f64",
+        "default": -1.0
+      },
+      {
+        "name": "gate_l1_weight",
+        "type": "f64",
+        "default": 0.0
+      },
+      {
+        "name": "attention_usage_logging",
+        "type": "bool",
+        "default": true
+      }
+    ],
+    "validation": [
+      "hidden_dim must equal model.hidden_dim unless an adapter projection is added",
+      "gate_initial_bias must be finite",
+      "gate_l1_weight must be finite and non-negative",
+      "geometry must instantiate GeometryFlowMatchingHead as the default baseline"
+    ]
+  },
+  "integration_steps": [
+    {
+      "step": 1,
+      "file": "src/config/types/model.rs",
+      "action": "Keep FlowVelocityHeadConfig under ModelConfig with default kind=geometry."
+    },
+    {
+      "step": 2,
+      "file": "src/models/system/impl.rs",
+      "action": "Store the velocity head behind FlowVelocityHead so rollout and training call the same FlowMatchingHead interface."
+    },
+    {
+      "step": 3,
+      "file": "src/models/flow_matching.rs",
+      "action": "Keep GeometryFlowMatchingHead as the geometry default."
+    },
+    {
+      "step": 4,
+      "file": "src/models/flow/cross_attention_velocity_head.rs",
+      "action": "Expose attention usage statistics: mean gate, gate sparsity, attention entropy, and pocket-token utilization."
+    },
+    {
+      "step": 5,
+      "file": "src/models/system/impl.rs",
+      "action": "Log gate_l1 regularization only after staged-training warmup enables flow-head auxiliary losses."
+    }
+  ],
+  "ablation_matrix": [
+    {
+      "id": "baseline_geometry_head",
+      "head": "GeometryFlowMatchingHead",
+      "local_attention": false,
+      "gate_regularization": false,
+      "purpose": "Q2 baseline and backward-compatible default"
+    },
+    {
+      "id": "local_attention_no_gate_regularization",
+      "head": "AtomPocketCrossAttentionVelocityHead",
+      "local_attention": true,
+      "gate_regularization": false,
+      "purpose": "Test whether local atom-to-pocket context improves raw_flow docking without sparsity pressure"
+    },
+    {
+      "id": "local_attention_with_gate_regularization",
+      "head": "AtomPocketCrossAttentionVelocityHead",
+      "local_attention": true,
+      "gate_regularization": true,
+      "purpose": "Test controlled sparse interaction under gate L1 and usage logging"
+    },
+    {
+      "id": "no_pocket_attention_control",
+      "head": "AtomPocketCrossAttentionVelocityHead",
+      "local_attention": false,
+      "gate_regularization": false,
+      "purpose": "Control for added parameters while blocking pocket attention updates"
+    }
+  ],
+  "metrics": [
+    "raw_flow_vina_score",
+    "raw_flow_gnina_affinity",
+    "raw_flow_gnina_cnn_score",
+    "constrained_flow_delta_vs_raw_flow",
+    "mean_atom_pocket_gate",
+    "atom_pocket_gate_sparsity",
+    "attention_entropy",
+    "pocket_token_utilization",
+    "rollout_wall_clock_seconds",
+    "peak_memory_mb"
+  ],
+  "claim_guardrails": [
+    "Do not claim full molecular flow; this remains geometry-first velocity prediction.",
+    "Do not merge constrained_flow, repaired, or reranked scores into raw_flow model-native evidence.",
+    "Do not replace topology, geometry, and pocket encoders with unrestricted fusion.",
+    "Do not enable gate regularization before staged-training warmup."
+  ]
+}

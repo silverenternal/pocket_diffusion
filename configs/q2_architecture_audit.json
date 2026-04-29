@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "artifact_name": "q2_architecture_audit",
+  "updated_at": "2026-04-28",
+  "claim_boundary": "The preserved default baseline is GeometryFlowMatchingHead: a geometry-first coordinate-velocity head, not a full molecular flow. Atom-pocket cross-attention and pairwise geometry are config-selectable ablations, not promoted defaults.",
+  "audited_sources": [
+    "src/models/flow_matching.rs",
+    "src/models/system/impl.rs",
+    "src/models/system/rollout.rs",
+    "src/models/flow/cross_attention_velocity_head.rs",
+    "src/models/geometry/pairwise_message_passing.rs",
+    "configs/atom_to_pocket_cross_attention_velocity_head_plan.json",
+    "configs/ligand_pairwise_geometry_message_passing_plan.json",
+    "configs/rotation_augmentation_config_plan.json"
+  ],
+  "baseline": {
+    "component": "GeometryFlowMatchingHead",
+    "status": "implemented",
+    "role": "Preserved Q2 baseline for architecture audits and public-baseline comparison.",
+    "capability": "Predicts per-atom Cartesian velocity from centered coordinates, x0 coordinates, displacement, timestep features, mean-pooled modality summaries, and gate summaries.",
+    "limitations": [
+      "Geometry-only objective and rollout.",
+      "No joint atom-type or bond flow.",
+      "Pocket, topology, and geometry conditioning are collapsed to mean summaries inside the baseline velocity head."
+    ]
+  },
+  "feature_audit": [
+    {
+      "feature": "mlp_fusion_velocity_head",
+      "status": "implemented",
+      "evidence": "GeometryFlowMatchingHead uses coordinate, x0, displacement, timestep, conditioning, and gate projections followed by fusion and velocity_head linear layers.",
+      "claim_allowed": true
+    },
+    {
+      "feature": "mean_pooled_conditioning_in_flow_head",
+      "status": "implemented",
+      "evidence": "mean_or_zeros is called for topology_context, geometry_context, and pocket_context before conditioning_projection.",
+      "claim_allowed": true
+    },
+    {
+      "feature": "local_atom_pocket_attention_in_flow_head",
+      "status": "config_selectable_ablation",
+      "evidence": "AtomPocketCrossAttentionVelocityHead implements gate(atom,pocket) * Attention(Q_atom,K_pocket,V_pocket), and Phase1ResearchSystem selects it when model.flow_velocity_head.kind is atom_pocket_cross_attention.",
+      "claim_allowed": true,
+      "claim_scope": "Ablation-only unless a claim-bearing config explicitly selects atom_pocket_cross_attention; geometry remains the default."
+    },
+    {
+      "feature": "ligand_pairwise_message_passing_in_flow_head",
+      "status": "config_selectable_ablation",
+      "evidence": "PairwiseGeometryMessagePassing provides bounded radius/top-k message construction and is injected by GeometryFlowMatchingHead::new_with_pairwise when model.pairwise_geometry.enabled is true.",
+      "claim_allowed": true,
+      "claim_scope": "Ablation-only; it augments coordinate velocity prediction and does not create topology or bond flow."
+    },
+    {
+      "feature": "rotation_augmentation",
+      "status": "planned",
+      "evidence": "rotation_augmentation_config_plan.json is a design artifact; implemented tests currently cover translation invariance for the baseline head.",
+      "claim_allowed": false
+    },
+    {
+      "feature": "topology_flow",
+      "status": "absent",
+      "evidence": "FlowMatchingTrainingRecord targets coordinates only and target_velocity is x1 - x0.",
+      "claim_allowed": false
+    },
+    {
+      "feature": "bond_logits_in_flow_objective",
+      "status": "absent",
+      "evidence": "GeometryFlowMatchingHead outputs [num_atoms, 3] velocity; atom type and bond structure are handled outside the flow objective.",
+      "claim_allowed": false
+    },
+    {
+      "feature": "hard_pocket_envelope_constraints",
+      "status": "implemented",
+      "evidence": "Flow rollout applies configured pocket-envelope correction in the generation path, so constrained_flow must be separated from raw_flow.",
+      "claim_allowed": true
+    },
+    {
+      "feature": "layer_attribution",
+      "status": "implemented_with_q2_contract",
+      "evidence": "Existing generation artifacts expose raw_rollout, repaired, inferred_bond, deterministic_proxy, and reranked layers; q2_layer_attribution_contract adds raw_flow and constrained_flow semantics.",
+      "claim_allowed": true
+    }
+  ],
+  "claim_rules": [
+    "Report the default baseline as geometry-first flow matching.",
+    "Do not claim full molecular flow, topology flow, or bond generation from the baseline.",
+    "Report local pocket attention and pairwise geometry as config-selected ablations unless the active config explicitly selects them.",
+    "Separate raw model-native output from constrained sampling and postprocessing layers."
+  ]
+}

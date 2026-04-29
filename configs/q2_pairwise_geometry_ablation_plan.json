@@ -1,0 +1,124 @@
+{
+  "artifact_name": "q2_pairwise_geometry_ablation_plan",
+  "schema_version": 1,
+  "problem": "The baseline GeometryFlowMatchingHead predicts atomwise velocities from centered coordinates and pooled conditioning, but it does not explicitly exchange local ligand-ligand geometric messages inside the velocity head.",
+  "baseline_preserved": {
+    "head": "GeometryFlowMatchingHead",
+    "status": "default and claim baseline",
+    "no_replacement": true
+  },
+  "existing_component": {
+    "name": "PairwiseGeometryMessagePassing",
+    "source_file": "src/models/geometry/pairwise_message_passing.rs",
+    "current_contract": "Build radius-filtered, top-k nearest ligand atom messages with distance, unit direction, and clash margin.",
+    "complexity": "O(N^2) candidate scan followed by bounded O(N*k) emitted messages",
+    "translation_invariant": true
+  },
+  "integration_plan": {
+    "target": "flow_matching.velocity_head.pairwise_geometry",
+    "default_enabled": false,
+    "message_inputs": [
+      "centered current coords",
+      "centered x0 coords",
+      "relative displacement",
+      "pair distance",
+      "unit direction",
+      "clash_margin"
+    ],
+    "aggregation": "scatter-add or segment mean from source atoms into target atom hidden states, followed by residual projection before velocity_head",
+    "runtime_bound": {
+      "radius_angstrom": 4.5,
+      "max_neighbors_per_atom": 16,
+      "max_emitted_messages": "num_atoms * max_neighbors_per_atom"
+    },
+    "numerical_stability": [
+      "Clamp inverse distance with epsilon >= 1e-6.",
+      "Use centered coordinates to preserve translation invariance.",
+      "Normalize aggregate message by max(neighbor_count, 1).",
+      "Keep residual scale configurable and default conservative."
+    ]
+  },
+  "config_fields": [
+    {
+      "name": "enabled",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "name": "radius_angstrom",
+      "type": "f32",
+      "default": 4.5
+    },
+    {
+      "name": "max_neighbors",
+      "type": "usize",
+      "default": 16
+    },
+    {
+      "name": "message_hidden_dim",
+      "type": "i64",
+      "default": "model.hidden_dim"
+    },
+    {
+      "name": "residual_scale",
+      "type": "f64",
+      "default": 0.25
+    },
+    {
+      "name": "clash_margin_weight",
+      "type": "f64",
+      "default": 1.0
+    }
+  ],
+  "ablation_matrix": [
+    {
+      "id": "baseline_no_pairwise_messages",
+      "enabled": false,
+      "purpose": "Current GeometryFlowMatchingHead baseline."
+    },
+    {
+      "id": "pairwise_distance_direction_messages",
+      "enabled": true,
+      "features": [
+        "distance",
+        "unit_direction"
+      ],
+      "purpose": "Test local ligand geometry message passing without explicit clash pressure."
+    },
+    {
+      "id": "pairwise_with_clash_margin",
+      "enabled": true,
+      "features": [
+        "distance",
+        "unit_direction",
+        "clash_margin"
+      ],
+      "purpose": "Test whether explicit short-range clash margin improves raw_flow geometry and docking."
+    },
+    {
+      "id": "pairwise_no_pocket_attention",
+      "enabled": true,
+      "combine_with_local_pocket_attention": false,
+      "purpose": "Separate ligand-ligand geometry effects from local pocket conditioning effects."
+    }
+  ],
+  "metrics": [
+    "raw_flow_clash_fraction",
+    "raw_flow_centroid_offset",
+    "raw_flow_vina_score",
+    "raw_flow_gnina_affinity",
+    "raw_flow_gnina_cnn_score",
+    "constrained_flow_delta_vs_raw_flow",
+    "mean_neighbors_per_atom",
+    "max_neighbors_observed",
+    "message_count",
+    "rollout_wall_clock_seconds",
+    "peak_memory_mb"
+  ],
+  "claim_guardrails": [
+    "Pairwise geometry messages are a bounded flow-head ablation, not a topology generator.",
+    "Do not infer bond generation or full molecular diffusion from this component.",
+    "Report raw_flow and constrained_flow separately.",
+    "Keep topology, geometry, and pocket encoders structurally separate."
+  ]
+}

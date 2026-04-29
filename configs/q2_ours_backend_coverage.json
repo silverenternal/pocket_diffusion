@@ -1,0 +1,33 @@
+{
+  "artifact_name": "q2_ours_backend_coverage",
+  "backend_row_counts": {
+    "gnina": 200,
+    "vina": 200
+  },
+  "collision_count": 0,
+  "collisions": [],
+  "schema_version": 1,
+  "split_reports": {
+    "test": {
+      "candidate_count": 200,
+      "gnina_affinity_coverage_fraction": 1.0,
+      "gnina_cnn_score_coverage_fraction": 1.0,
+      "output_path": "artifacts/evidence/q2/candidate_metrics_q2_ours_public100.jsonl",
+      "proxy_docking_like_fraction": 1.0,
+      "rdkit_metric_coverage_fraction": 1.0,
+      "vina_score_coverage_fraction": 1.0
+    }
+  },
+  "claim_boundary": "AutoDock Vina and GNINA values are score_only backend outputs, not experimental binding affinity.",
+  "score_only_backend_fields": {
+    "vina": [
+      "vina_score"
+    ],
+    "gnina": [
+      "gnina_affinity",
+      "gnina_score",
+      "gnina_cnn_score",
+      "gnina_cnn_affinity"
+    ]
+  }
+}

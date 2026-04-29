@@ -1,13 +1,15 @@
+type LayeredCandidates = (
+    Vec<GeneratedCandidateRecord>,
+    Vec<GeneratedCandidateRecord>,
+    Vec<GeneratedCandidateRecord>,
+    Vec<GeneratedCandidateRecord>,
+    Vec<GeneratedCandidateRecord>,
+);
+
 /// Flatten layered outputs into legacy layer lists for backward-compatible artifact writers.
 pub fn flatten_layered_output(
     output: &LayeredGenerationOutput,
-) -> (
-    Vec<GeneratedCandidateRecord>,
-    Vec<GeneratedCandidateRecord>,
-    Vec<GeneratedCandidateRecord>,
-    Vec<GeneratedCandidateRecord>,
-    Vec<GeneratedCandidateRecord>,
-) {
+) -> LayeredCandidates {
     (
         output
             .raw_rollout
@@ -46,7 +48,10 @@ pub fn summarize_method_output(output: &LayeredGenerationOutput) -> MethodCompar
         .map(|layer| layer.legacy_field_name().to_string())
         .collect::<Vec<_>>();
     let available_layers = [
+        output.raw_geometry.as_ref(),
         output.raw_rollout.as_ref(),
+        output.bond_logits_refined.as_ref(),
+        output.valence_refined.as_ref(),
         output.repaired.as_ref(),
         output.inferred_bond.as_ref(),
         output.deterministic_proxy.as_ref(),
@@ -57,50 +62,19 @@ pub fn summarize_method_output(output: &LayeredGenerationOutput) -> MethodCompar
     .filter(|layer| !layer.candidates.is_empty())
     .map(|layer| layer.provenance.legacy_field_name.clone())
     .collect::<Vec<_>>();
-    let native_layer = [
-        output.raw_rollout.as_ref(),
-        output.repaired.as_ref(),
-        output.inferred_bond.as_ref(),
-        output.deterministic_proxy.as_ref(),
-        output.reranked.as_ref(),
-    ]
-    .into_iter()
-    .flatten()
-    .find(|layer| layer.provenance.method_native)
-    .map(|layer| layer.provenance.legacy_field_name.clone())
-    .or_else(|| {
-        if output.metadata.method_family == PocketGenerationMethodFamily::RerankerOnly {
-            output
-                .reranked
-                .as_ref()
-                .map(|layer| layer.provenance.legacy_field_name.clone())
-        } else {
-            None
-        }
-    });
-    let native_candidate_count = native_layer
-        .as_ref()
-        .and_then(|layer_name| match layer_name.as_str() {
-            "raw_rollout" => output.raw_rollout.as_ref(),
-            "repaired_candidates" => output.repaired.as_ref(),
-            "inferred_bond_candidates" => output.inferred_bond.as_ref(),
-            "deterministic_proxy_candidates" => output.deterministic_proxy.as_ref(),
-            "reranked_candidates" => output.reranked.as_ref(),
-            _ => None,
+    let selected_layer = selected_metric_layer(output);
+    let native_layer = selected_layer.map(|layer| layer.provenance.legacy_field_name.clone());
+    let selected_metric_layer_path_class =
+        selected_layer.map(|layer| layer.provenance.generation_path_class.clone());
+    let selected_metric_layer_model_native_raw = selected_layer
+        .map(|layer| {
+            layer.provenance.method_native && layer.provenance.layer_kind.is_model_native_raw()
         })
+        .unwrap_or(false);
+    let native_candidate_count = selected_layer
         .map(|layer| layer.candidates.len())
         .unwrap_or(0);
-    let native_candidates = native_layer
-        .as_ref()
-        .and_then(|layer_name| match layer_name.as_str() {
-            "raw_rollout" => output.raw_rollout.as_ref(),
-            "repaired_candidates" => output.repaired.as_ref(),
-            "inferred_bond_candidates" => output.inferred_bond.as_ref(),
-            "deterministic_proxy_candidates" => output.deterministic_proxy.as_ref(),
-            "reranked_candidates" => output.reranked.as_ref(),
-            _ => None,
-        })
-        .map(|layer| layer.candidates.as_slice());
+    let native_candidates = selected_layer.map(|layer| layer.candidates.as_slice());
     let repair_gain_valid_fraction = output
         .raw_rollout
         .as_ref()
@@ -120,12 +94,18 @@ pub fn summarize_method_output(output: &LayeredGenerationOutput) -> MethodCompar
         method_family: format!("{:?}", output.metadata.method_family).to_ascii_lowercase(),
         evidence_role: format!("{:?}", output.metadata.evidence_role).to_ascii_lowercase(),
         available: native_candidate_count > 0
+            || output.raw_geometry.is_some()
             || output.raw_rollout.is_some()
+            || output.bond_logits_refined.is_some()
+            || output.valence_refined.is_some()
             || output.repaired.is_some()
             || output.inferred_bond.is_some()
             || output.deterministic_proxy.is_some()
             || output.reranked.is_some(),
-        native_layer,
+        native_layer: native_layer.clone(),
+        selected_metric_layer: native_layer,
+        selected_metric_layer_path_class,
+        selected_metric_layer_model_native_raw,
         supported_layers,
         trainable: output.metadata.capability.trainable,
         parameter_count: None,
@@ -145,9 +125,39 @@ pub fn summarize_method_output(output: &LayeredGenerationOutput) -> MethodCompar
     }
 }
 
-fn layered_candidate_memory_estimate(output: &LayeredGenerationOutput) -> usize {
+fn selected_metric_layer(output: &LayeredGenerationOutput) -> Option<&CandidateLayerOutput> {
+    preferred_model_native_layer(output).or_else(|| match output.metadata.method_family {
+        PocketGenerationMethodFamily::RepairOnly => output.repaired.as_ref(),
+        PocketGenerationMethodFamily::RerankerOnly => output
+            .reranked
+            .as_ref()
+            .or(output.deterministic_proxy.as_ref()),
+        _ => None,
+    })
+}
+
+fn preferred_model_native_layer(output: &LayeredGenerationOutput) -> Option<&CandidateLayerOutput> {
     [
         output.raw_rollout.as_ref(),
+        output.raw_geometry.as_ref(),
+        output.bond_logits_refined.as_ref(),
+        output.valence_refined.as_ref(),
+        output.inferred_bond.as_ref(),
+        output.repaired.as_ref(),
+        output.deterministic_proxy.as_ref(),
+        output.reranked.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .find(|layer| layer.provenance.method_native)
+}
+
+fn layered_candidate_memory_estimate(output: &LayeredGenerationOutput) -> usize {
+    [
+        output.raw_geometry.as_ref(),
+        output.raw_rollout.as_ref(),
+        output.bond_logits_refined.as_ref(),
+        output.valence_refined.as_ref(),
         output.repaired.as_ref(),
         output.inferred_bond.as_ref(),
         output.deterministic_proxy.as_ref(),

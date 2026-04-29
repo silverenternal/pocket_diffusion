@@ -1,0 +1,274 @@
+{
+  "acceptance_notes": {
+    "all_variants_report_raw_and_constrained": true,
+    "runtime_memory_reported_in_run_artifacts": true
+  },
+  "artifact_name": "q3_pairwise_geometry_ablation_summary",
+  "baseline_q2_flow_matching_raw_flow": {
+    "candidate_count": 100,
+    "metrics_mean": {
+      "clash_fraction": 0.015474549257536711,
+      "gnina_affinity": 24.940400800000003,
+      "gnina_cnn_score": 0.1377411,
+      "pocket_contact_fraction": 0.9431348572734547,
+      "qed": 0.41741879116678454,
+      "sa_score": 2.6946,
+      "vina_score": 24.94337
+    },
+    "pocket_count": 100
+  },
+  "best_raw_flow_variant": "pairwise_distance_direction",
+  "claim_boundary": "Variants are ranked by raw_flow backend metrics first. Constrained_flow deltas are reported separately and cannot mask raw_flow quality. Vina/GNINA are score_only backend metrics, not experimental affinity.",
+  "schema_version": 1,
+  "status": "completed",
+  "variants": [
+    {
+      "checkpoint_dir": "checkpoints/q3_pairwise_geometry_public100/no_pairwise",
+      "config": "configs/q3_pairwise_geometry_no_pairwise_research_config.json",
+      "layers": [
+        {
+          "candidate_count": 100,
+          "layer": "raw_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.13559011591556472,
+            "gnina_affinity": 116.8788952,
+            "gnina_cnn_score": 0.041399799999999994,
+            "pocket_contact_fraction": 0.9417647716683379,
+            "qed": 0.41741879116678454,
+            "sa_score": 2.6946,
+            "vina_score": 116.88938
+          },
+          "metrics_std": {
+            "clash_fraction": 0.12307573144428463,
+            "gnina_affinity": 88.55470433779482,
+            "gnina_cnn_score": 0.10223228947822699,
+            "pocket_contact_fraction": 0.1674697501126189,
+            "qed": 0.15263037381302924,
+            "sa_score": 0.7462270699994741,
+            "vina_score": 88.56319454240345
+          },
+          "pocket_count": 100
+        },
+        {
+          "candidate_count": 100,
+          "layer": "constrained_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.01450829465211893,
+            "gnina_affinity": 92.6453191,
+            "gnina_cnn_score": 0.1146562,
+            "pocket_contact_fraction": 0.9928373164703354,
+            "qed": 0.45902454731229836,
+            "sa_score": 4.167,
+            "vina_score": 92.66582
+          },
+          "metrics_std": {
+            "clash_fraction": 0.03138576671908621,
+            "gnina_affinity": 87.1205871534382,
+            "gnina_cnn_score": 0.17658679210393965,
+            "pocket_contact_fraction": 0.021675881743873852,
+            "qed": 0.1017126160578409,
+            "sa_score": 1.5788410306297465,
+            "vina_score": 87.14075521297482
+          },
+          "pocket_count": 100
+        }
+      ],
+      "raw_flow_delta_vs_q2": {
+        "clash_fraction": 0.120115566658028,
+        "gnina_affinity": 91.9384944,
+        "gnina_cnn_score": -0.09634130000000002,
+        "pocket_contact_fraction": -0.0013700856051167554,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 91.94601
+      },
+      "variant_id": "no_pairwise"
+    },
+    {
+      "checkpoint_dir": "checkpoints/q3_pairwise_geometry_public100/pairwise_distance_direction",
+      "config": "configs/q3_pairwise_geometry_pairwise_distance_direction_research_config.json",
+      "layers": [
+        {
+          "candidate_count": 100,
+          "layer": "raw_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.07988903390614208,
+            "gnina_affinity": 70.4570774,
+            "gnina_cnn_score": 0.0637143,
+            "pocket_contact_fraction": 0.9657595370548411,
+            "qed": 0.41741879116678454,
+            "sa_score": 2.6946,
+            "vina_score": 70.45621
+          },
+          "metrics_std": {
+            "clash_fraction": 0.08536073182527817,
+            "gnina_affinity": 49.29191379377114,
+            "gnina_cnn_score": 0.1343034044635876,
+            "pocket_contact_fraction": 0.09128715433127102,
+            "qed": 0.15263037381302924,
+            "sa_score": 0.7462270699994741,
+            "vina_score": 49.281645528593096
+          },
+          "pocket_count": 100
+        },
+        {
+          "candidate_count": 100,
+          "layer": "constrained_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.010862439689625598,
+            "gnina_affinity": 87.68534149999999,
+            "gnina_cnn_score": 0.1080539,
+            "pocket_contact_fraction": 0.9897215330290046,
+            "qed": 0.4336304076347039,
+            "sa_score": 4.113,
+            "vina_score": 87.70047000000001
+          },
+          "metrics_std": {
+            "clash_fraction": 0.03026398676483749,
+            "gnina_affinity": 77.6483263076145,
+            "gnina_cnn_score": 0.16674502515454545,
+            "pocket_contact_fraction": 0.030286587334609233,
+            "qed": 0.09745264313130132,
+            "sa_score": 1.6736388499314898,
+            "vina_score": 77.65999411092625
+          },
+          "pocket_count": 100
+        }
+      ],
+      "raw_flow_delta_vs_q2": {
+        "clash_fraction": 0.06441448464860536,
+        "gnina_affinity": 45.5166766,
+        "gnina_cnn_score": -0.0740268,
+        "pocket_contact_fraction": 0.02262467978138638,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 45.51284
+      },
+      "variant_id": "pairwise_distance_direction"
+    },
+    {
+      "checkpoint_dir": "checkpoints/q3_pairwise_geometry_public100/pairwise_with_clash_margin",
+      "config": "configs/q3_pairwise_geometry_pairwise_with_clash_margin_research_config.json",
+      "layers": [
+        {
+          "candidate_count": 100,
+          "layer": "raw_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.12861563115611174,
+            "gnina_affinity": 113.5562863,
+            "gnina_cnn_score": 0.0405616,
+            "pocket_contact_fraction": 0.9603624929952361,
+            "qed": 0.41741879116678454,
+            "sa_score": 2.6946,
+            "vina_score": 113.56450000000001
+          },
+          "metrics_std": {
+            "clash_fraction": 0.1379918634358193,
+            "gnina_affinity": 81.03959476164196,
+            "gnina_cnn_score": 0.1131410455468748,
+            "pocket_contact_fraction": 0.10513084121159559,
+            "qed": 0.15263037381302924,
+            "sa_score": 0.7462270699994741,
+            "vina_score": 81.0365955867471
+          },
+          "pocket_count": 100
+        },
+        {
+          "candidate_count": 100,
+          "layer": "constrained_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.018530482222892428,
+            "gnina_affinity": 103.81014440000001,
+            "gnina_cnn_score": 0.0796651,
+            "pocket_contact_fraction": 0.9916181274841479,
+            "qed": 0.4379104999835366,
+            "sa_score": 3.8782,
+            "vina_score": 103.82471
+          },
+          "metrics_std": {
+            "clash_fraction": 0.03703346673893382,
+            "gnina_affinity": 89.21099640529907,
+            "gnina_cnn_score": 0.13828403360109945,
+            "pocket_contact_fraction": 0.02489577021371923,
+            "qed": 0.08071027386867709,
+            "sa_score": 1.6085331081454308,
+            "vina_score": 89.22431101771478
+          },
+          "pocket_count": 100
+        }
+      ],
+      "raw_flow_delta_vs_q2": {
+        "clash_fraction": 0.11314108189857502,
+        "gnina_affinity": 88.61588549999999,
+        "gnina_cnn_score": -0.0971795,
+        "pocket_contact_fraction": 0.01722763572178143,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 88.62113000000001
+      },
+      "variant_id": "pairwise_with_clash_margin"
+    },
+    {
+      "checkpoint_dir": "checkpoints/q3_pairwise_geometry_public100/pairwise_plus_local_pocket",
+      "config": "configs/q3_pairwise_geometry_pairwise_plus_local_pocket_research_config.json",
+      "layers": [
+        {
+          "candidate_count": 100,
+          "layer": "raw_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.11626711470020135,
+            "gnina_affinity": 112.41999809999999,
+            "gnina_cnn_score": 0.0739344,
+            "pocket_contact_fraction": 0.9459667077765564,
+            "qed": 0.41741879116678454,
+            "sa_score": 2.6946,
+            "vina_score": 112.43009
+          },
+          "metrics_std": {
+            "clash_fraction": 0.10997258334059948,
+            "gnina_affinity": 82.83920635344383,
+            "gnina_cnn_score": 0.1424201029793196,
+            "pocket_contact_fraction": 0.134136026119659,
+            "qed": 0.15263037381302924,
+            "sa_score": 0.7462270699994741,
+            "vina_score": 82.84988714948199
+          },
+          "pocket_count": 100
+        },
+        {
+          "candidate_count": 100,
+          "layer": "constrained_flow",
+          "metrics_mean": {
+            "clash_fraction": 0.03328312755983178,
+            "gnina_affinity": 126.8144009,
+            "gnina_cnn_score": 0.0505711,
+            "pocket_contact_fraction": 0.9902843815355579,
+            "qed": 0.4391152159004625,
+            "sa_score": 3.7876,
+            "vina_score": 126.84206
+          },
+          "metrics_std": {
+            "clash_fraction": 0.05167224068834757,
+            "gnina_affinity": 85.52107784234727,
+            "gnina_cnn_score": 0.1037896406284847,
+            "pocket_contact_fraction": 0.03580828809649704,
+            "qed": 0.0748650680891939,
+            "sa_score": 1.4451983393292422,
+            "vina_score": 85.53090642636964
+          },
+          "pocket_count": 100
+        }
+      ],
+      "raw_flow_delta_vs_q2": {
+        "clash_fraction": 0.10079256544266463,
+        "gnina_affinity": 87.47959729999998,
+        "gnina_cnn_score": -0.06380670000000001,
+        "pocket_contact_fraction": 0.0028318505031017516,
+        "qed": 0.0,
+        "sa_score": 0.0,
+        "vina_score": 87.48672
+      },
+      "variant_id": "pairwise_plus_local_pocket"
+    }
+  ]
+}

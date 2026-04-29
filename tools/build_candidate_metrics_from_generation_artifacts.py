@@ -9,12 +9,26 @@ from pathlib import Path
 
 
 LAYER_SOURCES = [
+    ("raw_flow_candidates", "raw_flow"),
+    ("constrained_flow_candidates", "constrained_flow"),
+    ("raw_geometry_candidates", "raw_geometry"),
     ("raw_rollout_candidates", "raw_rollout"),
+    ("bond_logits_refined_candidates", "bond_logits_refined"),
+    ("valence_refined_candidates", "valence_refined"),
+    ("no_repair_candidates", "no_repair"),
+    ("centroid_only_candidates", "centroid_only"),
+    ("clash_only_candidates", "clash_only"),
+    ("bond_inference_only_candidates", "bond_inference_only"),
+    ("full_repair_candidates", "full_repair"),
+    ("gated_repair_candidates", "gated_repair"),
+    ("repair_rejected_candidates", "repair_rejected"),
     ("repaired_candidates", "repaired"),
     ("inferred_bond_candidates", "inferred_bond"),
     ("deterministic_proxy_candidates", "deterministic_proxy"),
     ("reranked_candidates", "reranked"),
 ]
+PDB_ATOM_CACHE = {}
+PDB_GEOMETRY_CACHE = {}
 
 
 def parse_args(argv):
@@ -25,6 +39,11 @@ def parse_args(argv):
     parser.add_argument("--output", default="candidate_metrics.jsonl")
     parser.add_argument("--method-id", default=None)
     parser.add_argument("--tool-dir", default="tools")
+    parser.add_argument(
+        "--layers",
+        default=None,
+        help="Optional comma-separated layer allowlist, for example no_repair,centroid_only.",
+    )
     return parser.parse_args(argv[1:])
 
 
@@ -47,7 +66,7 @@ def candidate_id(method_id, layer, candidate):
     )
 
 
-def collect_candidates(path):
+def collect_candidates(path, allowed_layers=None):
     artifact = load_json(path)
     split = artifact.get("split_label") or Path(path).stem.replace("generation_layers_", "")
     method_id = (
@@ -57,6 +76,8 @@ def collect_candidates(path):
     )
     rows = []
     for source_key, layer in LAYER_SOURCES:
+        if allowed_layers is not None and layer not in allowed_layers:
+            continue
         for index, candidate in enumerate(artifact.get(source_key, [])):
             enriched = dict(candidate)
             enriched["_layer_index"] = index
@@ -105,6 +126,8 @@ def profile_metrics_by_id(generation_path):
 
 
 def parse_pdb_atoms(path):
+    if path in PDB_ATOM_CACHE:
+        return PDB_ATOM_CACHE[path]
     atoms = []
     if not path:
         return atoms
@@ -126,11 +149,45 @@ def parse_pdb_atoms(path):
                 continue
             element = line[76:78].strip().upper() or line[12:14].strip().upper()
             atoms.append((coords, element))
+    PDB_ATOM_CACHE[path] = atoms
     return atoms
 
 
 def distance(left, right):
     return math.sqrt(sum((left[dim] - right[dim]) ** 2 for dim in range(3)))
+
+
+def pocket_geometry(path, cell_size=4.5):
+    if path in PDB_GEOMETRY_CACHE:
+        return PDB_GEOMETRY_CACHE[path]
+    atoms = parse_pdb_atoms(path)
+    coords = [coord for coord, _element in atoms]
+    center = tuple(sum(coord[dim] for coord in coords) / float(len(coords)) for dim in range(3)) if coords else (0.0, 0.0, 0.0)
+    grid = {}
+    for coord, element in atoms:
+        key = tuple(int(math.floor(coord[dim] / cell_size)) for dim in range(3))
+        grid.setdefault(key, []).append((coord, element))
+    geometry = {"atoms": atoms, "center": center, "grid": grid, "cell_size": cell_size}
+    PDB_GEOMETRY_CACHE[path] = geometry
+    return geometry
+
+
+def local_pocket_atoms(coord, geometry):
+    cell_size = geometry["cell_size"]
+    key = tuple(int(math.floor(coord[dim] / cell_size)) for dim in range(3))
+    atoms = []
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                atoms.extend(geometry["grid"].get((key[0] + dx, key[1] + dy, key[2] + dz), ()))
+    return atoms
+
+
+def min_pocket_distance(coord, geometry):
+    atoms = local_pocket_atoms(coord, geometry)
+    if atoms:
+        return min(distance(coord, pocket_coord) for pocket_coord, _element in atoms)
+    return distance(coord, geometry["center"])
 
 
 def shifted_candidate_coords(candidate):
@@ -155,8 +212,8 @@ def shifted_candidate_coords(candidate):
 
 def interaction_proxy_metrics(candidate):
     coords = shifted_candidate_coords(candidate)
-    pocket_atoms = parse_pdb_atoms(candidate.get("source_pocket_path"))
-    if not coords or not pocket_atoms:
+    geometry = pocket_geometry(candidate.get("source_pocket_path"))
+    if not coords or not geometry["atoms"]:
         return {
             "interaction_profile_coverage_fraction": 0.0,
         }
@@ -167,7 +224,7 @@ def interaction_proxy_metrics(candidate):
     clash_contacts = 0
     for index, coord in enumerate(coords):
         atom_type = int(atom_types[index]) if index < len(atom_types) else 0
-        min_distance = min(distance(coord, pocket_coord) for pocket_coord, _ in pocket_atoms)
+        min_distance = min_pocket_distance(coord, geometry)
         if min_distance <= 4.5:
             close_contacts += 1
         if min_distance < 1.2:
@@ -212,6 +269,8 @@ def candidate_rows(candidates, backend_payloads, profile_metrics, method_id):
             metrics["pocket_contact_fraction"] = metrics["contact_fraction"]
         if "centroid_offset" in metrics and "mean_centroid_offset" not in metrics:
             metrics["mean_centroid_offset"] = metrics["centroid_offset"]
+        metrics["bond_count"] = float(candidate.get("bond_count", len(candidate.get("inferred_bonds", []))))
+        metrics["valence_violation_count"] = float(candidate.get("valence_violation_count", 0))
         metrics.update(interaction_proxy_metrics(candidate))
         rows.append(
             {
@@ -233,9 +292,12 @@ def candidate_rows(candidates, backend_payloads, profile_metrics, method_id):
 def main(argv):
     args = parse_args(argv)
     tool_dir = Path(args.tool_dir)
+    allowed_layers = None
+    if args.layers:
+        allowed_layers = {item.strip() for item in args.layers.split(",") if item.strip()}
     all_rows = []
     for generation_path in args.generation_layers:
-        candidates, _split, detected_method_id = collect_candidates(generation_path)
+        candidates, _split, detected_method_id = collect_candidates(generation_path, allowed_layers)
         method_id = args.method_id or detected_method_id
         for candidate in candidates:
             candidate["candidate_id"] = candidate.get("candidate_id") or candidate_id(

@@ -1,5 +1,6 @@
 /target/
 /checkpoints/
+/configs/checkpoints/
 *.ot
 *.log
 .DS_Store

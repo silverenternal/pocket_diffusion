@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
 use tch::{Device, Kind, Tensor};
 
 use crate::{

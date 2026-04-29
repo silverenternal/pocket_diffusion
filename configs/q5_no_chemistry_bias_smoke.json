@@ -1,0 +1,167 @@
+{
+  "research": {
+    "data": {
+      "root_dir": ".",
+      "dataset_format": "synthetic",
+      "manifest_path": null,
+      "label_table_path": null,
+      "max_ligand_atoms": 48,
+      "max_pocket_atoms": 128,
+      "pocket_cutoff_angstrom": 6.0,
+      "max_examples": 8,
+      "batch_size": 2,
+      "split_seed": 503,
+      "val_fraction": 0.25,
+      "test_fraction": 0.25,
+      "stratify_by_measurement": false,
+      "generation_target": {
+        "atom_mask_ratio": 0.15,
+        "coordinate_noise_std": 0.06,
+        "corruption_seed": 1503,
+        "rollout_steps": 2,
+        "min_rollout_steps": 1,
+        "stop_probability_threshold": 0.82,
+        "coordinate_step_scale": 0.7,
+        "rollout_eval_step_weight_decay": 0.9,
+        "rollout_mode": "momentum_refine",
+        "sampling_seed": 2503,
+        "pocket_guidance_scale": 1.0,
+        "context_refresh_policy": "every_step"
+      }
+    },
+    "model": {
+      "hidden_dim": 32,
+      "num_slots": 4,
+      "atom_vocab_size": 32,
+      "bond_vocab_size": 8,
+      "pocket_feature_dim": 24,
+      "pair_feature_dim": 8,
+      "interaction_mode": "transformer",
+      "interaction_tuning": {
+        "gate_temperature": 1.35,
+        "gate_bias": -0.1,
+        "attention_residual_scale": 0.7,
+        "ffn_residual_scale": 0.35,
+        "transformer_pre_norm": true,
+        "geometry_attention_bias_scale": 0.0,
+        "chemistry_role_attention_bias_scale": 0.0,
+        "disabled_paths": []
+      },
+      "temporal_interaction_policy": {
+        "stage_multipliers": [
+          {
+            "training_stage": 0,
+            "path": "geo_from_pocket",
+            "multiplier": 0.8
+          },
+          {
+            "training_stage": 1,
+            "path": "geo_from_pocket",
+            "multiplier": 1.0
+          },
+          {
+            "training_stage": 2,
+            "path": "topo_from_pocket",
+            "multiplier": 1.0
+          },
+          {
+            "training_stage": 2,
+            "path": "pocket_from_topo",
+            "multiplier": 1.0
+          },
+          {
+            "training_stage": 3,
+            "path": "topo_from_geo",
+            "multiplier": 1.0
+          },
+          {
+            "training_stage": 3,
+            "path": "pocket_from_geo",
+            "multiplier": 1.0
+          }
+        ],
+        "rollout_bucket_multipliers": [
+          {
+            "path": "geo_from_pocket",
+            "start_step": 0,
+            "end_step": 0,
+            "multiplier": 1.1
+          },
+          {
+            "path": "topo_from_pocket",
+            "start_step": 1,
+            "end_step": 1,
+            "multiplier": 1.0
+          }
+        ],
+        "flow_time_bucket_multipliers": [
+          {
+            "path": "geo_from_pocket",
+            "start_t": 0.0,
+            "end_t": 0.5,
+            "multiplier": 1.05
+          },
+          {
+            "path": "topo_from_geo",
+            "start_t": 0.5,
+            "end_t": 1.0,
+            "multiplier": 0.95
+          }
+        ]
+      }
+    },
+    "generation_method": {
+      "active_method": "conditioned_denoising",
+      "primary_backend": {
+        "backend_id": "conditioned_denoising",
+        "family": "conditioned_denoising",
+        "trainable": true,
+        "sampling_steps": 2
+      },
+      "comparison_methods": [],
+      "comparison_backends": [],
+      "candidate_count": 1,
+      "enable_comparison_runner": false
+    },
+    "training": {
+      "learning_rate": 0.001,
+      "max_steps": 4,
+      "schedule": {
+        "stage1_steps": 1,
+        "stage2_steps": 2,
+        "stage3_steps": 3
+      },
+      "loss_weights": {
+        "alpha_task": 1.0,
+        "beta_intra_red": 0.03,
+        "gamma_probe": 0.0,
+        "delta_leak": 0.0,
+        "eta_gate": 0.03,
+        "mu_slot": 0.03,
+        "nu_consistency": 0.08,
+        "rho_pocket_contact": 0.0,
+        "sigma_pocket_clash": 0.0,
+        "tau_pocket_envelope": 0.0,
+        "upsilon_valence_guardrail": 0.0,
+        "phi_bond_length_guardrail": 0.0
+      },
+      "checkpoint_dir": "./checkpoints/q5_ablation_smoke/no_chemistry_bias",
+      "checkpoint_every": 10,
+      "log_every": 1,
+      "primary_objective": "conditioned_denoising",
+      "affinity_weighting": "none"
+    },
+    "runtime": {
+      "device": "cpu",
+      "data_workers": 0
+    }
+  },
+  "surface_label": "q5_no_chemistry_bias_smoke",
+  "ablation": {
+    "disable_slots": false,
+    "disable_cross_attention": false,
+    "disable_probes": false,
+    "disable_leakage": false,
+    "variant_label": "no_chemistry_bias"
+  }
+}

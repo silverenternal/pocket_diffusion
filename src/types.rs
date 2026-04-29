@@ -53,6 +53,9 @@ pub struct Ligand {
     pub atoms: Vec<Atom>,
     /// 化学键连接 (原子索引对)
     pub bonds: Vec<(usize, usize)>,
+    /// Optional typed bond classes aligned with `bonds`; 0 means unknown.
+    #[serde(default)]
+    pub bond_types: Vec<i64>,
     /// Morgan指纹ECFP4 (2048位)
     pub fingerprint: Option<Vec<f32>>,
 }
@@ -147,6 +150,34 @@ pub struct GenerationCorruptionMetadata {
     pub coordinate_noise_std: f32,
     /// Seed used to derive deterministic corruption patterns.
     pub corruption_seed: u64,
+    /// Whether the noisy ligand topology and geometry inputs were derived from
+    /// target-ligand corruption or another supervision pathway.
+    #[serde(default)]
+    pub source_is_target_ligand: bool,
+    /// Explicit topology target provenance for this example.
+    #[serde(default)]
+    pub topology_source: CorruptionSourceProvenance,
+    /// Explicit geometry target provenance for this example.
+    #[serde(default)]
+    pub geometry_source: CorruptionSourceProvenance,
+}
+
+/// Origin of a supervision signal for explicit train-time bookkeeping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CorruptionSourceProvenance {
+    /// Corruption was derived from the target ligand example.
+    TargetLigand,
+    /// Corruption was produced by a dedicated de novo source.
+    DeNovoSource,
+    /// Corruption source is explicitly unavailable or unknown.
+    Unknown,
+}
+
+impl Default for CorruptionSourceProvenance {
+    fn default() -> Self {
+        Self::Unknown
+    }
 }
 
 impl PocketEmbedding {

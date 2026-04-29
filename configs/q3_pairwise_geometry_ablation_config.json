@@ -1,0 +1,68 @@
+{
+  "artifact_name": "q3_pairwise_geometry_ablation_config",
+  "schema_version": 1,
+  "status": "ready_to_run",
+  "public100_budget": {
+    "candidate_count_per_pocket": 1,
+    "pocket_count": 100,
+    "sampling_steps": 20,
+    "score_layers_separately": [
+      "raw_flow",
+      "constrained_flow"
+    ]
+  },
+  "variants": [
+    {
+      "id": "no_pairwise",
+      "flow_velocity_head": "geometry",
+      "pairwise_geometry": {
+        "enabled": false
+      }
+    },
+    {
+      "id": "pairwise_distance_direction",
+      "flow_velocity_head": "geometry",
+      "pairwise_geometry": {
+        "enabled": true,
+        "radius": 4.5,
+        "max_neighbors": 16,
+        "residual_scale": 0.1
+      }
+    },
+    {
+      "id": "pairwise_with_clash_margin",
+      "flow_velocity_head": "geometry",
+      "pairwise_geometry": {
+        "enabled": true,
+        "radius": 3.2,
+        "max_neighbors": 16,
+        "residual_scale": 0.15
+      }
+    },
+    {
+      "id": "local_pocket_attention",
+      "flow_velocity_head": "atom_pocket_cross_attention",
+      "pairwise_geometry": {
+        "enabled": false,
+        "radius": 4.5,
+        "max_neighbors": 16,
+        "residual_scale": 0.1
+      }
+    },
+    {
+      "id": "pairwise_plus_local_pocket",
+      "flow_velocity_head": "atom_pocket_cross_attention",
+      "pairwise_geometry": {
+        "enabled": true,
+        "radius": 4.5,
+        "max_neighbors": 16,
+        "residual_scale": 0.1
+      }
+    }
+  ],
+  "outputs": {
+    "checkpoint_dir": "checkpoints/q3_pairwise_geometry_public100",
+    "summary": "configs/q3_pairwise_geometry_ablation_summary.json"
+  },
+  "claim_guardrail": "Rank variants by raw_flow backend metrics first; runtime and memory overhead are reported alongside docking and chemistry metrics."
+}

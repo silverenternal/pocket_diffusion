@@ -7,8 +7,6 @@ use pocket_diffusion::{
     training::{self, RunArtifactBundle, RunKind},
 };
 
-include!("cli.rs");
-
 fn main() {
     env_logger::init();
     if let Err(err) = run() {
@@ -30,15 +28,29 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ResearchCommand::Ablate(args) => run_ablation_matrix_from_config(&args.config),
             ResearchCommand::Search(args) => run_automated_search_from_config(&args.config),
             ResearchCommand::MultiSeed(args) => run_multi_seed_experiment_from_config(&args.config),
-            ResearchCommand::Generate(args) => run_generation_demo_from_config(
-                &args.config,
-                args.resume,
-                args.example_id.as_deref(),
-                args.num_candidates,
-            ),
+            ResearchCommand::Generate(args) => {
+                if args.all_examples {
+                    run_generation_layers_from_config(
+                        &args.config,
+                        args.resume,
+                        &args.split_label,
+                        args.num_candidates,
+                    )
+                } else {
+                    run_generation_demo_from_config(
+                        &args.config,
+                        args.resume,
+                        args.example_id.as_deref(),
+                        args.num_candidates,
+                    )
+                }
+            }
         },
         CliCommand::Validate(args) => validate_config(args.kind, &args.config),
         CliCommand::Report(args) => report_run(&args.artifact_dir),
+        CliCommand::ReplayCheck(args) => {
+            replay_check(&args.summary, &args.checkpoint, args.require_strict_replay)
+        }
         CliCommand::Phase1Demo => {
             training::run_phase1_demo();
             Ok(())
@@ -128,7 +140,16 @@ fn run_generation_demo_from_config(
         summary.example_id, summary.protein_id
     );
     println!("candidates: {}", summary.candidate_count);
+    println!("raw candidates: {}", summary.raw_candidate_count);
     println!("rollout steps: {}", summary.rollout_steps);
+    println!(
+        "raw candidate artifact: {}",
+        summary.raw_candidate_path.display()
+    );
+    println!(
+        "constrained candidate artifact: {}",
+        summary.constrained_candidate_path.display()
+    );
     println!("loaded checkpoint: {}", summary.loaded_checkpoint);
     training::print_eval_metrics(&experiments::EvaluationMetrics {
         representation_diagnostics: experiments::RepresentationDiagnostics {
@@ -139,6 +160,9 @@ fn run_generation_demo_from_config(
             topology_pocket_cosine_alignment: 0.0,
             topology_reconstruction_mse: 0.0,
             slot_activation_mean: 0.0,
+            slot_assignment_entropy_mean: 0.0,
+            slot_activation_probability_mean: 0.0,
+            attention_visible_slot_fraction: 0.0,
             gate_activation_mean: 0.0,
             leakage_proxy_mean: 0.0,
         },
@@ -147,6 +171,7 @@ fn run_generation_demo_from_config(
             affinity_probe_rmse: 0.0,
             labeled_fraction: 0.0,
             affinity_by_measurement: Vec::new(),
+            probe_baselines: Vec::new(),
         },
         split_context: experiments::SplitContextMetrics {
             example_count: 0,
@@ -161,10 +186,17 @@ fn run_generation_demo_from_config(
             memory_usage_mb: 0.0,
             evaluation_time_ms: 0.0,
             examples_per_second: 0.0,
+            evaluation_batch_size: 0,
+            forward_batch_count: 0,
+            per_example_forward_count: 0,
+            no_grad: false,
+            batched_forward: false,
+            de_novo_per_example_reason: None,
             average_ligand_atoms: 0.0,
             average_pocket_atoms: 0.0,
         },
-        real_generation_metrics: summary.real_generation_metrics,
+        model_design: experiments::ModelDesignEvaluationMetrics::default(),
+        real_generation_metrics: summary.constrained_generation_metrics.to_reserved(),
         layered_generation_metrics: experiments::LayeredGenerationMetrics {
             raw_flow: experiments::CandidateLayerMetrics::default(),
             constrained_flow: experiments::CandidateLayerMetrics::default(),
@@ -225,10 +257,21 @@ fn run_generation_demo_from_config(
             reranker_calibration: experiments::RerankerCalibrationReport::default(),
             backend_scored_candidates: std::collections::BTreeMap::new(),
             method_comparison: experiments::MethodComparisonSummary::default(),
+            flow_head_ablation: experiments::FlowHeadAblationDiagnostics::default(),
+            flow_head_diagnostics: std::collections::BTreeMap::new(),
+            generation_path_contract: experiments::canonical_generation_path_contract(),
+            repair_case_audit: experiments::RepairCaseAuditReport::default(),
         },
         method_comparison: experiments::MethodComparisonSummary::default(),
+        train_eval_alignment: experiments::TrainEvalAlignmentReport::default(),
+        chemistry_collaboration: experiments::ChemistryCollaborationMetrics::default(),
+        frozen_leakage_probe_calibration: experiments::FrozenLeakageProbeCalibrationReport::default(
+        ),
         comparison_summary: experiments::GenerationQualitySummary {
+            generation_mode: "target_ligand_denoising".to_string(),
             primary_objective: "generation_demo".to_string(),
+            primary_objective_provenance: "demo_rollout_no_optimizer_objective".to_string(),
+            primary_objective_claim_boundary: "demo_only_not_claim_bearing_training".to_string(),
             variant_label: Some("rollout_demo".to_string()),
             interaction_mode: "n/a".to_string(),
             candidate_valid_fraction: None,
@@ -244,10 +287,33 @@ fn run_generation_demo_from_config(
             slot_activation_mean: 0.0,
             gate_activation_mean: 0.0,
             leakage_proxy_mean: 0.0,
+            chemistry_collaboration: experiments::ChemistryCollaborationMetrics::default(),
         },
         slot_stability: experiments::SlotStabilityMetrics::default(),
         strata: Vec::new(),
     });
+    Ok(())
+}
+
+fn run_generation_layers_from_config(
+    path: &str,
+    resume: bool,
+    split_label: &str,
+    num_candidates: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let summary =
+        experiments::run_generation_layers_from_config(path, resume, split_label, num_candidates)?;
+    println!("================================================");
+    println!("  Config-Driven Layered Generation");
+    println!("================================================");
+    println!("artifact: {}", summary.artifact_path.display());
+    println!("examples: {}", summary.example_count);
+    println!("raw_flow candidates: {}", summary.raw_flow_candidate_count);
+    println!(
+        "constrained_flow candidates: {}",
+        summary.constrained_flow_candidate_count
+    );
+    println!("loaded checkpoint: {}", summary.loaded_checkpoint);
     Ok(())
 }
 
@@ -266,7 +332,7 @@ fn validate_config(kind: ConfigKind, path: &str) -> Result<(), Box<dyn std::erro
         }
         ConfigKind::Experiment => {
             let config = experiments::load_experiment_config(path)?;
-            config.validate()?;
+            experiments::unseen_pocket::validate_experiment_config_with_source(&config, path)?;
             println!("experiment config is valid: {path}");
         }
     }
@@ -290,3 +356,27 @@ fn report_run(artifact_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
     }
     Ok(())
 }
+
+fn replay_check(
+    summary_path: &str,
+    checkpoint_path: &str,
+    require_strict_replay: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let summary: training::TrainingRunSummary =
+        serde_json::from_str(&std::fs::read_to_string(summary_path)?)?;
+    let checkpoint: training::CheckpointMetadata =
+        serde_json::from_str(&std::fs::read_to_string(checkpoint_path)?)?;
+    let report = training::training_summary_checkpoint_replay_compatibility(&summary, &checkpoint);
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    if !report.evidence_compatible {
+        return Err("training artifacts are not evidence-compatible".into());
+    }
+    if require_strict_replay && !report.replay_compatible {
+        return Err(
+            "training artifacts are evidence-compatible but not strict-replay-compatible".into(),
+        );
+    }
+    Ok(())
+}
+
+include!("cli.rs");
