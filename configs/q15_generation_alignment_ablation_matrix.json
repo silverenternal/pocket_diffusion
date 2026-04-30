@@ -1,0 +1,270 @@
+{
+  "research": {
+    "data": {
+      "root_dir": ".",
+      "dataset_format": "synthetic",
+      "manifest_path": null,
+      "label_table_path": null,
+      "max_ligand_atoms": 64,
+      "max_pocket_atoms": 256,
+      "pocket_cutoff_angstrom": 6.0,
+      "max_examples": 8,
+      "batch_size": 1,
+      "split_seed": 42,
+      "val_fraction": 0.25,
+      "test_fraction": 0.25,
+      "stratify_by_measurement": false,
+      "generation_target": {
+        "atom_mask_ratio": 0.15,
+        "coordinate_noise_std": 0.08,
+        "corruption_seed": 1337,
+        "rollout_steps": 2,
+        "min_rollout_steps": 1,
+        "stop_probability_threshold": 0.85,
+        "coordinate_step_scale": 0.6,
+        "rollout_eval_step_weight_decay": 0.9,
+        "rollout_mode": "lightweight",
+        "coordinate_momentum": 0.0,
+        "atom_momentum": 0.0,
+        "atom_commit_temperature": 1.0,
+        "max_coordinate_delta_norm": 1.0,
+        "stop_delta_threshold": 0.02,
+        "stop_patience": 1,
+        "sampling_seed": 4242,
+        "generation_mode": "de_novo_initialization",
+        "de_novo_initialization": {
+          "min_atom_count": 8,
+          "max_atom_count": 16,
+          "dataset_calibrated_atom_count": 12,
+          "pocket_atom_divisor": 6.0,
+          "radius_fraction": 0.45,
+          "seed": 9001
+        }
+      }
+    },
+    "model": {
+      "hidden_dim": 64,
+      "num_slots": 4,
+      "atom_vocab_size": 32,
+      "bond_vocab_size": 8,
+      "pocket_feature_dim": 24,
+      "pair_feature_dim": 8,
+      "interaction_mode": "transformer",
+      "flow_velocity_head": {
+        "kind": "geometry"
+      },
+      "pairwise_geometry": {
+        "enabled": false,
+        "radius": 4.5,
+        "max_neighbors": 16,
+        "residual_scale": 0.1
+      },
+      "decoder_conditioning": {
+        "kind": "mean_pooled"
+      }
+    },
+    "generation_method": {
+      "active_method": "flow_matching",
+      "primary_backend": {
+        "backend_id": "flow_matching",
+        "family": "flow_matching",
+        "trainable": true,
+        "sampling_steps": 2
+      },
+      "comparison_methods": [],
+      "comparison_backends": [],
+      "candidate_count": 1,
+      "enable_comparison_runner": false,
+      "flow_matching": {
+        "steps": 2,
+        "noise_scale": 0.15,
+        "integration_method": "euler",
+        "geometry_only": false,
+        "use_corrupted_x0": false,
+        "multi_modal": {
+          "enabled_branches": [
+            "geometry",
+            "atom_type",
+            "bond",
+            "topology",
+            "pocket_context"
+          ],
+          "branch_loss_weights": {
+            "geometry": 1.0,
+            "atom_type": 0.1,
+            "bond": 0.1,
+            "topology": 0.1,
+            "pocket_context": 0.1,
+            "synchronization": 0.05
+          },
+          "branch_schedule": {
+            "geometry": {
+              "enabled": true,
+              "start_step": 0,
+              "warmup_steps": 0,
+              "final_weight_multiplier": 1.0
+            },
+            "atom_type": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 1,
+              "final_weight_multiplier": 1.0
+            },
+            "bond": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 1,
+              "final_weight_multiplier": 1.0
+            },
+            "topology": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 1,
+              "final_weight_multiplier": 1.0
+            },
+            "pocket_context": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 1,
+              "final_weight_multiplier": 1.0
+            },
+            "synchronization": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 1,
+              "final_weight_multiplier": 1.0
+            }
+          },
+          "target_alignment_policy": "hungarian_distance",
+          "allow_zero_weight_branch_ablation": false,
+          "claim_full_molecular_flow": true
+        }
+      }
+    },
+    "training": {
+      "learning_rate": 0.001,
+      "max_steps": 2,
+      "data_order": {
+        "shuffle": false,
+        "sampler_seed": 0,
+        "drop_last": false
+      },
+      "gradient_clipping": {
+        "global_norm": null
+      },
+      "schedule": {
+        "stage1_steps": 1,
+        "stage2_steps": 2,
+        "stage3_steps": 2
+      },
+      "loss_weights": {
+        "alpha_task": 1.0,
+        "beta_intra_red": 0.0,
+        "gamma_probe": 0.0,
+        "delta_leak": 0.0,
+        "eta_gate": 0.0,
+        "mu_slot": 0.0,
+        "nu_consistency": 0.0,
+        "rho_pocket_contact": 0.05,
+        "lambda_pocket_pair_distance": 0.02,
+        "sigma_pocket_clash": 0.02,
+        "omega_pocket_shape_complementarity": 0.02,
+        "tau_pocket_envelope": 0.02,
+        "kappa_pocket_prior": 0.02,
+        "upsilon_valence_guardrail": 0.02,
+        "phi_bond_length_guardrail": 0.01,
+        "chi_nonbonded_distance_guardrail": 0.01,
+        "psi_angle_guardrail": 0.01
+      },
+      "chemistry_warmup": {
+        "pocket_envelope_start_stage": 2,
+        "pocket_prior_start_stage": 2,
+        "valence_guardrail_start_stage": 2,
+        "bond_length_guardrail_start_stage": 2,
+        "nonbonded_distance_guardrail_start_stage": 2,
+        "angle_guardrail_start_stage": 2,
+        "pharmacophore_probe_start_stage": 3,
+        "pharmacophore_leakage_start_stage": 3
+      },
+      "rollout_training": {
+        "enabled": true,
+        "warmup_step": 1,
+        "rollout_steps": 1,
+        "detach_policy": "detach_between_steps",
+        "max_batch_examples": 1,
+        "allowed_generation_modes": [
+          "de_novo_initialization"
+        ],
+        "atom_validity_weight": 0.1,
+        "bond_consistency_weight": 0.05,
+        "pocket_contact_weight": 0.05,
+        "clash_weight": 0.05,
+        "endpoint_consistency_weight": 0.05
+      },
+      "objective_scale_diagnostics": {
+        "family_budget_cap_fraction": 0.35,
+        "family_budget_action": "warn"
+      },
+      "checkpoint_dir": "./checkpoints/q15_generation_alignment_ablation_matrix",
+      "checkpoint_every": 1,
+      "validation_every": 2,
+      "best_metric": "strict_pocket_fit_score",
+      "log_every": 100,
+      "primary_objective": "flow_matching",
+      "flow_matching_loss_weight": 1.0,
+      "hybrid_denoising_weight": 0.0,
+      "hybrid_flow_weight": 1.0,
+      "affinity_weighting": "none"
+    },
+    "runtime": {
+      "device": "cpu",
+      "data_workers": 0
+    }
+  },
+  "surface_label": "q15_generation_alignment_ablation_matrix",
+  "ablation": {
+    "disable_slots": false,
+    "disable_cross_attention": false,
+    "disable_probes": false,
+    "disable_leakage": false,
+    "variant_label": "q15_generation_alignment_mlp_rollout_chemistry_rich_pocket_base"
+  },
+  "external_evaluation": {
+    "persist_generation_artifacts": true,
+    "generation_artifact_example_limit": 4,
+    "generation_artifact_candidate_limit": 8
+  },
+  "ablation_matrix": {
+    "enabled": true,
+    "include_surrogate_objective": false,
+    "include_conditioned_denoising": false,
+    "include_generation_mode_ablation": false,
+    "include_disable_slots": false,
+    "include_disable_cross_attention": false,
+    "include_disable_probes": false,
+    "include_disable_leakage": false,
+    "include_topology_encoder_ablation": false,
+    "include_geometry_operator_ablation": false,
+    "include_pocket_encoder_ablation": false,
+    "include_decoder_conditioning_ablation": false,
+    "include_lightweight_interaction": false,
+    "include_transformer_interaction": false,
+    "include_direct_fusion_negative_control": true,
+    "include_disable_geometry_interaction_bias": false,
+    "include_disable_rollout_pocket_guidance": false,
+    "include_disable_candidate_repair": false,
+    "include_backend_family_ablation": false,
+    "include_slot_count_ablation": false,
+    "include_slot_attention_masking_ablation": false,
+    "include_gate_sparsity_ablation": false,
+    "include_gate_scale_ablation": false,
+    "include_leakage_penalty_ablation": false,
+    "include_redundancy_ablation": false,
+    "include_modality_focus_ablation": false,
+    "include_staged_schedule_ablation": false,
+    "include_generation_alignment_flow_head_ablation": true,
+    "include_generation_alignment_rollout_training_ablation": true,
+    "include_generation_alignment_chemistry_ablation": true,
+    "include_generation_alignment_pocket_interaction_ablation": true
+  }
+}

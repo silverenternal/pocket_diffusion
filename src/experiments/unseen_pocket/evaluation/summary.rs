@@ -158,11 +158,14 @@ fn build_train_eval_alignment_report(
                 .map(layer_name_is_model_native_raw)
                 .unwrap_or(false)
         });
+    let backend_selection =
+        backend_metric_selection_context(research, method_comparison, active_selected_metric_layer.as_deref());
 
     let mut metric_rows = vec![
         TrainEvalAlignmentMetricRow {
             metric_name: "finite_forward_fraction".to_string(),
             metric_family: "representation_health".to_string(),
+            target_source: "model_forward_state".to_string(),
             evidence_role: "smoke_diagnostic".to_string(),
             observed_value: Some(finite_forward_fraction),
             optimizer_facing_terms: Vec::new(),
@@ -182,6 +185,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "distance_probe_rmse".to_string(),
             metric_family: "geometry_probe".to_string(),
+            target_source: "auxiliary_probe_target".to_string(),
             evidence_role: if probe_active {
                 "optimizer_term"
             } else {
@@ -206,6 +210,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "leakage_proxy_mean".to_string(),
             metric_family: "leakage_control".to_string(),
+            target_source: "off_modality_probe_target".to_string(),
             evidence_role: if leakage_active {
                 "optimizer_term"
             } else {
@@ -230,6 +235,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "affinity_probe_mae".to_string(),
             metric_family: "context_probe".to_string(),
+            target_source: "auxiliary_probe_target".to_string(),
             evidence_role: if probe_active {
                 "optimizer_term"
             } else {
@@ -258,6 +264,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "rollout_eval_recovery".to_string(),
             metric_family: "rollout_eval".to_string(),
+            target_source: "generated_rollout_state".to_string(),
             evidence_role: "detached_diagnostic".to_string(),
             observed_value: Some(model_design.raw_model_valid_fraction),
             optimizer_facing_terms: Vec::new(),
@@ -277,6 +284,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "raw_model_valid_fraction".to_string(),
             metric_family: "raw_candidate".to_string(),
+            target_source: "generated_rollout_state".to_string(),
             evidence_role: "model_native_raw".to_string(),
             observed_value: Some(model_design.raw_model_valid_fraction),
             optimizer_facing_terms: Vec::new(),
@@ -296,6 +304,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "raw_native_graph_valid_fraction".to_string(),
             metric_family: "raw_native_graph".to_string(),
+            target_source: "generated_rollout_state".to_string(),
             evidence_role: "model_native_raw".to_string(),
             observed_value: Some(model_design.raw_native_graph_valid_fraction),
             optimizer_facing_terms: Vec::new(),
@@ -315,6 +324,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "processed_valid_fraction".to_string(),
             metric_family: "processed_candidate".to_string(),
+            target_source: "repair_layer".to_string(),
             evidence_role: "postprocessed_candidate".to_string(),
             observed_value: Some(model_design.processed_valid_fraction),
             optimizer_facing_terms: Vec::new(),
@@ -334,6 +344,7 @@ fn build_train_eval_alignment_report(
         TrainEvalAlignmentMetricRow {
             metric_name: "method_comparison.active_selected_metric_layer".to_string(),
             metric_family: "method_comparison".to_string(),
+            target_source: "generation_layer_selection".to_string(),
             evidence_role: "family_aware_metric_layer".to_string(),
             observed_value: None,
             optimizer_facing_terms: Vec::new(),
@@ -360,6 +371,7 @@ fn build_train_eval_alignment_report(
         chemistry_coverage,
         "claim_backend",
         "chemistry validity may be backend-backed or explicitly labeled heuristic fallback",
+        &backend_selection,
     ));
     metric_rows.push(backend_metric_alignment_row(
         "unique_smiles_fraction",
@@ -369,6 +381,7 @@ fn build_train_eval_alignment_report(
         chemistry_coverage,
         "claim_backend",
         "unique chemistry evidence must preserve backend or heuristic provenance",
+        &backend_selection,
     ));
     metric_rows.push(backend_metric_alignment_row(
         "pocket_contact_fraction",
@@ -378,6 +391,7 @@ fn build_train_eval_alignment_report(
         docking_coverage,
         "claim_backend",
         "pocket contact evidence must not be treated as optimizer-facing unless a differentiable objective exists",
+        &backend_selection,
     ));
     metric_rows.push(backend_metric_alignment_row(
         "strict_pocket_fit_score",
@@ -387,10 +401,12 @@ fn build_train_eval_alignment_report(
         pocket_coverage,
         "claim_backend",
         "strict pocket-fit evidence requires pocket backend coverage or explicitly labeled heuristic fallback",
+        &backend_selection,
     ));
     metric_rows.push(TrainEvalAlignmentMetricRow {
         metric_name: "examples_per_second".to_string(),
         metric_family: "efficiency".to_string(),
+        target_source: "runtime_profile".to_string(),
         evidence_role: "runtime_diagnostic".to_string(),
         observed_value: Some(examples_per_second),
         optimizer_facing_terms: Vec::new(),
@@ -460,23 +476,81 @@ fn backend_metric_alignment_row(
     backend_coverage_fraction: Option<f64>,
     evidence_role: &str,
     claim_boundary: &str,
+    selection: &BackendMetricSelectionContext,
 ) -> TrainEvalAlignmentMetricRow {
+    let claim_boundary = if let Some(layer) = &selection.candidate_layer {
+        format!(
+            "{claim_boundary}; evaluated_candidate_layer={layer}; selection_reason={}",
+            selection.selection_reason
+        )
+    } else {
+        claim_boundary.to_string()
+    };
     TrainEvalAlignmentMetricRow {
         metric_name: metric_name.to_string(),
         metric_family: "backend_candidate".to_string(),
+        target_source: selection.target_source.clone(),
         evidence_role: evidence_role.to_string(),
         observed_value,
         optimizer_facing_terms: Vec::new(),
         optimizer_facing: false,
         detached_diagnostic: true,
-        candidate_layer: None,
-        model_native_raw: false,
+        candidate_layer: selection.candidate_layer.clone(),
+        model_native_raw: selection.model_native_raw,
         method_family: None,
         backend_slot: Some(backend_slot.to_string()),
         backend_name: metrics.backend_name.clone(),
         backend_available: Some(metrics.available),
         backend_coverage_fraction,
-        claim_boundary: claim_boundary.to_string(),
+        claim_boundary,
+    }
+}
+
+#[derive(Debug, Clone)]
+struct BackendMetricSelectionContext {
+    target_source: String,
+    candidate_layer: Option<String>,
+    model_native_raw: bool,
+    selection_reason: String,
+}
+
+fn backend_metric_selection_context(
+    research: &ResearchConfig,
+    method_comparison: &MethodComparisonSummary,
+    active_selected_metric_layer: Option<&str>,
+) -> BackendMetricSelectionContext {
+    let flow_contract =
+        crate::models::flow::current_multimodal_flow_contract(&research.generation_method.flow_matching);
+    let full_branch_runtime = !research.generation_method.flow_matching.geometry_only
+        && flow_contract.disabled_branches.is_empty();
+    if full_branch_runtime && method_comparison.raw_native_evidence.model_native_raw {
+        return BackendMetricSelectionContext {
+            target_source: "external_backend".to_string(),
+            candidate_layer: Some(method_comparison.raw_native_evidence.raw_model_layer.clone()),
+            model_native_raw: true,
+            selection_reason: if flow_contract.full_molecular_flow_claim_allowed {
+                "full_molecular_flow_raw_rollout_preferred".to_string()
+            } else {
+                format!(
+                    "full_branch_raw_rollout_preferred_but_claim_gate_blocked_by_{}",
+                    flow_contract.claim_gate_reason
+                )
+            },
+        };
+    }
+    BackendMetricSelectionContext {
+        target_source: "external_backend".to_string(),
+        candidate_layer: active_selected_metric_layer.map(str::to_string),
+        model_native_raw: active_selected_metric_layer
+            .map(layer_name_is_model_native_raw)
+            .unwrap_or(false),
+        selection_reason: if research.generation_method.flow_matching.geometry_only {
+            "geometry_only_or_non_flow_metric_layer".to_string()
+        } else {
+            format!(
+                "processed_or_selected_layer_used_because_full_branch_runtime={full_branch_runtime}"
+            )
+        },
     }
 }
 
@@ -639,8 +713,7 @@ fn build_model_design_evaluation_metrics(
     let raw = &layered.raw_rollout;
     let (processed_layer, processed) = preferred_model_design_processed_layer(layered);
     let processed_contract = generation_path_contract_for_layer(layered, processed_layer);
-    let gate_saturation_fraction = mean_gate_saturation_fraction(forwards);
-    let gate_warning_count = gate_warning_count(forwards);
+    let gate_health = aggregate_gate_health(forwards);
     let slot_signature_similarity_mean = (slot_stability.topology_signature_similarity
         + slot_stability.geometry_signature_similarity
         + slot_stability.pocket_signature_similarity)
@@ -670,8 +743,13 @@ fn build_model_design_evaluation_metrics(
         slot_activation_mean,
         slot_signature_similarity_mean,
         gate_activation_mean,
-        gate_saturation_fraction,
-        gate_warning_count,
+        gate_saturation_fraction: gate_health.saturation_fraction,
+        gate_closed_fraction_mean: gate_health.closed_fraction,
+        gate_open_fraction_mean: gate_health.open_fraction,
+        gate_gradient_proxy_mean: gate_health.gradient_proxy,
+        gate_effective_update_norm_mean: gate_health.effective_update_norm,
+        gate_warning_count: gate_health.warning_count,
+        gate_audit_note: gate_health.audit_note,
         leakage_proxy_mean,
         raw_model_layer: "raw_rollout".to_string(),
         processed_layer: processed_layer.to_string(),
@@ -728,35 +806,68 @@ fn preferred_model_design_processed_layer(
     }
 }
 
-fn mean_gate_saturation_fraction(forwards: &[ResearchForward]) -> f64 {
+struct GateHealthAggregate {
+    saturation_fraction: f64,
+    closed_fraction: f64,
+    open_fraction: f64,
+    gradient_proxy: f64,
+    effective_update_norm: f64,
+    warning_count: usize,
+    audit_note: String,
+}
+
+fn aggregate_gate_health(forwards: &[ResearchForward]) -> GateHealthAggregate {
     let mut sum = 0.0;
+    let mut closed = 0.0;
+    let mut open = 0.0;
+    let mut gradient = 0.0;
+    let mut update_norm = 0.0;
     let mut count = 0usize;
+    let mut warning_count = 0usize;
     for forward in forwards {
         for path_index in 0..6 {
-            let value =
-                interaction_path_diagnostic_at(forward, path_index).gate_saturation_fraction;
-            if value.is_finite() {
-                sum += value;
+            let path = interaction_path_diagnostic_at(forward, path_index);
+            if path.gate_saturation_fraction.is_finite()
+                && path.gate_closed_fraction.is_finite()
+                && path.gate_open_fraction.is_finite()
+                && path.gate_gradient_proxy.is_finite()
+                && path.effective_update_norm.is_finite()
+            {
+                sum += path.gate_saturation_fraction;
+                closed += path.gate_closed_fraction;
+                open += path.gate_open_fraction;
+                gradient += path.gate_gradient_proxy;
+                update_norm += path.effective_update_norm;
                 count += 1;
+            }
+            if path.gate_warning.is_some() {
+                warning_count += 1;
             }
         }
     }
-    fraction_f64(sum, count)
-}
-
-fn gate_warning_count(forwards: &[ResearchForward]) -> usize {
-    forwards
-        .iter()
-        .map(|forward| {
-            (0..6)
-                .filter(|path_index| {
-                    interaction_path_diagnostic_at(forward, *path_index)
-                        .gate_warning
-                        .is_some()
-                })
-                .count()
-        })
-        .sum()
+    let saturation_fraction = fraction_f64(sum, count);
+    let closed_fraction = fraction_f64(closed, count);
+    let open_fraction = fraction_f64(open, count);
+    let gradient_proxy = fraction_f64(gradient, count);
+    let effective_update_norm = fraction_f64(update_norm, count);
+    let audit_note = if count == 0 {
+        "gate diagnostics unavailable; no directed interaction paths were summarized".to_string()
+    } else if closed_fraction >= 0.8 {
+        "most directed gates are effectively closed; inspect gate bias, temperature, and sparsity schedule before interpreting low cross-modal usage as learned independence".to_string()
+    } else if saturation_fraction >= 0.8 {
+        "most directed gates are saturated; interaction gradients may be weak even when gate mean is nonzero".to_string()
+    } else {
+        "gate diagnostics summarize all six explicit directed paths; processed candidate quality remains separated from raw model-native quality".to_string()
+    };
+    GateHealthAggregate {
+        saturation_fraction,
+        closed_fraction,
+        open_fraction,
+        gradient_proxy,
+        effective_update_norm,
+        warning_count,
+        audit_note,
+    }
 }
 
 fn metric_value(metrics: &ReservedBackendMetrics, name: &str) -> Option<f64> {
@@ -793,9 +904,11 @@ fn compute_chemistry_collaboration_metrics(
         .filter(|forward| rollout_has_valence_violation(&forward.generation.rollout))
         .count() as f64
         / rollout_count;
-    let (_, bond_length_guardrail) =
+    let chemistry_guardrails =
         crate::losses::ChemistryGuardrailAuxLoss::default().compute_batch(examples, forwards);
-    let bond_length_guardrail_mean = bond_length_guardrail.double_value(&[]);
+    let bond_length_guardrail_mean = chemistry_guardrails
+        .bond_length_guardrail
+        .double_value(&[]);
     let key_residue_contact_coverage = key_residue_contact_collaboration_metric(layered);
 
     ChemistryCollaborationMetrics {

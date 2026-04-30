@@ -1,12 +1,16 @@
 //! Flow-matching variants and ablation-friendly velocity heads.
 
 pub mod cross_attention_velocity_head;
+pub mod equivariant_velocity_head;
 pub mod molecular;
 pub mod multimodal;
 pub mod native_graph;
 
 pub use cross_attention_velocity_head::{
     AtomPocketCrossAttentionVelocityConfig, AtomPocketCrossAttentionVelocityHead, FlowVelocityHead,
+};
+pub use equivariant_velocity_head::{
+    EquivariantGeometryVelocityConfig, EquivariantGeometryVelocityHead,
 };
 pub use molecular::{FullMolecularFlowHead, MolecularFlowInput, MolecularFlowPrediction};
 pub use multimodal::{

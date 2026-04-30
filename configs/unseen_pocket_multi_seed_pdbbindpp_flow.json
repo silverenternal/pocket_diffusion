@@ -43,7 +43,8 @@
         "sampling_top_k": 0,
         "sampling_top_p": 1.0,
         "coordinate_sampling_noise_std": 0.0,
-        "pocket_guidance_scale": 1.0
+        "pocket_guidance_scale": 1.0,
+        "generation_mode": "flow_refinement"
       }
     },
     "model": {
@@ -83,8 +84,66 @@
         "steps": 20,
         "noise_scale": 0.15,
         "integration_method": "euler",
-        "geometry_only": true,
-        "use_corrupted_x0": true
+        "geometry_only": false,
+        "use_corrupted_x0": true,
+        "multi_modal": {
+          "enabled_branches": [
+            "geometry",
+            "atom_type",
+            "bond",
+            "topology",
+            "pocket_context"
+          ],
+          "branch_loss_weights": {
+            "geometry": 1.0,
+            "atom_type": 0.3,
+            "bond": 0.45,
+            "topology": 0.45,
+            "pocket_context": 0.2,
+            "synchronization": 0.15
+          },
+          "branch_schedule": {
+            "geometry": {
+              "enabled": true,
+              "start_step": 0,
+              "warmup_steps": 0,
+              "final_weight_multiplier": 1.0
+            },
+            "atom_type": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "bond": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "topology": {
+              "enabled": true,
+              "start_step": 2,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "pocket_context": {
+              "enabled": true,
+              "start_step": 2,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "synchronization": {
+              "enabled": true,
+              "start_step": 3,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            }
+          },
+          "target_alignment_policy": "hungarian_distance",
+          "allow_zero_weight_branch_ablation": false,
+          "claim_full_molecular_flow": true
+        }
       }
     },
     "training": {
@@ -98,13 +157,43 @@
       "loss_weights": {
         "alpha_primary": 1.0,
         "beta_intra_red": 0.05,
-        "gamma_probe": 0.15,
+        "gamma_probe": 0.02,
         "delta_leak": 0.05,
         "eta_gate": 0.05,
         "mu_slot": 0.05,
         "nu_consistency": 0.1,
-        "rho_pocket_contact": 0.0,
-        "sigma_pocket_clash": 0.0
+        "rho_pocket_contact": 0.05,
+        "lambda_pocket_pair_distance": 0.02,
+        "sigma_pocket_clash": 0.02,
+        "omega_pocket_shape_complementarity": 0.02,
+        "tau_pocket_envelope": 0.02,
+        "kappa_pocket_prior": 0.01,
+        "upsilon_valence_guardrail": 0.03,
+        "phi_bond_length_guardrail": 0.02,
+        "chi_nonbonded_distance_guardrail": 0.01,
+        "psi_angle_guardrail": 0.01
+      },
+      "pharmacophore_probes": {
+        "enable_ligand_role_probe": true,
+        "enable_pocket_role_probe": true,
+        "enable_topology_to_pocket_role_leakage": true,
+        "enable_geometry_to_pocket_role_leakage": true,
+        "enable_pocket_to_ligand_role_leakage": true,
+        "leakage_margin": 0.05
+      },
+      "chemistry_warmup": {
+        "pocket_envelope_start_stage": 2,
+        "pocket_prior_start_stage": 2,
+        "valence_guardrail_start_stage": 2,
+        "bond_length_guardrail_start_stage": 2,
+        "nonbonded_distance_guardrail_start_stage": 2,
+        "angle_guardrail_start_stage": 2,
+        "pharmacophore_probe_start_stage": 3,
+        "pharmacophore_leakage_start_stage": 3
+      },
+      "objective_scale_diagnostics": {
+        "family_budget_cap_fraction": 0.35,
+        "family_budget_action": "clamp"
       },
       "checkpoint_dir": "./checkpoints/multi_seed_pdbbindpp_flow/base",
       "checkpoint_every": 100,

@@ -8,7 +8,10 @@ use tch::{no_grad, Kind, Tensor};
 
 use crate::{
     config::types::ExplicitLeakageProbeConfig,
-    config::{InteractionPathGateRegularizationWeight, PharmacophoreProbeConfig},
+    config::{
+        InteractionPathGateRegularizationWeight, PharmacophoreProbeConfig,
+        SparseTopologyCalibrationConfig,
+    },
     data::MolecularExample,
     models::{ResearchForward, SlotEncoding},
     training::{
@@ -17,10 +20,12 @@ use crate::{
     },
 };
 
+use super::consistency::{ChemistryGuardrailAuxOutput, PocketGeometryAuxOutput};
+use super::pocket_prior::PocketPriorAuxOutput;
 use super::{
     leakage::LeakageLossTensors, probe::ProbeLossTensors, ChemistryGuardrailAuxLoss,
     ConsistencyLoss, GateLoss, GatePathObjectiveContribution, IntraRedundancyLoss, LeakageLoss,
-    MutualInformationMonitor, PocketGeometryAuxLoss, ProbeLoss,
+    MutualInformationMonitor, PocketGeometryAuxLoss, PocketPriorAuxLoss, ProbeLoss,
 };
 
 /// Execution mode selected for an auxiliary objective family after staged weighting.
@@ -70,10 +75,15 @@ pub(crate) struct AuxiliaryObjectiveExecutionPlan {
     pub slot: AuxiliaryObjectiveExecution,
     pub consistency: AuxiliaryObjectiveExecution,
     pub pocket_contact: AuxiliaryObjectiveExecution,
+    pub pocket_pair_distance: AuxiliaryObjectiveExecution,
     pub pocket_clash: AuxiliaryObjectiveExecution,
+    pub pocket_shape_complementarity: AuxiliaryObjectiveExecution,
     pub pocket_envelope: AuxiliaryObjectiveExecution,
+    pub pocket_prior: AuxiliaryObjectiveExecution,
     pub valence_guardrail: AuxiliaryObjectiveExecution,
     pub bond_length_guardrail: AuxiliaryObjectiveExecution,
+    pub nonbonded_distance_guardrail: AuxiliaryObjectiveExecution,
+    pub angle_guardrail: AuxiliaryObjectiveExecution,
 }
 
 /// Compact execution-mode counts for staged auxiliary smoke reports.
@@ -109,10 +119,15 @@ impl AuxiliaryObjectiveExecutionPlan {
             slot: mode(weights.slot),
             consistency: mode(weights.consistency),
             pocket_contact: mode(weights.pocket_contact),
+            pocket_pair_distance: mode(weights.pocket_pair_distance),
             pocket_clash: mode(weights.pocket_clash),
+            pocket_shape_complementarity: mode(weights.pocket_shape_complementarity),
             pocket_envelope: mode(weights.pocket_envelope),
+            pocket_prior: mode(weights.pocket_prior),
             valence_guardrail: mode(weights.valence_guardrail),
             bond_length_guardrail: mode(weights.bond_length_guardrail),
+            nonbonded_distance_guardrail: mode(weights.nonbonded_distance_guardrail),
+            angle_guardrail: mode(weights.angle_guardrail),
         }
     }
 
@@ -128,10 +143,15 @@ impl AuxiliaryObjectiveExecutionPlan {
             slot: AuxiliaryObjectiveExecution::Trainable,
             consistency: AuxiliaryObjectiveExecution::Trainable,
             pocket_contact: AuxiliaryObjectiveExecution::Trainable,
+            pocket_pair_distance: AuxiliaryObjectiveExecution::Trainable,
             pocket_clash: AuxiliaryObjectiveExecution::Trainable,
+            pocket_shape_complementarity: AuxiliaryObjectiveExecution::Trainable,
             pocket_envelope: AuxiliaryObjectiveExecution::Trainable,
+            pocket_prior: AuxiliaryObjectiveExecution::Trainable,
             valence_guardrail: AuxiliaryObjectiveExecution::Trainable,
             bond_length_guardrail: AuxiliaryObjectiveExecution::Trainable,
+            nonbonded_distance_guardrail: AuxiliaryObjectiveExecution::Trainable,
+            angle_guardrail: AuxiliaryObjectiveExecution::Trainable,
         }
     }
 
@@ -150,7 +170,7 @@ impl AuxiliaryObjectiveExecutionPlan {
     }
 
     #[allow(dead_code)] // Helper for execution-count reporting.
-    fn modes(&self) -> [AuxiliaryObjectiveExecution; 13] {
+    fn modes(&self) -> [AuxiliaryObjectiveExecution; 18] {
         [
             self.intra_red,
             self.probe,
@@ -161,10 +181,15 @@ impl AuxiliaryObjectiveExecutionPlan {
             self.slot,
             self.consistency,
             self.pocket_contact,
+            self.pocket_pair_distance,
             self.pocket_clash,
+            self.pocket_shape_complementarity,
             self.pocket_envelope,
+            self.pocket_prior,
             self.valence_guardrail,
             self.bond_length_guardrail,
+            self.nonbonded_distance_guardrail,
+            self.angle_guardrail,
         ]
     }
 }
@@ -177,6 +202,8 @@ pub(crate) struct AuxiliaryObjectiveTensors {
     pub probe: Tensor,
     /// Core semantic probe objective before optional pharmacophore role terms.
     pub probe_core: Tensor,
+    /// Weighted sparse negative-class calibration inside topology adjacency probing.
+    pub probe_topology_sparse_negative_rate: Tensor,
     /// Ligand pharmacophore role probe subterm.
     pub probe_ligand_pharmacophore: Tensor,
     /// Pocket pharmacophore role probe subterm.
@@ -205,6 +232,8 @@ pub(crate) struct AuxiliaryObjectiveTensors {
     pub leak_topology_to_pocket_role: Tensor,
     /// Explicit geometry-to-pocket-role leakage subterm.
     pub leak_geometry_to_pocket_role: Tensor,
+    /// Explicit pocket-to-topology-role leakage subterm.
+    pub leak_pocket_to_topology_role: Tensor,
     /// Explicit pocket-to-ligand-role leakage subterm.
     pub leak_pocket_to_ligand_role: Tensor,
     /// Gate sparsity objective.
@@ -217,14 +246,34 @@ pub(crate) struct AuxiliaryObjectiveTensors {
     pub consistency: Tensor,
     /// Pocket-ligand contact encouragement objective.
     pub pocket_contact: Tensor,
+    /// Atom-pocket pair distance-bin objective.
+    pub pocket_pair_distance: Tensor,
     /// Pocket-ligand steric-clash penalty objective.
     pub pocket_clash: Tensor,
+    /// Coarse pocket-ligand shape-complementarity objective.
+    pub pocket_shape_complementarity: Tensor,
     /// Pocket-envelope containment objective.
     pub pocket_envelope: Tensor,
+    /// Explicit pocket-conditioned size and composition prior objective.
+    pub pocket_prior: Tensor,
+    /// Atom-count prior subterm.
+    pub pocket_prior_atom_count: Tensor,
+    /// Element/composition prior subterm.
+    pub pocket_prior_composition: Tensor,
+    /// Mean absolute atom-count prediction error.
+    pub pocket_prior_atom_count_mae: f64,
     /// Conservative valence overage objective.
     pub valence_guardrail: Tensor,
+    /// Expected valence above element-specific capacity.
+    pub valence_overage_guardrail: Tensor,
+    /// Expected valence below a conservative lower bound.
+    pub valence_underage_guardrail: Tensor,
     /// Topology-implied bond-length objective.
     pub bond_length_guardrail: Tensor,
+    /// Generated non-bonded short-distance margin objective.
+    pub nonbonded_distance_guardrail: Tensor,
+    /// Generated local-angle plausibility objective.
+    pub angle_guardrail: Tensor,
     /// Diagnostic topology-geometry dependence estimate.
     pub mi_topo_geo: f64,
     /// Diagnostic topology-pocket dependence estimate.
@@ -262,10 +311,12 @@ impl AuxiliaryObjectiveTensors {
             + unweighted.leak_pocket_to_geometry;
         let pharmacophore_role_penalty = unweighted.leak_topology_to_pocket_role
             + unweighted.leak_geometry_to_pocket_role
+            + unweighted.leak_pocket_to_topology_role
             + unweighted.leak_pocket_to_ligand_role;
         let metrics = AuxiliaryLossMetrics {
             intra_red: unweighted.intra_red,
             probe: unweighted.probe,
+            probe_topology_sparse_negative_rate: unweighted.probe_topology_sparse_negative_rate,
             probe_ligand_pharmacophore: unweighted.probe_ligand_pharmacophore,
             probe_pocket_pharmacophore: unweighted.probe_pocket_pharmacophore,
             leak: unweighted.leak,
@@ -280,6 +331,7 @@ impl AuxiliaryObjectiveTensors {
             leak_pocket_to_geometry: unweighted.leak_pocket_to_geometry,
             leak_topology_to_pocket_role: unweighted.leak_topology_to_pocket_role,
             leak_geometry_to_pocket_role: unweighted.leak_geometry_to_pocket_role,
+            leak_pocket_to_topology_role: unweighted.leak_pocket_to_topology_role,
             leak_pocket_to_ligand_role: unweighted.leak_pocket_to_ligand_role,
             leakage_roles: crate::losses::LeakageEvidenceRoleReport::training_step(
                 unweighted.leak_core,
@@ -307,10 +359,20 @@ impl AuxiliaryObjectiveTensors {
             slot: unweighted.slot,
             consistency: unweighted.consistency,
             pocket_contact: unweighted.pocket_contact,
+            pocket_pair_distance: unweighted.pocket_pair_distance,
             pocket_clash: unweighted.pocket_clash,
+            pocket_shape_complementarity: unweighted.pocket_shape_complementarity,
             pocket_envelope: unweighted.pocket_envelope,
+            pocket_prior: unweighted.pocket_prior,
+            pocket_prior_atom_count: unweighted.pocket_prior_atom_count,
+            pocket_prior_composition: unweighted.pocket_prior_composition,
+            pocket_prior_atom_count_mae: self.pocket_prior_atom_count_mae,
             valence_guardrail: unweighted.valence_guardrail,
+            valence_overage_guardrail: unweighted.valence_overage_guardrail,
+            valence_underage_guardrail: unweighted.valence_underage_guardrail,
             bond_length_guardrail: unweighted.bond_length_guardrail,
+            nonbonded_distance_guardrail: unweighted.nonbonded_distance_guardrail,
+            angle_guardrail: unweighted.angle_guardrail,
             mi_topo_geo: self.mi_topo_geo,
             mi_topo_pocket: self.mi_topo_pocket,
             mi_geo_pocket: self.mi_geo_pocket,
@@ -327,6 +389,9 @@ impl AuxiliaryObjectiveTensors {
             intra_red: scalar_or_nan(&self.intra_red),
             probe: scalar_or_nan(&self.probe),
             probe_core: scalar_or_nan(&self.probe_core),
+            probe_topology_sparse_negative_rate: scalar_or_nan(
+                &self.probe_topology_sparse_negative_rate,
+            ),
             probe_ligand_pharmacophore: scalar_or_nan(&self.probe_ligand_pharmacophore),
             probe_pocket_pharmacophore: scalar_or_nan(&self.probe_pocket_pharmacophore),
             leak: scalar_or_nan(&self.leak),
@@ -340,15 +405,25 @@ impl AuxiliaryObjectiveTensors {
             leak_pocket_to_geometry: scalar_or_nan(&self.leak_pocket_to_geometry),
             leak_topology_to_pocket_role: scalar_or_nan(&self.leak_topology_to_pocket_role),
             leak_geometry_to_pocket_role: scalar_or_nan(&self.leak_geometry_to_pocket_role),
+            leak_pocket_to_topology_role: scalar_or_nan(&self.leak_pocket_to_topology_role),
             leak_pocket_to_ligand_role: scalar_or_nan(&self.leak_pocket_to_ligand_role),
             gate: scalar_or_nan(&self.gate),
             slot: scalar_or_nan(&self.slot),
             consistency: scalar_or_nan(&self.consistency),
             pocket_contact: scalar_or_nan(&self.pocket_contact),
+            pocket_pair_distance: scalar_or_nan(&self.pocket_pair_distance),
             pocket_clash: scalar_or_nan(&self.pocket_clash),
+            pocket_shape_complementarity: scalar_or_nan(&self.pocket_shape_complementarity),
             pocket_envelope: scalar_or_nan(&self.pocket_envelope),
+            pocket_prior: scalar_or_nan(&self.pocket_prior),
+            pocket_prior_atom_count: scalar_or_nan(&self.pocket_prior_atom_count),
+            pocket_prior_composition: scalar_or_nan(&self.pocket_prior_composition),
             valence_guardrail: scalar_or_nan(&self.valence_guardrail),
+            valence_overage_guardrail: scalar_or_nan(&self.valence_overage_guardrail),
+            valence_underage_guardrail: scalar_or_nan(&self.valence_underage_guardrail),
             bond_length_guardrail: scalar_or_nan(&self.bond_length_guardrail),
+            nonbonded_distance_guardrail: scalar_or_nan(&self.nonbonded_distance_guardrail),
+            angle_guardrail: scalar_or_nan(&self.angle_guardrail),
         }
     }
 
@@ -390,6 +465,7 @@ impl AuxiliaryObjectiveTensors {
                     AuxiliaryObjectiveFamily::PharmacophoreLeakage,
                     unweighted.leak_topology_to_pocket_role
                         + unweighted.leak_geometry_to_pocket_role
+                        + unweighted.leak_pocket_to_topology_role
                         + unweighted.leak_pocket_to_ligand_role,
                     effective_weights.pharmacophore_leakage,
                     execution_plan.pharmacophore_leakage,
@@ -419,16 +495,34 @@ impl AuxiliaryObjectiveTensors {
                     execution_plan.pocket_contact,
                 ),
                 objective_entry(
+                    AuxiliaryObjectiveFamily::PocketPairDistance,
+                    unweighted.pocket_pair_distance,
+                    effective_weights.pocket_pair_distance,
+                    execution_plan.pocket_pair_distance,
+                ),
+                objective_entry(
                     AuxiliaryObjectiveFamily::PocketClash,
                     unweighted.pocket_clash,
                     effective_weights.pocket_clash,
                     execution_plan.pocket_clash,
                 ),
                 objective_entry(
+                    AuxiliaryObjectiveFamily::PocketShapeComplementarity,
+                    unweighted.pocket_shape_complementarity,
+                    effective_weights.pocket_shape_complementarity,
+                    execution_plan.pocket_shape_complementarity,
+                ),
+                objective_entry(
                     AuxiliaryObjectiveFamily::PocketEnvelope,
                     unweighted.pocket_envelope,
                     effective_weights.pocket_envelope,
                     execution_plan.pocket_envelope,
+                ),
+                objective_entry(
+                    AuxiliaryObjectiveFamily::PocketPrior,
+                    unweighted.pocket_prior,
+                    effective_weights.pocket_prior,
+                    execution_plan.pocket_prior,
                 ),
                 objective_entry(
                     AuxiliaryObjectiveFamily::ValenceGuardrail,
@@ -442,6 +536,18 @@ impl AuxiliaryObjectiveTensors {
                     effective_weights.bond_length_guardrail,
                     execution_plan.bond_length_guardrail,
                 ),
+                objective_entry(
+                    AuxiliaryObjectiveFamily::NonbondedDistanceGuardrail,
+                    unweighted.nonbonded_distance_guardrail,
+                    effective_weights.nonbonded_distance_guardrail,
+                    execution_plan.nonbonded_distance_guardrail,
+                ),
+                objective_entry(
+                    AuxiliaryObjectiveFamily::AngleGuardrail,
+                    unweighted.angle_guardrail,
+                    effective_weights.angle_guardrail,
+                    execution_plan.angle_guardrail,
+                ),
             ],
         }
     }
@@ -452,6 +558,7 @@ struct AuxiliaryObjectiveUnweightedValues {
     intra_red: f64,
     probe: f64,
     probe_core: f64,
+    probe_topology_sparse_negative_rate: f64,
     probe_ligand_pharmacophore: f64,
     probe_pocket_pharmacophore: f64,
     leak: f64,
@@ -465,15 +572,25 @@ struct AuxiliaryObjectiveUnweightedValues {
     leak_pocket_to_geometry: f64,
     leak_topology_to_pocket_role: f64,
     leak_geometry_to_pocket_role: f64,
+    leak_pocket_to_topology_role: f64,
     leak_pocket_to_ligand_role: f64,
     gate: f64,
     slot: f64,
     consistency: f64,
     pocket_contact: f64,
+    pocket_pair_distance: f64,
     pocket_clash: f64,
+    pocket_shape_complementarity: f64,
     pocket_envelope: f64,
+    pocket_prior: f64,
+    pocket_prior_atom_count: f64,
+    pocket_prior_composition: f64,
     valence_guardrail: f64,
+    valence_overage_guardrail: f64,
+    valence_underage_guardrail: f64,
     bond_length_guardrail: f64,
+    nonbonded_distance_guardrail: f64,
+    angle_guardrail: f64,
 }
 
 fn objective_entry(
@@ -629,6 +746,8 @@ pub struct AuxiliaryObjectiveBlock {
     pub(crate) pocket_geometry: PocketGeometryAuxLoss,
     /// Lightweight chemistry guardrails.
     pub(crate) chemistry_guardrails: ChemistryGuardrailAuxLoss,
+    /// Explicit pocket-conditioned size and composition priors.
+    pub(crate) pocket_prior: PocketPriorAuxLoss,
     /// Diagnostic dependence monitor; not back-propagated.
     pub(crate) mi_monitor: MutualInformationMonitor,
 }
@@ -674,15 +793,38 @@ impl AuxiliaryObjectiveBlock {
         explicit_leakage_probes: ExplicitLeakageProbeConfig,
         gate_path_weights: Vec<InteractionPathGateRegularizationWeight>,
     ) -> Self {
+        Self::new_with_pharmacophore_gate_and_sparse_topology_config(
+            slot_sparsity_weight,
+            slot_balance_weight,
+            pharmacophore,
+            explicit_leakage_probes,
+            gate_path_weights,
+            SparseTopologyCalibrationConfig::default(),
+        )
+    }
+
+    /// Construct a block with explicit sparse topology calibration.
+    pub(crate) fn new_with_pharmacophore_gate_and_sparse_topology_config(
+        slot_sparsity_weight: f64,
+        slot_balance_weight: f64,
+        pharmacophore: PharmacophoreProbeConfig,
+        explicit_leakage_probes: ExplicitLeakageProbeConfig,
+        gate_path_weights: Vec<InteractionPathGateRegularizationWeight>,
+        sparse_topology_calibration: SparseTopologyCalibrationConfig,
+    ) -> Self {
         Self {
             redundancy: IntraRedundancyLoss::default(),
-            probe: ProbeLoss::new(pharmacophore.clone()),
+            probe: ProbeLoss::new_with_topology_calibration(
+                pharmacophore.clone(),
+                sparse_topology_calibration,
+            ),
             leakage: LeakageLoss::new(pharmacophore, explicit_leakage_probes),
             gate: GateLoss::with_path_weights(gate_path_weights),
             slot: SlotControlLoss::with_weights(slot_sparsity_weight, slot_balance_weight),
             consistency: ConsistencyLoss::default(),
             pocket_geometry: PocketGeometryAuxLoss::default(),
             chemistry_guardrails: ChemistryGuardrailAuxLoss::default(),
+            pocket_prior: PocketPriorAuxLoss,
             mi_monitor: MutualInformationMonitor::default(),
         }
     }
@@ -744,10 +886,11 @@ impl AuxiliaryObjectiveBlock {
             execution_plan.pharmacophore_probe,
             device,
             || {
-                self.probe.compute_batch_weighted_components(
+                self.probe.compute_batch_weighted_components_at_step(
                     examples,
                     forwards,
                     affinity_weight_for,
+                    leakage_training_step,
                 )
             },
         );
@@ -777,25 +920,36 @@ impl AuxiliaryObjectiveBlock {
         let consistency = tensor_for_execution(execution_plan.consistency, device, || {
             self.consistency.compute_batch(examples, forwards)
         });
-        let (pocket_contact, pocket_clash, pocket_envelope) = pocket_geometry_for_execution(
+        let pocket_geometry = pocket_geometry_for_execution(
             execution_plan.pocket_contact,
+            execution_plan.pocket_pair_distance,
             execution_plan.pocket_clash,
+            execution_plan.pocket_shape_complementarity,
             execution_plan.pocket_envelope,
             device,
-            || self.pocket_geometry.compute_batch(examples, forwards),
+            || {
+                self.pocket_geometry
+                    .compute_batch_components(examples, forwards)
+            },
         );
-        let (valence_guardrail, bond_length_guardrail) = chemistry_guardrails_for_execution(
+        let chemistry_guardrails = chemistry_guardrails_for_execution(
             execution_plan.valence_guardrail,
             execution_plan.bond_length_guardrail,
+            execution_plan.nonbonded_distance_guardrail,
+            execution_plan.angle_guardrail,
             device,
             || self.chemistry_guardrails.compute_batch(examples, forwards),
         );
+        let pocket_prior = pocket_prior_for_execution(execution_plan.pocket_prior, device, || {
+            self.pocket_prior.compute_batch(examples, forwards)
+        });
         let (mi_topo_geo, mi_topo_pocket, mi_geo_pocket) = average_mi(&self.mi_monitor, forwards);
 
         AuxiliaryObjectiveTensors {
             intra_red,
             probe: probe_components.total,
             probe_core: probe_components.core,
+            probe_topology_sparse_negative_rate: probe_components.topology_sparse_negative_rate,
             probe_ligand_pharmacophore: probe_components.ligand_pharmacophore,
             probe_pocket_pharmacophore: probe_components.pocket_pharmacophore,
             leak: leak_components.total,
@@ -810,16 +964,27 @@ impl AuxiliaryObjectiveBlock {
             leak_pocket_to_geometry: leak_components.pocket_to_geometry,
             leak_topology_to_pocket_role: leak_components.topology_to_pocket_role,
             leak_geometry_to_pocket_role: leak_components.geometry_to_pocket_role,
+            leak_pocket_to_topology_role: leak_components.pocket_to_topology_role,
             leak_pocket_to_ligand_role: leak_components.pocket_to_ligand_role,
             gate,
             gate_path_contributions,
             slot,
             consistency,
-            pocket_contact,
-            pocket_clash,
-            pocket_envelope,
-            valence_guardrail,
-            bond_length_guardrail,
+            pocket_contact: pocket_geometry.contact,
+            pocket_pair_distance: pocket_geometry.pair_distance,
+            pocket_clash: pocket_geometry.clash,
+            pocket_shape_complementarity: pocket_geometry.shape_complementarity,
+            pocket_envelope: pocket_geometry.envelope,
+            pocket_prior: pocket_prior.total,
+            pocket_prior_atom_count: pocket_prior.atom_count,
+            pocket_prior_composition: pocket_prior.composition,
+            pocket_prior_atom_count_mae: pocket_prior.atom_count_mae,
+            valence_guardrail: chemistry_guardrails.valence_guardrail,
+            valence_overage_guardrail: chemistry_guardrails.valence_overage_guardrail,
+            valence_underage_guardrail: chemistry_guardrails.valence_underage_guardrail,
+            bond_length_guardrail: chemistry_guardrails.bond_length_guardrail,
+            nonbonded_distance_guardrail: chemistry_guardrails.nonbonded_distance_guardrail,
+            angle_guardrail: chemistry_guardrails.angle_guardrail,
             mi_topo_geo,
             mi_topo_pocket,
             mi_geo_pocket,
@@ -861,6 +1026,7 @@ fn probe_for_execution(
     };
     if probe_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
         tensors.core = zero_tensor(device);
+        tensors.topology_sparse_negative_rate = zero_tensor(device);
     }
     if pharmacophore_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
         tensors.ligand_pharmacophore = zero_tensor(device);
@@ -877,6 +1043,7 @@ fn zero_probe_tensors(device: tch::Device) -> ProbeLossTensors {
     ProbeLossTensors {
         core: zero.shallow_clone(),
         total: zero.shallow_clone(),
+        topology_sparse_negative_rate: zero.shallow_clone(),
         ligand_pharmacophore: zero.shallow_clone(),
         pocket_pharmacophore: zero,
     }
@@ -962,64 +1129,131 @@ fn zero_leakage_tensors(device: tch::Device) -> LeakageLossTensors {
 
 fn pocket_geometry_for_execution(
     contact_execution: AuxiliaryObjectiveExecution,
+    pair_distance_execution: AuxiliaryObjectiveExecution,
     clash_execution: AuxiliaryObjectiveExecution,
+    shape_execution: AuxiliaryObjectiveExecution,
     envelope_execution: AuxiliaryObjectiveExecution,
     device: tch::Device,
-    compute: impl FnOnce() -> (Tensor, Tensor, Tensor),
-) -> (Tensor, Tensor, Tensor) {
+    compute: impl FnOnce() -> PocketGeometryAuxOutput,
+) -> PocketGeometryAuxOutput {
     if !contact_execution.computes()
+        && !pair_distance_execution.computes()
         && !clash_execution.computes()
+        && !shape_execution.computes()
         && !envelope_execution.computes()
     {
-        return (
-            zero_tensor(device),
-            zero_tensor(device),
-            zero_tensor(device),
-        );
+        return zero_pocket_geometry_tensors(device);
     }
     let all_detached = contact_execution != AuxiliaryObjectiveExecution::Trainable
+        && pair_distance_execution != AuxiliaryObjectiveExecution::Trainable
         && clash_execution != AuxiliaryObjectiveExecution::Trainable
+        && shape_execution != AuxiliaryObjectiveExecution::Trainable
         && envelope_execution != AuxiliaryObjectiveExecution::Trainable;
-    let (mut contact, mut clash, mut envelope) = if all_detached {
+    let mut tensors = if all_detached {
         no_grad(compute)
     } else {
         compute()
     };
     if contact_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
-        contact = zero_tensor(device);
+        tensors.contact = zero_tensor(device);
+    }
+    if pair_distance_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
+        tensors.pair_distance = zero_tensor(device);
     }
     if clash_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
-        clash = zero_tensor(device);
+        tensors.clash = zero_tensor(device);
+    }
+    if shape_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
+        tensors.shape_complementarity = zero_tensor(device);
     }
     if envelope_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
-        envelope = zero_tensor(device);
+        tensors.envelope = zero_tensor(device);
     }
-    (contact, clash, envelope)
+    tensors
+}
+
+fn zero_pocket_geometry_tensors(device: tch::Device) -> PocketGeometryAuxOutput {
+    PocketGeometryAuxOutput {
+        contact: zero_tensor(device),
+        clash: zero_tensor(device),
+        envelope: zero_tensor(device),
+        pair_distance: zero_tensor(device),
+        shape_complementarity: zero_tensor(device),
+    }
 }
 
 fn chemistry_guardrails_for_execution(
     valence_execution: AuxiliaryObjectiveExecution,
     bond_execution: AuxiliaryObjectiveExecution,
+    nonbonded_execution: AuxiliaryObjectiveExecution,
+    angle_execution: AuxiliaryObjectiveExecution,
     device: tch::Device,
-    compute: impl FnOnce() -> (Tensor, Tensor),
-) -> (Tensor, Tensor) {
-    if !valence_execution.computes() && !bond_execution.computes() {
-        return (zero_tensor(device), zero_tensor(device));
+    compute: impl FnOnce() -> ChemistryGuardrailAuxOutput,
+) -> ChemistryGuardrailAuxOutput {
+    if !valence_execution.computes()
+        && !bond_execution.computes()
+        && !nonbonded_execution.computes()
+        && !angle_execution.computes()
+    {
+        return zero_chemistry_guardrail_tensors(device);
     }
     let all_detached = valence_execution != AuxiliaryObjectiveExecution::Trainable
-        && bond_execution != AuxiliaryObjectiveExecution::Trainable;
-    let (mut valence, mut bond) = if all_detached {
+        && bond_execution != AuxiliaryObjectiveExecution::Trainable
+        && nonbonded_execution != AuxiliaryObjectiveExecution::Trainable
+        && angle_execution != AuxiliaryObjectiveExecution::Trainable;
+    let mut tensors = if all_detached {
         no_grad(compute)
     } else {
         compute()
     };
     if valence_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
-        valence = zero_tensor(device);
+        tensors.valence_guardrail = zero_tensor(device);
+        tensors.valence_overage_guardrail = zero_tensor(device);
+        tensors.valence_underage_guardrail = zero_tensor(device);
     }
     if bond_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
-        bond = zero_tensor(device);
+        tensors.bond_length_guardrail = zero_tensor(device);
     }
-    (valence, bond)
+    if nonbonded_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
+        tensors.nonbonded_distance_guardrail = zero_tensor(device);
+    }
+    if angle_execution == AuxiliaryObjectiveExecution::SkippedZeroWeight {
+        tensors.angle_guardrail = zero_tensor(device);
+    }
+    tensors
+}
+
+fn zero_chemistry_guardrail_tensors(device: tch::Device) -> ChemistryGuardrailAuxOutput {
+    ChemistryGuardrailAuxOutput {
+        valence_guardrail: zero_tensor(device),
+        valence_overage_guardrail: zero_tensor(device),
+        valence_underage_guardrail: zero_tensor(device),
+        bond_length_guardrail: zero_tensor(device),
+        nonbonded_distance_guardrail: zero_tensor(device),
+        angle_guardrail: zero_tensor(device),
+    }
+}
+
+fn pocket_prior_for_execution(
+    execution: AuxiliaryObjectiveExecution,
+    device: tch::Device,
+    compute: impl FnOnce() -> PocketPriorAuxOutput,
+) -> PocketPriorAuxOutput {
+    match execution {
+        AuxiliaryObjectiveExecution::Trainable => compute(),
+        AuxiliaryObjectiveExecution::DetachedDiagnostic => no_grad(compute),
+        AuxiliaryObjectiveExecution::SkippedZeroWeight => zero_pocket_prior_tensors(device),
+    }
+}
+
+fn zero_pocket_prior_tensors(device: tch::Device) -> PocketPriorAuxOutput {
+    let zero = zero_tensor(device);
+    PocketPriorAuxOutput {
+        total: zero.shallow_clone(),
+        atom_count: zero.shallow_clone(),
+        composition: zero,
+        atom_count_mae: 0.0,
+    }
 }
 
 fn average_mi(
@@ -1149,10 +1383,16 @@ mod tests {
         let mut slot_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
         let mut consistency_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
         let mut contact_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut pair_distance_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
         let mut clash_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut shape_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
         let mut envelope_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
         let mut valence_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut valence_overage_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut valence_underage_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
         let mut bond_length_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut nonbonded_distance_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let mut angle_manual = Tensor::zeros([1], (Kind::Float, Device::Cpu));
         for (example, forward) in examples.iter().zip(forwards.iter()) {
             let affinity_weight = example
                 .targets
@@ -1169,34 +1409,91 @@ mod tests {
             gate_manual += block.gate.compute(&forward.interactions);
             slot_manual += block.slot.compute(forward);
             consistency_manual += block.consistency.compute(example, forward);
-            let (contact, clash, envelope) = block.pocket_geometry.compute(example, forward);
-            contact_manual += contact;
-            clash_manual += clash;
-            envelope_manual += envelope;
-            let (valence, bond_length) = block.chemistry_guardrails.compute(example, forward);
-            valence_manual += valence;
-            bond_length_manual += bond_length;
+            let pocket = block.pocket_geometry.compute_components(example, forward);
+            contact_manual += pocket.contact;
+            pair_distance_manual += pocket.pair_distance;
+            clash_manual += pocket.clash;
+            shape_manual += pocket.shape_complementarity;
+            envelope_manual += pocket.envelope;
+            let chemistry = block.chemistry_guardrails.compute(example, forward);
+            valence_manual += chemistry.valence_guardrail;
+            valence_overage_manual += chemistry.valence_overage_guardrail;
+            valence_underage_manual += chemistry.valence_underage_guardrail;
+            bond_length_manual += chemistry.bond_length_guardrail;
+            nonbonded_distance_manual += chemistry.nonbonded_distance_guardrail;
+            angle_manual += chemistry.angle_guardrail;
         }
 
-        assert_close(&batch.probe, &(probe_manual / denom));
+        assert_close("probe", &batch.probe, &(probe_manual / denom));
         assert_eq!(batch.probe_ligand_pharmacophore.double_value(&[]), 0.0);
         assert_eq!(batch.probe_pocket_pharmacophore.double_value(&[]), 0.0);
-        assert_close(&batch.intra_red, &(redundancy_manual / denom));
-        assert_close(&batch.leak, &(leakage_manual / denom));
+        assert_close("intra_red", &batch.intra_red, &(redundancy_manual / denom));
+        assert_close("leak", &batch.leak, &(leakage_manual / denom));
         assert_eq!(batch.leak_topology_to_geometry.double_value(&[]), 0.0);
         assert_eq!(batch.leak_geometry_to_topology.double_value(&[]), 0.0);
         assert_eq!(batch.leak_pocket_to_geometry.double_value(&[]), 0.0);
         assert_eq!(batch.leak_topology_to_pocket_role.double_value(&[]), 0.0);
         assert_eq!(batch.leak_geometry_to_pocket_role.double_value(&[]), 0.0);
+        assert_eq!(batch.leak_pocket_to_topology_role.double_value(&[]), 0.0);
         assert_eq!(batch.leak_pocket_to_ligand_role.double_value(&[]), 0.0);
-        assert_close(&batch.gate, &(gate_manual / denom));
-        assert_close(&batch.slot, &(slot_manual / denom));
-        assert_close(&batch.consistency, &(consistency_manual / denom));
-        assert_close(&batch.pocket_contact, &(contact_manual / denom));
-        assert_close(&batch.pocket_clash, &(clash_manual / denom));
-        assert_close(&batch.pocket_envelope, &(envelope_manual / denom));
-        assert_close(&batch.valence_guardrail, &(valence_manual / denom));
-        assert_close(&batch.bond_length_guardrail, &(bond_length_manual / denom));
+        assert_close("gate", &batch.gate, &(gate_manual / denom));
+        assert_close("slot", &batch.slot, &(slot_manual / denom));
+        assert_close(
+            "consistency",
+            &batch.consistency,
+            &(consistency_manual / denom),
+        );
+        assert_close(
+            "pocket_contact",
+            &batch.pocket_contact,
+            &(contact_manual / denom),
+        );
+        assert_close(
+            "pocket_pair_distance",
+            &batch.pocket_pair_distance,
+            &(pair_distance_manual / denom),
+        );
+        assert_close("pocket_clash", &batch.pocket_clash, &(clash_manual / denom));
+        assert_close(
+            "pocket_shape_complementarity",
+            &batch.pocket_shape_complementarity,
+            &(shape_manual / denom),
+        );
+        assert_close(
+            "pocket_envelope",
+            &batch.pocket_envelope,
+            &(envelope_manual / denom),
+        );
+        assert_close(
+            "valence_guardrail",
+            &batch.valence_guardrail,
+            &(valence_manual / denom),
+        );
+        assert_close(
+            "valence_overage_guardrail",
+            &batch.valence_overage_guardrail,
+            &(valence_overage_manual / denom),
+        );
+        assert_close(
+            "valence_underage_guardrail",
+            &batch.valence_underage_guardrail,
+            &(valence_underage_manual / denom),
+        );
+        assert_close(
+            "bond_length_guardrail",
+            &batch.bond_length_guardrail,
+            &(bond_length_manual / denom),
+        );
+        assert_close(
+            "nonbonded_distance_guardrail",
+            &batch.nonbonded_distance_guardrail,
+            &(nonbonded_distance_manual / denom),
+        );
+        assert_close(
+            "angle_guardrail",
+            &batch.angle_guardrail,
+            &(angle_manual / denom),
+        );
     }
 
     #[test]
@@ -1205,6 +1502,11 @@ mod tests {
             intra_red: Tensor::full([1], 0.2, (Kind::Float, Device::Cpu)),
             probe: Tensor::full([1], 0.4, (Kind::Float, Device::Cpu)),
             probe_core: Tensor::full([1], 0.31, (Kind::Float, Device::Cpu)),
+            probe_topology_sparse_negative_rate: Tensor::full(
+                [1],
+                0.01,
+                (Kind::Float, Device::Cpu),
+            ),
             probe_ligand_pharmacophore: Tensor::full([1], 0.04, (Kind::Float, Device::Cpu)),
             probe_pocket_pharmacophore: Tensor::full([1], 0.05, (Kind::Float, Device::Cpu)),
             leak: Tensor::full([1], 0.6, (Kind::Float, Device::Cpu)),
@@ -1219,16 +1521,27 @@ mod tests {
             leak_pocket_to_geometry: Tensor::full([1], 0.33, (Kind::Float, Device::Cpu)),
             leak_topology_to_pocket_role: Tensor::full([1], 0.06, (Kind::Float, Device::Cpu)),
             leak_geometry_to_pocket_role: Tensor::full([1], 0.07, (Kind::Float, Device::Cpu)),
+            leak_pocket_to_topology_role: Tensor::full([1], 0.09, (Kind::Float, Device::Cpu)),
             leak_pocket_to_ligand_role: Tensor::full([1], 0.08, (Kind::Float, Device::Cpu)),
             gate: Tensor::full([1], 0.8, (Kind::Float, Device::Cpu)),
             gate_path_contributions: Vec::new(),
             slot: Tensor::full([1], 1.0, (Kind::Float, Device::Cpu)),
             consistency: Tensor::full([1], 1.2, (Kind::Float, Device::Cpu)),
             pocket_contact: Tensor::full([1], 1.4, (Kind::Float, Device::Cpu)),
+            pocket_pair_distance: Tensor::full([1], 1.5, (Kind::Float, Device::Cpu)),
             pocket_clash: Tensor::full([1], 1.6, (Kind::Float, Device::Cpu)),
+            pocket_shape_complementarity: Tensor::full([1], 1.7, (Kind::Float, Device::Cpu)),
             pocket_envelope: Tensor::full([1], 1.8, (Kind::Float, Device::Cpu)),
+            pocket_prior: Tensor::full([1], 1.9, (Kind::Float, Device::Cpu)),
+            pocket_prior_atom_count: Tensor::full([1], 0.55, (Kind::Float, Device::Cpu)),
+            pocket_prior_composition: Tensor::full([1], 1.35, (Kind::Float, Device::Cpu)),
+            pocket_prior_atom_count_mae: 2.5,
             valence_guardrail: Tensor::full([1], 2.0, (Kind::Float, Device::Cpu)),
+            valence_overage_guardrail: Tensor::full([1], 0.7, (Kind::Float, Device::Cpu)),
+            valence_underage_guardrail: Tensor::full([1], 0.3, (Kind::Float, Device::Cpu)),
             bond_length_guardrail: Tensor::full([1], 2.2, (Kind::Float, Device::Cpu)),
+            nonbonded_distance_guardrail: Tensor::full([1], 2.4, (Kind::Float, Device::Cpu)),
+            angle_guardrail: Tensor::full([1], 2.6, (Kind::Float, Device::Cpu)),
             mi_topo_geo: 0.7,
             mi_topo_pocket: 0.8,
             mi_geo_pocket: 0.9,
@@ -1244,18 +1557,41 @@ mod tests {
             slot: 0.75,
             consistency: 0.9,
             pocket_contact: 0.0,
+            pocket_pair_distance: 0.4,
             pocket_clash: 1.1,
+            pocket_shape_complementarity: 1.2,
             pocket_envelope: 0.0,
+            pocket_prior: 1.3,
             valence_guardrail: 0.6,
             bond_length_guardrail: 0.0,
+            nonbonded_distance_guardrail: 0.8,
+            angle_guardrail: 0.0,
         };
 
         let (metrics, report) =
             tensors.to_metrics_with_weights(|tensor| tensor.double_value(&[]), &weights);
 
-        assert_eq!(report.entries.len(), 13);
+        assert_eq!(report.entries.len(), 18);
+        assert!((metrics.pocket_prior - 1.9).abs() < 1.0e-6);
+        assert!((metrics.pocket_prior_atom_count - 0.55).abs() < 1.0e-6);
+        assert!((metrics.pocket_prior_composition - 1.35).abs() < 1.0e-6);
+        assert!((metrics.pocket_prior_atom_count_mae - 2.5).abs() < 1.0e-6);
+        assert!((metrics.valence_overage_guardrail - 0.7).abs() < 1.0e-6);
+        assert!((metrics.valence_underage_guardrail - 0.3).abs() < 1.0e-6);
+        assert!((metrics.nonbonded_distance_guardrail - 2.4).abs() < 1.0e-6);
+        assert!((metrics.angle_guardrail - 2.6).abs() < 1.0e-6);
         assert!((metrics.leak_probe_fit_loss - 0.43).abs() < 1.0e-6);
         assert!((metrics.leak_encoder_penalty - 0.44).abs() < 1.0e-6);
+        assert!((metrics.leak_pocket_to_topology_role - 0.09).abs() < 1.0e-6);
+        assert!(
+            (metrics
+                .leakage_roles
+                .optimizer_penalty
+                .pharmacophore_role_penalty
+                - 0.30)
+                .abs()
+                < 1.0e-6
+        );
         assert_eq!(metrics.leak_route_status, "encoder_penalty");
         assert!(metrics.leakage_roles.optimizer_penalty.active);
         assert_eq!(
@@ -1292,14 +1628,20 @@ mod tests {
                 "slot",
                 "consistency",
                 "pocket_contact",
+                "pocket_pair_distance",
                 "pocket_clash",
+                "pocket_shape_complementarity",
                 "pocket_envelope",
+                "pocket_prior",
                 "valence_guardrail",
                 "bond_length_guardrail",
+                "nonbonded_distance_guardrail",
+                "angle_guardrail",
             ]
         );
         let expected_weights = [
-            0.25f64, 0.0, 0.2, 0.5, 0.3, 0.0, 0.75, 0.9, 0.0, 1.1, 0.0, 0.6, 0.0,
+            0.25f64, 0.0, 0.2, 0.5, 0.3, 0.0, 0.75, 0.9, 0.0, 0.4, 1.1, 1.2, 0.0, 1.3, 0.6, 0.0,
+            0.8, 0.0,
         ];
         for (entry, expected_weight) in report.entries.iter().zip(expected_weights) {
             assert_eq!(entry.effective_weight, expected_weight);
@@ -1334,10 +1676,15 @@ mod tests {
             slot: 0.0,
             consistency: 0.2,
             pocket_contact: 0.0,
+            pocket_pair_distance: 0.0,
             pocket_clash: 0.0,
+            pocket_shape_complementarity: 0.0,
             pocket_envelope: 0.0,
+            pocket_prior: 0.0,
             valence_guardrail: 0.0,
             bond_length_guardrail: 0.0,
+            nonbonded_distance_guardrail: 0.0,
+            angle_guardrail: 0.0,
         };
         let plan = AuxiliaryObjectiveExecutionPlan::from_effective_weights(&weights);
 
@@ -1398,10 +1745,15 @@ mod tests {
             slot: 0.0,
             consistency: 0.0,
             pocket_contact: 0.0,
+            pocket_pair_distance: 0.0,
             pocket_clash: 0.0,
+            pocket_shape_complementarity: 0.0,
             pocket_envelope: 0.0,
+            pocket_prior: 0.0,
             valence_guardrail: 0.0,
             bond_length_guardrail: 0.0,
+            nonbonded_distance_guardrail: 0.0,
+            angle_guardrail: 0.0,
         };
         let plan =
             AuxiliaryObjectiveExecutionPlan::from_effective_weights_with_detached_diagnostics(
@@ -1452,10 +1804,15 @@ mod tests {
             slot: 0.0,
             consistency: 0.1,
             pocket_contact: 0.0,
+            pocket_pair_distance: 0.0,
             pocket_clash: 0.0,
+            pocket_shape_complementarity: 0.0,
             pocket_envelope: 0.0,
+            pocket_prior: 0.0,
             valence_guardrail: 0.0,
             bond_length_guardrail: 0.0,
+            nonbonded_distance_guardrail: 0.0,
+            angle_guardrail: 0.0,
         };
         let stage4_weights = EffectiveLossWeights {
             intra_red: 0.1,
@@ -1573,9 +1930,9 @@ mod tests {
         let expected_balance = Tensor::from(expected_balance);
         let expected_combined = Tensor::from(expected_combined);
 
-        assert_close(&sparse_only, &expected_sparse);
-        assert_close(&balance_only, &expected_balance);
-        assert_close(&combined, &expected_combined);
+        assert_close("sparse_only", &sparse_only, &expected_sparse);
+        assert_close("balance_only", &balance_only, &expected_balance);
+        assert_close("combined", &combined, &expected_combined);
         assert!(sparse_only.double_value(&[]).is_finite());
         assert!(balance_only.double_value(&[]).is_finite());
         assert!(combined.double_value(&[]).is_finite());
@@ -1614,7 +1971,7 @@ mod tests {
         let topology_only_value = loss.compute(&topology_only);
         let all_disabled_value = loss.compute(&all_disabled);
 
-        assert_close(&full_value, &topology_only_value);
+        assert_close("full_value", &full_value, &topology_only_value);
         assert_eq!(all_disabled_value.double_value(&[]), 0.0);
     }
 
@@ -1652,11 +2009,11 @@ mod tests {
         assert!(slot_mass_balance_penalty(&balanced).double_value(&[]) <= 1.0e-7);
     }
 
-    fn assert_close(left: &Tensor, right: &Tensor) {
+    fn assert_close(label: &str, left: &Tensor, right: &Tensor) {
         let delta = (left - right).abs().double_value(&[]);
         assert!(
             delta <= 1e-5,
-            "loss mismatch: left={} right={} delta={delta}",
+            "{label} loss mismatch: left={} right={} delta={delta}",
             left.double_value(&[]),
             right.double_value(&[])
         );

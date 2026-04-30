@@ -126,6 +126,30 @@ pub struct ProbeBaselineMetric {
     /// Interpretation note for leakage/specialization review.
     #[serde(default)]
     pub interpretation: String,
+    /// Mean target positive rate for binary probe targets.
+    #[serde(default)]
+    pub target_positive_rate: Option<f64>,
+    /// Mean predicted probability for binary probe targets.
+    #[serde(default)]
+    pub prediction_positive_rate: Option<f64>,
+    /// Absolute gap between predicted and target positive rates.
+    #[serde(default)]
+    pub positive_rate_gap: Option<f64>,
+    /// BCE contribution on positive labels for binary probe targets.
+    #[serde(default)]
+    pub positive_observed_loss: Option<f64>,
+    /// BCE contribution on negative labels for binary probe targets.
+    #[serde(default)]
+    pub negative_observed_loss: Option<f64>,
+    /// Mean scalar target value for regression probe targets.
+    #[serde(default)]
+    pub scalar_target_mean: Option<f64>,
+    /// Mean scalar prediction value for regression probe targets.
+    #[serde(default)]
+    pub scalar_prediction_mean: Option<f64>,
+    /// Mean signed scalar prediction error for regression probe targets.
+    #[serde(default)]
+    pub scalar_mean_error: Option<f64>,
 }
 
 /// Split-level counts needed to interpret evaluation outputs.
@@ -235,8 +259,23 @@ pub struct ModelDesignEvaluationMetrics {
     pub gate_activation_mean: f64,
     /// Mean directed gate saturation fraction.
     pub gate_saturation_fraction: f64,
+    /// Mean fraction of gate elements effectively closed.
+    #[serde(default)]
+    pub gate_closed_fraction_mean: f64,
+    /// Mean fraction of gate elements effectively open.
+    #[serde(default)]
+    pub gate_open_fraction_mean: f64,
+    /// Mean sigmoid-derivative proxy for gate gradient health.
+    #[serde(default)]
+    pub gate_gradient_proxy_mean: f64,
+    /// Mean norm of effective gated interaction updates.
+    #[serde(default)]
+    pub gate_effective_update_norm_mean: f64,
     /// Number of directed-path gate warnings observed across examples.
     pub gate_warning_count: usize,
+    /// Compact audit note for interpreting gate health diagnostics.
+    #[serde(default)]
+    pub gate_audit_note: String,
     /// Mean leakage proxy from cross-modality slot similarity.
     pub leakage_proxy_mean: f64,
     /// Canonical layer interpreted as raw model-native output.
@@ -297,7 +336,12 @@ impl Default for ModelDesignEvaluationMetrics {
             slot_signature_similarity_mean: 0.0,
             gate_activation_mean: 0.0,
             gate_saturation_fraction: 0.0,
+            gate_closed_fraction_mean: 0.0,
+            gate_open_fraction_mean: 0.0,
+            gate_gradient_proxy_mean: 0.0,
+            gate_effective_update_norm_mean: 0.0,
             gate_warning_count: 0,
+            gate_audit_note: String::new(),
             leakage_proxy_mean: 0.0,
             raw_model_layer: "raw_rollout".to_string(),
             processed_layer: "unavailable".to_string(),
@@ -374,6 +418,92 @@ pub struct StratumEvaluationMetrics {
     pub average_pocket_atoms: f64,
 }
 
+/// Claim-facing evaluation matrix spanning seen, unseen, test, and stress surfaces.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EvaluationMatrixReport {
+    /// Schema version for compatibility checks.
+    #[serde(default = "default_evaluation_matrix_schema_version")]
+    pub schema_version: u32,
+    /// Dataset-level pocket identity policy used for unseen-pocket interpretation.
+    #[serde(default)]
+    pub pocket_identity_policy: String,
+    /// Rows in stable claim-review order.
+    #[serde(default)]
+    pub rows: Vec<EvaluationMatrixRow>,
+}
+
+fn default_evaluation_matrix_schema_version() -> u32 {
+    1
+}
+
+/// One row of the unseen-pocket evaluation matrix.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EvaluationMatrixRow {
+    /// Stable row label.
+    pub split_label: String,
+    /// Split family: seen_pocket_validation, unseen_pocket_validation, unseen_pocket_test, or stress_pocket.
+    pub split_type: String,
+    /// Pocket identity handling for this row.
+    pub pocket_identity_handling: String,
+    /// evaluated, configured_not_evaluated, or not_configured.
+    pub evaluation_status: String,
+    /// Number of examples represented by this row.
+    pub example_count: usize,
+    /// Quality metrics used by generation claims.
+    pub quality: EvaluationMatrixQualityMetrics,
+    /// Efficiency metrics used by runtime and scaling claims.
+    pub efficiency: EvaluationMatrixEfficiencyMetrics,
+}
+
+/// Quality slice copied into the evaluation matrix.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EvaluationMatrixQualityMetrics {
+    /// Raw model-native valid fraction.
+    #[serde(default)]
+    pub raw_valid_fraction: Option<f64>,
+    /// Raw model-native pocket contact fraction.
+    #[serde(default)]
+    pub raw_pocket_contact_fraction: Option<f64>,
+    /// Raw model-native clash fraction.
+    #[serde(default)]
+    pub raw_clash_fraction: Option<f64>,
+    /// Preferred processed-layer valid fraction.
+    #[serde(default)]
+    pub processed_valid_fraction: Option<f64>,
+    /// Diversity/uniqueness signal when available.
+    #[serde(default)]
+    pub diversity_unique_fraction: Option<f64>,
+    /// Mean active slot fraction.
+    #[serde(default)]
+    pub slot_activation_mean: Option<f64>,
+    /// Mean directed gate activation.
+    #[serde(default)]
+    pub gate_activation_mean: Option<f64>,
+    /// Mean leakage proxy.
+    #[serde(default)]
+    pub leakage_proxy_mean: Option<f64>,
+}
+
+/// Efficiency slice copied into the evaluation matrix.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EvaluationMatrixEfficiencyMetrics {
+    /// Elapsed evaluation time in milliseconds.
+    #[serde(default)]
+    pub evaluation_time_ms: Option<f64>,
+    /// Evaluated examples per second.
+    #[serde(default)]
+    pub examples_per_second: Option<f64>,
+    /// Configured evaluation batch size.
+    #[serde(default)]
+    pub evaluation_batch_size: Option<usize>,
+    /// Number of forward batches.
+    #[serde(default)]
+    pub forward_batch_count: Option<usize>,
+    /// Whether evaluation ran without gradient tracking.
+    #[serde(default)]
+    pub no_grad: Option<bool>,
+}
+
 /// Split-level audit that separates optimizer-facing training terms from detached evaluation evidence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainEvalAlignmentReport {
@@ -411,6 +541,9 @@ pub struct TrainEvalAlignmentMetricRow {
     pub metric_name: String,
     /// Coarse metric family, such as `representation`, `raw_candidate`, or `backend`.
     pub metric_family: String,
+    /// Target or evidence source that produced this metric row.
+    #[serde(default = "default_train_eval_target_source")]
+    pub target_source: String,
     /// Evidence role, such as `optimizer_term`, `detached_diagnostic`, or `claim_backend`.
     pub evidence_role: String,
     /// Observed scalar value when available.
@@ -445,6 +578,10 @@ pub struct TrainEvalAlignmentMetricRow {
     pub backend_coverage_fraction: Option<f64>,
     /// Claim boundary attached to this metric row.
     pub claim_boundary: String,
+}
+
+fn default_train_eval_target_source() -> String {
+    "legacy_unknown".to_string()
 }
 
 /// Backend coverage contract row used by claim gates.
@@ -920,6 +1057,17 @@ pub fn canonical_generation_path_contract() -> Vec<GenerationPathContractRow> {
         ],
         claim_boundary: CandidateLayerKind::Reranked.claim_boundary().to_string(),
     });
+    rows.push(GenerationPathContractRow {
+        canonical_layer: "external_scored_candidates".to_string(),
+        legacy_field_name: "backend_scored_candidates".to_string(),
+        generation_path_class: "external_backend".to_string(),
+        model_native_raw: false,
+        backend_supported: true,
+        postprocessor_chain: vec!["external_backend_scoring".to_string()],
+        claim_boundary:
+            "external backend scoring evidence; supports downstream scoring claims, not raw-native model quality by itself"
+                .to_string(),
+    });
     rows
 }
 
@@ -932,6 +1080,9 @@ pub struct FlowHeadAblationDiagnostics {
     pub head_kind: String,
     /// Whether local atom-to-pocket attention is selected.
     pub local_atom_pocket_attention: bool,
+    /// Whether the EGNN-style equivariant geometry head is selected.
+    #[serde(default)]
+    pub equivariant_geometry_head: bool,
     /// Whether pairwise ligand geometry messages are enabled.
     pub pairwise_geometry_enabled: bool,
     /// Stable ablation label used in configs and reports.
@@ -981,6 +1132,7 @@ impl Default for FlowHeadAblationDiagnostics {
             schema_version: 1,
             head_kind: "geometry".to_string(),
             local_atom_pocket_attention: false,
+            equivariant_geometry_head: false,
             pairwise_geometry_enabled: false,
             ablation_label: "geometry_mean_pooling".to_string(),
             decoder_conditioning_kind: default_decoder_conditioning_label(),
@@ -1382,6 +1534,12 @@ pub struct PlannedMetricInterface {
 /// Compact quality summary for a homogeneous candidate layer.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CandidateLayerMetrics {
+    /// Canonical candidate layer name represented by this homogeneous summary.
+    #[serde(default = "default_candidate_layer_label")]
+    pub layer_name: String,
+    /// Provenance label for pocket-interaction proxy metrics in this layer.
+    #[serde(default = "default_pocket_interaction_provenance")]
+    pub pocket_interaction_provenance: String,
     /// Explicit generation-mode contract shared by candidates in this layer.
     #[serde(default = "default_generation_mode_label")]
     pub generation_mode: String,
@@ -1391,6 +1549,18 @@ pub struct CandidateLayerMetrics {
     pub valid_fraction: f64,
     /// Fraction with at least one atom near the pocket envelope.
     pub pocket_contact_fraction: f64,
+    /// Coarse atom-pocket distance-bin fit proxy for this layer.
+    #[serde(default)]
+    pub pocket_distance_bin_accuracy: f64,
+    /// Contact precision proxy: contacted candidates discounted by clash burden.
+    #[serde(default)]
+    pub pocket_contact_precision_proxy: f64,
+    /// Contact recall proxy: average fraction of atoms close to the pocket envelope.
+    #[serde(default)]
+    pub pocket_contact_recall_proxy: f64,
+    /// Optional role-compatibility proxy from ligand atom roles and pocket contact geometry.
+    #[serde(default)]
+    pub pocket_role_compatibility_proxy: f64,
     /// Average centroid offset from the pocket centroid.
     pub mean_centroid_offset: f64,
     /// Mean non-bonded clash proxy; lower is better.
@@ -1401,8 +1571,30 @@ pub struct CandidateLayerMetrics {
     /// Mean final rollout atom-change fraction when available.
     #[serde(default)]
     pub atom_change_fraction: f64,
-    /// Fraction of unique atom-type sequences and coarse coordinate buckets.
+    /// Fraction of unique validity-eligible equivalence classes among all candidates.
+    ///
+    /// Invalid candidates do not increase this fraction. The equivalence class
+    /// is permutation-invariant over atom order and uses atom composition,
+    /// typed bonds, pairwise distances, and pocket-radial distance buckets.
     pub uniqueness_proxy_fraction: f64,
+    /// Fraction of candidates eligible for diversity accounting.
+    ///
+    /// Eligible candidates have finite atom/coordinate payloads, synchronized
+    /// native bond indices, and no cached valence violations.
+    #[serde(default)]
+    pub diversity_eligible_fraction: f64,
+    /// Unique equivalence-class fraction among eligible candidates only.
+    #[serde(default)]
+    pub validity_conditioned_unique_fraction: f64,
+    /// Fraction of eligible candidates that collapse into duplicate equivalence classes.
+    #[serde(default)]
+    pub equivalence_duplicate_fraction: f64,
+    /// Fraction of candidates excluded from diversity accounting by raw validity checks.
+    #[serde(default)]
+    pub invalid_diversity_excluded_fraction: f64,
+    /// Provenance for the conservative diversity metric.
+    #[serde(default)]
+    pub diversity_metric_source: String,
     /// Fraction of unique atom-type sequences in the candidate layer.
     #[serde(default)]
     pub atom_type_sequence_diversity: f64,
@@ -1469,6 +1661,24 @@ pub struct CandidateLayerMetrics {
     /// Mean atom-level valence violation fraction for the native graph payload.
     #[serde(default)]
     pub native_valence_violation_fraction: f64,
+    /// Fraction of candidates whose native graph has more than one disconnected fragment.
+    #[serde(default)]
+    pub native_disconnected_fragment_fraction: f64,
+    /// Fraction of candidates with inconsistent native bond-order/type provenance.
+    #[serde(default)]
+    pub native_bond_order_conflict_fraction: f64,
+    /// Mean number of graph guardrail/repair actions separating raw native and constrained layers.
+    #[serde(default)]
+    pub native_graph_repair_delta_mean: f64,
+    /// Mean raw native bonds removed by constrained graph extraction.
+    #[serde(default)]
+    pub native_raw_to_constrained_removed_bond_count_mean: f64,
+    /// Mean connectivity guardrail bonds added to keep the native graph connected.
+    #[serde(default)]
+    pub native_connectivity_guardrail_added_bond_count_mean: f64,
+    /// Mean valence downgrade actions applied during native graph extraction.
+    #[serde(default)]
+    pub native_valence_guardrail_downgrade_count_mean: f64,
     /// Fraction whose cached bond count and explicit bond list are synchronized.
     #[serde(default)]
     pub topology_bond_sync_fraction: f64,
@@ -1481,6 +1691,79 @@ pub struct CandidateLayerMetrics {
     /// Boundary label explaining whether these native graph metrics are raw or postprocessed.
     #[serde(default)]
     pub native_graph_metric_source: String,
+}
+
+/// Standalone report focused on raw model-native generation evidence.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RawNativeGenerationReport {
+    /// Schema version for compatibility checks.
+    pub schema_version: u32,
+    /// Human-readable report role.
+    pub report_role: String,
+    /// Claim-facing split used for this report.
+    pub split_label: String,
+    /// Raw model-native layer summary.
+    pub raw_native: RawNativeLayerSummary,
+    /// Additive processed/repaired layer summary.
+    pub processed: RawNativeLayerSummary,
+    /// Rollout diagnostics tied to raw generation.
+    pub rollout_diagnostics: RawNativeRolloutDiagnostics,
+    /// Latest objective-family budget report from training, when available.
+    #[serde(default)]
+    pub objective_families: Vec<crate::training::ObjectiveFamilyBudgetEntry>,
+    /// Claim eligibility summary separating supported from unsupported statements.
+    pub claim_eligibility: RawNativeClaimEligibility,
+}
+
+/// Compact layer summary for raw-native generation reporting.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RawNativeLayerSummary {
+    /// Candidate layer label.
+    pub layer_name: String,
+    /// Whether this layer is model-native raw output.
+    pub model_native_raw: bool,
+    /// Number of candidates represented.
+    pub candidate_count: usize,
+    /// Valid candidate fraction.
+    pub valid_fraction: f64,
+    /// Pocket-contact fraction.
+    pub pocket_contact_fraction: f64,
+    /// Clash fraction.
+    pub clash_fraction: f64,
+    /// Diversity fraction among validity-eligible candidates.
+    pub validity_conditioned_unique_fraction: f64,
+    /// Claim boundary for this layer.
+    pub claim_boundary: String,
+}
+
+/// Raw rollout diagnostics copied into the standalone report.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RawNativeRolloutDiagnostics {
+    /// Generation mode label.
+    pub generation_mode: String,
+    /// Mean raw rollout displacement.
+    pub raw_model_mean_displacement: f64,
+    /// Latest optimizer-facing rollout training enabled flag.
+    #[serde(default)]
+    pub latest_rollout_training_enabled: bool,
+    /// Latest optimizer-facing rollout training active flag.
+    #[serde(default)]
+    pub latest_rollout_training_active: bool,
+    /// Latest generated-state validity proxy from rollout training.
+    #[serde(default)]
+    pub latest_generated_state_validity: Option<f64>,
+}
+
+/// Claim eligibility section for raw-native generation reporting.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RawNativeClaimEligibility {
+    /// support label: supported, weakly_supported, or unsupported.
+    pub status: String,
+    /// Whether repaired/processed evidence is additive rather than raw-native evidence.
+    pub processed_evidence_additive_only: bool,
+    /// Reasons preventing stronger raw-native claims.
+    #[serde(default)]
+    pub unsupported_reasons: Vec<String>,
 }
 
 /// Compact per-candidate metric snapshot for raw-vs-repaired repair audits.
@@ -1862,6 +2145,9 @@ pub struct UnseenPocketExperimentSummary {
     pub validation: EvaluationMetrics,
     /// Test metrics on unseen-pocket split.
     pub test: EvaluationMetrics,
+    /// Explicit seen/unseen/test/stress evaluation matrix for claim review.
+    #[serde(default)]
+    pub evaluation_matrix: EvaluationMatrixReport,
     /// Optional ablation-matrix summary emitted alongside the base run.
     pub ablation_matrix: Option<AblationMatrixSummary>,
     /// Optional performance regression gate report.
@@ -1959,6 +2245,67 @@ pub struct AblationRunSummary {
     pub validation: GenerationQualitySummary,
     /// Test comparison summary.
     pub test: GenerationQualitySummary,
+    /// Explicit raw-native generation quality slice for claim-safe ablation review.
+    #[serde(default)]
+    pub raw_generation_quality: AblationRawGenerationQuality,
+    /// Runtime slice used to compare generation-alignment costs.
+    #[serde(default)]
+    pub runtime: AblationRuntimeSummary,
+    /// Latest optimizer objective-family behavior, when this variant ran training.
+    #[serde(default)]
+    pub objective_families: Vec<crate::training::ObjectiveFamilyBudgetEntry>,
+}
+
+/// Raw model-native quality fields copied into ablation matrix rows.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AblationRawGenerationQuality {
+    /// Split represented by this quality slice.
+    #[serde(default)]
+    pub split_label: String,
+    /// Canonical raw model-native layer name.
+    #[serde(default)]
+    pub raw_layer: String,
+    /// Raw model-native validity fraction.
+    #[serde(default)]
+    pub raw_valid_fraction: f64,
+    /// Raw model-native pocket-contact fraction.
+    #[serde(default)]
+    pub raw_pocket_contact_fraction: f64,
+    /// Raw model-native clash fraction.
+    #[serde(default)]
+    pub raw_clash_fraction: f64,
+    /// Mean final raw rollout displacement.
+    #[serde(default)]
+    pub raw_mean_displacement: f64,
+    /// Validity-conditioned uniqueness for raw rollout candidates.
+    #[serde(default)]
+    pub raw_validity_conditioned_unique_fraction: f64,
+}
+
+/// Runtime fields copied into ablation matrix rows.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AblationRuntimeSummary {
+    /// Elapsed evaluation time in milliseconds.
+    #[serde(default)]
+    pub evaluation_time_ms: f64,
+    /// Evaluated examples per second.
+    #[serde(default)]
+    pub examples_per_second: f64,
+    /// Process memory delta in MB during evaluation.
+    #[serde(default)]
+    pub memory_usage_mb: f64,
+    /// Configured evaluation batch size.
+    #[serde(default)]
+    pub evaluation_batch_size: usize,
+    /// Number of batched forward passes.
+    #[serde(default)]
+    pub forward_batch_count: usize,
+    /// Number of explicit per-example forward calls.
+    #[serde(default)]
+    pub per_example_forward_count: usize,
+    /// Whether evaluation ran without gradient tracking.
+    #[serde(default)]
+    pub no_grad: bool,
 }
 
 /// Compact claim-bearing report persisted for quick scientific review.
@@ -2252,6 +2599,14 @@ fn default_generation_mode_label() -> String {
     crate::config::GenerationModeConfig::TargetLigandDenoising
         .as_str()
         .to_string()
+}
+
+fn default_candidate_layer_label() -> String {
+    "unavailable".to_string()
+}
+
+fn default_pocket_interaction_provenance() -> String {
+    "unavailable".to_string()
 }
 
 fn default_interaction_mode_label() -> String {

@@ -12,6 +12,10 @@ use crate::config::DecoderConditioningKind;
 use crate::models::{ConditioningState, ModelError};
 
 const PAIR_LOGIT_ROW_CHUNK_SIZE: i64 = 64;
+const BOND_DISTANCE_PRIOR_CENTER_ANGSTROM: f64 = 1.50;
+const BOND_DISTANCE_PRIOR_WIDTH_ANGSTROM: f64 = 0.32;
+const BOND_DISTANCE_PRIOR_PEAK_LOGIT: f64 = 0.70;
+const BOND_DISTANCE_PRIOR_FLOOR_LOGIT: f64 = -6.0;
 
 /// Inputs shared by non-coordinate molecular flow branches.
 pub struct MolecularFlowInput<'a> {
@@ -242,8 +246,13 @@ impl FullMolecularFlowHead {
         let centered_coords = input.coords - reference_centroid.unsqueeze(0);
         let centered_x0 = input.x0_coords - reference_centroid.unsqueeze(0);
         let displacement = &centered_coords - &centered_x0;
+        let atom_geometry_features =
+            atom_invariant_geometry_features(&centered_coords, &centered_x0, &displacement);
         let local_conditioning_query = Tensor::cat(
-            &[atom_tokens.shallow_clone(), centered_coords.shallow_clone()],
+            &[
+                atom_tokens.shallow_clone(),
+                atom_geometry_features.narrow(1, 0, 3),
+            ],
             1,
         )
         .apply(&self.local_conditioning_query_projection)
@@ -259,9 +268,7 @@ impl FullMolecularFlowHead {
         let atom_hidden = Tensor::cat(
             &[
                 atom_tokens,
-                centered_coords.shallow_clone(),
-                centered_x0,
-                displacement,
+                atom_geometry_features,
                 repeated_context,
                 repeated_timestep,
             ],
@@ -271,7 +278,8 @@ impl FullMolecularFlowHead {
         .relu();
         let atom_type_logits = atom_hidden.apply(&self.atom_type_head);
 
-        let pair_prediction = self.predict_pair_logits(&atom_hidden, &centered_coords);
+        let pair_prediction =
+            self.predict_pair_logits(&atom_hidden, &centered_coords, input.atom_types);
         let bond_exists_logits = pair_prediction.bond_exists_logits;
         let topology_logits = pair_prediction.topology_logits;
         let bond_type_logits = pair_prediction.bond_type_logits;
@@ -320,6 +328,10 @@ impl FullMolecularFlowHead {
             "molecular_flow_pair_logit_max_chunk_rows".to_string(),
             pair_prediction.max_chunk_rows as f64,
         );
+        diagnostics.insert(
+            "molecular_flow_bond_distance_prior_mean".to_string(),
+            pair_prediction.bond_distance_prior_mean,
+        );
 
         Ok(MolecularFlowPrediction {
             atom_type_logits,
@@ -349,6 +361,7 @@ impl FullMolecularFlowHead {
         &self,
         atom_hidden: &Tensor,
         centered_coords: &Tensor,
+        atom_types: &Tensor,
     ) -> PairPrediction {
         let num_atoms = atom_hidden.size()[0];
         let chunk_size = PAIR_LOGIT_ROW_CHUNK_SIZE.max(1);
@@ -370,11 +383,21 @@ impl FullMolecularFlowHead {
                 .unsqueeze(0)
                 .expand([rows, num_atoms, self.hidden_dim], true);
             let pair_delta = coord_rows.unsqueeze(1) - centered_coords.unsqueeze(0);
-            let pair_distance = pair_delta
+            let pair_distance_sq = pair_delta
                 .pow_tensor_scalar(2.0)
                 .sum_dim_intlist([2].as_slice(), true, Kind::Float)
-                .sqrt();
-            let pair_hidden = Tensor::cat(&[left, right, pair_delta, pair_distance], 2)
+                .clamp_min(1.0e-12);
+            let pair_distance = pair_distance_sq.sqrt();
+            let pair_invariants = Tensor::cat(
+                &[
+                    pair_distance.shallow_clone(),
+                    pair_distance_sq,
+                    (&pair_distance + 1.0e-6).reciprocal(),
+                    Tensor::ones_like(&pair_distance),
+                ],
+                2,
+            );
+            let pair_hidden = Tensor::cat(&[left, right, pair_invariants], 2)
                 .apply(&self.pair_projection)
                 .relu();
             bond_exists_chunks.push(pair_hidden.apply(&self.bond_exists_head).squeeze_dim(-1));
@@ -385,7 +408,9 @@ impl FullMolecularFlowHead {
             start += rows;
         }
 
-        let raw_bond_exists_logits = Tensor::cat(&bond_exists_chunks, 0);
+        let bond_distance_prior = bond_distance_logit_prior(centered_coords, atom_types);
+        let bond_distance_prior_mean = bond_distance_prior.mean(Kind::Float).double_value(&[]);
+        let raw_bond_exists_logits = Tensor::cat(&bond_exists_chunks, 0) + &bond_distance_prior;
         let raw_topology_logits = Tensor::cat(&topology_chunks, 0);
         let raw_bond_type_logits = Tensor::cat(&bond_type_chunks, 0);
         PairPrediction {
@@ -394,6 +419,7 @@ impl FullMolecularFlowHead {
             bond_type_logits: symmetrize_pair_logits(&raw_bond_type_logits),
             chunk_count,
             max_chunk_rows,
+            bond_distance_prior_mean,
         }
     }
 
@@ -423,6 +449,7 @@ struct PairPrediction {
     bond_type_logits: Tensor,
     chunk_count: usize,
     max_chunk_rows: usize,
+    bond_distance_prior_mean: f64,
 }
 
 fn conditioning_summary(
@@ -448,6 +475,45 @@ fn mean_or_zeros(tensor: &Tensor, hidden_dim: i64, device: tch::Device) -> Tenso
             .to_device(device)
             .mean_dim([0].as_slice(), false, Kind::Float)
     }
+}
+
+fn atom_invariant_geometry_features(
+    centered_coords: &Tensor,
+    centered_x0: &Tensor,
+    displacement: &Tensor,
+) -> Tensor {
+    let coord_norm = row_norm(centered_coords);
+    let x0_norm = row_norm(centered_x0);
+    let displacement_norm = row_norm(displacement);
+    let coord_x0_dot = row_dot(centered_coords, centered_x0);
+    let coord_displacement_dot = row_dot(centered_coords, displacement);
+    let x0_displacement_dot = row_dot(centered_x0, displacement);
+    Tensor::cat(
+        &[
+            coord_norm.shallow_clone(),
+            x0_norm.shallow_clone(),
+            displacement_norm.shallow_clone(),
+            coord_x0_dot,
+            coord_displacement_dot,
+            x0_displacement_dot,
+            coord_norm.pow_tensor_scalar(2.0),
+            x0_norm.pow_tensor_scalar(2.0),
+            displacement_norm.pow_tensor_scalar(2.0),
+        ],
+        1,
+    )
+}
+
+fn row_norm(values: &Tensor) -> Tensor {
+    values
+        .pow_tensor_scalar(2.0)
+        .sum_dim_intlist([1].as_slice(), true, Kind::Float)
+        .clamp_min(1.0e-12)
+        .sqrt()
+}
+
+fn row_dot(left: &Tensor, right: &Tensor) -> Tensor {
+    (left * right).sum_dim_intlist([1].as_slice(), true, Kind::Float)
 }
 
 fn slot_local_conditioning(
@@ -536,6 +602,75 @@ fn symmetrize_pair_logits(logits: &Tensor) -> Tensor {
     (logits + logits.transpose(0, 1)) * 0.5
 }
 
+fn bond_distance_logit_prior(centered_coords: &Tensor, atom_types: &Tensor) -> Tensor {
+    let atom_count = centered_coords.size().first().copied().unwrap_or(0).max(0);
+    if atom_count <= 0 {
+        return Tensor::zeros([0, 0], (Kind::Float, centered_coords.device()));
+    }
+    let pair_delta = centered_coords.unsqueeze(1) - centered_coords.unsqueeze(0);
+    let pair_distance = pair_delta
+        .pow_tensor_scalar(2.0)
+        .sum_dim_intlist([2].as_slice(), false, Kind::Float)
+        .clamp_min(1.0e-12)
+        .sqrt();
+    let radii = covalent_radius_tensor(atom_types, atom_count, centered_coords.device());
+    let ideal_distance = (radii.unsqueeze(1) + radii.unsqueeze(0))
+        .clamp_min(BOND_DISTANCE_PRIOR_CENTER_ANGSTROM * 0.4);
+    let width = (&ideal_distance * 0.25)
+        .clamp_min(BOND_DISTANCE_PRIOR_WIDTH_ANGSTROM * 0.55)
+        .clamp_max(BOND_DISTANCE_PRIOR_WIDTH_ANGSTROM * 1.4);
+    let normalized = (pair_distance - ideal_distance).abs() / width;
+    let prior = (BOND_DISTANCE_PRIOR_PEAK_LOGIT - normalized.pow_tensor_scalar(2.0)).clamp(
+        BOND_DISTANCE_PRIOR_FLOOR_LOGIT,
+        BOND_DISTANCE_PRIOR_PEAK_LOGIT,
+    );
+    let hydrogen = aligned_atom_types(atom_types, atom_count, centered_coords.device())
+        .eq(4)
+        .to_kind(Kind::Float);
+    let hydrogen_pair = hydrogen.unsqueeze(1) * hydrogen.unsqueeze(0);
+    let diagonal = Tensor::eye(atom_count, (Kind::Float, centered_coords.device()));
+    let invalid_pair_mask = (hydrogen_pair + diagonal).clamp(0.0, 1.0);
+    &prior * (Tensor::ones_like(&invalid_pair_mask) - &invalid_pair_mask)
+        + invalid_pair_mask * BOND_DISTANCE_PRIOR_FLOOR_LOGIT
+}
+
+fn aligned_atom_types(atom_types: &Tensor, atom_count: i64, device: tch::Device) -> Tensor {
+    if atom_count <= 0 {
+        return Tensor::zeros([0], (Kind::Int64, device));
+    }
+    let available = atom_types.size().first().copied().unwrap_or(0).max(0);
+    if available >= atom_count {
+        atom_types.narrow(0, 0, atom_count).to_device(device)
+    } else {
+        let padded = Tensor::zeros([atom_count], (Kind::Int64, device));
+        if available > 0 {
+            padded
+                .narrow(0, 0, available)
+                .copy_(&atom_types.narrow(0, 0, available).to_device(device));
+        }
+        padded
+    }
+}
+
+fn covalent_radius_tensor(atom_types: &Tensor, atom_count: i64, device: tch::Device) -> Tensor {
+    let aligned = aligned_atom_types(atom_types, atom_count, device);
+    let radii = (0..atom_count)
+        .map(|index| covalent_radius(aligned.int64_value(&[index])) as f32)
+        .collect::<Vec<_>>();
+    Tensor::from_slice(&radii).to_device(device)
+}
+
+fn covalent_radius(atom_type: i64) -> f64 {
+    match atom_type {
+        0 => 0.77,
+        1 => 0.75,
+        2 => 0.73,
+        3 => 1.02,
+        4 => 0.37,
+        _ => 0.77,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -581,6 +716,47 @@ mod tests {
 
     fn max_abs_delta(lhs: &Tensor, rhs: &Tensor) -> f64 {
         (lhs - rhs).abs().max().double_value(&[])
+    }
+
+    fn rotate(coords: &Tensor, rotation: &Tensor) -> Tensor {
+        coords.matmul(&rotation.transpose(0, 1))
+    }
+
+    #[test]
+    fn bond_distance_prior_prefers_local_chemical_distances() {
+        let coords =
+            Tensor::from_slice(&[0.0_f32, 0.0, 0.0, 1.5, 0.0, 0.0, 4.0, 0.0, 0.0]).reshape([3, 3]);
+        let atom_types = Tensor::from_slice(&[0_i64, 0, 0]);
+
+        let prior = bond_distance_logit_prior(&coords, &atom_types);
+        let near = prior.double_value(&[0, 1]);
+        let far = prior.double_value(&[0, 2]);
+        let diagonal = prior.double_value(&[0, 0]);
+
+        assert!(
+            near > far + 5.0,
+            "near covalent-scale pairs should receive a much stronger native bond prior"
+        );
+        assert!(
+            diagonal < near - 5.0,
+            "self-pairs should not receive the local bond prior"
+        );
+    }
+
+    #[test]
+    fn bond_distance_prior_rejects_hydrogen_hydrogen_pairs() {
+        let coords = Tensor::from_slice(&[0.0_f32, 0.0, 0.0, 0.74, 0.0, 0.0, 1.15, 0.0, 0.0])
+            .reshape([3, 3]);
+        let atom_types = Tensor::from_slice(&[4_i64, 4, 0]);
+
+        let prior = bond_distance_logit_prior(&coords, &atom_types);
+        let hydrogen_hydrogen = prior.double_value(&[0, 1]);
+        let hydrogen_carbon = prior.double_value(&[0, 2]);
+
+        assert!(
+            hydrogen_hydrogen < hydrogen_carbon - 5.0,
+            "organic ligand native graph prior should suppress hydrogen-hydrogen bonds"
+        );
     }
 
     #[test]
@@ -774,6 +950,59 @@ mod tests {
                 &prediction.bond_exists_logits,
                 &prediction.bond_exists_logits.transpose(0, 1),
             ) < 1e-6
+        );
+    }
+
+    #[test]
+    fn molecular_flow_scalar_branches_are_rigid_motion_invariant() {
+        tch::manual_seed(29);
+        let vs = nn::VarStore::new(tch::Device::Cpu);
+        let head = FullMolecularFlowHead::new_with_conditioning_kind(
+            &vs.root(),
+            8,
+            4,
+            4,
+            DecoderConditioningKind::LocalAtomSlotAttention,
+        );
+        let atom_types = atom_types();
+        let coords = coords();
+        let x0_coords = Tensor::from_slice(&[0.1_f32, -0.2, 0.0, 0.8, 0.0, 0.1, -0.6, 0.5, 0.3])
+            .reshape([3, 3]);
+        let conditioning = conditioning(&same_mean_slots_a());
+        let rotation =
+            Tensor::from_slice(&[0.0_f32, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]).reshape([3, 3]);
+        let shift = Tensor::from_slice(&[3.0_f32, -2.0, 1.0]).reshape([1, 3]);
+
+        let base = head
+            .predict(MolecularFlowInput {
+                atom_types: &atom_types,
+                coords: &coords,
+                x0_coords: &x0_coords,
+                t: 0.35,
+                conditioning: &conditioning,
+            })
+            .unwrap();
+        let transformed_coords = rotate(&coords, &rotation) + &shift;
+        let transformed_x0 = rotate(&x0_coords, &rotation) + &shift;
+        let transformed = head
+            .predict(MolecularFlowInput {
+                atom_types: &atom_types,
+                coords: &transformed_coords,
+                x0_coords: &transformed_x0,
+                t: 0.35,
+                conditioning: &conditioning,
+            })
+            .unwrap();
+
+        assert!(max_abs_delta(&base.atom_type_logits, &transformed.atom_type_logits) < 1.0e-5);
+        assert!(max_abs_delta(&base.bond_exists_logits, &transformed.bond_exists_logits) < 1.0e-5);
+        assert!(max_abs_delta(&base.bond_type_logits, &transformed.bond_type_logits) < 1.0e-5);
+        assert!(max_abs_delta(&base.topology_logits, &transformed.topology_logits) < 1.0e-5);
+        assert!(
+            max_abs_delta(
+                &base.pocket_contact_logits,
+                &transformed.pocket_contact_logits
+            ) < 1.0e-5
         );
     }
 }

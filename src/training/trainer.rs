@@ -12,17 +12,18 @@ use tch::{nn, nn::OptimizerConfig, Kind, Tensor};
 use crate::{
     config::{
         AffinityWeighting, CrossAttentionMode, GenerationBackendFamilyConfig, GenerationModeConfig,
-        ModalityFocusConfig, ObjectiveGradientSamplingMode, PrimaryObjectiveConfig, ResearchConfig,
+        ModalityFocusConfig, ObjectiveBudgetAction, ObjectiveGradientSamplingMode,
+        ObjectiveScaleDiagnosticsConfig, PrimaryObjectiveConfig, ResearchConfig,
     },
     data::{
         sample_order_seed_for_epoch, ExampleBatchSampler, MolecularExample, MolecularExampleSource,
     },
     losses::{
         auxiliary::{AuxiliaryObjectiveExecutionPlan, AuxiliaryObjectiveTensors},
-        build_primary_objective, compute_primary_objective_batch_with_components,
-        AuxiliaryObjectiveBlock, PrimaryObjectiveWithComponents,
+        build_primary_objective, compute_primary_objective_batch_with_components_at_step,
+        compute_rollout_training_loss, AuxiliaryObjectiveBlock, PrimaryObjectiveWithComponents,
     },
-    models::{interaction::InteractionExecutionContext, Phase1ResearchSystem, ResearchForward},
+    models::{interaction::InteractionExecutionContext, Phase1ResearchSystem},
     training::{
         determinism_controls_from_config, stable_json_hash, METRIC_SCHEMA_VERSION,
         RESUME_CONTRACT_VERSION,
@@ -34,10 +35,9 @@ use super::{
     BackendTrainingMetadata, CheckpointManager, EffectiveLossWeights, GradientHealthMetrics,
     GradientModuleMetrics, InteractionStepMetrics, LoadedCheckpoint, LossBreakdown,
     ObjectiveExecutionCountMetrics, ObjectiveGradientDiagnostics, ObjectiveGradientFamilyMetrics,
-    OptimizerStateMetadata, PrimaryBranchScheduleReport, PrimaryBranchWeightRecord,
-    PrimaryObjectiveMetrics, SchedulerStateMetadata, SlotUtilizationStepMetrics,
-    StageProgressMetrics, StageScheduler, StepMetrics, SynchronizationHealthMetrics,
-    TrainingRuntimeProfileMetrics, TrainingStage,
+    OptimizerStateMetadata, PrimaryBranchScheduleReport, PrimaryObjectiveMetrics,
+    SchedulerStateMetadata, SlotUtilizationStepMetrics, StageProgressMetrics, StageScheduler,
+    StepMetrics, SynchronizationHealthMetrics, TrainingRuntimeProfileMetrics, TrainingStage,
 };
 
 /// Trainer that applies staged auxiliary losses to the new modular system.
@@ -70,6 +70,7 @@ struct StageSelection {
     stage: TrainingStage,
     held: bool,
     readiness_status: String,
+    promotion_gate_decision: String,
     readiness_reasons: Vec<String>,
 }
 
@@ -113,6 +114,7 @@ struct ForwardExecutionProfile {
     per_example_forward_count: usize,
     forward_execution_mode: String,
     de_novo_per_example_reason: Option<String>,
+    generation_sample_count: usize,
 }
 
 struct CheckpointStepTrigger {
@@ -200,6 +202,7 @@ impl<'a> StageStepRunner<'a> {
                 stage: fixed_stage,
                 held: false,
                 readiness_status: "disabled".to_string(),
+                promotion_gate_decision: "fixed_schedule".to_string(),
                 readiness_reasons: Vec::new(),
             };
         }
@@ -208,6 +211,7 @@ impl<'a> StageStepRunner<'a> {
                 stage: fixed_stage,
                 held: false,
                 readiness_status: "ready".to_string(),
+                promotion_gate_decision: "bootstrap".to_string(),
                 readiness_reasons: vec![
                     "stage1 bootstrap does not require prior readiness".to_string()
                 ],
@@ -220,6 +224,7 @@ impl<'a> StageStepRunner<'a> {
                 stage: fixed_stage,
                 held: false,
                 readiness_status: "ready".to_string(),
+                promotion_gate_decision: "promoted".to_string(),
                 readiness_reasons: vec![
                     "recent metrics satisfy adaptive stage readiness checks".to_string()
                 ],
@@ -231,6 +236,7 @@ impl<'a> StageStepRunner<'a> {
                 stage: previous_stage(fixed_stage),
                 held: true,
                 readiness_status: "held".to_string(),
+                promotion_gate_decision: "held_previous_stage".to_string(),
                 readiness_reasons,
             }
         } else {
@@ -238,6 +244,7 @@ impl<'a> StageStepRunner<'a> {
                 stage: fixed_stage,
                 held: false,
                 readiness_status: "warning".to_string(),
+                promotion_gate_decision: "warning_fixed_schedule".to_string(),
                 readiness_reasons,
             }
         }
@@ -248,30 +255,48 @@ impl ObjectiveExecutionRunner {
     fn weighted_total(
         primary: &Tensor,
         auxiliaries: &AuxiliaryObjectiveTensors,
+        rollout_training: &Tensor,
         weights: EffectiveLossWeights,
+        scale_config: &ObjectiveScaleDiagnosticsConfig,
     ) -> Tensor {
-        primary * weights.primary
-            + &auxiliaries.intra_red * weights.intra_red
-            + &auxiliaries.probe_core * weights.probe
-            + (&auxiliaries.probe_ligand_pharmacophore + &auxiliaries.probe_pocket_pharmacophore)
-                * weights.pharmacophore_probe
-            + (&auxiliaries.leak_core
+        let primary_weighted = primary * weights.primary;
+        let mut terms = vec![
+            rollout_training.shallow_clone(),
+            &auxiliaries.intra_red * weights.intra_red
+                + &auxiliaries.consistency * weights.consistency,
+            &auxiliaries.probe_core * weights.probe
+                + (&auxiliaries.probe_ligand_pharmacophore
+                    + &auxiliaries.probe_pocket_pharmacophore)
+                    * weights.pharmacophore_probe,
+            (&auxiliaries.leak_core
                 + &auxiliaries.leak_topology_to_geometry
                 + &auxiliaries.leak_geometry_to_topology
                 + &auxiliaries.leak_pocket_to_geometry)
                 * weights.leak
-            + (&auxiliaries.leak_topology_to_pocket_role
-                + &auxiliaries.leak_geometry_to_pocket_role
-                + &auxiliaries.leak_pocket_to_ligand_role)
-                * weights.pharmacophore_leakage
-            + &auxiliaries.gate * weights.gate
-            + &auxiliaries.slot * weights.slot
-            + &auxiliaries.consistency * weights.consistency
-            + &auxiliaries.pocket_contact * weights.pocket_contact
-            + &auxiliaries.pocket_clash * weights.pocket_clash
-            + &auxiliaries.pocket_envelope * weights.pocket_envelope
-            + &auxiliaries.valence_guardrail * weights.valence_guardrail
-            + &auxiliaries.bond_length_guardrail * weights.bond_length_guardrail
+                + (&auxiliaries.leak_topology_to_pocket_role
+                    + &auxiliaries.leak_geometry_to_pocket_role
+                    + &auxiliaries.leak_pocket_to_topology_role
+                    + &auxiliaries.leak_pocket_to_ligand_role)
+                    * weights.pharmacophore_leakage,
+            &auxiliaries.gate * weights.gate,
+            &auxiliaries.slot * weights.slot,
+            &auxiliaries.pocket_contact * weights.pocket_contact
+                + &auxiliaries.pocket_pair_distance * weights.pocket_pair_distance
+                + &auxiliaries.pocket_clash * weights.pocket_clash
+                + &auxiliaries.pocket_shape_complementarity * weights.pocket_shape_complementarity
+                + &auxiliaries.pocket_envelope * weights.pocket_envelope
+                + &auxiliaries.pocket_prior * weights.pocket_prior,
+            &auxiliaries.valence_guardrail * weights.valence_guardrail
+                + &auxiliaries.bond_length_guardrail * weights.bond_length_guardrail
+                + &auxiliaries.nonbonded_distance_guardrail * weights.nonbonded_distance_guardrail
+                + &auxiliaries.angle_guardrail * weights.angle_guardrail,
+        ];
+        terms = clamp_non_primary_family_terms(&primary_weighted, terms, scale_config);
+        let mut total = primary_weighted;
+        for term in terms {
+            total += term;
+        }
+        total
     }
 }
 
@@ -393,6 +418,7 @@ impl StepRuntimeTracker {
             per_example_forward_count: forward_execution.per_example_forward_count,
             forward_execution_mode: forward_execution.forward_execution_mode,
             de_novo_per_example_reason: forward_execution.de_novo_per_example_reason,
+            generation_sample_count: forward_execution.generation_sample_count,
             rollout_diagnostics_built,
             rollout_diagnostic_execution_count,
             rollout_diagnostics_no_grad: rollout_diagnostics_built,
@@ -412,15 +438,40 @@ impl ForwardExecutionProfile {
             .generation_target
             .generation_mode
             .resolved_for_backend(backend_family);
+        let generation_sample_count =
+            if generation_mode == GenerationModeConfig::DeNovoInitialization {
+                config
+                    .data
+                    .generation_target
+                    .multi_sample_initialization
+                    .effective_sample_count()
+            } else {
+                1
+            };
         if generation_mode == GenerationModeConfig::DeNovoInitialization {
+            let multi_sample = generation_sample_count > 1
+                && config
+                    .data
+                    .generation_target
+                    .multi_sample_initialization
+                    .enabled;
             return Self {
                 forward_batch_count: 0,
-                per_example_forward_count: batch_size,
-                forward_execution_mode: "per_example_de_novo_interaction_context".to_string(),
-                de_novo_per_example_reason: Some(
+                per_example_forward_count: batch_size * generation_sample_count,
+                forward_execution_mode: if multi_sample {
+                    "per_example_de_novo_multi_sample_interaction_context".to_string()
+                } else {
+                    "per_example_de_novo_interaction_context".to_string()
+                },
+                de_novo_per_example_reason: Some(if multi_sample {
+                    format!(
+                        "de_novo_training_uses_bounded_multi_sample_initialization;sample_count={generation_sample_count}"
+                    )
+                } else {
                     "de_novo_training_uses_per_example_conditioning_and_target_matching_boundaries"
-                        .to_string(),
-                ),
+                        .to_string()
+                }),
+                generation_sample_count,
             };
         }
         if backend_family == GenerationBackendFamilyConfig::FlowMatching
@@ -435,6 +486,7 @@ impl ForwardExecutionProfile {
                 forward_execution_mode: "per_example_flow_time_conditioned_interaction_context"
                     .to_string(),
                 de_novo_per_example_reason: None,
+                generation_sample_count,
             };
         }
         Self {
@@ -442,6 +494,7 @@ impl ForwardExecutionProfile {
             per_example_forward_count: 0,
             forward_execution_mode: "batched_interaction_context".to_string(),
             de_novo_per_example_reason: None,
+            generation_sample_count,
         }
     }
 }
@@ -485,17 +538,19 @@ impl ResearchTrainer {
             scheduler,
             checkpoints,
             primary_objective: build_primary_objective(&config.training),
-            auxiliary_objectives: AuxiliaryObjectiveBlock::new_with_pharmacophore_and_gate_config(
-                config.training.loss_weights.slot_sparsity_weight,
-                config.training.loss_weights.slot_balance_weight,
-                config.training.pharmacophore_probes.clone(),
-                config.training.explicit_leakage_probes.clone(),
-                config
-                    .model
-                    .interaction_tuning
-                    .gate_regularization_path_weights
-                    .clone(),
-            ),
+            auxiliary_objectives:
+                AuxiliaryObjectiveBlock::new_with_pharmacophore_gate_and_sparse_topology_config(
+                    config.training.loss_weights.slot_sparsity_weight,
+                    config.training.loss_weights.slot_balance_weight,
+                    config.training.pharmacophore_probes.clone(),
+                    config.training.explicit_leakage_probes.clone(),
+                    config
+                        .model
+                        .interaction_tuning
+                        .gate_regularization_path_weights
+                        .clone(),
+                    config.training.sparse_topology_calibration.clone(),
+                ),
             config,
             dataset_validation_fingerprint: None,
             affinity_measurement_weights: BTreeMap::new(),
@@ -719,21 +774,55 @@ impl ResearchTrainer {
         let stage_index = stage_context.stage_index;
         let weights = stage_context.weights;
         let build_rollout_diagnostics = self.config.training.build_rollout_diagnostics;
-        let (_, forwards) = system.forward_batch_with_interaction_context_and_rollout_diagnostics(
-            examples,
-            InteractionExecutionContext {
-                training_stage: Some(stage_index),
-                training_step: Some(self.step),
-                epoch_index: Some(order_metadata.epoch_index),
-                sample_order_seed: Some(order_metadata.sample_order_seed),
-                rollout_step_index: None,
-                flow_t: None,
-            },
-            build_rollout_diagnostics,
-        );
+        let interaction_context = InteractionExecutionContext {
+            training_stage: Some(stage_index),
+            training_step: Some(self.step),
+            epoch_index: Some(order_metadata.epoch_index),
+            sample_order_seed: Some(order_metadata.sample_order_seed),
+            rollout_step_index: None,
+            flow_t: None,
+            generation_sample_index: None,
+            generation_sample_count: None,
+            generation_sample_seed: None,
+            generation_sample_seed_provenance: None,
+        };
+        let sample_count = system.generation_initialization_sample_count();
+        let multi_sample_training = sample_count > 1
+            && self
+                .config
+                .data
+                .generation_target
+                .multi_sample_initialization
+                .enabled;
+        let (forwards, sampled_examples_storage) = if multi_sample_training {
+            let mut forwards = Vec::with_capacity(examples.len() * sample_count);
+            let mut sampled_examples = Vec::with_capacity(examples.len() * sample_count);
+            for example in examples {
+                let sample_forwards = system
+                    .forward_example_generation_samples_with_interaction_context_and_rollout_diagnostics(
+                        example,
+                        interaction_context.clone(),
+                        build_rollout_diagnostics,
+                    );
+                for forward in sample_forwards {
+                    sampled_examples.push(example.clone());
+                    forwards.push(forward);
+                }
+            }
+            (forwards, Some(sampled_examples))
+        } else {
+            let (_, forwards) = system
+                .forward_batch_with_interaction_context_and_rollout_diagnostics(
+                    examples,
+                    interaction_context,
+                    build_rollout_diagnostics,
+                );
+            (forwards, None)
+        };
+        let loss_examples = sampled_examples_storage.as_deref().unwrap_or(examples);
         if self.last_stage != Some(stage) {
             log::info!(
-                "entering {:?} at step {} with weights primary={:.4} intra_red={:.4} probe={:.4} pharmacophore_probe={:.4} leak={:.4} pharmacophore_leakage={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4} pocket_envelope={:.4} valence_guardrail={:.4} bond_length_guardrail={:.4}",
+                "entering {:?} at step {} with weights primary={:.4} intra_red={:.4} probe={:.4} pharmacophore_probe={:.4} leak={:.4} pharmacophore_leakage={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_pair_distance={:.4} pocket_clash={:.4} pocket_shape_complementarity={:.4} pocket_envelope={:.4} pocket_prior={:.4} valence_guardrail={:.4} bond_length_guardrail={:.4} nonbonded_distance_guardrail={:.4} angle_guardrail={:.4}",
                 stage,
                 self.step,
                 weights.primary,
@@ -746,44 +835,66 @@ impl ResearchTrainer {
                 weights.slot,
                 weights.consistency,
                 weights.pocket_contact,
+                weights.pocket_pair_distance,
                 weights.pocket_clash,
+                weights.pocket_shape_complementarity,
                 weights.pocket_envelope,
+                weights.pocket_prior,
                 weights.valence_guardrail,
                 weights.bond_length_guardrail,
+                weights.nonbonded_distance_guardrail,
+                weights.angle_guardrail,
             );
             self.last_stage = Some(stage);
         }
 
         self.affinity_measurement_weights =
-            measurement_weights(examples, self.config.training.affinity_weighting);
-        let (primary, primary_components) = compute_primary_objective_batch_with_components(
+            measurement_weights(loss_examples, self.config.training.affinity_weighting);
+        let (primary, primary_components) = compute_primary_objective_batch_with_components_at_step(
             self.primary_objective.as_ref(),
-            examples,
+            loss_examples,
             &forwards,
+            Some(self.step),
         );
         let auxiliary_execution_plan =
             AuxiliaryObjectiveExecutionPlan::from_effective_weights(&weights);
         let auxiliaries = self
             .auxiliary_objectives
             .compute_batch_with_execution_plan_and_step(
-                examples,
+                loss_examples,
                 &forwards,
                 |example| self.affinity_weight_for(example),
                 var_store.device(),
                 &auxiliary_execution_plan,
                 Some(self.step),
             );
+        let (rollout_training, mut rollout_training_metrics) = compute_rollout_training_loss(
+            &self.config.training.rollout_training,
+            &self.config.training.sparse_topology_calibration,
+            self.step,
+            loss_examples,
+            &forwards,
+        );
 
-        let total = ObjectiveExecutionRunner::weighted_total(&primary, &auxiliaries, weights);
+        let scale_config = self.config.training.objective_scale_diagnostics.clone();
+        let total = ObjectiveExecutionRunner::weighted_total(
+            &primary,
+            &auxiliaries,
+            &rollout_training,
+            weights,
+            &scale_config,
+        );
 
         let primary_value = scalar_or_nan(&primary);
+        rollout_training_metrics.teacher_forced_loss = primary_value;
+        rollout_training_metrics.teacher_rollout_divergence =
+            rollout_training_metrics.rollout_state_loss - primary_value;
         let (mut auxiliary_metrics, _) = auxiliaries.to_metrics_with_weights_and_execution_plan(
             scalar_or_nan,
             &weights,
             &auxiliary_execution_plan,
         );
         self.update_primary_component_scale_ema(&primary_components);
-        let scale_config = &self.config.training.objective_scale_diagnostics;
         let primary_component_scale_report = if scale_config.enabled {
             primary_components.scale_report(
                 weights.primary,
@@ -796,7 +907,7 @@ impl ResearchTrainer {
         } else {
             Default::default()
         };
-        let primary_branch_schedule = primary_branch_schedule_report(
+        let primary_branch_schedule = crate::training::metrics::primary_branch_schedule_report(
             &forwards,
             self.step,
             Some(stage_index),
@@ -807,9 +918,21 @@ impl ResearchTrainer {
             weights.primary,
             &auxiliary_metrics.auxiliary_objective_report,
         );
-        let total_value = scalar_or_nan(&total);
         let primary_weighted_value = primary_value * weights.primary;
-        annotate_objective_scale_warnings(&mut auxiliary_metrics, primary_weighted_value);
+        annotate_objective_scale_warnings(
+            &mut auxiliary_metrics,
+            primary_weighted_value,
+            scale_config.warning_ratio,
+        );
+        let objective_family_budget_report =
+            crate::training::metrics::objective_family_budget_report(
+                primary_value,
+                weights.primary,
+                &rollout_training_metrics,
+                &auxiliary_metrics.auxiliary_objective_report,
+                &scale_config,
+            );
+        let total_value = scalar_or_nan(&total);
         let nonfinite_loss_terms = nonfinite_loss_terms(
             self.primary_objective.name(),
             primary_value,
@@ -894,6 +1017,8 @@ impl ResearchTrainer {
                     branch_schedule: primary_branch_schedule,
                 },
                 auxiliaries: auxiliary_metrics,
+                rollout_training: rollout_training_metrics,
+                objective_family_budget_report,
                 total: total_value,
             },
             interaction: InteractionStepMetrics::from_forwards(stage, Some(stage_index), &forwards),
@@ -910,7 +1035,7 @@ impl ResearchTrainer {
         }
         if self.config.training.log_every > 0 && self.step % self.config.training.log_every == 0 {
             log::info!(
-                "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} probe_ligand_pharmacophore={:.4} probe_pocket_pharmacophore={:.4} leak={:.4} leak_core={:.4} leak_similarity_proxy_diagnostic={:.4} leak_explicit_probe_diagnostic={:.4} leak_topology_to_geometry={:.4} leak_geometry_to_topology={:.4} leak_pocket_to_geometry={:.4} leak_topology_to_pocket_role={:.4} leak_geometry_to_pocket_role={:.4} leak_pocket_to_ligand_role={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4} pocket_envelope={:.4} valence_guardrail={:.4} bond_length_guardrail={:.4} mi_topo_geo={:.4} mi_topo_pocket={:.4} mi_geo_pocket={:.4} interaction_gate={:.4} interaction_sparsity={:.4} interaction_entropy={:.4} grad_norm={:.4} grad_nonfinite={} grad_clipped={} optimizer_step_skipped={} sync_mask_mismatch={} sync_slot_mismatch={} sync_frame_mismatch={} stale_context_steps={} refresh_count={} batch_slice_sync_pass={}",
+                "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} probe_topology_sparse_negative_rate={:.4} probe_ligand_pharmacophore={:.4} probe_pocket_pharmacophore={:.4} leak={:.4} leak_core={:.4} leak_similarity_proxy_diagnostic={:.4} leak_explicit_probe_diagnostic={:.4} leak_topology_to_geometry={:.4} leak_geometry_to_topology={:.4} leak_pocket_to_geometry={:.4} leak_topology_to_pocket_role={:.4} leak_geometry_to_pocket_role={:.4} leak_pocket_to_topology_role={:.4} leak_pocket_to_ligand_role={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_pair_distance={:.4} pocket_clash={:.4} pocket_shape_complementarity={:.4} pocket_envelope={:.4} pocket_prior={:.4} pocket_prior_atom_count={:.4} pocket_prior_composition={:.4} pocket_prior_atom_count_mae={:.4} valence_guardrail={:.4} valence_overage_guardrail={:.4} valence_underage_guardrail={:.4} bond_length_guardrail={:.4} nonbonded_distance_guardrail={:.4} angle_guardrail={:.4} mi_topo_geo={:.4} mi_topo_pocket={:.4} mi_geo_pocket={:.4} interaction_gate={:.4} interaction_sparsity={:.4} interaction_entropy={:.4} grad_norm={:.4} grad_nonfinite={} grad_clipped={} optimizer_step_skipped={} sync_mask_mismatch={} sync_slot_mismatch={} sync_frame_mismatch={} stale_context_steps={} refresh_count={} batch_slice_sync_pass={}",
                 metrics.step,
                 metrics.stage,
                 metrics.losses.total,
@@ -919,6 +1044,10 @@ impl ResearchTrainer {
                 metrics.losses.primary.decoder_anchored,
                 metrics.losses.auxiliaries.intra_red,
                 metrics.losses.auxiliaries.probe,
+                metrics
+                    .losses
+                    .auxiliaries
+                    .probe_topology_sparse_negative_rate,
                 metrics
                     .losses
                     .auxiliaries
@@ -942,15 +1071,29 @@ impl ResearchTrainer {
                     .losses
                     .auxiliaries
                     .leak_geometry_to_pocket_role,
+                metrics
+                    .losses
+                    .auxiliaries
+                    .leak_pocket_to_topology_role,
                 metrics.losses.auxiliaries.leak_pocket_to_ligand_role,
                 metrics.losses.auxiliaries.gate,
                 metrics.losses.auxiliaries.slot,
                 metrics.losses.auxiliaries.consistency,
                 metrics.losses.auxiliaries.pocket_contact,
+                metrics.losses.auxiliaries.pocket_pair_distance,
                 metrics.losses.auxiliaries.pocket_clash,
+                metrics.losses.auxiliaries.pocket_shape_complementarity,
                 metrics.losses.auxiliaries.pocket_envelope,
+                metrics.losses.auxiliaries.pocket_prior,
+                metrics.losses.auxiliaries.pocket_prior_atom_count,
+                metrics.losses.auxiliaries.pocket_prior_composition,
+                metrics.losses.auxiliaries.pocket_prior_atom_count_mae,
                 metrics.losses.auxiliaries.valence_guardrail,
+                metrics.losses.auxiliaries.valence_overage_guardrail,
+                metrics.losses.auxiliaries.valence_underage_guardrail,
                 metrics.losses.auxiliaries.bond_length_guardrail,
+                metrics.losses.auxiliaries.nonbonded_distance_guardrail,
+                metrics.losses.auxiliaries.angle_guardrail,
                 metrics.losses.auxiliaries.mi_topo_geo,
                 metrics.losses.auxiliaries.mi_topo_pocket,
                 metrics.losses.auxiliaries.mi_geo_pocket,
@@ -1147,10 +1290,15 @@ impl ResearchTrainer {
             slot_weight: weights.slot,
             consistency_weight: weights.consistency,
             pocket_contact_weight: weights.pocket_contact,
+            pocket_pair_distance_weight: weights.pocket_pair_distance,
             pocket_clash_weight: weights.pocket_clash,
+            pocket_shape_complementarity_weight: weights.pocket_shape_complementarity,
             pocket_envelope_weight: weights.pocket_envelope,
+            pocket_prior_weight: weights.pocket_prior,
             valence_guardrail_weight: weights.valence_guardrail,
             bond_length_guardrail_weight: weights.bond_length_guardrail,
+            nonbonded_distance_guardrail_weight: weights.nonbonded_distance_guardrail,
+            angle_guardrail_weight: weights.angle_guardrail,
         }
     }
 
@@ -1279,211 +1427,89 @@ fn measurement_weights(
 fn annotate_objective_scale_warnings(
     metrics: &mut AuxiliaryLossMetrics,
     primary_weighted_value: f64,
+    warning_ratio: f64,
 ) {
+    let warning_ratio = if warning_ratio.is_finite() && warning_ratio > 0.0 {
+        warning_ratio
+    } else {
+        10.0
+    };
     let primary_abs = primary_weighted_value.abs().max(1.0e-12);
     for entry in &mut metrics.auxiliary_objective_report.entries {
         if entry.enabled
             && entry.weighted_value.is_finite()
-            && entry.weighted_value.abs() > primary_abs * 10.0
+            && entry.weighted_value.abs() > primary_abs * warning_ratio
         {
             entry.status = "dominant".to_string();
-            entry.warning = Some(
-                "weighted auxiliary contribution exceeds 10x the weighted primary objective"
-                    .to_string(),
-            );
+            entry.warning = Some(format!(
+                "weighted auxiliary contribution exceeds {:.4}x the weighted primary objective",
+                warning_ratio
+            ));
         }
     }
 }
 
-fn primary_branch_schedule_report(
-    forwards: &[ResearchForward],
-    training_step: usize,
-    stage_index: Option<usize>,
-    components: &crate::training::PrimaryObjectiveComponentMetrics,
-    config: &ResearchConfig,
-) -> PrimaryBranchScheduleReport {
-    let Some(flow) = forwards
-        .iter()
-        .find_map(|forward| forward.generation.flow_matching.as_ref())
-    else {
-        return PrimaryBranchScheduleReport::default();
+fn clamp_non_primary_family_terms(
+    primary_weighted: &Tensor,
+    terms: Vec<Tensor>,
+    scale_config: &ObjectiveScaleDiagnosticsConfig,
+) -> Vec<Tensor> {
+    if scale_config.family_budget_action != ObjectiveBudgetAction::Clamp {
+        return terms;
+    }
+    let Some(cap) = scale_config.family_budget_cap_fraction else {
+        return terms;
     };
-    let objective_flow_weight = primary_flow_objective_weight(config);
-    let geometry_values = branch_scale_values(
-        components.flow_velocity.unwrap_or(0.0) + components.flow_endpoint.unwrap_or(0.0),
-        flow.branch_weights.geometry,
-        objective_flow_weight,
-    );
-    let mut entries = vec![PrimaryBranchWeightRecord {
-        branch_name: "geometry".to_string(),
-        unweighted_value: geometry_values.unweighted,
-        effective_weight: flow.branch_weights.geometry,
-        schedule_multiplier: config
-            .generation_method
-            .flow_matching
-            .multi_modal
-            .branch_schedule
-            .geometry
-            .effective_multiplier(Some(training_step)),
-        weighted_value: geometry_values.weighted,
-        optimizer_facing: flow.branch_weights.geometry.is_finite()
-            && flow.branch_weights.geometry > 0.0,
-        provenance: flow.flow_contract_version.clone(),
-        target_matching_policy: Some(flow.target_matching_policy.clone()),
-        target_matching_mean_cost: Some(flow.target_matching_mean_cost),
-        target_matching_max_cost: Some(flow.target_matching_cost_summary.max_cost),
-        target_matching_total_cost: Some(flow.target_matching_cost_summary.total_cost),
-        target_matching_coverage: Some(flow.target_matching_coverage),
-        target_matching_matched_count: Some(flow.target_matching_cost_summary.matched_count),
-        target_matching_unmatched_generated_count: Some(
-            flow.target_matching_cost_summary.unmatched_generated_count,
-        ),
-        target_matching_unmatched_target_count: Some(
-            flow.target_matching_cost_summary.unmatched_target_count,
-        ),
-        target_matching_exact_assignment: Some(flow.target_matching_cost_summary.exact_assignment),
-    }];
-    if let Some(molecular) = flow.molecular.as_ref() {
-        for (branch_name, effective_weight, schedule_multiplier, component_value) in [
-            (
-                "atom_type",
-                molecular.branch_weights.atom_type,
-                config
-                    .generation_method
-                    .flow_matching
-                    .multi_modal
-                    .branch_schedule
-                    .atom_type
-                    .effective_multiplier(Some(training_step)),
-                components.flow_atom_type.unwrap_or(0.0),
-            ),
-            (
-                "bond",
-                molecular.branch_weights.bond,
-                config
-                    .generation_method
-                    .flow_matching
-                    .multi_modal
-                    .branch_schedule
-                    .bond
-                    .effective_multiplier(Some(training_step)),
-                components.flow_bond.unwrap_or(0.0),
-            ),
-            (
-                "topology",
-                molecular.branch_weights.topology,
-                config
-                    .generation_method
-                    .flow_matching
-                    .multi_modal
-                    .branch_schedule
-                    .topology
-                    .effective_multiplier(Some(training_step)),
-                components.flow_topology.unwrap_or(0.0),
-            ),
-            (
-                "pocket_context",
-                molecular.branch_weights.pocket_context,
-                config
-                    .generation_method
-                    .flow_matching
-                    .multi_modal
-                    .branch_schedule
-                    .pocket_context
-                    .effective_multiplier(Some(training_step)),
-                components.flow_pocket_context.unwrap_or(0.0),
-            ),
-            (
-                "synchronization",
-                molecular.branch_weights.synchronization,
-                config
-                    .generation_method
-                    .flow_matching
-                    .multi_modal
-                    .branch_schedule
-                    .synchronization
-                    .effective_multiplier(Some(training_step)),
-                components.flow_synchronization.unwrap_or(0.0),
-            ),
-        ] {
-            let branch_values =
-                branch_scale_values(component_value, effective_weight, objective_flow_weight);
-            entries.push(PrimaryBranchWeightRecord {
-                branch_name: branch_name.to_string(),
-                unweighted_value: branch_values.unweighted,
-                effective_weight,
-                schedule_multiplier,
-                weighted_value: branch_values.weighted,
-                optimizer_facing: effective_weight.is_finite() && effective_weight > 0.0,
-                provenance: format!(
-                    "{}:{}",
-                    flow.flow_contract_version.as_str(),
-                    molecular.target_alignment_policy.as_str()
-                ),
-                target_matching_policy: Some(molecular.target_matching_policy.clone()),
-                target_matching_mean_cost: Some(molecular.target_matching_mean_cost),
-                target_matching_max_cost: Some(molecular.target_matching_cost_summary.max_cost),
-                target_matching_total_cost: Some(molecular.target_matching_cost_summary.total_cost),
-                target_matching_coverage: Some(molecular.target_matching_coverage),
-                target_matching_matched_count: Some(
-                    molecular.target_matching_cost_summary.matched_count,
-                ),
-                target_matching_unmatched_generated_count: Some(
-                    molecular
-                        .target_matching_cost_summary
-                        .unmatched_generated_count,
-                ),
-                target_matching_unmatched_target_count: Some(
-                    molecular
-                        .target_matching_cost_summary
-                        .unmatched_target_count,
-                ),
-                target_matching_exact_assignment: Some(
-                    molecular.target_matching_cost_summary.exact_assignment,
-                ),
-            });
-        }
+    if !cap.is_finite() || cap <= 0.0 || cap >= 1.0 {
+        return terms;
     }
-    PrimaryBranchScheduleReport {
-        observed: true,
-        training_step: Some(training_step),
-        stage_index,
-        source: "generation_method.flow_matching.multi_modal.branch_schedule".to_string(),
-        entries,
-    }
+
+    let epsilon = scale_config.epsilon.max(1.0e-12);
+    let primary_abs = scalar_or_nan(primary_weighted).abs();
+    let term_values = terms.iter().map(scalar_or_nan).collect::<Vec<_>>();
+    let raw_total_abs = (primary_abs
+        + term_values
+            .iter()
+            .filter(|value| value.is_finite())
+            .map(|value| value.abs())
+            .sum::<f64>())
+    .max(epsilon);
+
+    terms
+        .into_iter()
+        .zip(term_values)
+        .map(|(term, value)| {
+            if !value.is_finite() {
+                return term;
+            }
+            let raw_abs = value.abs();
+            if raw_abs <= epsilon {
+                return term;
+            }
+            let limit = non_primary_family_budget_limit(raw_abs, raw_total_abs, cap, epsilon);
+            if raw_abs > limit + epsilon {
+                term * (limit / raw_abs)
+            } else {
+                term
+            }
+        })
+        .collect()
 }
 
-struct BranchScaleValues {
-    unweighted: f64,
-    weighted: f64,
-}
-
-fn primary_flow_objective_weight(config: &ResearchConfig) -> f64 {
-    match config.training.primary_objective {
-        PrimaryObjectiveConfig::FlowMatching => config.training.flow_matching_loss_weight,
-        PrimaryObjectiveConfig::DenoisingFlowMatching => config.training.hybrid_flow_weight,
-        _ => 1.0,
+fn non_primary_family_budget_limit(
+    raw_abs: f64,
+    raw_total_abs: f64,
+    cap: f64,
+    epsilon: f64,
+) -> f64 {
+    if cap >= 1.0 {
+        return raw_abs;
     }
-}
-
-fn branch_scale_values(
-    component_value: f64,
-    effective_weight: f64,
-    objective_flow_weight: f64,
-) -> BranchScaleValues {
-    let weighted = if objective_flow_weight.is_finite() && objective_flow_weight > 0.0 {
-        component_value / objective_flow_weight
-    } else {
-        component_value
-    };
-    let unweighted = if effective_weight.is_finite() && effective_weight > 0.0 {
-        weighted / effective_weight
-    } else {
+    let other_abs = (raw_total_abs - raw_abs).max(0.0);
+    if other_abs <= epsilon {
         0.0
-    };
-    BranchScaleValues {
-        unweighted,
-        weighted,
+    } else {
+        (cap * other_abs / (1.0 - cap)).max(0.0)
     }
 }
 
@@ -1495,7 +1521,9 @@ fn annotate_primary_flow_component_provenance(
         return;
     }
     for record in records {
-        let Some(branch_name) = primary_component_branch_name(&record.component_name) else {
+        let Some(branch_name) = crate::training::metrics::primary_objective_component_branch_name(
+            &record.component_name,
+        ) else {
             continue;
         };
         if let Some(branch) = branch_schedule
@@ -1506,18 +1534,6 @@ fn annotate_primary_flow_component_provenance(
             record.effective_branch_weight = Some(branch.effective_weight);
             record.branch_schedule_source = Some(branch_schedule.source.clone());
         }
-    }
-}
-
-fn primary_component_branch_name(component_name: &str) -> Option<&'static str> {
-    match component_name {
-        "flow_velocity" | "flow_endpoint" => Some("geometry"),
-        "flow_atom_type" => Some("atom_type"),
-        "flow_bond" => Some("bond"),
-        "flow_topology" => Some("topology"),
-        "flow_pocket_context" => Some("pocket_context"),
-        "flow_synchronization" => Some("synchronization"),
-        _ => None,
     }
 }
 
@@ -1538,6 +1554,7 @@ fn build_stage_progress_metrics(
         adaptive_stage_enabled: config.training.adaptive_stage_guard.enabled,
         adaptive_stage_hold: stage_context.selection.held,
         readiness_status: stage_context.selection.readiness_status.clone(),
+        promotion_gate_decision: stage_context.selection.promotion_gate_decision.clone(),
         readiness_reasons: stage_context.selection.readiness_reasons.clone(),
         objective_execution_counts,
     }
@@ -1568,6 +1585,8 @@ fn pre_backward_objective_gradient_diagnostics(
             sampled: false,
             sample_every_steps: diagnostics.sample_every_steps,
             sampling_mode: "disabled".to_string(),
+            dominance_fraction_threshold: diagnostics.dominance_fraction_threshold,
+            dominant_family_count: 0,
             entries: Vec::new(),
         });
     }
@@ -1577,6 +1596,8 @@ fn pre_backward_objective_gradient_diagnostics(
             sampled: false,
             sample_every_steps: diagnostics.sample_every_steps,
             sampling_mode: "interval_skipped".to_string(),
+            dominance_fraction_threshold: diagnostics.dominance_fraction_threshold,
+            dominant_family_count: 0,
             entries: Vec::new(),
         });
     }
@@ -1645,6 +1666,13 @@ fn exact_sampled_objective_gradient_diagnostics(
             entry.grad_norm_fraction = entry.grad_l2_norm.max(0.0) / norm_total;
         }
     }
+    let dominant_family_count = annotate_dominant_objective_gradient_families(
+        &mut entries,
+        config
+            .training
+            .objective_gradient_diagnostics
+            .dominance_fraction_threshold,
+    );
 
     ObjectiveGradientDiagnostics {
         enabled: true,
@@ -1658,6 +1686,11 @@ fn exact_sampled_objective_gradient_diagnostics(
         } else {
             "exact_sampled_retained_graph".to_string()
         },
+        dominance_fraction_threshold: config
+            .training
+            .objective_gradient_diagnostics
+            .dominance_fraction_threshold,
+        dominant_family_count,
         entries,
     }
 }
@@ -1726,6 +1759,7 @@ fn objective_gradient_family_tensors(
         AuxiliaryObjectiveFamily::PharmacophoreLeakage,
         (&auxiliaries.leak_topology_to_pocket_role
             + &auxiliaries.leak_geometry_to_pocket_role
+            + &auxiliaries.leak_pocket_to_topology_role
             + &auxiliaries.leak_pocket_to_ligand_role)
             * weights.pharmacophore_leakage,
     );
@@ -1761,6 +1795,13 @@ fn objective_gradient_family_tensors(
         &mut families,
         diagnostics,
         auxiliary_metrics,
+        AuxiliaryObjectiveFamily::PocketPairDistance,
+        &auxiliaries.pocket_pair_distance * weights.pocket_pair_distance,
+    );
+    push_auxiliary_gradient_family(
+        &mut families,
+        diagnostics,
+        auxiliary_metrics,
         AuxiliaryObjectiveFamily::PocketClash,
         &auxiliaries.pocket_clash * weights.pocket_clash,
     );
@@ -1768,8 +1809,22 @@ fn objective_gradient_family_tensors(
         &mut families,
         diagnostics,
         auxiliary_metrics,
+        AuxiliaryObjectiveFamily::PocketShapeComplementarity,
+        &auxiliaries.pocket_shape_complementarity * weights.pocket_shape_complementarity,
+    );
+    push_auxiliary_gradient_family(
+        &mut families,
+        diagnostics,
+        auxiliary_metrics,
         AuxiliaryObjectiveFamily::PocketEnvelope,
         &auxiliaries.pocket_envelope * weights.pocket_envelope,
+    );
+    push_auxiliary_gradient_family(
+        &mut families,
+        diagnostics,
+        auxiliary_metrics,
+        AuxiliaryObjectiveFamily::PocketPrior,
+        &auxiliaries.pocket_prior * weights.pocket_prior,
     );
     push_auxiliary_gradient_family(
         &mut families,
@@ -1784,6 +1839,20 @@ fn objective_gradient_family_tensors(
         auxiliary_metrics,
         AuxiliaryObjectiveFamily::BondLengthGuardrail,
         &auxiliaries.bond_length_guardrail * weights.bond_length_guardrail,
+    );
+    push_auxiliary_gradient_family(
+        &mut families,
+        diagnostics,
+        auxiliary_metrics,
+        AuxiliaryObjectiveFamily::NonbondedDistanceGuardrail,
+        &auxiliaries.nonbonded_distance_guardrail * weights.nonbonded_distance_guardrail,
+    );
+    push_auxiliary_gradient_family(
+        &mut families,
+        diagnostics,
+        auxiliary_metrics,
+        AuxiliaryObjectiveFamily::AngleGuardrail,
+        &auxiliaries.angle_guardrail * weights.angle_guardrail,
     );
     families
 }
@@ -1969,6 +2038,39 @@ fn objective_gradient_family_metric(
     }
 }
 
+fn annotate_dominant_objective_gradient_families(
+    entries: &mut [ObjectiveGradientFamilyMetrics],
+    threshold: f64,
+) -> usize {
+    let threshold = if threshold.is_finite() && threshold > 0.0 {
+        threshold
+    } else {
+        0.80
+    };
+    let comparable_count = entries
+        .iter()
+        .filter(|entry| matches!(entry.status.as_str(), "exact_sampled" | "loss_share_proxy"))
+        .count();
+    if comparable_count < 2 {
+        return 0;
+    }
+    let mut dominant_count = 0;
+    for entry in entries {
+        if matches!(entry.status.as_str(), "exact_sampled" | "loss_share_proxy")
+            && entry.grad_norm_fraction.is_finite()
+            && entry.grad_norm_fraction >= threshold
+        {
+            entry.status = "dominant_gradient".to_string();
+            entry.anomaly = Some(format!(
+                "objective family owns {:.3} of sampled gradient norm, above dominant threshold {:.3}",
+                entry.grad_norm_fraction, threshold
+            ));
+            dominant_count += 1;
+        }
+    }
+    dominant_count
+}
+
 fn loss_share_objective_gradient_diagnostics(
     step: usize,
     primary_objective_name: &str,
@@ -1985,6 +2087,8 @@ fn loss_share_objective_gradient_diagnostics(
             sampled: false,
             sample_every_steps: diagnostics.sample_every_steps,
             sampling_mode: "disabled".to_string(),
+            dominance_fraction_threshold: diagnostics.dominance_fraction_threshold,
+            dominant_family_count: 0,
             entries: Vec::new(),
         };
     }
@@ -1994,6 +2098,8 @@ fn loss_share_objective_gradient_diagnostics(
             sampled: false,
             sample_every_steps: diagnostics.sample_every_steps,
             sampling_mode: "interval_skipped".to_string(),
+            dominance_fraction_threshold: diagnostics.dominance_fraction_threshold,
+            dominant_family_count: 0,
             entries: Vec::new(),
         };
     }
@@ -2036,7 +2142,7 @@ fn loss_share_objective_gradient_diagnostics(
         .iter()
         .filter_map(|(_, value, _)| value.is_finite().then_some(value.abs()))
         .sum::<f64>();
-    let entries = families
+    let mut entries = families
         .into_iter()
         .map(|(family_name, weighted_value, provenance)| {
             let (grad_norm_fraction, grad_l2_norm) =
@@ -2077,13 +2183,19 @@ fn loss_share_objective_gradient_diagnostics(
                 anomaly,
             }
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let dominant_family_count = annotate_dominant_objective_gradient_families(
+        &mut entries,
+        diagnostics.dominance_fraction_threshold,
+    );
 
     ObjectiveGradientDiagnostics {
         enabled: true,
         sampled: true,
         sample_every_steps: diagnostics.sample_every_steps,
         sampling_mode: "weighted_loss_share_post_backward_proxy".to_string(),
+        dominance_fraction_threshold: diagnostics.dominance_fraction_threshold,
+        dominant_family_count,
         entries,
     }
 }
@@ -2247,6 +2359,72 @@ fn stage_readiness_reasons(
             ));
         } else if !leakage_diagnostic.is_finite() {
             reasons.push("leakage_diagnostic is non-finite".to_string());
+        }
+    }
+    if let Some(minimum) = guard.min_raw_rollout_validity {
+        if !latest.losses.rollout_training.active
+            || latest.losses.rollout_training.contributing_examples == 0
+        {
+            reasons.push(format!(
+                "raw_rollout_validity_unavailable below required {minimum:.3}"
+            ));
+        } else {
+            let validity = latest.losses.rollout_training.generated_state_validity;
+            if !validity.is_finite() {
+                reasons.push("raw_rollout_validity is non-finite".to_string());
+            } else if validity < minimum {
+                reasons.push(format!(
+                    "raw_rollout_validity={validity:.3} below required {minimum:.3}"
+                ));
+            }
+        }
+    }
+    if let Some(maximum) = guard.max_raw_rollout_clash_loss {
+        if !latest.losses.rollout_training.active
+            || latest.losses.rollout_training.contributing_examples == 0
+        {
+            reasons.push(format!(
+                "raw_rollout_clash_loss_unavailable exceeds limit {maximum:.3}"
+            ));
+        } else {
+            let clash = latest.losses.rollout_training.clash_margin;
+            if !clash.is_finite() {
+                reasons.push("raw_rollout_clash_loss is non-finite".to_string());
+            } else if clash > maximum {
+                reasons.push(format!(
+                    "raw_rollout_clash_loss={clash:.3} exceeds limit {maximum:.3}"
+                ));
+            }
+        }
+    }
+    if let Some(maximum) = guard.max_raw_rollout_pocket_contact_loss {
+        if !latest.losses.rollout_training.active
+            || latest.losses.rollout_training.contributing_examples == 0
+        {
+            reasons.push(format!(
+                "raw_rollout_pocket_contact_loss_unavailable exceeds limit {maximum:.3}"
+            ));
+        } else {
+            let pocket_contact = latest.losses.rollout_training.pocket_contact;
+            if !pocket_contact.is_finite() {
+                reasons.push("raw_rollout_pocket_contact_loss is non-finite".to_string());
+            } else if pocket_contact > maximum {
+                reasons.push(format!(
+                    "raw_rollout_pocket_contact_loss={pocket_contact:.3} exceeds limit {maximum:.3}"
+                ));
+            }
+        }
+    }
+    if let Some(maximum) = guard.max_rollout_eval_pocket_anchor_loss {
+        match latest.losses.primary.components.rollout_eval_pocket_anchor {
+            Some(value) if value.is_finite() && value <= maximum => {}
+            Some(value) if value.is_finite() => reasons.push(format!(
+                "rollout_eval_pocket_anchor_loss={value:.3} exceeds limit {maximum:.3}"
+            )),
+            Some(_) => reasons.push("rollout_eval_pocket_anchor_loss is non-finite".to_string()),
+            None => reasons.push(format!(
+                "rollout_eval_pocket_anchor_loss_unavailable exceeds limit {maximum:.3}"
+            )),
         }
     }
     if guard.min_primary_loss_improvement_fraction > 0.0 {
@@ -2470,10 +2648,15 @@ fn expected_gradient_activity(
         || weights.leak > 0.0
         || weights.pharmacophore_leakage > 0.0;
     let generation_guardrail_active = weights.pocket_contact > 0.0
+        || weights.pocket_pair_distance > 0.0
         || weights.pocket_clash > 0.0
+        || weights.pocket_shape_complementarity > 0.0
         || weights.pocket_envelope > 0.0
         || weights.valence_guardrail > 0.0
-        || weights.bond_length_guardrail > 0.0;
+        || weights.bond_length_guardrail > 0.0
+        || weights.nonbonded_distance_guardrail > 0.0
+        || weights.angle_guardrail > 0.0;
+    let pocket_prior_active = weights.pocket_prior > 0.0;
     let interaction_can_learn = active_modality_count >= 2
         && config.model.interaction_mode != CrossAttentionMode::DirectFusionNegativeControl;
     let decoder_expected = decoder_primary || generation_guardrail_active;
@@ -2505,7 +2688,10 @@ fn expected_gradient_activity(
             "pocket_encoder",
             modality_expected(focus, PrimaryObjectiveConfig::FlowMatching, primary, false)
                 || (focus.keep_pocket()
-                    && (redundancy_or_slot_active || probe_active || generation_guardrail_active)),
+                    && (redundancy_or_slot_active
+                        || probe_active
+                        || generation_guardrail_active
+                        || pocket_prior_active)),
         ),
         ("slots", slots_expected),
         ("gates", gates_expected),
@@ -2572,6 +2758,10 @@ fn nonfinite_loss_terms(
         ("auxiliary:intra_red", auxiliaries.intra_red),
         ("auxiliary:probe", auxiliaries.probe),
         (
+            "auxiliary:probe_topology_sparse_negative_rate",
+            auxiliaries.probe_topology_sparse_negative_rate,
+        ),
+        (
             "auxiliary:probe_ligand_pharmacophore",
             auxiliaries.probe_ligand_pharmacophore,
         ),
@@ -2618,6 +2808,10 @@ fn nonfinite_loss_terms(
             auxiliaries.leak_geometry_to_pocket_role,
         ),
         (
+            "auxiliary:leak_pocket_to_topology_role",
+            auxiliaries.leak_pocket_to_topology_role,
+        ),
+        (
             "auxiliary:leak_pocket_to_ligand_role",
             auxiliaries.leak_pocket_to_ligand_role,
         ),
@@ -2625,13 +2819,47 @@ fn nonfinite_loss_terms(
         ("auxiliary:slot", auxiliaries.slot),
         ("auxiliary:consistency", auxiliaries.consistency),
         ("auxiliary:pocket_contact", auxiliaries.pocket_contact),
+        (
+            "auxiliary:pocket_pair_distance",
+            auxiliaries.pocket_pair_distance,
+        ),
         ("auxiliary:pocket_clash", auxiliaries.pocket_clash),
+        (
+            "auxiliary:pocket_shape_complementarity",
+            auxiliaries.pocket_shape_complementarity,
+        ),
         ("auxiliary:pocket_envelope", auxiliaries.pocket_envelope),
+        ("auxiliary:pocket_prior", auxiliaries.pocket_prior),
+        (
+            "auxiliary:pocket_prior_atom_count",
+            auxiliaries.pocket_prior_atom_count,
+        ),
+        (
+            "auxiliary:pocket_prior_composition",
+            auxiliaries.pocket_prior_composition,
+        ),
+        (
+            "auxiliary:pocket_prior_atom_count_mae",
+            auxiliaries.pocket_prior_atom_count_mae,
+        ),
         ("auxiliary:valence_guardrail", auxiliaries.valence_guardrail),
+        (
+            "auxiliary:valence_overage_guardrail",
+            auxiliaries.valence_overage_guardrail,
+        ),
+        (
+            "auxiliary:valence_underage_guardrail",
+            auxiliaries.valence_underage_guardrail,
+        ),
         (
             "auxiliary:bond_length_guardrail",
             auxiliaries.bond_length_guardrail,
         ),
+        (
+            "auxiliary:nonbonded_distance_guardrail",
+            auxiliaries.nonbonded_distance_guardrail,
+        ),
+        ("auxiliary:angle_guardrail", auxiliaries.angle_guardrail),
     ] {
         if !value.is_finite() {
             terms.push(name.to_string());
@@ -2663,9 +2891,12 @@ fn scalar_or_nan(tensor: &Tensor) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tch::{nn, Device};
+    use tch::{nn, Device, Kind, Tensor};
 
-    use crate::{config::ResearchConfig, data::InMemoryDataset, models::Phase1ResearchSystem};
+    use crate::{
+        config::ResearchConfig, data::InMemoryDataset,
+        losses::compute_primary_objective_batch_with_components, models::Phase1ResearchSystem,
+    };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -2830,6 +3061,290 @@ mod tests {
 
     fn new_valid_test_trainer(var_store: &nn::VarStore, config: ResearchConfig) -> ResearchTrainer {
         ResearchTrainer::new(var_store, valid_short_schedule_config(config)).unwrap()
+    }
+
+    fn budget_aux_entry(
+        family: AuxiliaryObjectiveFamily,
+        unweighted_value: f64,
+        effective_weight: f64,
+    ) -> crate::training::AuxiliaryObjectiveReportEntry {
+        let weighted_value = unweighted_value * effective_weight;
+        crate::training::AuxiliaryObjectiveReportEntry {
+            family,
+            unweighted_value,
+            effective_weight,
+            weighted_value,
+            enabled: effective_weight.is_finite() && effective_weight > 0.0,
+            execution_mode: "trainable".to_string(),
+            status: if effective_weight > 0.0 {
+                "active".to_string()
+            } else {
+                "inactive_zero_weight".to_string()
+            },
+            warning: None,
+        }
+    }
+
+    fn budget_entry<'a>(
+        report: &'a crate::training::ObjectiveFamilyBudgetReport,
+        family: &str,
+    ) -> &'a crate::training::ObjectiveFamilyBudgetEntry {
+        report
+            .entries
+            .iter()
+            .find(|entry| entry.family == family)
+            .unwrap_or_else(|| panic!("missing budget family {family}"))
+    }
+
+    fn assert_f64_close(label: &str, observed: f64, expected: f64) {
+        let delta = (observed - expected).abs();
+        assert!(
+            delta <= 1.0e-6,
+            "{label}: observed={observed} expected={expected} delta={delta}"
+        );
+    }
+
+    #[test]
+    fn objective_family_budget_report_groups_auxiliary_families() {
+        let auxiliary_report = AuxiliaryObjectiveReport {
+            entries: vec![
+                budget_aux_entry(AuxiliaryObjectiveFamily::PocketContact, 2.0, 3.0),
+                budget_aux_entry(AuxiliaryObjectiveFamily::PocketClash, 4.0, 0.5),
+                budget_aux_entry(AuxiliaryObjectiveFamily::ValenceGuardrail, 5.0, 2.0),
+                budget_aux_entry(AuxiliaryObjectiveFamily::IntraRed, 1.0, 0.5),
+                budget_aux_entry(AuxiliaryObjectiveFamily::Consistency, 2.0, 0.25),
+                budget_aux_entry(AuxiliaryObjectiveFamily::Probe, 3.0, 0.1),
+                budget_aux_entry(AuxiliaryObjectiveFamily::Gate, 7.0, 0.0),
+                budget_aux_entry(AuxiliaryObjectiveFamily::Slot, 8.0, 0.125),
+            ],
+        };
+        let rollout = crate::training::RolloutTrainingLossMetrics {
+            active: true,
+            rollout_state_loss: 3.0,
+            ..crate::training::RolloutTrainingLossMetrics::default()
+        };
+        let config = ObjectiveScaleDiagnosticsConfig::default();
+
+        let report = crate::training::metrics::objective_family_budget_report(
+            2.0,
+            1.0,
+            &rollout,
+            &auxiliary_report,
+            &config,
+        );
+
+        assert_eq!(
+            report
+                .entries
+                .iter()
+                .map(|entry| entry.family.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "task",
+                "rollout",
+                "pocket_interaction",
+                "chemistry",
+                "redundancy",
+                "probe",
+                "leakage",
+                "gate",
+                "slot",
+            ]
+        );
+        assert_f64_close(
+            "task weighted",
+            budget_entry(&report, "task").weighted_value,
+            2.0,
+        );
+        assert_f64_close(
+            "rollout weighted",
+            budget_entry(&report, "rollout").weighted_value,
+            3.0,
+        );
+        assert_f64_close(
+            "pocket_interaction unweighted",
+            budget_entry(&report, "pocket_interaction").unweighted_value,
+            6.0,
+        );
+        assert_f64_close(
+            "pocket_interaction weighted",
+            budget_entry(&report, "pocket_interaction").weighted_value,
+            8.0,
+        );
+        assert_f64_close(
+            "chemistry weighted",
+            budget_entry(&report, "chemistry").weighted_value,
+            10.0,
+        );
+        assert_f64_close(
+            "redundancy weighted",
+            budget_entry(&report, "redundancy").weighted_value,
+            1.0,
+        );
+        assert_f64_close(
+            "slot weighted",
+            budget_entry(&report, "slot").weighted_value,
+            1.0,
+        );
+        assert_f64_close(
+            "percentage sum",
+            report
+                .entries
+                .iter()
+                .map(|entry| entry.percentage_of_total)
+                .sum::<f64>(),
+            1.0,
+        );
+    }
+
+    #[test]
+    fn objective_family_budget_report_warns_or_clamps_cap_excess() {
+        let auxiliary_report = AuxiliaryObjectiveReport {
+            entries: vec![budget_aux_entry(
+                AuxiliaryObjectiveFamily::ValenceGuardrail,
+                9.0,
+                1.0,
+            )],
+        };
+        let rollout = crate::training::RolloutTrainingLossMetrics::default();
+        let mut config = ObjectiveScaleDiagnosticsConfig {
+            family_budget_cap_fraction: Some(0.25),
+            family_budget_action: ObjectiveBudgetAction::Warn,
+            ..ObjectiveScaleDiagnosticsConfig::default()
+        };
+
+        let warning_report = crate::training::metrics::objective_family_budget_report(
+            1.0,
+            1.0,
+            &rollout,
+            &auxiliary_report,
+            &config,
+        );
+        let chemistry_warning = budget_entry(&warning_report, "chemistry");
+        assert_eq!(chemistry_warning.status, "budget_cap_warning");
+        assert!(!chemistry_warning.budget_clamped);
+        assert_f64_close(
+            "warning keeps raw weighted",
+            chemistry_warning.weighted_value,
+            9.0,
+        );
+        assert_eq!(warning_report.budget_warning_count, 1);
+
+        config.family_budget_action = ObjectiveBudgetAction::Clamp;
+        let clamped_report = crate::training::metrics::objective_family_budget_report(
+            1.0,
+            1.0,
+            &rollout,
+            &auxiliary_report,
+            &config,
+        );
+        let chemistry_clamped = budget_entry(&clamped_report, "chemistry");
+        assert_eq!(chemistry_clamped.status, "budget_clamped");
+        assert!(chemistry_clamped.budget_clamped);
+        assert_f64_close(
+            "clamped weighted",
+            chemistry_clamped.weighted_value,
+            1.0 / 3.0,
+        );
+        assert_f64_close(
+            "clamped percentage",
+            chemistry_clamped.percentage_of_total,
+            0.25,
+        );
+        assert_eq!(clamped_report.budget_clamped_count, 1);
+    }
+
+    fn zero_auxiliary_tensors_with_valence(value: f64) -> AuxiliaryObjectiveTensors {
+        fn tensor(value: f64) -> Tensor {
+            Tensor::full([1], value, (Kind::Float, Device::Cpu))
+        }
+        AuxiliaryObjectiveTensors {
+            intra_red: tensor(0.0),
+            probe: tensor(0.0),
+            probe_core: tensor(0.0),
+            probe_topology_sparse_negative_rate: tensor(0.0),
+            probe_ligand_pharmacophore: tensor(0.0),
+            probe_pocket_pharmacophore: tensor(0.0),
+            leak: tensor(0.0),
+            leak_core: tensor(0.0),
+            leak_similarity_proxy_diagnostic: tensor(0.0),
+            leak_explicit_probe_diagnostic: tensor(0.0),
+            leak_probe_fit_loss: tensor(0.0),
+            leak_encoder_penalty: tensor(0.0),
+            leak_route_status: "none".to_string(),
+            leak_topology_to_geometry: tensor(0.0),
+            leak_geometry_to_topology: tensor(0.0),
+            leak_pocket_to_geometry: tensor(0.0),
+            leak_topology_to_pocket_role: tensor(0.0),
+            leak_geometry_to_pocket_role: tensor(0.0),
+            leak_pocket_to_topology_role: tensor(0.0),
+            leak_pocket_to_ligand_role: tensor(0.0),
+            gate: tensor(0.0),
+            gate_path_contributions: Vec::new(),
+            slot: tensor(0.0),
+            consistency: tensor(0.0),
+            pocket_contact: tensor(0.0),
+            pocket_pair_distance: tensor(0.0),
+            pocket_clash: tensor(0.0),
+            pocket_shape_complementarity: tensor(0.0),
+            pocket_envelope: tensor(0.0),
+            pocket_prior: tensor(0.0),
+            pocket_prior_atom_count: tensor(0.0),
+            pocket_prior_composition: tensor(0.0),
+            pocket_prior_atom_count_mae: 0.0,
+            valence_guardrail: tensor(value),
+            valence_overage_guardrail: tensor(0.0),
+            valence_underage_guardrail: tensor(0.0),
+            bond_length_guardrail: tensor(0.0),
+            nonbonded_distance_guardrail: tensor(0.0),
+            angle_guardrail: tensor(0.0),
+            mi_topo_geo: 0.0,
+            mi_topo_pocket: 0.0,
+            mi_geo_pocket: 0.0,
+        }
+    }
+
+    #[test]
+    fn weighted_total_clamps_non_primary_family_tensor_when_configured() {
+        let primary = Tensor::full([1], 1.0, (Kind::Float, Device::Cpu));
+        let rollout = Tensor::zeros([1], (Kind::Float, Device::Cpu));
+        let auxiliaries = zero_auxiliary_tensors_with_valence(9.0);
+        let weights = EffectiveLossWeights {
+            primary: 1.0,
+            intra_red: 0.0,
+            probe: 0.0,
+            pharmacophore_probe: 0.0,
+            leak: 0.0,
+            pharmacophore_leakage: 0.0,
+            gate: 0.0,
+            slot: 0.0,
+            consistency: 0.0,
+            pocket_contact: 0.0,
+            pocket_pair_distance: 0.0,
+            pocket_clash: 0.0,
+            pocket_shape_complementarity: 0.0,
+            pocket_envelope: 0.0,
+            pocket_prior: 0.0,
+            valence_guardrail: 1.0,
+            bond_length_guardrail: 0.0,
+            nonbonded_distance_guardrail: 0.0,
+            angle_guardrail: 0.0,
+        };
+        let config = ObjectiveScaleDiagnosticsConfig {
+            family_budget_cap_fraction: Some(0.25),
+            family_budget_action: ObjectiveBudgetAction::Clamp,
+            ..ObjectiveScaleDiagnosticsConfig::default()
+        };
+
+        let total = ObjectiveExecutionRunner::weighted_total(
+            &primary,
+            &auxiliaries,
+            &rollout,
+            weights,
+            &config,
+        );
+
+        assert_f64_close("clamped total", total.double_value(&[]), 4.0 / 3.0);
     }
 
     #[test]
@@ -3227,11 +3742,207 @@ mod tests {
         assert_eq!(metrics[1].stage, TrainingStage::Stage2);
         assert!(!metrics[1].stage_progress.adaptive_stage_hold);
         assert_eq!(metrics[1].stage_progress.readiness_status, "ready");
+        assert_eq!(
+            metrics[1].stage_progress.promotion_gate_decision,
+            "promoted"
+        );
         assert!(metrics[1]
             .stage_progress
             .readiness_reasons
             .iter()
             .any(|reason| reason.contains("satisfy adaptive stage readiness")));
+    }
+
+    #[test]
+    fn adaptive_stage_guard_promotes_when_raw_metric_gates_pass() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 2;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.schedule.stage1_steps = 1;
+        config.training.schedule.stage2_steps = 2;
+        config.training.schedule.stage3_steps = 2;
+        config.training.adaptive_stage_guard.enabled = true;
+        config.training.adaptive_stage_guard.hold_stages = true;
+        config
+            .training
+            .adaptive_stage_guard
+            .min_finite_step_fraction = 0.0;
+        config
+            .training
+            .adaptive_stage_guard
+            .require_no_optimizer_skip = false;
+        config
+            .training
+            .adaptive_stage_guard
+            .max_slot_collapse_warnings = usize::MAX;
+        config
+            .training
+            .adaptive_stage_guard
+            .max_slot_mass_concentration_warnings = usize::MAX;
+        config
+            .training
+            .adaptive_stage_guard
+            .max_gate_saturation_fraction = 1.0;
+        config
+            .training
+            .adaptive_stage_guard
+            .min_raw_rollout_validity = Some(0.8);
+        config
+            .training
+            .adaptive_stage_guard
+            .max_raw_rollout_clash_loss = Some(0.2);
+        config
+            .training
+            .adaptive_stage_guard
+            .max_raw_rollout_pocket_contact_loss = Some(0.2);
+        config
+            .training
+            .adaptive_stage_guard
+            .max_rollout_eval_pocket_anchor_loss = Some(0.2);
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = new_valid_test_trainer(&var_store, config);
+
+        let mut prior = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+        prior.losses.rollout_training.active = true;
+        prior.losses.rollout_training.contributing_examples = 1;
+        prior.losses.rollout_training.generated_state_validity = 0.95;
+        prior.losses.rollout_training.clash_margin = 0.05;
+        prior.losses.rollout_training.pocket_contact = 0.05;
+        prior.losses.primary.components.rollout_eval_pocket_anchor = Some(0.05);
+        trainer.replace_history(vec![prior]);
+
+        let metrics = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+
+        assert_eq!(metrics.stage, TrainingStage::Stage2);
+        assert_eq!(metrics.stage_progress.readiness_status, "ready");
+        assert_eq!(metrics.stage_progress.promotion_gate_decision, "promoted");
+    }
+
+    #[test]
+    fn adaptive_stage_guard_holds_on_failed_or_missing_raw_metric_gates() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 2;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.schedule.stage1_steps = 1;
+        config.training.schedule.stage2_steps = 2;
+        config.training.schedule.stage3_steps = 2;
+        config.training.adaptive_stage_guard.enabled = true;
+        config.training.adaptive_stage_guard.hold_stages = true;
+        config
+            .training
+            .adaptive_stage_guard
+            .min_finite_step_fraction = 0.0;
+        config
+            .training
+            .adaptive_stage_guard
+            .require_no_optimizer_skip = false;
+        config
+            .training
+            .adaptive_stage_guard
+            .max_slot_collapse_warnings = usize::MAX;
+        config
+            .training
+            .adaptive_stage_guard
+            .max_slot_mass_concentration_warnings = usize::MAX;
+        config
+            .training
+            .adaptive_stage_guard
+            .max_gate_saturation_fraction = 1.0;
+        config
+            .training
+            .adaptive_stage_guard
+            .min_raw_rollout_validity = Some(0.8);
+        config
+            .training
+            .adaptive_stage_guard
+            .max_raw_rollout_clash_loss = Some(0.2);
+        config
+            .training
+            .adaptive_stage_guard
+            .max_raw_rollout_pocket_contact_loss = Some(0.2);
+        config
+            .training
+            .adaptive_stage_guard
+            .max_rollout_eval_pocket_anchor_loss = Some(0.2);
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = new_valid_test_trainer(&var_store, config);
+
+        let mut prior = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+        prior.losses.rollout_training.active = true;
+        prior.losses.rollout_training.contributing_examples = 1;
+        prior.losses.rollout_training.generated_state_validity = 0.25;
+        prior.losses.rollout_training.clash_margin = 0.75;
+        prior.losses.rollout_training.pocket_contact = 0.80;
+        prior.losses.primary.components.rollout_eval_pocket_anchor = Some(0.60);
+        trainer.replace_history(vec![prior]);
+
+        let failed = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+
+        assert_eq!(failed.stage, TrainingStage::Stage1);
+        assert_eq!(failed.stage_progress.readiness_status, "held");
+        assert_eq!(
+            failed.stage_progress.promotion_gate_decision,
+            "held_previous_stage"
+        );
+        assert!(failed
+            .stage_progress
+            .readiness_reasons
+            .iter()
+            .any(|reason| reason.contains("raw_rollout_validity=0.250")));
+        assert!(failed
+            .stage_progress
+            .readiness_reasons
+            .iter()
+            .any(|reason| reason.contains("raw_rollout_clash_loss=0.750")));
+        assert!(failed
+            .stage_progress
+            .readiness_reasons
+            .iter()
+            .any(|reason| reason.contains("raw_rollout_pocket_contact_loss=0.800")));
+        assert!(failed
+            .stage_progress
+            .readiness_reasons
+            .iter()
+            .any(|reason| reason.contains("rollout_eval_pocket_anchor_loss=0.600")));
+
+        let mut missing = failed;
+        missing.losses.rollout_training.active = false;
+        missing.losses.rollout_training.contributing_examples = 0;
+        missing.losses.primary.components.rollout_eval_pocket_anchor = None;
+        trainer.replace_history(vec![missing]);
+        let missing = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+        assert!(missing
+            .stage_progress
+            .readiness_reasons
+            .iter()
+            .any(|reason| reason.contains("raw_rollout_validity_unavailable")));
+        assert!(missing
+            .stage_progress
+            .readiness_reasons
+            .iter()
+            .any(|reason| reason.contains("rollout_eval_pocket_anchor_loss_unavailable")));
     }
 
     #[test]
@@ -3514,6 +4225,99 @@ mod tests {
     }
 
     #[test]
+    fn rollout_training_record_is_config_gated_and_bounded() {
+        let mut config = ResearchConfig::default();
+        config.training.build_rollout_diagnostics = false;
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let (_, disabled_forwards) = system
+            .forward_batch_with_interaction_context_and_rollout_diagnostics(
+                &dataset.examples()[..1],
+                InteractionExecutionContext::default(),
+                false,
+            );
+        assert!(!disabled_forwards[0].generation.rollout_training.enabled);
+        assert!(disabled_forwards[0]
+            .generation
+            .rollout_training
+            .steps
+            .is_empty());
+
+        config.training.rollout_training.enabled = true;
+        config.training.rollout_training.rollout_steps = 2;
+        config.training.rollout_training.detach_policy =
+            crate::config::RolloutTrainingDetachPolicy::DetachBetweenSteps;
+        let enabled_system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let (_, enabled_forwards) = enabled_system
+            .forward_batch_with_interaction_context_and_rollout_diagnostics(
+                &dataset.examples()[..1],
+                InteractionExecutionContext::default(),
+                false,
+            );
+        let record = &enabled_forwards[0].generation.rollout_training;
+        assert!(record.enabled);
+        assert!(record.mode_allowed);
+        assert_eq!(record.configured_steps, 2);
+        assert_eq!(record.executed_steps, 2);
+        assert_eq!(record.steps.len(), 2);
+        assert!(record
+            .steps
+            .iter()
+            .all(|step| step.detached_before_next_step));
+        assert!(enabled_forwards[0].generation.rollout.steps.is_empty());
+        assert!(record.memory_control.contains("bounded_steps=2"));
+    }
+
+    #[test]
+    fn rollout_training_loss_respects_warmup_and_reports_divergence() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 2;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.build_rollout_diagnostics = false;
+        config.training.rollout_training.enabled = true;
+        config.training.rollout_training.warmup_step = 1;
+        config.training.rollout_training.rollout_steps = 2;
+        config.training.rollout_training.max_batch_examples = 1;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = new_valid_test_trainer(&var_store, config);
+
+        let warmup = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+        assert!(warmup.losses.rollout_training.enabled);
+        assert!(!warmup.losses.rollout_training.active);
+        assert_eq!(warmup.losses.rollout_training.rollout_state_loss, 0.0);
+
+        let active = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+        assert!(active.losses.rollout_training.active);
+        assert_eq!(active.losses.rollout_training.contributing_examples, 1);
+        assert_eq!(active.losses.rollout_training.executed_steps_mean, 2.0);
+        assert!(active
+            .losses
+            .rollout_training
+            .rollout_state_loss
+            .is_finite());
+        assert!(active.losses.rollout_training.generated_state_validity >= 0.0);
+        assert!(active.losses.rollout_training.generated_state_validity <= 1.0);
+        assert!(active
+            .losses
+            .rollout_training
+            .teacher_rollout_divergence
+            .is_finite());
+        assert!(!active.runtime_profile.rollout_diagnostics_built);
+    }
+
+    #[test]
     fn default_training_objective_is_denoising_with_rollout_eval_only_metrics() {
         let mut config = ResearchConfig::default();
         config.data.batch_size = 2;
@@ -3556,6 +4360,8 @@ mod tests {
         assert!(
             (metrics.losses.primary.primary_value - differentiable_component_sum).abs() <= 1e-5
         );
+        assert!(!metrics.losses.rollout_training.enabled);
+        assert_eq!(metrics.losses.rollout_training.rollout_state_loss, 0.0);
         let rollout_eval_records = metrics
             .losses
             .primary
@@ -3713,23 +4519,40 @@ mod tests {
                             && !record.optimizer_facing
                             && !record.differentiable
                             && record.role == "evaluation_only"
+                            && record.target_source == "generated_rollout_state"
                     }));
                     assert!(provenance.iter().any(|record| {
-                        record.component_name == "geometry" && record.optimizer_facing
+                        record.component_name == "geometry"
+                            && record.optimizer_facing
+                            && record.target_source == "reference_ligand"
                     }));
                 }
                 crate::config::PrimaryObjectiveConfig::FlowMatching => {
-                    assert!(provenance.iter().all(|record| record.optimizer_facing));
+                    assert!(provenance.iter().all(|record| {
+                        record.optimizer_facing
+                            || record.component_name == "flow_native_score_calibration_uncapped_raw"
+                            || record.component_name == "flow_native_score_calibration_cap_scale"
+                    }));
+                    assert!(provenance.iter().any(|record| {
+                        record.component_name == "flow_native_score_calibration_cap_scale"
+                            && !record.optimizer_facing
+                            && !record.differentiable
+                            && record.target_source == "optimizer_loss_audit"
+                    }));
                     assert!(provenance.iter().any(|record| {
                         record.component_name == "flow_velocity" && record.differentiable
                     }));
                 }
                 crate::config::PrimaryObjectiveConfig::DenoisingFlowMatching => {
                     assert!(provenance.iter().any(|record| {
-                        record.component_name == "flow_velocity" && record.optimizer_facing
+                        record.component_name == "flow_velocity"
+                            && record.optimizer_facing
+                            && record.target_source == "reference_ligand"
                     }));
                     assert!(provenance.iter().any(|record| {
-                        record.component_name == "rollout_eval_recovery" && !record.optimizer_facing
+                        record.component_name == "rollout_eval_recovery"
+                            && !record.optimizer_facing
+                            && record.target_source == "generated_rollout_state"
                     }));
                 }
             }
@@ -3929,6 +4752,12 @@ mod tests {
         );
         for entry in &branch_report.entries {
             assert!(entry.optimizer_facing, "{} inactive", entry.branch_name);
+            assert_eq!(entry.component_audit.branch_name, entry.branch_name);
+            assert!(
+                entry.component_audit.observed_component_count > 0,
+                "{} missing component audit",
+                entry.branch_name
+            );
             assert!(
                 entry.effective_weight > 0.0,
                 "{} zero weight",
@@ -3956,6 +4785,17 @@ mod tests {
                 entry.branch_name
             );
         }
+        let topology = branch_report
+            .entries
+            .iter()
+            .find(|entry| entry.branch_name == "topology")
+            .unwrap();
+        assert!(topology
+            .component_audit
+            .observed_component_names
+            .iter()
+            .any(|name| name == "flow_native_score_calibration_cap_scale"));
+        assert!(topology.component_audit.diagnostic_component_count >= 1);
         assert!(!metrics.gradient_health.optimizer_step_skipped);
     }
 
@@ -4043,7 +4883,7 @@ mod tests {
             .iter()
             .any(|entry| entry.family_name.starts_with("primary:")
                 && entry.provenance == "primary_objective:exact_autograd"
-                && entry.status == "exact_sampled"
+                && matches!(entry.status.as_str(), "exact_sampled" | "dominant_gradient")
                 && entry.grad_l2_norm.is_finite()
                 && entry.grad_l2_norm > 0.0));
         assert!(metrics[1].gradient_health.objective_families.enabled);
@@ -4053,6 +4893,77 @@ mod tests {
             .objective_families
             .entries
             .is_empty());
+    }
+
+    #[test]
+    fn objective_gradient_diagnostics_default_disabled_schema_is_stable() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 1;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = new_valid_test_trainer(&var_store, config);
+
+        let metrics = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+        let diagnostics = &metrics.gradient_health.objective_families;
+
+        assert!(!diagnostics.enabled);
+        assert!(!diagnostics.sampled);
+        assert_eq!(diagnostics.sampling_mode, "disabled");
+        assert!(diagnostics.dominance_fraction_threshold > 0.0);
+        assert_eq!(diagnostics.dominant_family_count, 0);
+        assert!(diagnostics.entries.is_empty());
+    }
+
+    #[test]
+    fn objective_gradient_diagnostics_mark_dominant_families() {
+        let mut entries = vec![
+            ObjectiveGradientFamilyMetrics {
+                family_name: "primary:test".to_string(),
+                weighted_value: 1.0,
+                grad_l2_norm: 9.0,
+                grad_norm_fraction: 0.90,
+                status: "exact_sampled".to_string(),
+                provenance: "primary_objective:exact_autograd".to_string(),
+                anomaly: None,
+            },
+            ObjectiveGradientFamilyMetrics {
+                family_name: "auxiliary:slot".to_string(),
+                weighted_value: 0.1,
+                grad_l2_norm: 1.0,
+                grad_norm_fraction: 0.10,
+                status: "exact_sampled".to_string(),
+                provenance: "auxiliary:trainable:exact_autograd".to_string(),
+                anomaly: None,
+            },
+            ObjectiveGradientFamilyMetrics {
+                family_name: "auxiliary:gate".to_string(),
+                weighted_value: 0.0,
+                grad_l2_norm: 0.0,
+                grad_norm_fraction: 0.0,
+                status: "zero_gradient".to_string(),
+                provenance: "auxiliary:trainable:exact_autograd".to_string(),
+                anomaly: Some("sampled objective gradients are exactly zero".to_string()),
+            },
+        ];
+
+        let dominant_count = annotate_dominant_objective_gradient_families(&mut entries, 0.80);
+
+        assert_eq!(dominant_count, 1);
+        assert_eq!(entries[0].status, "dominant_gradient");
+        assert!(entries[0]
+            .anomaly
+            .as_deref()
+            .is_some_and(|anomaly| anomaly.contains("dominant threshold")));
+        assert_eq!(entries[1].status, "exact_sampled");
+        assert_eq!(entries[2].status, "zero_gradient");
     }
 
     #[test]
@@ -4708,6 +5619,11 @@ mod tests {
         config.training.schedule.stage3_steps = 0;
         config.training.loss_weights.upsilon_valence_guardrail = 0.2;
         config.training.loss_weights.phi_bond_length_guardrail = 0.2;
+        config
+            .training
+            .loss_weights
+            .chi_nonbonded_distance_guardrail = 0.2;
+        config.training.loss_weights.psi_angle_guardrail = 0.2;
         config.data.generation_target.generation_mode =
             crate::config::GenerationModeConfig::DeNovoInitialization;
         config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
@@ -4755,6 +5671,7 @@ mod tests {
         );
         assert_eq!(metrics.runtime_profile.forward_batch_count, 0);
         assert_eq!(metrics.runtime_profile.per_example_forward_count, 1);
+        assert_eq!(metrics.runtime_profile.generation_sample_count, 1);
         assert_eq!(
             metrics.runtime_profile.forward_execution_mode,
             "per_example_de_novo_interaction_context"
@@ -4770,7 +5687,23 @@ mod tests {
         assert!(metrics.losses.auxiliaries.probe.is_finite());
         assert!(metrics.losses.auxiliaries.consistency.is_finite());
         assert!(metrics.losses.auxiliaries.valence_guardrail.is_finite());
+        assert!(metrics
+            .losses
+            .auxiliaries
+            .valence_overage_guardrail
+            .is_finite());
+        assert!(metrics
+            .losses
+            .auxiliaries
+            .valence_underage_guardrail
+            .is_finite());
         assert!(metrics.losses.auxiliaries.bond_length_guardrail.is_finite());
+        assert!(metrics
+            .losses
+            .auxiliaries
+            .nonbonded_distance_guardrail
+            .is_finite());
+        assert!(metrics.losses.auxiliaries.angle_guardrail.is_finite());
         let geometry_branch = metrics
             .losses
             .primary
@@ -4796,6 +5729,90 @@ mod tests {
             .target_matching_coverage
             .is_some_and(|coverage| coverage > 0.0 && coverage < 1.0));
         assert!(!metrics.gradient_health.optimizer_step_skipped);
+    }
+
+    #[test]
+    fn de_novo_training_uses_bounded_multi_sample_initialization_when_enabled() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 1;
+        config.training.max_steps = 1;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.schedule.stage1_steps = 0;
+        config.training.schedule.stage2_steps = 0;
+        config.training.schedule.stage3_steps = 0;
+        config.data.generation_target.generation_mode =
+            crate::config::GenerationModeConfig::DeNovoInitialization;
+        config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
+        config.generation_method.active_method = "flow_matching".to_string();
+        config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+            backend_id: "flow_matching".to_string(),
+            family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..crate::config::GenerationBackendConfig::default()
+        };
+        config.generation_method.flow_matching.geometry_only = false;
+        config
+            .generation_method
+            .flow_matching
+            .multi_modal
+            .enabled_branches = crate::config::FlowBranchKind::ALL.to_vec();
+        config
+            .data
+            .generation_target
+            .de_novo_initialization
+            .min_atom_count = 5;
+        config
+            .data
+            .generation_target
+            .de_novo_initialization
+            .max_atom_count = 5;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .enabled = true;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .sample_count = 3;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .max_samples_per_pocket = 3;
+        config.validate().unwrap();
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = new_valid_test_trainer(&var_store, config);
+
+        let metrics = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..1])
+            .unwrap();
+
+        assert_eq!(metrics.runtime_profile.forward_batch_count, 0);
+        assert_eq!(metrics.runtime_profile.per_example_forward_count, 3);
+        assert_eq!(metrics.runtime_profile.generation_sample_count, 3);
+        assert_eq!(
+            metrics.runtime_profile.forward_execution_mode,
+            "per_example_de_novo_multi_sample_interaction_context"
+        );
+        assert_eq!(
+            metrics.runtime_profile.rollout_diagnostic_execution_count,
+            3
+        );
+        assert!(metrics
+            .runtime_profile
+            .de_novo_per_example_reason
+            .as_deref()
+            .unwrap()
+            .contains("sample_count=3"));
+        assert!(metrics.losses.total.is_finite());
+        assert!(metrics.losses.primary.primary_value.is_finite());
     }
 
     #[test]
@@ -4951,10 +5968,20 @@ mod tests {
         config.training.checkpoint_every = 100;
         config.training.log_every = 100;
         config.training.loss_weights.rho_pocket_contact = 0.2;
+        config.training.loss_weights.lambda_pocket_pair_distance = 0.25;
         config.training.loss_weights.sigma_pocket_clash = 0.3;
+        config
+            .training
+            .loss_weights
+            .omega_pocket_shape_complementarity = 0.35;
         config.training.loss_weights.tau_pocket_envelope = 0.4;
         config.training.loss_weights.upsilon_valence_guardrail = 0.5;
         config.training.loss_weights.phi_bond_length_guardrail = 0.6;
+        config
+            .training
+            .loss_weights
+            .chi_nonbonded_distance_guardrail = 0.7;
+        config.training.loss_weights.psi_angle_guardrail = 0.8;
 
         let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
             .with_pocket_feature_dim(config.model.pocket_feature_dim);
@@ -4969,9 +5996,19 @@ mod tests {
         assert!(metrics
             .iter()
             .all(|step| step.losses.auxiliaries.pocket_contact.is_finite()));
+        assert!(metrics.iter().all(|step| step
+            .losses
+            .auxiliaries
+            .pocket_pair_distance
+            .is_finite()));
         assert!(metrics
             .iter()
             .all(|step| step.losses.auxiliaries.pocket_clash.is_finite()));
+        assert!(metrics.iter().all(|step| step
+            .losses
+            .auxiliaries
+            .pocket_shape_complementarity
+            .is_finite()));
         assert!(metrics
             .iter()
             .all(|step| step.losses.auxiliaries.pocket_envelope.is_finite()));
@@ -4981,8 +6018,26 @@ mod tests {
         assert!(metrics.iter().all(|step| step
             .losses
             .auxiliaries
+            .valence_overage_guardrail
+            .is_finite()));
+        assert!(metrics.iter().all(|step| step
+            .losses
+            .auxiliaries
+            .valence_underage_guardrail
+            .is_finite()));
+        assert!(metrics.iter().all(|step| step
+            .losses
+            .auxiliaries
             .bond_length_guardrail
             .is_finite()));
+        assert!(metrics.iter().all(|step| step
+            .losses
+            .auxiliaries
+            .nonbonded_distance_guardrail
+            .is_finite()));
+        assert!(metrics
+            .iter()
+            .all(|step| step.losses.auxiliaries.angle_guardrail.is_finite()));
         assert!(metrics
             .iter()
             .any(|step| step.losses.auxiliaries.pocket_contact >= 0.0));
@@ -4992,7 +6047,7 @@ mod tests {
                 .auxiliary_objective_report
                 .entries
                 .len()
-                == 13
+                == 18
         }));
         assert!(metrics.iter().all(|step| {
             step.losses
@@ -5009,6 +6064,60 @@ mod tests {
             .entries
             .iter()
             .all(|entry| entry.weighted_value.is_finite() && !entry.status.is_empty())));
+    }
+
+    #[test]
+    fn pocket_prior_auxiliary_loss_is_staged_and_reported_when_enabled() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 2;
+        config.training.max_steps = 1;
+        config.training.schedule.stage1_steps = 0;
+        config.training.schedule.stage2_steps = 1;
+        config.training.schedule.stage3_steps = 1;
+        config.training.schedule.warmup_floor = 1.0;
+        config.training.checkpoint_every = 100;
+        config.training.log_every = 100;
+        config.training.loss_weights.kappa_pocket_prior = 0.5;
+
+        let dataset = InMemoryDataset::new(crate::data::synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let mut trainer = new_valid_test_trainer(&var_store, config);
+
+        let metrics = trainer
+            .train_batch_step(&var_store, &system, &dataset.examples()[..2])
+            .unwrap();
+
+        assert!(metrics.losses.auxiliaries.pocket_prior.is_finite());
+        assert!(metrics.losses.auxiliaries.pocket_prior > 0.0);
+        assert!(metrics
+            .losses
+            .auxiliaries
+            .pocket_prior_atom_count
+            .is_finite());
+        assert!(metrics
+            .losses
+            .auxiliaries
+            .pocket_prior_composition
+            .is_finite());
+        assert!(metrics
+            .losses
+            .auxiliaries
+            .pocket_prior_atom_count_mae
+            .is_finite());
+        let prior_entry = metrics
+            .losses
+            .auxiliaries
+            .auxiliary_objective_report
+            .entries
+            .iter()
+            .find(|entry| entry.family == AuxiliaryObjectiveFamily::PocketPrior)
+            .unwrap();
+        assert!(prior_entry.enabled);
+        assert_eq!(prior_entry.execution_mode, "trainable");
+        assert_eq!(prior_entry.effective_weight, 0.5);
+        assert!(prior_entry.weighted_value > 0.0);
     }
 
     #[test]
@@ -5054,15 +6163,26 @@ mod tests {
         assert!(scalar_or_nan(&auxiliaries.leak).is_finite());
         assert!(scalar_or_nan(&auxiliaries.leak_topology_to_pocket_role).is_finite());
         assert!(scalar_or_nan(&auxiliaries.leak_geometry_to_pocket_role).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.leak_pocket_to_topology_role).is_finite());
         assert!(scalar_or_nan(&auxiliaries.leak_pocket_to_ligand_role).is_finite());
         assert!(scalar_or_nan(&auxiliaries.gate).is_finite());
         assert!(scalar_or_nan(&auxiliaries.slot).is_finite());
         assert!(scalar_or_nan(&auxiliaries.consistency).is_finite());
         assert!(scalar_or_nan(&auxiliaries.pocket_contact).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.pocket_pair_distance).is_finite());
         assert!(scalar_or_nan(&auxiliaries.pocket_clash).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.pocket_shape_complementarity).is_finite());
         assert!(scalar_or_nan(&auxiliaries.pocket_envelope).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.pocket_prior).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.pocket_prior_atom_count).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.pocket_prior_composition).is_finite());
+        assert!(auxiliaries.pocket_prior_atom_count_mae.is_finite());
         assert!(scalar_or_nan(&auxiliaries.valence_guardrail).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.valence_overage_guardrail).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.valence_underage_guardrail).is_finite());
         assert!(scalar_or_nan(&auxiliaries.bond_length_guardrail).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.nonbonded_distance_guardrail).is_finite());
+        assert!(scalar_or_nan(&auxiliaries.angle_guardrail).is_finite());
         assert!(primary_components.topology.is_some());
         assert!(primary_components.geometry.is_some());
         assert!(primary_components.pocket_anchor.is_some());

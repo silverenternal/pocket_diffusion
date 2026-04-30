@@ -881,6 +881,21 @@ pub struct GenerationRolloutRecord {
     pub example_id: String,
     /// Stable protein identifier.
     pub protein_id: String,
+    /// Stable pocket identifier used for generation reports.
+    #[serde(default)]
+    pub pocket_id: String,
+    /// Zero-based sample index for multi-sample de novo initialization.
+    #[serde(default)]
+    pub sample_index: usize,
+    /// Bounded per-pocket sample count used by this rollout.
+    #[serde(default = "default_generation_sample_count")]
+    pub sample_count: usize,
+    /// Deterministic seed used by the scaffold/x0 initializer when available.
+    #[serde(default)]
+    pub sample_seed: Option<u64>,
+    /// Report-facing provenance for the sample seed.
+    #[serde(default = "default_generation_sample_seed_provenance")]
+    pub sample_seed_provenance: String,
     /// Explicit generation-mode contract for this rollout.
     #[serde(default = "default_generation_mode_label")]
     pub generation_mode: String,
@@ -1166,7 +1181,7 @@ impl CandidateLayerKind {
     pub fn claim_boundary(self) -> &'static str {
         match self {
             Self::RawGeometry | Self::RawRollout => {
-                "raw model-native output before repair, constraints, reranking, or backend scoring"
+                "raw model-native decoder output before repair, reranking, or backend scoring"
             }
             Self::BondLogitsRefined | Self::ValenceRefined | Self::InferredBond => {
                 "constraint-supported candidate after bond or valence postprocessing"
@@ -1270,6 +1285,14 @@ fn default_decoder_capability_label() -> String {
     DecoderCapabilityDescriptor::fixed_atom_refinement()
         .label()
         .to_string()
+}
+
+fn default_generation_sample_count() -> usize {
+    1
+}
+
+fn default_generation_sample_seed_provenance() -> String {
+    "single_sample_default".to_string()
 }
 
 fn default_atom_count_source_label() -> String {

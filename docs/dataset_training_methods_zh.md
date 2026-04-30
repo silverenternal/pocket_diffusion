@@ -615,6 +615,9 @@ Stage scheduler 根据 step 激活不同辅助目标，并在每个 stage 内做
 - checkpoint 写入 `training.checkpoint_dir`。
 - resume 恢复 weights、step、history 和 optimizer/scheduler metadata；但当前 tch Adam 内部 moment buffers 不做 strict serialization，所以默认不是 exact optimizer replay。
 - step 执行已经拆分为 stage selection、objective execution、gradient step、runtime tracking、metric construction 和 checkpoint trigger；runtime metrics 会记录 batched forward count、per-example fallback count、forward execution mode，以及 de novo per-example fallback reason。
+- primary component provenance、flow branch schedule report、branch component audit 和 objective-family budget report 的解释逻辑已经集中到 `src/training/metrics/`，而不是留在 trainer 内部用字符串前缀判断。详细边界见 `docs/training_metrics_audit.md`。
+- branch schedule artifact 中的每个 branch 会带 `component_audit`，记录该 branch 观察到的 primary component 名称、optimizer-facing component 数量、diagnostic-only component 数量和值汇总。该汇总只用于审计，不重新计算 optimizer total。
+- objective-family budget family 固定为 `task`、`rollout`、`pocket_interaction`、`chemistry`、`redundancy`、`probe`、`leakage`、`gate`、`slot`。warn/clamp 逻辑在 family 聚合之后执行，方便审计辅助目标是否压过 primary/rollout 信号。
 
 主要 artifact：
 

@@ -7,7 +7,7 @@
   "global_rules": [
     "All claim-facing numeric values must come from machine-generated JSON or JSONL artifacts.",
     "Do not use placeholders such as placeholder_zero_xxx_token or narrative-only approximate values.",
-    "Geometry-only flow configs are not full molecular flow; full molecular flow claims require geometry, atom_type, bond, topology, and pocket_context branches.",
+    "Geometry-only flow configs are not full molecular flow; geometry-first flow matching is a raw generation family only when geometry, atom_type, bond, topology, and pocket_context branches are active.",
     "AutoDock Vina and GNINA values are score_only backend outputs and not experimental binding affinities.",
     "Do not claim statistical dominance over public baselines until matched-budget multi-seed public-baseline evidence exists."
   ],

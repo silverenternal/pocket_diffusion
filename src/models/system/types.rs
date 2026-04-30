@@ -114,6 +114,76 @@ pub(crate) struct BatchedCrossModalInteractions {
     pub pocket_from_geo: BatchedCrossAttentionOutput,
 }
 
+/// One tensor-preserving optimizer-facing rollout step.
+#[derive(Debug)]
+pub(crate) struct RolloutTrainingStepRecord {
+    /// Zero-based generated step index.
+    pub step_index: usize,
+    /// Per-atom logits emitted for this generated state.
+    pub atom_type_logits: Tensor,
+    /// Generated coordinates after this step.
+    pub coords: Tensor,
+    /// Coordinate delta applied at this step.
+    pub coordinate_deltas: Tensor,
+    /// Stop/update logit for this generated step.
+    pub stop_logit: Tensor,
+    /// Active generated atom mask.
+    pub atom_mask: Tensor,
+    /// Whether the state fed into the following step was detached.
+    pub detached_before_next_step: bool,
+}
+
+impl Clone for RolloutTrainingStepRecord {
+    fn clone(&self) -> Self {
+        Self {
+            step_index: self.step_index,
+            atom_type_logits: self.atom_type_logits.shallow_clone(),
+            coords: self.coords.shallow_clone(),
+            coordinate_deltas: self.coordinate_deltas.shallow_clone(),
+            stop_logit: self.stop_logit.shallow_clone(),
+            atom_mask: self.atom_mask.shallow_clone(),
+            detached_before_next_step: self.detached_before_next_step,
+        }
+    }
+}
+
+/// Bounded differentiable rollout record used only by optimizer-facing short-rollout losses.
+#[derive(Debug, Clone)]
+pub(crate) struct RolloutTrainingRecord {
+    /// Whether config enabled trainable short-rollout construction for this forward.
+    pub enabled: bool,
+    /// Whether the active generation mode passed the rollout-training mode gate.
+    pub mode_allowed: bool,
+    /// Configured bounded step count.
+    pub configured_steps: usize,
+    /// Number of tensor-preserving records emitted.
+    pub executed_steps: usize,
+    /// Report label for detach policy.
+    pub detach_policy: String,
+    /// Compact memory-control note for artifacts and diagnostics.
+    pub memory_control: String,
+    /// Target/evidence source carried by generated-state losses.
+    pub target_source: String,
+    /// Per-step tensor records.
+    pub steps: Vec<RolloutTrainingStepRecord>,
+}
+
+impl RolloutTrainingRecord {
+    /// Disabled record used to preserve default training behavior.
+    pub(crate) fn disabled(configured_steps: usize, detach_policy: String) -> Self {
+        Self {
+            enabled: false,
+            mode_allowed: false,
+            configured_steps,
+            executed_steps: 0,
+            detach_policy,
+            memory_control: "disabled".to_string(),
+            target_source: "generated_rollout_state".to_string(),
+            steps: Vec::new(),
+        }
+    }
+}
+
 /// Decoder-facing generation bundle produced by the modular backbone.
 #[derive(Debug, Clone)]
 pub(crate) struct GenerationForward {
@@ -125,8 +195,12 @@ pub(crate) struct GenerationForward {
     pub decoded: DecoderOutput,
     /// Iterative rollout trace aligned with the active generation semantics.
     pub rollout: GenerationRolloutRecord,
+    /// Optional tensor-preserving short-rollout record for optimizer-facing losses.
+    pub rollout_training: RolloutTrainingRecord,
     /// Optional flow-matching training tuple for geometry transport.
     pub flow_matching: Option<FlowMatchingTrainingRecord>,
+    /// Explicit pocket-conditioned size and composition prior predictions.
+    pub pocket_priors: PocketConditionedPriorOutput,
 }
 
 /// Full Phase 2 forward-pass bundle.
@@ -177,6 +251,8 @@ pub(crate) struct OptimizerForwardRecord {
     pub decoded: DecoderOutput,
     /// Optional flow-matching training tuple for geometry and molecular transport.
     pub flow_matching: Option<FlowMatchingTrainingRecord>,
+    /// Explicit pocket-conditioned size and composition prior predictions.
+    pub pocket_priors: PocketConditionedPriorOutput,
     /// Interaction context resolved during optimizer-facing forward construction.
     pub interaction_context: InteractionExecutionContext,
 }

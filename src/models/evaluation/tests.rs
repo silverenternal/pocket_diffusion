@@ -1,7 +1,7 @@
 use super::candidates::repair_candidate_geometry;
 use super::scoring::{
     centroid_fit_score, euclidean, evaluate_via_command, infer_bonds, non_bonded_clash_fraction,
-    prune_bonds_for_valence, strict_pocket_fit_score,
+    prune_bonds_for_valence, strict_pocket_fit_score, structural_pass,
 };
 use super::*;
 use crate::models::Phase1ResearchSystem;
@@ -28,7 +28,7 @@ fn candidate_with_coords(coords: Vec<[f32; 3]>) -> GeneratedCandidateRecord {
         model_native_raw: true,
         postprocessor_chain: Vec::new(),
         claim_boundary:
-            "raw model-native output before repair, constraints, reranking, or backend scoring"
+            "raw model-native decoder output before repair, reranking, or backend scoring"
                 .to_string(),
         source_pocket_path: None,
         source_ligand_path: None,
@@ -48,6 +48,26 @@ fn strict_pocket_fit_prefers_centered_candidates() {
 fn clash_fraction_ignores_inferred_bonds() {
     let bonded = candidate_with_coords(vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]);
     assert_eq!(non_bonded_clash_fraction(&bonded), 0.0);
+}
+
+#[test]
+fn structural_pass_allows_extended_ligands_inside_large_pockets() {
+    let mut candidate = candidate_with_coords(vec![
+        [-6.0, 0.0, 0.0],
+        [-2.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [6.0, 0.0, 0.0],
+    ]);
+    candidate.pocket_radius = 8.0;
+
+    assert!(structural_pass(&candidate));
+}
+
+#[test]
+fn structural_pass_rejects_atom_overlaps() {
+    let candidate = candidate_with_coords(vec![[0.0, 0.0, 0.0], [0.1, 0.0, 0.0]]);
+
+    assert!(!structural_pass(&candidate));
 }
 
 #[test]
@@ -211,6 +231,11 @@ fn flow_generation_layers_keep_raw_native_constrained_and_repaired_graphs_separa
         layers.bond_logits_refined[0].inferred_bonds,
         final_step.constrained_native_bonds
     );
+    assert!(layers.raw_rollout[0]
+        .molecular_representation
+        .as_deref()
+        .unwrap()
+        .contains("raw_to_constrained_delta="));
     assert!(layers.raw_rollout[0].model_native_raw);
     assert!(layers.raw_rollout[0].postprocessor_chain.is_empty());
     assert!(!layers.bond_logits_refined[0].model_native_raw);
@@ -227,6 +252,78 @@ fn flow_generation_layers_keep_raw_native_constrained_and_repaired_graphs_separa
         .postprocessor_chain
         .iter()
         .any(|step| step == "pocket_centroid_repair"));
+}
+
+#[test]
+fn multi_sample_generation_layers_carry_sample_seed_provenance() {
+    let mut config = ResearchConfig::default();
+    config.data.generation_target.generation_mode =
+        crate::config::GenerationModeConfig::DeNovoInitialization;
+    config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
+    config.generation_method.active_method = "flow_matching".to_string();
+    config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+        backend_id: "flow_matching".to_string(),
+        family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+        trainable: true,
+        ..crate::config::GenerationBackendConfig::default()
+    };
+    config.generation_method.flow_matching.geometry_only = false;
+    config
+        .generation_method
+        .flow_matching
+        .multi_modal
+        .enabled_branches = crate::config::FlowBranchKind::ALL.to_vec();
+    config
+        .data
+        .generation_target
+        .de_novo_initialization
+        .min_atom_count = 5;
+    config
+        .data
+        .generation_target
+        .de_novo_initialization
+        .max_atom_count = 5;
+    config
+        .data
+        .generation_target
+        .multi_sample_initialization
+        .enabled = true;
+    config
+        .data
+        .generation_target
+        .multi_sample_initialization
+        .sample_count = 2;
+    config
+        .data
+        .generation_target
+        .multi_sample_initialization
+        .max_samples_per_pocket = 2;
+    config.validate().unwrap();
+
+    let example = synthetic_phase1_examples()
+        .into_iter()
+        .map(|example| example.with_pocket_feature_dim(config.model.pocket_feature_dim))
+        .next()
+        .unwrap();
+    let var_store = nn::VarStore::new(Device::Cpu);
+    let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+    let forwards = system.forward_example_generation_samples(&example);
+    let layers = generate_layered_candidates_from_generation_samples(&example, &forwards, 2);
+
+    assert_eq!(forwards.len(), 2);
+    assert_eq!(layers.raw_rollout.len(), 2);
+    assert!(layers
+        .raw_rollout
+        .iter()
+        .any(|candidate| candidate.source.contains("sample=0")));
+    assert!(layers
+        .raw_rollout
+        .iter()
+        .any(|candidate| candidate.source.contains("sample=1")));
+    assert!(layers
+        .raw_rollout
+        .iter()
+        .all(|candidate| candidate.source.contains("sample_seed=")));
 }
 
 #[test]

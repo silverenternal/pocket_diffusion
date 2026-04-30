@@ -50,6 +50,28 @@ pub(crate) struct CandidateGenerationLayers {
     pub inferred_bond: Vec<GeneratedCandidateRecord>,
 }
 
+impl CandidateGenerationLayers {
+    fn empty() -> Self {
+        Self {
+            raw_geometry: Vec::new(),
+            raw_rollout: Vec::new(),
+            bond_logits_refined: Vec::new(),
+            valence_refined: Vec::new(),
+            repaired: Vec::new(),
+            inferred_bond: Vec::new(),
+        }
+    }
+
+    fn extend(&mut self, other: Self) {
+        self.raw_geometry.extend(other.raw_geometry);
+        self.raw_rollout.extend(other.raw_rollout);
+        self.bond_logits_refined.extend(other.bond_logits_refined);
+        self.valence_refined.extend(other.valence_refined);
+        self.repaired.extend(other.repaired);
+        self.inferred_bond.extend(other.inferred_bond);
+    }
+}
+
 impl ChemistryValidityEvaluator for HeuristicChemistryValidityEvaluator {
     fn backend_name(&self) -> &'static str {
         "heuristic_validity_v1"
@@ -268,6 +290,30 @@ pub(crate) fn generate_layered_candidates_from_forward(
     generate_layered_candidates_with_options(example, forward, num_candidates, true)
 }
 
+/// Build candidate layers from multiple de novo initialization samples for one pocket.
+pub(crate) fn generate_layered_candidates_from_generation_samples(
+    example: &MolecularExample,
+    forwards: &[ResearchForward],
+    num_candidates: usize,
+) -> CandidateGenerationLayers {
+    if forwards.is_empty() {
+        return CandidateGenerationLayers::empty();
+    }
+    let requested = num_candidates.max(forwards.len()).max(1);
+    let per_sample_base = requested / forwards.len();
+    let remainder = requested % forwards.len();
+    let mut layers = CandidateGenerationLayers::empty();
+    for (sample_index, forward) in forwards.iter().enumerate() {
+        let count = per_sample_base + usize::from(sample_index < remainder);
+        if count > 0 {
+            layers.extend(generate_layered_candidates_from_forward(
+                example, forward, count,
+            ));
+        }
+    }
+    layers
+}
+
 /// Build candidate layers with optional geometry repair for ablation attribution.
 pub(crate) fn generate_layered_candidates_with_options(
     example: &MolecularExample,
@@ -276,14 +322,7 @@ pub(crate) fn generate_layered_candidates_with_options(
     enable_repair: bool,
 ) -> CandidateGenerationLayers {
     if num_candidates == 0 {
-        return CandidateGenerationLayers {
-            raw_geometry: Vec::new(),
-            raw_rollout: Vec::new(),
-            bond_logits_refined: Vec::new(),
-            valence_refined: Vec::new(),
-            repaired: Vec::new(),
-            inferred_bond: Vec::new(),
-        };
+        return CandidateGenerationLayers::empty();
     }
 
     let final_step = forward.generation.rollout.steps.last();
@@ -305,18 +344,41 @@ pub(crate) fn generate_layered_candidates_with_options(
     let native_bond_types = final_step
         .map(|step| step.native_bond_types.clone())
         .unwrap_or_default();
+    let constrained_native_bond_types = final_step
+        .map(|step| step.constrained_native_bond_types.clone())
+        .unwrap_or_default();
+    let native_graph_provenance = final_step
+        .map(|step| step.native_graph_provenance.clone())
+        .unwrap_or_default();
     let constrained_native_bonds = final_step
         .map(|step| step.constrained_native_bonds.clone())
         .unwrap_or_default();
     let base_bonds = if !constrained_native_bonds.is_empty() {
-        constrained_native_bonds
+        constrained_native_bonds.clone()
     } else if native_bonds.is_empty() {
         infer_bonds(&rollout_coords)
     } else {
         native_bonds.clone()
     };
-    let raw_rollout_bonds = native_bonds;
+    let base_bond_types = if !constrained_native_bond_types.is_empty() {
+        constrained_native_bond_types.clone()
+    } else {
+        native_bond_types.clone()
+    };
+    let raw_rollout_bonds = native_bonds.clone();
+    let raw_rollout_bond_types = native_bond_types.clone();
     let generation_mode = forward.generation.generation_mode.as_str().to_string();
+    let sample_source_fragment = format!(
+        "sample={};sample_count={};sample_seed={}",
+        forward.generation.rollout.sample_index,
+        forward.generation.rollout.sample_count,
+        forward
+            .generation
+            .rollout
+            .sample_seed
+            .map(|seed| seed.to_string())
+            .unwrap_or_else(|| "none".to_string())
+    );
 
     let mut raw_geometry = Vec::with_capacity(num_candidates);
     let mut raw_rollout = Vec::with_capacity(num_candidates);
@@ -346,7 +408,7 @@ pub(crate) fn generate_layered_candidates_with_options(
             pocket_radius: pocket_radius as f32,
             coordinate_frame_origin: example.coordinate_frame_origin,
             source: format!(
-                "raw_geometry:steps={};candidate={candidate_ix}",
+                "raw_geometry:steps={};candidate={candidate_ix};{sample_source_fragment}",
                 forward.generation.rollout.executed_steps
             ),
             generation_mode: generation_mode.clone(),
@@ -373,9 +435,13 @@ pub(crate) fn generate_layered_candidates_with_options(
             example_id: example.example_id.clone(),
             protein_id: example.protein_id.clone(),
             molecular_representation: Some(format!(
-                "source=raw_rollout;atoms={};bonds={}",
+                "source=raw_rollout;native_decoder=valence_connected;atoms={};bonds={};native_bond_types={};raw_to_constrained_delta={};valence_downgrades={};guardrail_delta={}",
                 rollout_atom_types.len(),
-                raw_rollout_bonds.len()
+                raw_rollout_bonds.len(),
+                raw_rollout_bond_types.len(),
+                native_graph_provenance.raw_to_constrained_removed_bond_count,
+                native_graph_provenance.valence_guardrail_downgrade_count,
+                native_graph_provenance.guardrail_trigger_count
             )),
             atom_types: rollout_atom_types.clone(),
             coords: rollout_coords.clone(),
@@ -393,7 +459,7 @@ pub(crate) fn generate_layered_candidates_with_options(
             pocket_radius: pocket_radius as f32,
             coordinate_frame_origin: example.coordinate_frame_origin,
             source: format!(
-                "raw_modular_rollout:steps={};candidate={candidate_ix}",
+                "raw_modular_rollout:steps={};candidate={candidate_ix};{sample_source_fragment}",
                 forward.generation.rollout.executed_steps
             ),
             generation_mode: generation_mode.clone(),
@@ -429,10 +495,13 @@ pub(crate) fn generate_layered_candidates_with_options(
             example_id: example.example_id.clone(),
             protein_id: example.protein_id.clone(),
             molecular_representation: Some(format!(
-                "source=bond_logits_refined;atoms={};bonds={};native_bond_types={}",
+                "source=bond_logits_refined;atoms={};bonds={};native_bond_types={};raw_to_constrained_delta={};valence_downgrades={};guardrail_delta={}",
                 bond_refined_atom_types.len(),
                 base_bonds.len(),
-                native_bond_types.len()
+                base_bond_types.len(),
+                native_graph_provenance.raw_to_constrained_removed_bond_count,
+                native_graph_provenance.valence_guardrail_downgrade_count,
+                native_graph_provenance.guardrail_trigger_count
             )),
             atom_types: bond_refined_atom_types.clone(),
             coords: rollout_coords.clone(),
@@ -447,7 +516,7 @@ pub(crate) fn generate_layered_candidates_with_options(
             pocket_radius: pocket_radius as f32,
             coordinate_frame_origin: example.coordinate_frame_origin,
             source: format!(
-                "bond_logits_refined:no_coordinate_move;steps={};candidate={candidate_ix}",
+                "bond_logits_refined:no_coordinate_move;steps={};candidate={candidate_ix};{sample_source_fragment}",
                 forward.generation.rollout.executed_steps
             ),
             generation_mode: generation_mode.clone(),
@@ -498,7 +567,7 @@ pub(crate) fn generate_layered_candidates_with_options(
             pocket_radius: pocket_radius as f32,
             coordinate_frame_origin: example.coordinate_frame_origin,
             source: format!(
-                "valence_refined:no_coordinate_move;steps={};candidate={candidate_ix}",
+                "valence_refined:no_coordinate_move;steps={};candidate={candidate_ix};{sample_source_fragment}",
                 forward.generation.rollout.executed_steps
             ),
             generation_mode: generation_mode.clone(),
@@ -559,7 +628,7 @@ pub(crate) fn generate_layered_candidates_with_options(
             pocket_radius: pocket_radius as f32,
             coordinate_frame_origin: example.coordinate_frame_origin,
             source: format!(
-                "geometry_repair:steps={};candidate={candidate_ix}",
+                "geometry_repair:steps={};candidate={candidate_ix};{sample_source_fragment}",
                 forward.generation.rollout.executed_steps
             ),
             generation_mode: generation_mode.clone(),
@@ -615,7 +684,7 @@ pub(crate) fn generate_layered_candidates_with_options(
             pocket_radius: pocket_radius as f32,
             coordinate_frame_origin: example.coordinate_frame_origin,
             source: format!(
-                "modular_rollout_decoder:steps={}",
+                "modular_rollout_decoder:steps={};candidate={candidate_ix};{sample_source_fragment}",
                 forward.generation.rollout.executed_steps
             ),
             generation_mode: generation_mode.clone(),

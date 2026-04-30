@@ -22,6 +22,11 @@ This project should separate implementation claims from evidence claims.
 - The current reviewer-facing larger-data surfaces are `checkpoints/pdbbindpp_real_backends` and `checkpoints/lp_pdbbind_refined_real_backends`; use `checkpoints/pdbbindpp_profile` only as the heuristic fallback when real backends are unavailable.
 - Real-backend chemistry and pocket results are provisional unless backend availability, missing-structure fraction, sanitization, uniqueness, clash, and pocket-fit gates pass in the target environment.
 - Train/eval alignment evidence is provisional unless `optimizer_facing` terms, detached `rollout_eval_*` diagnostics, backend coverage rows, and best-metric review are persisted in the same experiment/claim artifacts being cited.
+- Q15 generation-alignment claims are provisional unless the run also persists
+  objective-family budgets, raw-native evaluation rows, the raw-native
+  generation report, and the matching ablation matrix. The executable matrix is
+  `configs/q15_generation_alignment_ablation_matrix.json`; its labels are
+  mechanism descriptions, not performance claims.
 - Raw-native model evidence is provisional unless `raw_native_evidence`, `model_design.raw_model_*`, `model_design.raw_native_*`, and `layered_generation_metrics.raw_rollout` are present. Processed improvements must remain secondary and carry `postprocessor_chain` plus `claim_boundary`; repaired improvements must also cite `postprocessing_repair_audit` or `layered_generation_metrics.repair_case_audit` and must not be described as raw generation evidence.
 - Real-data claim wording is also provisional unless the retained dataset contract is explicit: source-structure provenance coverage, normalization-provenance coverage, approximate-label fraction, and measurement-family composition must be persisted in `dataset_validation.json`, not inferred informally.
 - Pocket-only or de novo wording is provisional unless target-ligand-centered context dependency is absent, rejected by `quality_filters.reject_target_ligand_context_leakage=true`, or the claim explicitly cites the de novo execution path that recenters pocket features and treats target ligand fields as training supervision only.
@@ -45,6 +50,15 @@ This project should separate implementation claims from evidence claims.
 - Do not use de novo wording unless the artifact also has `claim_context.de_novo_claim_allowed=true`, pocket-centered conditioning provenance, and no target-ligand tensors used as conditioning input. Target ligand atom, topology, coordinate, and pocket-relative fields are supervision only for the de novo path.
 - Do not claim full molecular flow from geometry-only configs. Full molecular flow wording requires geometry, atom-type, bond, topology, and pocket/context branches, with branch losses and rollout diagnostics persisted.
 - Do not present `rollout_eval_*` recovery as a training loss. It is detached evaluation evidence unless `enable_trainable_rollout_loss` is backed by a tensor-preserving objective.
+- Do not present Q15 rollout training as active unless
+  `StepMetrics.losses.rollout_training.enabled` and `active` are both true for
+  the cited training steps.
+- Do not claim that equivariant geometry, chemistry-native guardrails, or rich
+  pocket-interaction losses improved generation unless the raw-native metrics,
+  runtime, and objective-family behavior are compared through the ablation
+  matrix.
+- Do not describe `direct_fusion_negative_control` as a controlled-interaction
+  architecture. It is an ablation-only failure/contrast surface.
 - Do not use `finite_forward_fraction` as the best quality metric for claim-bearing model selection. It is acceptable for smoke health checks; reviewer-facing runs should use quality-aware metrics with availability review.
 - Do not cite ligand-centered pocket/context tensors as pocket-only conditioning evidence. They are acceptable for target-ligand refinement only when the dependency is recorded.
 - Do not claim strong chemistry novelty or diversity from uniqueness alone. Use the explicit novelty/diversity fields together with `benchmark_evidence`, which now separates proxy-only chemistry summaries, local benchmark-style chemistry aggregates, `reviewer_benchmark_plus`, and the explicit `external_benchmark_backed` tier on the canonical larger-data real-backend PDBbind++ surface.
@@ -142,6 +156,31 @@ STRICT_MODEL_ONBOARDING_GATE=1 ./tools/revalidate_reviewer_bundle.sh
 ```
 
 This keeps default reviewer refresh backward-compatible while allowing a hard fail when publication-readiness and preference-readiness prerequisites are not met.
+
+For real molecular-generation use review, run the Q15 raw-native gate explicitly
+against the candidate artifact directory and a matching multi-seed summary:
+
+```bash
+python3 tools/claim_regression_gate.py checkpoints/<artifact_dir> \
+  --enforce-real-generation-readiness \
+  --multi-seed-summary checkpoints/<multi_seed_dir>/multi_seed_summary.json
+```
+
+The local CI wrapper exposes the same pre-use gate while preserving explicit
+artifact selection:
+
+```bash
+REAL_GENERATION_ARTIFACT_DIR=checkpoints/<artifact_dir> \
+REAL_GENERATION_MULTI_SEED_SUMMARY=checkpoints/<multi_seed_dir>/multi_seed_summary.json \
+tools/local_ci.sh real-gen
+```
+
+This gate requires raw-native claim evidence, clean split-leakage checks, real
+non-heuristic backend coverage, `evaluation_matrix` raw-quality/runtime rows,
+`raw_native_generation_report.json`, the Q15 generation-alignment ablation
+matrix, and at least three seeds. It is intentionally stricter than the compact
+claim gate and should be treated as a pre-use review gate, not as a benchmark
+success guarantee.
 
 For a fresh machine, prefer the packaged reviewer environment path:
 

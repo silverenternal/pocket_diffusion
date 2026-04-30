@@ -3,10 +3,17 @@ impl Phase1ResearchSystem {
         &self,
         initial_state: &ConditionedGenerationState,
         raw_path_means: GenerationGateSummary,
+        interaction_execution_context: &InteractionExecutionContext,
     ) -> GenerationRolloutRecord {
+        let sample = generation_sample_report(&initial_state.protein_id, interaction_execution_context);
         GenerationRolloutRecord {
             example_id: initial_state.example_id.clone(),
             protein_id: initial_state.protein_id.clone(),
+            pocket_id: sample.pocket_id,
+            sample_index: sample.sample_index,
+            sample_count: sample.sample_count,
+            sample_seed: sample.sample_seed,
+            sample_seed_provenance: sample.sample_seed_provenance,
             generation_mode: self.generation_mode.as_str().to_string(),
             decoder_capability: self.decoder_capability_label().to_string(),
             atom_count_source: self.generation_mode.atom_count_source_label().to_string(),
@@ -175,9 +182,15 @@ impl Phase1ResearchSystem {
             step_gate_summaries.push(raw_path_means);
         }
 
+        let sample = generation_sample_report(&initial_state.protein_id, interaction_execution_context);
         GenerationRolloutRecord {
             example_id: initial_state.example_id.clone(),
             protein_id: initial_state.protein_id.clone(),
+            pocket_id: sample.pocket_id,
+            sample_index: sample.sample_index,
+            sample_count: sample.sample_count,
+            sample_seed: sample.sample_seed,
+            sample_seed_provenance: sample.sample_seed_provenance,
             generation_mode: self.generation_mode.as_str().to_string(),
             decoder_capability: self.decoder_capability_label().to_string(),
             atom_count_source: self.generation_mode.atom_count_source_label().to_string(),
@@ -328,6 +341,31 @@ impl Phase1ResearchSystem {
             coordinate_step_scale,
             Some((&realized_update / coordinate_step_scale.max(1e-6)).detach()),
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+struct GenerationSampleReport {
+    pocket_id: String,
+    sample_index: usize,
+    sample_count: usize,
+    sample_seed: Option<u64>,
+    sample_seed_provenance: String,
+}
+
+fn generation_sample_report(
+    protein_id: &str,
+    context: &InteractionExecutionContext,
+) -> GenerationSampleReport {
+    GenerationSampleReport {
+        pocket_id: protein_id.to_string(),
+        sample_index: context.generation_sample_index.unwrap_or(0),
+        sample_count: context.generation_sample_count.unwrap_or(1).max(1),
+        sample_seed: context.generation_sample_seed,
+        sample_seed_provenance: context
+            .generation_sample_seed_provenance
+            .clone()
+            .unwrap_or_else(|| "single_sample_default".to_string()),
     }
 }
 
@@ -531,7 +569,7 @@ fn role_value(roles: &Tensor, row: i64, channel: i64) -> f64 {
 fn max_reasonable_valence(atom_type: i64) -> usize {
     match atom_type {
         0 => 4,
-        1 => 3,
+        1 => 4,
         2 => 2,
         3 => 6,
         4 => 1,

@@ -704,6 +704,8 @@ pub enum FlowVelocityHeadKind {
     /// Baseline pooled-conditioning geometry head.
     #[default]
     Geometry,
+    /// EGNN-style scalar-message head with exact rigid-motion equivariant velocities.
+    EquivariantGeometry,
     /// Gated atom-to-pocket cross-attention head.
     AtomPocketCrossAttention,
 }
@@ -765,9 +767,9 @@ fn default_interaction_ff_multiplier() -> i64 {
 #[serde(rename_all = "snake_case")]
 pub enum InteractionGateMode {
     /// One learned scalar gate per directed interaction path.
-    #[default]
     PathScalar,
     /// One learned gate per target slot in each directed interaction path.
+    #[default]
     TargetSlot,
 }
 

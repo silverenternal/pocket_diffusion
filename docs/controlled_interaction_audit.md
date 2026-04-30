@@ -17,6 +17,12 @@ full fusion between topology, geometry, and pocket/context branches.
 
 ## Gate Regularization
 
+Controlled interaction now defaults to `target_slot` gate granularity: every
+directed path learns one gate per target slot, while `path_scalar` remains an
+explicit coarse-gate ablation. Target-slot gates are masked by attention-visible
+slots for optimizer-facing sparsity and diagnostics. Direct-fusion negative
+controls keep forced-open gate provenance separate from this mask.
+
 `model.interaction_tuning.gate_regularization_path_weights` optionally assigns a
 non-negative multiplier to any stable path id. Empty config preserves the prior
 aggregate objective:

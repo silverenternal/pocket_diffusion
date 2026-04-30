@@ -12,7 +12,7 @@ REVIEWER_PYTHON="${REVIEWER_PYTHON:-${DEFAULT_REVIEWER_PYTHON}}"
 
 usage() {
   cat <<'USAGE'
-Usage: tools/local_ci.sh [fast|claim|reviewer|full]
+Usage: tools/local_ci.sh [fast|claim|reviewer|real-gen|full]
 
 Modes:
   fast      Fast pre-review gate. Runs formatting, compile-oriented tests, and
@@ -22,11 +22,17 @@ Modes:
   reviewer  Runs claim plus reviewer environment and evidence-bundle checks.
             Requires the configured backend tools/data to be available when
             enforcing backend/data thresholds.
+  real-gen  Runs claim plus the Q15 real molecular-generation readiness gate.
+            Requires REAL_GENERATION_ARTIFACT_DIR and
+            REAL_GENERATION_MULTI_SEED_SUMMARY.
   full      Alias for reviewer, then runs the compact claim experiment refresh.
 
 Environment:
   REVIEWER_PYTHON                 Python used for reviewer tools.
   STRICT_MODEL_ONBOARDING_GATE=1  Add publication/preference readiness gates.
+  REAL_GENERATION_ARTIFACT_DIR    Artifact directory for real-gen mode.
+  REAL_GENERATION_MULTI_SEED_SUMMARY
+                                  Multi-seed summary JSON for real-gen mode.
 
 Backend behavior:
   Missing backend executables or failed backend commands must be represented as
@@ -41,7 +47,7 @@ case "${MODE}" in
     usage
     exit 0
     ;;
-  fast|claim|reviewer|full)
+  fast|claim|reviewer|real-gen|full)
     ;;
   *)
     usage >&2
@@ -90,6 +96,21 @@ run_reviewer() {
   "${REVIEWER_PYTHON}" tools/evidence_bundle.py --validate-reviewer-bundle
 }
 
+run_real_generation() {
+  run_claim
+  if [[ -z "${REAL_GENERATION_ARTIFACT_DIR:-}" ]]; then
+    echo "REAL_GENERATION_ARTIFACT_DIR is required for tools/local_ci.sh real-gen" >&2
+    exit 2
+  fi
+  if [[ -z "${REAL_GENERATION_MULTI_SEED_SUMMARY:-}" ]]; then
+    echo "REAL_GENERATION_MULTI_SEED_SUMMARY is required for tools/local_ci.sh real-gen" >&2
+    exit 2
+  fi
+  "${REVIEWER_PYTHON}" tools/claim_regression_gate.py "${REAL_GENERATION_ARTIFACT_DIR}" \
+    --enforce-real-generation-readiness \
+    --multi-seed-summary "${REAL_GENERATION_MULTI_SEED_SUMMARY}"
+}
+
 case "${MODE}" in
   fast)
     run_fast
@@ -99,6 +120,9 @@ case "${MODE}" in
     ;;
   reviewer)
     run_reviewer
+    ;;
+  real-gen)
+    run_real_generation
     ;;
   full)
     run_reviewer

@@ -4,6 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use tch::Tensor;
 
+use crate::chemistry::native_score::{
+    combined_native_score, NATIVE_SCORE_BOND_WEIGHT, NATIVE_SCORE_TOPOLOGY_WEIGHT,
+};
+
 /// Native graph extraction algorithm version exposed in rollout diagnostics.
 pub const NATIVE_GRAPH_EXTRACTOR_VERSION: &str = "native_graph_extractor_v1";
 
@@ -21,7 +25,7 @@ pub struct NativeGraphExtractionConfig {
 impl Default for NativeGraphExtractionConfig {
     fn default() -> Self {
         Self {
-            score_threshold: 0.55,
+            score_threshold: 0.60,
             max_bond_density_numerator: 3,
             max_bond_density_denominator: 2,
         }
@@ -85,6 +89,27 @@ pub fn predicted_native_graph_from_flow_with_config(
         "molecular_flow_native_score_threshold".to_string(),
         config.score_threshold,
     );
+    diagnostics.insert(
+        "molecular_flow_native_score_bond_weight".to_string(),
+        NATIVE_SCORE_BOND_WEIGHT,
+    );
+    diagnostics.insert(
+        "molecular_flow_native_score_topology_weight".to_string(),
+        NATIVE_SCORE_TOPOLOGY_WEIGHT,
+    );
+    diagnostics.insert(
+        "molecular_flow_native_max_bond_density_numerator".to_string(),
+        config.max_bond_density_numerator as f64,
+    );
+    diagnostics.insert(
+        "molecular_flow_native_max_bond_density_denominator".to_string(),
+        config.max_bond_density_denominator as f64,
+    );
+    diagnostics.insert(
+        "molecular_flow_native_max_bond_density_ratio".to_string(),
+        config.max_bond_density_numerator as f64
+            / config.max_bond_density_denominator.max(1) as f64,
+    );
     if atom_count <= 1 {
         diagnostics.insert("molecular_flow_native_bond_count".to_string(), 0.0);
         diagnostics.insert(
@@ -98,6 +123,11 @@ pub fn predicted_native_graph_from_flow_with_config(
         );
         diagnostics.insert("molecular_flow_raw_bond_logit_pair_count".to_string(), 0.0);
         diagnostics.insert("molecular_flow_raw_native_bond_count".to_string(), 0.0);
+        diagnostics.insert("molecular_flow_raw_native_mean_bond_score".to_string(), 0.0);
+        diagnostics.insert(
+            "molecular_flow_raw_native_density_fraction".to_string(),
+            0.0,
+        );
         diagnostics.insert(
             "molecular_flow_constrained_native_bond_count".to_string(),
             0.0,
@@ -118,6 +148,10 @@ pub fn predicted_native_graph_from_flow_with_config(
             "molecular_flow_native_graph_guardrail_trigger_count".to_string(),
             0.0,
         );
+        diagnostics.insert(
+            "molecular_flow_native_chemically_rejected_pair_count".to_string(),
+            0.0,
+        );
         return NativeGraphExtractionResult {
             raw_bonds: Vec::new(),
             raw_bond_types: Vec::new(),
@@ -130,14 +164,21 @@ pub fn predicted_native_graph_from_flow_with_config(
     let bond_probabilities = bond_exists_logits.sigmoid();
     let topology_probabilities = topology_logits.sigmoid();
     let mut candidates = Vec::new();
+    let mut chemically_rejected_pair_count = 0usize;
     for left in 0..atom_count {
         for right in (left + 1)..atom_count {
+            let left_atom_type = native_atom_type_at(atom_types, left);
+            let right_atom_type = native_atom_type_at(atom_types, right);
+            if !native_bond_candidate_allowed(left_atom_type, right_atom_type, atom_count) {
+                chemically_rejected_pair_count += 1;
+                continue;
+            }
             let bond_probability = bond_probabilities.double_value(&[left as i64, right as i64]);
             let topology_probability =
                 topology_probabilities.double_value(&[left as i64, right as i64]);
-            let distance_score = native_distance_score(coords, left, right);
-            let score =
-                0.55 * bond_probability + 0.35 * topology_probability + 0.10 * distance_score;
+            let distance_score =
+                native_distance_score(coords, left, right, left_atom_type, right_atom_type);
+            let score = combined_native_score(bond_probability, topology_probability);
             let raw_bond_type = bond_type_logits
                 .get(left as i64)
                 .get(right as i64)
@@ -147,8 +188,8 @@ pub fn predicted_native_graph_from_flow_with_config(
             let raw_order = bond_order_for_native_type(raw_bond_type);
             let mut bond_type = raw_bond_type;
             let mut order = bond_order_for_native_type(bond_type);
-            let left_budget = native_valence_budget(native_atom_type_at(atom_types, left));
-            let right_budget = native_valence_budget(native_atom_type_at(atom_types, right));
+            let left_budget = native_valence_budget(left_atom_type);
+            let right_budget = native_valence_budget(right_atom_type);
             if order > left_budget.min(right_budget) {
                 bond_type = 1;
                 order = 1;
@@ -157,6 +198,7 @@ pub fn predicted_native_graph_from_flow_with_config(
                 left,
                 right,
                 score,
+                distance_score,
                 raw_bond_type,
                 raw_order,
                 bond_type,
@@ -168,6 +210,11 @@ pub fn predicted_native_graph_from_flow_with_config(
         b.score
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                b.distance_score
+                    .partial_cmp(&a.distance_score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     let raw_bonds = candidates
@@ -180,6 +227,16 @@ pub fn predicted_native_graph_from_flow_with_config(
         .filter(|candidate| candidate.score >= config.score_threshold)
         .map(|candidate| candidate.raw_bond_type)
         .collect::<Vec<_>>();
+    let raw_native_mean_score = if raw_bonds.is_empty() {
+        0.0
+    } else {
+        candidates
+            .iter()
+            .filter(|candidate| candidate.score >= config.score_threshold)
+            .map(|candidate| candidate.score)
+            .sum::<f64>()
+            / raw_bonds.len() as f64
+    };
 
     let mut graph = NativeGraphBuilder::new(atom_types);
     let mut dsu = DisjointSet::new(atom_count);
@@ -224,14 +281,7 @@ pub fn predicted_native_graph_from_flow_with_config(
         .iter()
         .filter(|score| **score < config.score_threshold)
         .count();
-    let valence_guardrail_downgrade_count = candidates
-        .iter()
-        .filter(|candidate| {
-            candidate.score >= config.score_threshold
-                && (candidate.raw_bond_type != candidate.bond_type
-                    || candidate.raw_order != candidate.order)
-        })
-        .count();
+    let valence_guardrail_downgrade_count = graph.valence_downgrade_count;
     let raw_bond_logit_pair_count = atom_count * atom_count.saturating_sub(1) / 2;
     let native_graph_guardrail_trigger_count = raw_to_constrained_removed_bond_count
         + connectivity_guardrail_added_bond_count
@@ -243,6 +293,18 @@ pub fn predicted_native_graph_from_flow_with_config(
     diagnostics.insert(
         "molecular_flow_raw_native_bond_count".to_string(),
         raw_bonds.len() as f64,
+    );
+    diagnostics.insert(
+        "molecular_flow_raw_native_mean_bond_score".to_string(),
+        raw_native_mean_score,
+    );
+    diagnostics.insert(
+        "molecular_flow_raw_native_density_fraction".to_string(),
+        if raw_bond_logit_pair_count == 0 {
+            0.0
+        } else {
+            raw_bonds.len() as f64 / raw_bond_logit_pair_count as f64
+        },
     );
     diagnostics.insert(
         "molecular_flow_constrained_native_bond_count".to_string(),
@@ -263,6 +325,10 @@ pub fn predicted_native_graph_from_flow_with_config(
     diagnostics.insert(
         "molecular_flow_native_graph_guardrail_trigger_count".to_string(),
         native_graph_guardrail_trigger_count as f64,
+    );
+    diagnostics.insert(
+        "molecular_flow_native_chemically_rejected_pair_count".to_string(),
+        chemically_rejected_pair_count as f64,
     );
     diagnostics.insert(
         "molecular_flow_native_bond_count".to_string(),
@@ -298,6 +364,7 @@ struct NativeBondCandidate {
     left: usize,
     right: usize,
     score: f64,
+    distance_score: f64,
     raw_bond_type: i64,
     raw_order: i64,
     bond_type: i64,
@@ -313,6 +380,7 @@ struct NativeGraphBuilder {
     valence_used: Vec<i64>,
     valence_budget: Vec<i64>,
     duplicate_bond_count: usize,
+    valence_downgrade_count: usize,
 }
 
 impl NativeGraphBuilder {
@@ -329,6 +397,7 @@ impl NativeGraphBuilder {
             valence_used: vec![0; atom_count],
             valence_budget,
             duplicate_bond_count: 0,
+            valence_downgrade_count: 0,
         }
     }
 
@@ -352,6 +421,10 @@ impl NativeGraphBuilder {
         self.bonds.push(pair);
         self.bond_types.push(candidate.bond_type);
         self.scores.push(candidate.score);
+        if candidate.raw_bond_type != candidate.bond_type || candidate.raw_order != candidate.order
+        {
+            self.valence_downgrade_count += 1;
+        }
         true
     }
 
@@ -428,7 +501,13 @@ fn ordered_pair(left: usize, right: usize) -> (usize, usize) {
     }
 }
 
-fn native_distance_score(coords: &Tensor, left: usize, right: usize) -> f64 {
+fn native_distance_score(
+    coords: &Tensor,
+    left: usize,
+    right: usize,
+    left_atom_type: i64,
+    right_atom_type: i64,
+) -> f64 {
     if coords.size().len() != 2 || coords.size().get(1).copied().unwrap_or(0) != 3 {
         return 0.5;
     }
@@ -436,7 +515,20 @@ fn native_distance_score(coords: &Tensor, left: usize, right: usize) -> f64 {
     let dy = coords.double_value(&[left as i64, 1]) - coords.double_value(&[right as i64, 1]);
     let dz = coords.double_value(&[left as i64, 2]) - coords.double_value(&[right as i64, 2]);
     let distance = (dx * dx + dy * dy + dz * dz).sqrt();
-    (-(distance - 1.5).abs() / 1.5).exp().clamp(0.0, 1.0)
+    let ideal = native_covalent_radius(left_atom_type) + native_covalent_radius(right_atom_type);
+    let width = (ideal * 0.25).clamp(0.18, 0.45);
+    (-(distance - ideal).abs() / width).exp().clamp(0.0, 1.0)
+}
+
+fn native_bond_candidate_allowed(
+    left_atom_type: i64,
+    right_atom_type: i64,
+    atom_count: usize,
+) -> bool {
+    if atom_count <= 2 {
+        return true;
+    }
+    !(left_atom_type == 4 && right_atom_type == 4)
 }
 
 fn native_valence_budget(atom_type_token: i64) -> i64 {
@@ -444,7 +536,8 @@ fn native_valence_budget(atom_type_token: i64) -> i64 {
         4 => 1,
         3 => 6,
         2 => 2,
-        1 => 3,
+        // Nitrogen may be protonated or quaternary in PDBBind ligands.
+        1 => 4,
         _ => 4,
     }
 }
@@ -455,6 +548,17 @@ fn native_atom_type_at(atom_types: &Tensor, index: usize) -> i64 {
         0
     } else {
         atom_types.int64_value(&[index.min(atom_count - 1) as i64])
+    }
+}
+
+fn native_covalent_radius(atom_type: i64) -> f64 {
+    match atom_type {
+        0 => 0.77,
+        1 => 0.75,
+        2 => 0.73,
+        3 => 1.02,
+        4 => 0.37,
+        _ => 0.77,
     }
 }
 
@@ -544,12 +648,118 @@ mod tests {
             degree[*right] += 1;
         }
 
-        assert!(result.raw_bonds.len() > result.bonds.len());
+        assert!(result.raw_bonds.is_empty());
+        assert!(result.bonds.is_empty());
         assert!(degree.into_iter().all(|value| value <= 1));
         assert_eq!(
             result.diagnostics["molecular_flow_native_valence_violation_fraction"],
             0.0
         );
-        assert!(result.diagnostics["molecular_flow_native_graph_guardrail_trigger_count"] > 0.0);
+        assert!(result.diagnostics["molecular_flow_native_chemically_rejected_pair_count"] > 0.0);
+    }
+
+    #[test]
+    fn native_graph_threshold_uses_configured_learned_score_without_distance_boost() {
+        let atom_types = Tensor::from_slice(&[0_i64, 0, 0]);
+        let coords = Tensor::from_slice(&[0.0_f32, 0.0, 0.0, 1.54, 0.0, 0.0, 3.08, 0.0, 0.0])
+            .reshape([3, 3]);
+        let logits = dense_logits(3, 0.1);
+        let bond_types = bond_type_logits(3, 1);
+
+        let result = predicted_native_graph_from_flow_with_config(
+            &atom_types,
+            &coords,
+            &logits,
+            &bond_types,
+            &logits,
+            NativeGraphExtractionConfig {
+                score_threshold: 0.55,
+                ..NativeGraphExtractionConfig::default()
+            },
+        );
+
+        assert!(result.raw_bonds.is_empty());
+        assert!(result.diagnostics["molecular_flow_connectivity_guardrail_added_bond_count"] > 0.0);
+        assert_eq!(
+            result.diagnostics["molecular_flow_raw_native_density_fraction"],
+            0.0
+        );
+    }
+
+    #[test]
+    fn native_graph_honors_configured_score_threshold() {
+        let atom_types = Tensor::from_slice(&[0_i64, 0, 0]);
+        let coords = Tensor::from_slice(&[0.0_f32, 0.0, 0.0, 1.54, 0.0, 0.0, 3.08, 0.0, 0.0])
+            .reshape([3, 3]);
+        let logits = dense_logits(3, 1.0);
+        let bond_types = bond_type_logits(3, 1);
+
+        let default_threshold =
+            predicted_native_graph_from_flow(&atom_types, &coords, &logits, &bond_types, &logits);
+        let raised_threshold = predicted_native_graph_from_flow_with_config(
+            &atom_types,
+            &coords,
+            &logits,
+            &bond_types,
+            &logits,
+            NativeGraphExtractionConfig {
+                score_threshold: 0.75,
+                ..NativeGraphExtractionConfig::default()
+            },
+        );
+
+        assert!(!default_threshold.raw_bonds.is_empty());
+        assert!(raised_threshold.raw_bonds.is_empty());
+        assert_eq!(
+            raised_threshold.diagnostics["molecular_flow_native_score_threshold"],
+            0.75
+        );
+    }
+
+    #[test]
+    fn native_graph_rejects_hydrogen_hydrogen_islands() {
+        let atom_types = Tensor::from_slice(&[0_i64, 4, 4, 0]);
+        let coords = Tensor::from_slice(&[
+            0.0_f32, 0.0, 0.0, 1.1, 0.0, 0.0, 1.2, 0.0, 0.0, 2.3, 0.0, 0.0,
+        ])
+        .reshape([4, 3]);
+        let logits = dense_logits(4, 8.0);
+        let bond_types = bond_type_logits(4, 1);
+
+        let result =
+            predicted_native_graph_from_flow(&atom_types, &coords, &logits, &bond_types, &logits);
+
+        assert!(!result.bonds.contains(&(1, 2)));
+        assert!(result.diagnostics["molecular_flow_native_component_count"] <= 1.0);
+        assert_eq!(
+            result.diagnostics["molecular_flow_native_chemically_rejected_pair_count"],
+            1.0
+        );
+    }
+
+    #[test]
+    fn native_graph_connects_protonated_nitrogen_without_valence_violation() {
+        let atom_types = Tensor::from_slice(&[1_i64, 0, 4, 4, 4]);
+        let coords = Tensor::from_slice(&[
+            0.0_f32, 0.0, 0.0, 1.4, 0.0, 0.0, -0.8, 0.8, 0.0, -0.8, -0.8, 0.0, 0.0, 0.0, 1.0,
+        ])
+        .reshape([5, 3]);
+        let logits = dense_logits(5, 8.0);
+        let bond_types = bond_type_logits(5, 1);
+
+        let result =
+            predicted_native_graph_from_flow(&atom_types, &coords, &logits, &bond_types, &logits);
+        let nitrogen_degree = result
+            .bonds
+            .iter()
+            .filter(|(left, right)| *left == 0 || *right == 0)
+            .count();
+
+        assert!(result.diagnostics["molecular_flow_native_component_count"] <= 1.0);
+        assert_eq!(nitrogen_degree, 4);
+        assert_eq!(
+            result.diagnostics["molecular_flow_native_valence_violation_fraction"],
+            0.0
+        );
     }
 }

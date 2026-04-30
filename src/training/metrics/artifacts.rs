@@ -243,21 +243,9 @@ pub(crate) fn objective_coverage_report(
 }
 
 fn primary_component_claim_boundary(component: &PrimaryObjectiveComponentProvenance) -> String {
-    if component.component_name.starts_with("rollout_eval_") {
-        return "detached sampled-rollout diagnostic; not optimizer-facing unless a future tensor-preserving trainable_rollout_* objective is implemented".to_string();
-    }
-    if component.component_name.starts_with("flow_") {
-        return "flow component is optimizer-facing only for flow-compatible primary objectives"
-            .to_string();
-    }
-    if component.component_name == "rollout" {
-        return "reserved for future tensor-preserving rollout objective".to_string();
-    }
-    if component.optimizer_facing {
-        "tensor-preserving primary objective component".to_string()
-    } else {
-        "diagnostic primary objective component".to_string()
-    }
+    primary_objective_component_descriptor(&component.component_name)
+        .claim_boundary
+        .to_string()
 }
 
 fn seed_primary_objective_coverage(
@@ -294,31 +282,12 @@ fn seed_primary_objective_coverage(
     };
 
     for component_name in components {
-        let optimizer_facing = !component_name.starts_with("rollout_eval_");
-        let component = PrimaryObjectiveComponentProvenance {
-            component_name: (*component_name).to_string(),
-            anchor: if component_name.starts_with("flow_") {
-                "flow_matching".to_string()
-            } else if component_name.starts_with("rollout_eval_") {
-                "sampled_rollout_record".to_string()
-            } else {
-                "decoder_or_surrogate".to_string()
-            },
-            differentiable: optimizer_facing,
-            optimizer_facing,
-            role: if optimizer_facing {
-                "optimizer_facing".to_string()
-            } else {
-                "evaluation_only".to_string()
-            },
-            effective_branch_weight: None,
-            branch_schedule_source: None,
-        };
+        let component = primary_objective_component_provenance_record(component_name);
         records.insert(
-            ("primary".to_string(), (*component_name).to_string()),
+            ("primary".to_string(), component.component_name.clone()),
             ObjectiveCoverageRecord {
                 objective_scope: "primary".to_string(),
-                component_name: (*component_name).to_string(),
+                component_name: component.component_name.clone(),
                 anchor: component.anchor.clone(),
                 differentiable: component.differentiable,
                 optimizer_facing: component.optimizer_facing,

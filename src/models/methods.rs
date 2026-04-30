@@ -202,7 +202,21 @@ mod tests {
 
     #[test]
     fn promoted_backend_families_emit_distinct_runnable_candidates() {
-        let config = crate::config::ResearchConfig::default();
+        let mut config = crate::config::ResearchConfig::default();
+        config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
+        config.generation_method.active_method = FLOW_MATCHING_METHOD_ID.to_string();
+        config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+            backend_id: FLOW_MATCHING_METHOD_ID.to_string(),
+            family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..crate::config::GenerationBackendConfig::default()
+        };
+        config.generation_method.flow_matching.geometry_only = false;
+        config
+            .generation_method
+            .flow_matching
+            .multi_modal
+            .enabled_branches = crate::config::FlowBranchKind::ALL.to_vec();
         let var_store = tch::nn::VarStore::new(tch::Device::Cpu);
         let system = crate::models::Phase1ResearchSystem::new(&var_store.root(), &config);
         let example = crate::data::synthetic_phase1_examples()
@@ -211,9 +225,23 @@ mod tests {
             .unwrap()
             .with_pocket_feature_dim(config.model.pocket_feature_dim);
         let forward = system.forward_example(&example);
+        let raw_native_decoder_bonds = forward
+            .generation
+            .rollout
+            .steps
+            .last()
+            .map(|step| step.native_bonds.clone())
+            .unwrap_or_default();
+        let constrained_native_decoder_bonds = forward
+            .generation
+            .rollout
+            .steps
+            .last()
+            .map(|step| step.constrained_native_bonds.clone())
+            .unwrap_or_default();
 
         for (method_id, expected_representation) in [
-            (FLOW_MATCHING_METHOD_ID, "flow_matching_geometry_v1"),
+            (FLOW_MATCHING_METHOD_ID, "method=flow_matching"),
             (
                 AUTOREGRESSIVE_GRAPH_GEOMETRY_METHOD_ID,
                 "autoregressive_graph_geometry_policy_v1",
@@ -244,10 +272,29 @@ mod tests {
                     && candidate
                         .molecular_representation
                         .as_deref()
-                        .map(|repr| repr.starts_with(expected_representation))
+                        .map(|repr| repr.contains(expected_representation))
                         .unwrap_or(false)
                     && candidate.atom_types.len() == candidate.coords.len()
             }));
+            if method_id == FLOW_MATCHING_METHOD_ID {
+                assert!(raw.candidates.iter().all(|candidate| candidate
+                    .molecular_representation
+                    .as_deref()
+                    .is_some_and(|repr| repr.contains("source=raw_rollout"))));
+                assert_eq!(
+                    raw.candidates[0].inferred_bonds, raw_native_decoder_bonds,
+                    "flow matching raw rollout must preserve raw native-decoder bonds instead of distance-reinferring them"
+                );
+                let constrained = output
+                    .bond_logits_refined
+                    .as_ref()
+                    .expect("flow matching method should expose constrained native graph layer");
+                assert_eq!(
+                    constrained.candidates[0].inferred_bonds,
+                    constrained_native_decoder_bonds,
+                    "flow matching constrained layer must preserve constrained native-decoder bonds separately from raw rollout"
+                );
+            }
         }
     }
 

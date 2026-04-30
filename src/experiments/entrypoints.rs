@@ -14,9 +14,11 @@ use crate::{
     config::load_research_config,
     data::InMemoryDataset,
     models::{
-        generate_layered_candidates_from_forward, report_to_metrics, ChemistryValidityEvaluator,
-        DockingEvaluator, HeuristicChemistryValidityEvaluator, HeuristicDockingEvaluator,
-        HeuristicPocketCompatibilityEvaluator, Phase1ResearchSystem, PocketCompatibilityEvaluator,
+        generate_layered_candidates_from_forward,
+        generate_layered_candidates_from_generation_samples, report_to_metrics,
+        ChemistryValidityEvaluator, DockingEvaluator, HeuristicChemistryValidityEvaluator,
+        HeuristicDockingEvaluator, HeuristicPocketCompatibilityEvaluator, Phase1ResearchSystem,
+        PocketCompatibilityEvaluator,
     },
     training::CheckpointManager,
 };
@@ -211,9 +213,19 @@ pub fn run_generation_demo_from_config(
         false
     };
 
-    let forward = system.forward_example(&example);
-    let layers =
-        generate_layered_candidates_from_forward(&example, &forward, num_candidates.max(1));
+    let forwards = system.forward_example_generation_samples(&example);
+    let forward = forwards
+        .first()
+        .expect("generation sample forward should be present");
+    let layers = if forwards.len() > 1 {
+        generate_layered_candidates_from_generation_samples(
+            &example,
+            &forwards,
+            num_candidates.max(1),
+        )
+    } else {
+        generate_layered_candidates_from_forward(&example, forward, num_candidates.max(1))
+    };
     let raw_generation_metrics =
         evaluate_demo_metrics(&layers.raw_rollout, "raw_flow", "raw_model_native");
     let constrained_generation_metrics = evaluate_demo_metrics(
@@ -363,8 +375,16 @@ pub fn run_generation_layers_from_config(
     let mut constrained_flow = Vec::new();
     for example in dataset.examples() {
         let example = example.to_device(device);
-        let forward = system.forward_example(&example);
-        let layers = generate_layered_candidates_from_forward(&example, &forward, candidate_limit);
+        let forwards = system.forward_example_generation_samples(&example);
+        let layers = if forwards.len() > 1 {
+            generate_layered_candidates_from_generation_samples(
+                &example,
+                &forwards,
+                candidate_limit,
+            )
+        } else {
+            generate_layered_candidates_from_forward(&example, &forwards[0], candidate_limit)
+        };
         raw_flow.extend(enrich_candidates(
             layers.raw_rollout,
             "raw_flow",

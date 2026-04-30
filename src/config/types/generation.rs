@@ -451,6 +451,92 @@ fn default_de_novo_seed() -> u64 {
     9_001
 }
 
+/// Bounded multi-sample initialization policy for de novo generation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MultiSampleInitializationConfig {
+    /// Enable multiple scaffold/x0 samples per pocket.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Number of deterministic samples to build for each pocket when enabled.
+    #[serde(default = "default_multi_sample_initialization_sample_count")]
+    pub sample_count: usize,
+    /// Per-pocket sample cap used to bound memory and forward execution.
+    #[serde(default = "default_multi_sample_initialization_max_samples_per_pocket")]
+    pub max_samples_per_pocket: usize,
+    /// Optional deterministic offset mixed into every derived sample seed.
+    #[serde(default)]
+    pub seed_offset: u64,
+}
+
+impl Default for MultiSampleInitializationConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            sample_count: default_multi_sample_initialization_sample_count(),
+            max_samples_per_pocket: default_multi_sample_initialization_max_samples_per_pocket(),
+            seed_offset: 0,
+        }
+    }
+}
+
+impl MultiSampleInitializationConfig {
+    /// Effective bounded sample count. Disabled policy preserves single-sample behavior.
+    pub fn effective_sample_count(&self) -> usize {
+        if self.enabled {
+            self.sample_count.min(self.max_samples_per_pocket).max(1)
+        } else {
+            1
+        }
+    }
+
+    /// Derive a reproducible initializer seed for one sample index.
+    pub fn derived_seed(&self, initializer_seed: u64, sample_index: usize) -> u64 {
+        initializer_seed
+            ^ self.seed_offset
+            ^ (sample_index as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15)
+    }
+
+    /// Stable provenance string for rollout and training reports.
+    pub fn seed_provenance(&self, initializer_seed: u64, sample_index: usize) -> String {
+        format!(
+            "multi_sample_initialization:initializer_seed={initializer_seed};seed_offset={};sample_index={sample_index}",
+            self.seed_offset
+        )
+    }
+
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.sample_count == 0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.multi_sample_initialization.sample_count must be greater than zero",
+            ));
+        }
+        if self.max_samples_per_pocket == 0 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.multi_sample_initialization.max_samples_per_pocket must be greater than zero",
+            ));
+        }
+        if self.max_samples_per_pocket > 32 {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.multi_sample_initialization.max_samples_per_pocket must be <= 32",
+            ));
+        }
+        if self.enabled && self.sample_count > self.max_samples_per_pocket {
+            return Err(ConfigValidationError::new(
+                "data.generation_target.multi_sample_initialization.sample_count must be <= max_samples_per_pocket when enabled",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn default_multi_sample_initialization_sample_count() -> usize {
+    1
+}
+
+fn default_multi_sample_initialization_max_samples_per_pocket() -> usize {
+    4
+}
+
 /// Configurable corruption process used to derive decoder-side supervision.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerationTargetConfig {
@@ -525,6 +611,9 @@ pub struct GenerationTargetConfig {
     /// Pocket-conditioned initializer used by `de_novo_initialization`.
     #[serde(default)]
     pub de_novo_initialization: DeNovoInitializationConfig,
+    /// Optional bounded multi-sample policy for de novo scaffold/x0 initialization.
+    #[serde(default)]
+    pub multi_sample_initialization: MultiSampleInitializationConfig,
 }
 
 impl Default for GenerationTargetConfig {
@@ -555,6 +644,7 @@ impl Default for GenerationTargetConfig {
             context_refresh_policy: InferenceContextRefreshPolicy::default(),
             pocket_only_initialization: PocketOnlyInitializationConfig::default(),
             de_novo_initialization: DeNovoInitializationConfig::default(),
+            multi_sample_initialization: MultiSampleInitializationConfig::default(),
         }
     }
 }
@@ -563,6 +653,7 @@ impl GenerationTargetConfig {
     fn validate(&self) -> Result<(), ConfigValidationError> {
         self.pocket_only_initialization.validate()?;
         self.de_novo_initialization.validate()?;
+        self.multi_sample_initialization.validate()?;
         if !self.atom_mask_ratio.is_finite() || !(0.0..=1.0).contains(&self.atom_mask_ratio) {
             return Err(ConfigValidationError::new(
                 "data.generation_target.atom_mask_ratio must be finite and in [0, 1]",

@@ -274,10 +274,11 @@ pub(super) fn structural_pass(candidate: &GeneratedCandidateRecord) -> bool {
     if !basic_validity(candidate) {
         return false;
     }
+    let max_reasonable_span = ((candidate.pocket_radius as f64) * 2.0 + 6.0).max(12.0);
     for (ix, left) in candidate.coords.iter().enumerate() {
         for right in candidate.coords.iter().skip(ix + 1) {
             let distance = euclidean(left, right);
-            if !(0.35..=8.0).contains(&distance) {
+            if distance < 0.35 || distance > max_reasonable_span {
                 return false;
             }
         }
@@ -447,7 +448,7 @@ pub(super) fn prune_bonds_for_valence(
 pub(super) fn max_valence(atom_type: i64) -> usize {
     match atom_type {
         0 => 4,
-        1 => 3,
+        1 => 4,
         2 => 2,
         3 => 6,
         4 => 1,

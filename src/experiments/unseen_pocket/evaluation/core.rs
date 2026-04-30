@@ -166,26 +166,9 @@ pub fn evaluate_split(
         .count() as f64
         / examples.len() as f64;
 
-    let distance_probe_rmse = (examples
-        .iter()
-        .zip(forwards.iter())
-        .map(|(example, forward)| {
-            let target = example
-                .geometry
-                .pairwise_distances
-                .mean(tch::Kind::Float)
-                .double_value(&[]);
-            let pred = forward
-                .probes
-                .geometry_distance_predictions
-                .mean(tch::Kind::Float)
-                .double_value(&[]);
-            let error = pred - target;
-            error * error
-        })
-        .sum::<f64>()
-        / examples.len() as f64)
-        .sqrt();
+    let distance_probe_rmse = geometry_distance_mse(examples, &forwards)
+        .map(f64::sqrt)
+        .unwrap_or(0.0);
 
     let topology_pocket_cosine_alignment = forwards
         .iter()
@@ -355,30 +338,7 @@ pub fn evaluate_split(
     let gate_activation_mean = if ablation.disable_cross_attention {
         0.0
     } else {
-        forwards
-            .iter()
-            .map(|forward| {
-                [
-                    forward.interactions.topo_from_geo.gate.double_value(&[0]),
-                    forward
-                        .interactions
-                        .topo_from_pocket
-                        .gate
-                        .double_value(&[0]),
-                    forward.interactions.geo_from_topo.gate.double_value(&[0]),
-                    forward.interactions.geo_from_pocket.gate.double_value(&[0]),
-                    forward
-                        .interactions
-                        .pocket_from_topo
-                        .gate
-                        .double_value(&[0]),
-                    forward.interactions.pocket_from_geo.gate.double_value(&[0]),
-                ]
-                .iter()
-                .sum::<f64>()
-                    / 6.0
-            })
-            .sum::<f64>()
+        forwards.iter().map(mean_cross_modal_gate_activation).sum::<f64>()
             / examples.len() as f64
     };
 
@@ -410,7 +370,7 @@ pub fn evaluate_split(
         .collect::<std::collections::BTreeSet<_>>()
         .len();
 
-    let (real_generation_metrics, layered_generation_metrics, method_comparison) =
+    let (real_generation_metrics, mut layered_generation_metrics, mut method_comparison) =
         evaluate_real_generation_metrics(
             examples,
             train_examples,
@@ -446,6 +406,11 @@ pub fn evaluate_split(
         &layered_generation_metrics,
         examples_per_second,
         memory_usage_mb,
+    );
+    synchronize_method_comparison_evidence(
+        &mut layered_generation_metrics,
+        &mut method_comparison,
+        &model_design,
     );
     let comparison_summary = build_comparison_summary(
         research,
@@ -579,13 +544,38 @@ fn compute_probe_baselines(
     examples: &[crate::data::MolecularExample],
     forwards: &[ResearchForward],
 ) -> Vec<ProbeBaselineMetric> {
-    let mut rows = Vec::with_capacity(6);
-    rows.push(probe_baseline_row(
+    let mut rows = Vec::with_capacity(9);
+    let topology_binary_audit = topology_adjacency_binary_audit(examples, forwards);
+    let ligand_role_binary_audit = role_probe_binary_audit(
+        examples,
+        forwards,
+        |example| &example.topology.chemistry_roles,
+        |forward| &forward.probes.ligand_pharmacophore_role_logits,
+    );
+    let pocket_role_binary_audit = role_probe_binary_audit(
+        examples,
+        forwards,
+        |example| &example.pocket.chemistry_roles,
+        |forward| &forward.probes.pocket_pharmacophore_role_logits,
+    );
+    let topology_row = probe_baseline_row(
         "topology_adjacency",
         "binary_cross_entropy",
         topology_adjacency_bce(examples, forwards),
         topology_adjacency_trivial_bce(examples),
         topology_adjacency_available_count(examples),
+    );
+    rows.push(with_binary_probe_audit(topology_row, topology_binary_audit));
+    let topology_balanced_row = probe_baseline_row(
+        "topology_adjacency_balanced",
+        "balanced_binary_cross_entropy",
+        topology_adjacency_balanced_bce(examples, forwards),
+        topology_adjacency_balanced_trivial_bce(examples),
+        topology_adjacency_available_count(examples),
+    );
+    rows.push(with_binary_probe_audit(
+        topology_balanced_row,
+        topology_binary_audit,
     ));
     rows.push(probe_baseline_row(
         "geometry_mean_pairwise_distance",
@@ -601,26 +591,59 @@ fn compute_probe_baselines(
         pocket_feature_trivial_mse(examples),
         pocket_feature_available_count(examples),
     ));
-    rows.push(probe_baseline_row(
+    let ligand_role_row = probe_baseline_row(
         "ligand_pharmacophore_roles",
         "binary_cross_entropy",
         ligand_pharmacophore_role_bce(examples, forwards),
         ligand_pharmacophore_role_trivial_bce(examples),
         ligand_pharmacophore_available_count(examples),
+    );
+    rows.push(with_binary_probe_audit(
+        ligand_role_row,
+        ligand_role_binary_audit,
     ));
-    rows.push(probe_baseline_row(
+    let ligand_role_balanced_row = probe_baseline_row(
+        "ligand_pharmacophore_roles_balanced",
+        "balanced_binary_cross_entropy",
+        ligand_pharmacophore_role_balanced_bce(examples, forwards),
+        ligand_pharmacophore_role_balanced_trivial_bce(examples),
+        ligand_pharmacophore_available_count(examples),
+    );
+    rows.push(with_binary_probe_audit(
+        ligand_role_balanced_row,
+        ligand_role_binary_audit,
+    ));
+    let pocket_role_row = probe_baseline_row(
         "pocket_pharmacophore_roles",
         "binary_cross_entropy",
         pocket_pharmacophore_role_bce(examples, forwards),
         pocket_pharmacophore_role_trivial_bce(examples),
         pocket_pharmacophore_available_count(examples),
+    );
+    rows.push(with_binary_probe_audit(
+        pocket_role_row,
+        pocket_role_binary_audit,
     ));
-    rows.push(probe_baseline_row(
-        "affinity_scalar",
-        "mean_squared_error",
-        affinity_probe_mse(examples, forwards),
-        affinity_trivial_mse(examples),
-        affinity_available_count(examples),
+    let pocket_role_balanced_row = probe_baseline_row(
+        "pocket_pharmacophore_roles_balanced",
+        "balanced_binary_cross_entropy",
+        pocket_pharmacophore_role_balanced_bce(examples, forwards),
+        pocket_pharmacophore_role_balanced_trivial_bce(examples),
+        pocket_pharmacophore_available_count(examples),
+    );
+    rows.push(with_binary_probe_audit(
+        pocket_role_balanced_row,
+        pocket_role_binary_audit,
+    ));
+    rows.push(with_scalar_probe_audit(
+        probe_baseline_row(
+            "affinity_scalar",
+            "mean_squared_error",
+            affinity_probe_mse(examples, forwards),
+            affinity_trivial_mse(examples),
+            affinity_available_count(examples),
+        ),
+        affinity_scalar_audit(examples, forwards),
     ));
     rows
 }
@@ -658,6 +681,115 @@ fn probe_baseline_row(
         supervision_status: supervision_status.to_string(),
         available_count,
         interpretation,
+        ..ProbeBaselineMetric::default()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct BinaryProbeAudit {
+    target_positive_rate: f64,
+    prediction_positive_rate: f64,
+    positive_rate_gap: f64,
+    positive_observed_loss: Option<f64>,
+    negative_observed_loss: Option<f64>,
+}
+
+fn with_binary_probe_audit(
+    mut row: ProbeBaselineMetric,
+    audit: Option<BinaryProbeAudit>,
+) -> ProbeBaselineMetric {
+    if let Some(audit) = audit {
+        row.target_positive_rate = Some(audit.target_positive_rate);
+        row.prediction_positive_rate = Some(audit.prediction_positive_rate);
+        row.positive_rate_gap = Some(audit.positive_rate_gap);
+        row.positive_observed_loss = audit.positive_observed_loss;
+        row.negative_observed_loss = audit.negative_observed_loss;
+    }
+    row
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ScalarProbeAudit {
+    target_mean: f64,
+    prediction_mean: f64,
+    mean_error: f64,
+}
+
+fn with_scalar_probe_audit(
+    mut row: ProbeBaselineMetric,
+    audit: Option<ScalarProbeAudit>,
+) -> ProbeBaselineMetric {
+    if let Some(audit) = audit {
+        row.scalar_target_mean = Some(audit.target_mean);
+        row.scalar_prediction_mean = Some(audit.prediction_mean);
+        row.scalar_mean_error = Some(audit.mean_error);
+    }
+    row
+}
+
+#[derive(Debug, Default)]
+struct BinaryProbeAuditAccumulator {
+    target_positive_sum: f64,
+    prediction_positive_sum: f64,
+    total_count: f64,
+    positive_loss_sum: f64,
+    positive_count: f64,
+    negative_loss_sum: f64,
+    negative_count: f64,
+}
+
+impl BinaryProbeAuditAccumulator {
+    fn add(&mut self, logits: &tch::Tensor, target: &tch::Tensor, mask: &tch::Tensor) {
+        if logits.numel() == 0 {
+            return;
+        }
+        let logits = logits.to_kind(tch::Kind::Float);
+        let target = target
+            .to_device(logits.device())
+            .to_kind(tch::Kind::Float)
+            .clamp(0.0, 1.0);
+        let mask = mask
+            .to_device(logits.device())
+            .to_kind(tch::Kind::Float)
+            .clamp(0.0, 1.0);
+        if logits.size() != target.size() || logits.size() != mask.size() {
+            return;
+        }
+        let prediction = logits.sigmoid();
+        let positive_mask = &target * &mask;
+        let negative_mask = (tch::Tensor::ones_like(&target) - &target) * &mask;
+        let loss =
+            logits.clamp_min(0.0) - (&logits * &target) + (-logits.abs()).exp().log1p();
+        self.total_count += mask.sum(tch::Kind::Float).double_value(&[]);
+        self.target_positive_sum += (&target * &mask).sum(tch::Kind::Float).double_value(&[]);
+        self.prediction_positive_sum += (&prediction * &mask)
+            .sum(tch::Kind::Float)
+            .double_value(&[]);
+        self.positive_count += positive_mask.sum(tch::Kind::Float).double_value(&[]);
+        self.negative_count += negative_mask.sum(tch::Kind::Float).double_value(&[]);
+        self.positive_loss_sum += (&loss * &positive_mask)
+            .sum(tch::Kind::Float)
+            .double_value(&[]);
+        self.negative_loss_sum += (&loss * &negative_mask)
+            .sum(tch::Kind::Float)
+            .double_value(&[]);
+    }
+
+    fn finish(self) -> Option<BinaryProbeAudit> {
+        if self.total_count <= 0.0 {
+            return None;
+        }
+        let target_positive_rate = self.target_positive_sum / self.total_count;
+        let prediction_positive_rate = self.prediction_positive_sum / self.total_count;
+        Some(BinaryProbeAudit {
+            target_positive_rate,
+            prediction_positive_rate,
+            positive_rate_gap: (prediction_positive_rate - target_positive_rate).abs(),
+            positive_observed_loss: (self.positive_count > 0.0)
+                .then_some(self.positive_loss_sum / self.positive_count),
+            negative_observed_loss: (self.negative_count > 0.0)
+                .then_some(self.negative_loss_sum / self.negative_count),
+        })
     }
 }
 
@@ -674,6 +806,26 @@ fn slot_activation_probability(activations: &tch::Tensor) -> f64 {
         return 0.0;
     }
     activations.mean(tch::Kind::Float).double_value(&[])
+}
+
+fn mean_cross_modal_gate_activation(forward: &ResearchForward) -> f64 {
+    let gates = [
+        gate_tensor_mean(&forward.interactions.topo_from_geo.gate),
+        gate_tensor_mean(&forward.interactions.topo_from_pocket.gate),
+        gate_tensor_mean(&forward.interactions.geo_from_topo.gate),
+        gate_tensor_mean(&forward.interactions.geo_from_pocket.gate),
+        gate_tensor_mean(&forward.interactions.pocket_from_topo.gate),
+        gate_tensor_mean(&forward.interactions.pocket_from_geo.gate),
+    ];
+    gates.iter().sum::<f64>() / gates.len() as f64
+}
+
+fn gate_tensor_mean(gate: &tch::Tensor) -> f64 {
+    if gate.numel() == 0 {
+        0.0
+    } else {
+        gate.mean(tch::Kind::Float).double_value(&[])
+    }
 }
 
 fn attention_visible_slot_fraction_for_mask(mask: &tch::Tensor) -> f64 {
@@ -724,6 +876,35 @@ fn topology_adjacency_bce(
     )
 }
 
+fn topology_adjacency_balanced_bce(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+) -> Option<f64> {
+    mean_available(
+        examples
+            .iter()
+            .zip(forwards.iter())
+            .filter_map(|(example, forward)| {
+                if example.topology.adjacency.numel() == 0
+                    || forward.probes.topology_adjacency_logits.numel() == 0
+                    || forward.probes.topology_adjacency_logits.size()
+                        != example.topology.adjacency.size()
+                {
+                    return None;
+                }
+                let mask = tch::Tensor::ones_like(&example.topology.adjacency);
+                Some(
+                    crate::losses::classification::masked_balanced_bce_with_logits(
+                        &forward.probes.topology_adjacency_logits,
+                        &example.topology.adjacency,
+                        &mask,
+                    )
+                    .double_value(&[]),
+                )
+            }),
+    )
+}
+
 fn topology_adjacency_trivial_bce(examples: &[crate::data::MolecularExample]) -> Option<f64> {
     let values = examples
         .iter()
@@ -746,6 +927,49 @@ fn topology_adjacency_trivial_bce(examples: &[crate::data::MolecularExample]) ->
     let count = values.iter().map(|(_, count)| *count).sum::<f64>();
     let p = (positive / count.max(1.0)).clamp(1e-6, 1.0 - 1e-6);
     Some(-(p * p.ln() + (1.0 - p) * (1.0 - p).ln()))
+}
+
+fn topology_adjacency_balanced_trivial_bce(
+    examples: &[crate::data::MolecularExample],
+) -> Option<f64> {
+    let (positive, negative) = topology_adjacency_binary_counts(examples)?;
+    balanced_binary_trivial_bce(positive, negative)
+}
+
+fn topology_adjacency_binary_counts(
+    examples: &[crate::data::MolecularExample],
+) -> Option<(f64, f64)> {
+    let mut positive = 0.0;
+    let mut negative = 0.0;
+    for example in examples {
+        if example.topology.adjacency.numel() == 0 {
+            continue;
+        }
+        let target = example.topology.adjacency.clamp(0.0, 1.0);
+        let pos = target.sum(tch::Kind::Float).double_value(&[]);
+        positive += pos;
+        negative += target.numel() as f64 - pos;
+    }
+    ((positive + negative) > 0.0).then_some((positive, negative))
+}
+
+fn topology_adjacency_binary_audit(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+) -> Option<BinaryProbeAudit> {
+    let mut accumulator = BinaryProbeAuditAccumulator::default();
+    for (example, forward) in examples.iter().zip(forwards.iter()) {
+        let logits = &forward.probes.topology_adjacency_logits;
+        if example.topology.adjacency.numel() == 0
+            || logits.numel() == 0
+            || logits.size() != example.topology.adjacency.size()
+        {
+            continue;
+        }
+        let mask = tch::Tensor::ones_like(logits);
+        accumulator.add(logits, &example.topology.adjacency, &mask);
+    }
+    accumulator.finish()
 }
 
 fn geometry_distance_available_count(examples: &[crate::data::MolecularExample]) -> usize {
@@ -871,11 +1095,35 @@ fn ligand_pharmacophore_role_bce(
     )
 }
 
+fn ligand_pharmacophore_role_balanced_bce(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+) -> Option<f64> {
+    role_probe_balanced_bce(
+        examples,
+        forwards,
+        |example| &example.topology.chemistry_roles,
+        |forward| &forward.probes.ligand_pharmacophore_role_logits,
+    )
+}
+
 fn pocket_pharmacophore_role_bce(
     examples: &[crate::data::MolecularExample],
     forwards: &[ResearchForward],
 ) -> Option<f64> {
     role_probe_bce(
+        examples,
+        forwards,
+        |example| &example.pocket.chemistry_roles,
+        |forward| &forward.probes.pocket_pharmacophore_role_logits,
+    )
+}
+
+fn pocket_pharmacophore_role_balanced_bce(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+) -> Option<f64> {
+    role_probe_balanced_bce(
         examples,
         forwards,
         |example| &example.pocket.chemistry_roles,
@@ -889,10 +1137,22 @@ fn ligand_pharmacophore_role_trivial_bce(
     role_trivial_bce(examples, |example| &example.topology.chemistry_roles)
 }
 
+fn ligand_pharmacophore_role_balanced_trivial_bce(
+    examples: &[crate::data::MolecularExample],
+) -> Option<f64> {
+    role_balanced_trivial_bce(examples, |example| &example.topology.chemistry_roles)
+}
+
 fn pocket_pharmacophore_role_trivial_bce(
     examples: &[crate::data::MolecularExample],
 ) -> Option<f64> {
     role_trivial_bce(examples, |example| &example.pocket.chemistry_roles)
+}
+
+fn pocket_pharmacophore_role_balanced_trivial_bce(
+    examples: &[crate::data::MolecularExample],
+) -> Option<f64> {
+    role_balanced_trivial_bce(examples, |example| &example.pocket.chemistry_roles)
 }
 
 fn role_probe_bce(
@@ -928,6 +1188,39 @@ fn role_probe_bce(
     )
 }
 
+fn role_probe_balanced_bce(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+    matrix_for_example: fn(
+        &crate::data::MolecularExample,
+    ) -> &crate::data::ChemistryRoleFeatureMatrix,
+    logits_for_forward: fn(&ResearchForward) -> &tch::Tensor,
+) -> Option<f64> {
+    mean_available(
+        examples
+            .iter()
+            .zip(forwards.iter())
+            .filter_map(|(example, forward)| {
+                let matrix = matrix_for_example(example);
+                let logits = logits_for_forward(forward);
+                if available_role_rows(matrix) == 0
+                    || logits.numel() == 0
+                    || !role_probe_shapes_match(logits, matrix)
+                {
+                    return None;
+                }
+                Some(
+                    crate::losses::probe::masked_balanced_role_bce_with_logits(
+                        logits,
+                        &matrix.role_vectors,
+                        &matrix.availability,
+                    )
+                    .double_value(&[]),
+                )
+            }),
+    )
+}
+
 fn role_probe_shapes_match(
     logits: &tch::Tensor,
     matrix: &crate::data::ChemistryRoleFeatureMatrix,
@@ -940,6 +1233,42 @@ fn role_probe_shapes_match(
         && availability_size.len() == 1
         && logits_size == role_size
         && availability_size.first().copied() == logits_size.first().copied()
+}
+
+fn role_probe_binary_audit(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+    matrix_for_example: fn(
+        &crate::data::MolecularExample,
+    ) -> &crate::data::ChemistryRoleFeatureMatrix,
+    logits_for_forward: fn(&ResearchForward) -> &tch::Tensor,
+) -> Option<BinaryProbeAudit> {
+    let mut accumulator = BinaryProbeAuditAccumulator::default();
+    for (example, forward) in examples.iter().zip(forwards.iter()) {
+        let matrix = matrix_for_example(example);
+        let logits = logits_for_forward(forward);
+        if available_role_rows(matrix) == 0
+            || logits.numel() == 0
+            || !role_probe_shapes_match(logits, matrix)
+        {
+            continue;
+        }
+        let size = logits.size();
+        let Some(rows) = size.first().copied() else {
+            continue;
+        };
+        let Some(cols) = size.get(1).copied() else {
+            continue;
+        };
+        let mask = matrix
+            .availability
+            .to_device(logits.device())
+            .to_kind(tch::Kind::Float)
+            .unsqueeze(-1)
+            .expand([rows, cols], true);
+        accumulator.add(logits, &matrix.role_vectors, &mask);
+    }
+    accumulator.finish()
 }
 
 fn role_trivial_bce(
@@ -975,6 +1304,58 @@ fn role_trivial_bce(
     }
     let p = (positive / count).clamp(1e-6, 1.0 - 1e-6);
     Some(-((positive * p.ln()) + ((count - positive) * (1.0 - p).ln())) / count)
+}
+
+fn role_balanced_trivial_bce(
+    examples: &[crate::data::MolecularExample],
+    matrix_for_example: fn(
+        &crate::data::MolecularExample,
+    ) -> &crate::data::ChemistryRoleFeatureMatrix,
+) -> Option<f64> {
+    let (positive, negative) = role_binary_counts(examples, matrix_for_example)?;
+    balanced_binary_trivial_bce(positive, negative)
+}
+
+fn role_binary_counts(
+    examples: &[crate::data::MolecularExample],
+    matrix_for_example: fn(
+        &crate::data::MolecularExample,
+    ) -> &crate::data::ChemistryRoleFeatureMatrix,
+) -> Option<(f64, f64)> {
+    let mut positive = 0.0;
+    let mut negative = 0.0;
+    for example in examples {
+        let matrix = matrix_for_example(example);
+        let rows = matrix
+            .role_vectors
+            .size()
+            .first()
+            .copied()
+            .unwrap_or(0)
+            .min(matrix.availability.size().first().copied().unwrap_or(0));
+        let cols = matrix.role_vectors.size().get(1).copied().unwrap_or(0);
+        for row in 0..rows {
+            if matrix.availability.double_value(&[row]) <= 0.0 {
+                continue;
+            }
+            for col in 0..cols {
+                let value = matrix.role_vectors.double_value(&[row, col]).clamp(0.0, 1.0);
+                positive += value;
+                negative += 1.0 - value;
+            }
+        }
+    }
+    ((positive + negative) > 0.0).then_some((positive, negative))
+}
+
+fn balanced_binary_trivial_bce(positive: f64, negative: f64) -> Option<f64> {
+    if positive + negative <= 0.0 {
+        None
+    } else if positive <= 0.0 || negative <= 0.0 {
+        Some(0.0)
+    } else {
+        Some(std::f64::consts::LN_2)
+    }
 }
 
 fn available_role_rows(matrix: &crate::data::ChemistryRoleFeatureMatrix) -> usize {
@@ -1013,6 +1394,37 @@ fn affinity_probe_mse(
                 Some(error * error)
             }),
     )
+}
+
+fn affinity_scalar_audit(
+    examples: &[crate::data::MolecularExample],
+    forwards: &[ResearchForward],
+) -> Option<ScalarProbeAudit> {
+    let mut target_sum = 0.0;
+    let mut prediction_sum = 0.0;
+    let mut error_sum = 0.0;
+    let mut count = 0usize;
+    for (example, forward) in examples.iter().zip(forwards.iter()) {
+        let Some(target) = example.targets.affinity_kcal_mol.map(|value| value as f64) else {
+            continue;
+        };
+        if forward.probes.affinity_prediction.numel() == 0 {
+            continue;
+        }
+        let prediction = forward.probes.affinity_prediction.double_value(&[]);
+        if !target.is_finite() || !prediction.is_finite() {
+            continue;
+        }
+        target_sum += target;
+        prediction_sum += prediction;
+        error_sum += prediction - target;
+        count += 1;
+    }
+    (count > 0).then_some(ScalarProbeAudit {
+        target_mean: target_sum / count as f64,
+        prediction_mean: prediction_sum / count as f64,
+        mean_error: error_sum / count as f64,
+    })
 }
 
 fn affinity_trivial_mse(examples: &[crate::data::MolecularExample]) -> Option<f64> {

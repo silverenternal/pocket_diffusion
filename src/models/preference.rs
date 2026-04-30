@@ -1210,13 +1210,11 @@ fn valence_sane(candidate: &GeneratedCandidateRecord) -> bool {
 
 fn max_reasonable_valence(atom_type: i64) -> usize {
     match atom_type {
-        1 => 1,
-        6 => 4,
-        7 => 4,
-        8 => 3,
-        9 | 17 | 35 | 53 => 1,
-        15 => 5,
-        16 => 6,
+        0 => 4,
+        1 => 4,
+        2 => 2,
+        3 => 6,
+        4 => 1,
         _ => 4,
     }
 }
@@ -1708,7 +1706,7 @@ mod tests {
             model_native_raw: true,
             postprocessor_chain: Vec::new(),
             claim_boundary:
-                "raw model-native output before repair, constraints, reranking, or backend scoring"
+                "raw model-native decoder output before repair, reranking, or backend scoring"
                     .to_string(),
             source_pocket_path: None,
             source_ligand_path: None,

@@ -79,6 +79,14 @@ pub(crate) struct InteractionExecutionContext {
     pub rollout_step_index: Option<usize>,
     /// Optional flow-time value used for flow-matching conditioning.
     pub flow_t: Option<f64>,
+    /// Optional zero-based de novo generation sample index.
+    pub generation_sample_index: Option<usize>,
+    /// Optional bounded per-pocket generation sample count.
+    pub generation_sample_count: Option<usize>,
+    /// Optional deterministic seed used by this generation sample.
+    pub generation_sample_seed: Option<u64>,
+    /// Optional report-facing provenance for the derived sample seed.
+    pub generation_sample_seed_provenance: Option<String>,
 }
 
 pub(crate) fn path_scale(

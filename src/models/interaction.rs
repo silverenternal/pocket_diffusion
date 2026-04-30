@@ -678,12 +678,30 @@ mod tests {
         };
         let interactions = block.forward(&slots);
 
-        assert_eq!(interactions.topo_from_geo.gate.numel(), 1);
-        assert_eq!(interactions.topo_from_pocket.gate.numel(), 1);
-        assert_eq!(interactions.geo_from_topo.gate.numel(), 1);
-        assert_eq!(interactions.geo_from_pocket.gate.numel(), 1);
-        assert_eq!(interactions.pocket_from_topo.gate.numel(), 1);
-        assert_eq!(interactions.pocket_from_geo.gate.numel(), 1);
+        assert_eq!(
+            interactions.topo_from_geo.gate.numel(),
+            slots.topology.active_slot_mask.numel()
+        );
+        assert_eq!(
+            interactions.topo_from_pocket.gate.numel(),
+            slots.topology.active_slot_mask.numel()
+        );
+        assert_eq!(
+            interactions.geo_from_topo.gate.numel(),
+            slots.geometry.active_slot_mask.numel()
+        );
+        assert_eq!(
+            interactions.geo_from_pocket.gate.numel(),
+            slots.geometry.active_slot_mask.numel()
+        );
+        assert_eq!(
+            interactions.pocket_from_topo.gate.numel(),
+            slots.pocket.active_slot_mask.numel()
+        );
+        assert_eq!(
+            interactions.pocket_from_geo.gate.numel(),
+            slots.pocket.active_slot_mask.numel()
+        );
         assert_eq!(
             interactions.geo_from_pocket.attended_tokens.size()[1],
             config.model.hidden_dim

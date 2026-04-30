@@ -773,30 +773,32 @@ fn flow_matching_layers(
     mut layers: CandidateGenerationLayers,
     request: &crate::models::ConditionedGenerationRequest,
 ) -> CandidateGenerationLayers {
-    transform_layer_candidates(
+    transform_layer_candidates_preserving_bonds(
         &mut layers.raw_geometry,
         "flow_matching",
         |candidate, index| apply_flow_transport(candidate, request, index),
     );
-    transform_layer_candidates(
+    transform_layer_candidates_preserving_bonds(
         &mut layers.raw_rollout,
         "flow_matching",
         |candidate, index| apply_flow_transport(candidate, request, index),
     );
-    transform_layer_candidates(
+    transform_layer_candidates_preserving_bonds(
         &mut layers.bond_logits_refined,
         "flow_matching",
         |candidate, index| apply_flow_transport(candidate, request, index),
     );
-    transform_layer_candidates(
+    transform_layer_candidates_preserving_bonds(
         &mut layers.valence_refined,
         "flow_matching",
         |candidate, index| apply_flow_transport(candidate, request, index),
     );
-    transform_layer_candidates(&mut layers.repaired, "flow_matching", |candidate, index| {
-        apply_flow_transport(candidate, request, index)
-    });
-    transform_layer_candidates(
+    transform_layer_candidates_preserving_bonds(
+        &mut layers.repaired,
+        "flow_matching",
+        |candidate, index| apply_flow_transport(candidate, request, index),
+    );
+    transform_layer_candidates_preserving_bonds(
         &mut layers.inferred_bond,
         "flow_matching",
         |candidate, index| apply_flow_transport(candidate, request, index),
@@ -893,6 +895,17 @@ fn transform_layer_candidates(
     }
 }
 
+fn transform_layer_candidates_preserving_bonds(
+    candidates: &mut [GeneratedCandidateRecord],
+    source: &str,
+    mut transform: impl FnMut(&mut GeneratedCandidateRecord, usize),
+) {
+    for (index, candidate) in candidates.iter_mut().enumerate() {
+        transform(candidate, index);
+        candidate.source = source.to_string();
+    }
+}
+
 fn apply_flow_transport(
     candidate: &mut GeneratedCandidateRecord,
     request: &crate::models::ConditionedGenerationRequest,
@@ -900,9 +913,15 @@ fn apply_flow_transport(
 ) {
     let steps = request.generation_config.rollout_steps;
     let gate = mean_gate(&request.gate_summary);
-    candidate.molecular_representation = Some(format!(
-        "flow_matching_geometry_v1:steps={steps};gate_mean={gate:.3}"
-    ));
+    let method_tag = format!("method=flow_matching;steps={steps};gate_mean={gate:.3}");
+    candidate.molecular_representation = Some(
+        candidate
+            .molecular_representation
+            .as_deref()
+            .filter(|existing| !existing.is_empty())
+            .map(|existing| format!("{existing};{method_tag}"))
+            .unwrap_or(method_tag),
+    );
 }
 
 fn apply_autoregressive_commit(

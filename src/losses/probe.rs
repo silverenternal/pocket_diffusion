@@ -1,10 +1,21 @@
 //! Semantic probe supervision for specialized modality paths.
 
-use tch::{Kind, Reduction, Tensor};
+use tch::{Kind, Tensor};
 
-use crate::{config::PharmacophoreProbeConfig, data::MolecularExample, models::ResearchForward};
+use crate::{
+    config::{PharmacophoreProbeConfig, SparseTopologyCalibrationConfig},
+    data::MolecularExample,
+    models::ResearchForward,
+};
 
-use super::alignment::{align_rows, align_square_matrix, align_vector, LossTargetAlignmentPolicy};
+use super::{
+    alignment::{align_rows, align_square_matrix, align_vector, LossTargetAlignmentPolicy},
+    classification::{
+        masked_balanced_bce_with_logits, masked_bce_with_logits,
+        masked_positive_negative_score_separation_loss, masked_positive_score_floor_loss,
+    },
+    topology_calibration::{SparseTopologyCalibration, SparseTopologyCalibrationScope},
+};
 
 /// Modality that owns a semantic probe source representation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,6 +181,8 @@ pub(crate) struct ProbeLossTensors {
     pub core: Tensor,
     /// Total semantic probe objective.
     pub total: Tensor,
+    /// Weighted sparse negative-class calibration inside topology adjacency probing.
+    pub topology_sparse_negative_rate: Tensor,
     /// Ligand pharmacophore role supervision subterm.
     pub ligand_pharmacophore: Tensor,
     /// Pocket pharmacophore role supervision subterm.
@@ -180,12 +193,14 @@ pub(crate) struct ProbeLossTensors {
 #[derive(Debug, Clone)]
 pub struct ProbeLoss {
     pharmacophore: PharmacophoreProbeConfig,
+    topology_calibration: SparseTopologyCalibration,
 }
 
 impl Default for ProbeLoss {
     fn default() -> Self {
         Self {
             pharmacophore: PharmacophoreProbeConfig::default(),
+            topology_calibration: SparseTopologyCalibration::default(),
         }
     }
 }
@@ -193,7 +208,21 @@ impl Default for ProbeLoss {
 impl ProbeLoss {
     /// Create probe loss wiring from training config.
     pub fn new(pharmacophore: PharmacophoreProbeConfig) -> Self {
-        Self { pharmacophore }
+        Self::new_with_topology_calibration(
+            pharmacophore,
+            SparseTopologyCalibrationConfig::default(),
+        )
+    }
+
+    /// Create probe loss wiring with explicit sparse topology calibration.
+    pub fn new_with_topology_calibration(
+        pharmacophore: PharmacophoreProbeConfig,
+        topology_calibration: SparseTopologyCalibrationConfig,
+    ) -> Self {
+        Self {
+            pharmacophore,
+            topology_calibration: SparseTopologyCalibration::new(topology_calibration),
+        }
     }
 
     /// Compute the semantic probe objective for one example.
@@ -220,9 +249,22 @@ impl ProbeLoss {
         forward: &ResearchForward,
         affinity_weight: f64,
     ) -> ProbeLossTensors {
+        self.compute_weighted_components_at_step(example, forward, affinity_weight, None)
+    }
+
+    /// Compute the semantic probe objective with trainer-step-aware calibration.
+    pub(crate) fn compute_weighted_components_at_step(
+        &self,
+        example: &MolecularExample,
+        forward: &ResearchForward,
+        affinity_weight: f64,
+        training_step: Option<usize>,
+    ) -> ProbeLossTensors {
         let topo_loss = topology_adjacency_probe_loss(
             &forward.probes.topology_adjacency_logits,
             &example.topology.adjacency,
+            &self.topology_calibration,
+            training_step,
         );
         let geo_loss = geometry_distance_probe_loss(
             &forward.probes.geometry_distance_predictions,
@@ -280,7 +322,7 @@ impl ProbeLoss {
             )
         };
 
-        let core = topo_loss + geo_loss + pocket_loss + affinity_loss;
+        let core = topo_loss.total + geo_loss + pocket_loss + affinity_loss;
         let total = core.shallow_clone()
             + ligand_pharmacophore.shallow_clone()
             + pocket_pharmacophore.shallow_clone();
@@ -288,17 +330,35 @@ impl ProbeLoss {
         ProbeLossTensors {
             core,
             total,
+            topology_sparse_negative_rate: topo_loss.sparse_negative_rate,
             ligand_pharmacophore,
             pocket_pharmacophore,
         }
     }
 
     /// Compute mean semantic probe objective and role-probe subterms over a mini-batch.
+    #[allow(dead_code)] // Compatibility wrapper for callers that do not track trainer step.
     pub(crate) fn compute_batch_weighted_components(
         &self,
         examples: &[MolecularExample],
         forwards: &[ResearchForward],
         affinity_weight_for: impl Fn(&MolecularExample) -> f64,
+    ) -> ProbeLossTensors {
+        self.compute_batch_weighted_components_at_step(
+            examples,
+            forwards,
+            affinity_weight_for,
+            None,
+        )
+    }
+
+    /// Compute mean probe components with trainer-step-aware calibration.
+    pub(crate) fn compute_batch_weighted_components_at_step(
+        &self,
+        examples: &[MolecularExample],
+        forwards: &[ResearchForward],
+        affinity_weight_for: impl Fn(&MolecularExample) -> f64,
+        training_step: Option<usize>,
     ) -> ProbeLossTensors {
         debug_assert_eq!(examples.len(), forwards.len());
         let device = forwards
@@ -315,6 +375,7 @@ impl ProbeLoss {
             return ProbeLossTensors {
                 core: zero.shallow_clone(),
                 total: zero.shallow_clone(),
+                topology_sparse_negative_rate: zero.shallow_clone(),
                 ligand_pharmacophore: zero.shallow_clone(),
                 pocket_pharmacophore: zero,
             };
@@ -322,13 +383,20 @@ impl ProbeLoss {
 
         let mut total = Tensor::zeros([1], (Kind::Float, device));
         let mut core = Tensor::zeros([1], (Kind::Float, device));
+        let mut topology_sparse_negative_rate = Tensor::zeros([1], (Kind::Float, device));
         let mut ligand_pharmacophore = Tensor::zeros([1], (Kind::Float, device));
         let mut pocket_pharmacophore = Tensor::zeros([1], (Kind::Float, device));
         for (example, forward) in examples.iter().zip(forwards.iter()) {
-            let components =
-                self.compute_weighted_components(example, forward, affinity_weight_for(example));
+            let components = self.compute_weighted_components_at_step(
+                example,
+                forward,
+                affinity_weight_for(example),
+                training_step,
+            );
             core += components.core.to_device(device);
             total += components.total.to_device(device);
+            topology_sparse_negative_rate +=
+                components.topology_sparse_negative_rate.to_device(device);
             ligand_pharmacophore += components.ligand_pharmacophore.to_device(device);
             pocket_pharmacophore += components.pocket_pharmacophore.to_device(device);
         }
@@ -336,20 +404,31 @@ impl ProbeLoss {
         ProbeLossTensors {
             core: core / denom,
             total: total / denom,
+            topology_sparse_negative_rate: topology_sparse_negative_rate / denom,
             ligand_pharmacophore: ligand_pharmacophore / denom,
             pocket_pharmacophore: pocket_pharmacophore / denom,
         }
     }
 }
 
-fn topology_adjacency_probe_loss(logits: &Tensor, target_adjacency: &Tensor) -> Tensor {
+struct TopologyAdjacencyProbeLoss {
+    total: Tensor,
+    sparse_negative_rate: Tensor,
+}
+
+fn topology_adjacency_probe_loss(
+    logits: &Tensor,
+    target_adjacency: &Tensor,
+    calibration: &SparseTopologyCalibration,
+    training_step: Option<usize>,
+) -> TopologyAdjacencyProbeLoss {
     let device = logits.device();
     if logits.numel() == 0 || logits.dim() != 2 {
-        return Tensor::zeros([1], (Kind::Float, device));
+        return zero_topology_adjacency_probe_loss(device);
     }
     let rows = logits.size().first().copied().unwrap_or(0).max(0);
     if logits.size().get(1).copied().unwrap_or(-1) != rows {
-        return Tensor::zeros([1], (Kind::Float, device));
+        return zero_topology_adjacency_probe_loss(device);
     }
     let Some(aligned) = align_square_matrix(
         target_adjacency,
@@ -359,9 +438,50 @@ fn topology_adjacency_probe_loss(logits: &Tensor, target_adjacency: &Tensor) -> 
         LossTargetAlignmentPolicy::PadWithMask,
         "probe.topology_adjacency",
     ) else {
-        return Tensor::zeros([1], (Kind::Float, device));
+        return zero_topology_adjacency_probe_loss(device);
     };
-    masked_bce_with_logits(logits, &aligned.values, &aligned.mask)
+    let plain_bce = masked_bce_with_logits(logits, &aligned.values, &aligned.mask);
+    let balanced_bce = masked_balanced_bce_with_logits(logits, &aligned.values, &aligned.mask);
+    let bce = plain_bce * 0.55 + balanced_bce * 0.45;
+    let sparse = calibration.loss(
+        SparseTopologyCalibrationScope::Probe,
+        training_step,
+        logits,
+        &aligned.values,
+        &aligned.mask,
+    );
+    let degree = calibration.degree_alignment_loss(
+        SparseTopologyCalibrationScope::Probe,
+        training_step,
+        logits,
+        &aligned.values,
+        &aligned.mask,
+    );
+    let score_separation = masked_positive_negative_score_separation_loss(
+        logits,
+        &aligned.values,
+        &aligned.mask,
+        0.60,
+        4.0,
+    );
+    let positive_floor =
+        masked_positive_score_floor_loss(logits, &aligned.values, &aligned.mask, -1.25, 6.0);
+    TopologyAdjacencyProbeLoss {
+        total: bce
+            + &sparse.weighted
+            + &degree.weighted
+            + score_separation * 0.05
+            + positive_floor * 0.04,
+        sparse_negative_rate: sparse.weighted,
+    }
+}
+
+fn zero_topology_adjacency_probe_loss(device: tch::Device) -> TopologyAdjacencyProbeLoss {
+    let zero = Tensor::zeros([1], (Kind::Float, device));
+    TopologyAdjacencyProbeLoss {
+        total: zero.shallow_clone(),
+        sparse_negative_rate: zero,
+    }
 }
 
 fn geometry_distance_probe_loss(
@@ -420,7 +540,27 @@ pub(crate) fn masked_role_bce_with_logits(
     target_roles: &Tensor,
     availability: &Tensor,
 ) -> Tensor {
-    aligned_role_bce_with_logits(logits, target_roles, availability, "role_bce")
+    aligned_role_bce_with_strategy(
+        logits,
+        target_roles,
+        availability,
+        "role_bce",
+        BinaryProbeLossKind::Plain,
+    )
+}
+
+pub(crate) fn masked_balanced_role_bce_with_logits(
+    logits: &Tensor,
+    target_roles: &Tensor,
+    availability: &Tensor,
+) -> Tensor {
+    aligned_role_bce_with_strategy(
+        logits,
+        target_roles,
+        availability,
+        "role_bce",
+        BinaryProbeLossKind::ClassBalanced,
+    )
 }
 
 fn aligned_role_bce_with_logits(
@@ -428,6 +568,28 @@ fn aligned_role_bce_with_logits(
     target_roles: &Tensor,
     availability: &Tensor,
     label: &str,
+) -> Tensor {
+    aligned_role_bce_with_strategy(
+        logits,
+        target_roles,
+        availability,
+        label,
+        BinaryProbeLossKind::ClassBalanced,
+    )
+}
+
+#[derive(Debug, Clone, Copy)]
+enum BinaryProbeLossKind {
+    Plain,
+    ClassBalanced,
+}
+
+fn aligned_role_bce_with_strategy(
+    logits: &Tensor,
+    target_roles: &Tensor,
+    availability: &Tensor,
+    label: &str,
+    loss_kind: BinaryProbeLossKind,
 ) -> Tensor {
     let device = logits.device();
     if logits.numel() == 0
@@ -466,32 +628,20 @@ fn aligned_role_bce_with_logits(
     let mask = (aligned_roles.mask * aligned_availability.values * aligned_availability.mask)
         .to_kind(Kind::Float)
         .unsqueeze(-1);
-    let available = mask.sum(Kind::Float).double_value(&[]);
+    let item_mask = mask.expand_as(&aligned_roles.values);
+    let available = item_mask.sum(Kind::Float).double_value(&[]);
     if available <= 0.0 {
         return Tensor::zeros([1], (Kind::Float, device));
     }
 
-    let loss = logits.binary_cross_entropy_with_logits::<Tensor>(
-        &aligned_roles.values,
-        None,
-        None,
-        Reduction::None,
-    );
-    (loss * &mask).sum(Kind::Float) / (available * cols as f64)
-}
-
-fn masked_bce_with_logits(logits: &Tensor, target: &Tensor, mask: &Tensor) -> Tensor {
-    if logits.numel() == 0
-        || target.numel() == 0
-        || mask.numel() == 0
-        || logits.size() != target.size()
-        || logits.size() != mask.size()
-    {
-        return Tensor::zeros([1], (Kind::Float, logits.device()));
+    match loss_kind {
+        BinaryProbeLossKind::Plain => {
+            masked_bce_with_logits(logits, &aligned_roles.values, &item_mask)
+        }
+        BinaryProbeLossKind::ClassBalanced => {
+            masked_balanced_bce_with_logits(logits, &aligned_roles.values, &item_mask)
+        }
     }
-    let target = target.to_kind(Kind::Float);
-    let per_item = logits.clamp_min(0.0) - logits * &target + (-logits.abs()).exp().log1p();
-    weighted_mean(&per_item, mask)
 }
 
 fn weighted_mean(values: &Tensor, mask: &Tensor) -> Tensor {
@@ -503,14 +653,17 @@ fn weighted_mean(values: &Tensor, mask: &Tensor) -> Tensor {
 #[cfg(test)]
 mod tests {
     use super::{
-        masked_role_bce_with_logits, OffModalityLeakageProbeTarget, ProbeLoss, ProbeSourceModality,
-        ProbeSupervisionPolicy, SameModalityProbeTarget, OFF_MODALITY_LEAKAGE_PROBE_TARGETS,
-        SAME_MODALITY_PROBE_TARGETS,
+        masked_balanced_role_bce_with_logits, masked_role_bce_with_logits,
+        OffModalityLeakageProbeTarget, ProbeLoss, ProbeSourceModality, ProbeSupervisionPolicy,
+        SameModalityProbeTarget, OFF_MODALITY_LEAKAGE_PROBE_TARGETS, SAME_MODALITY_PROBE_TARGETS,
     };
     use tch::{nn, Device, Kind, Tensor};
 
     use crate::{
         config::{PharmacophoreProbeConfig, ResearchConfig},
+        data::features::{
+            ChemistryRoleFeatureMatrix, ChemistryRoleFeatureProvenance, CHEMISTRY_ROLE_FEATURE_DIM,
+        },
         data::{synthetic_phase1_examples, InMemoryDataset},
         models::Phase1ResearchSystem,
     };
@@ -648,6 +801,75 @@ mod tests {
         let availability = Tensor::from_slice(&[0.0f32, 0.0]).to_kind(Kind::Float);
         let loss = masked_role_bce_with_logits(&logits, &targets, &availability);
         assert_eq!(loss.double_value(&[]), 0.0);
+    }
+
+    #[test]
+    fn enabled_pharmacophore_probe_noops_when_role_rows_are_unavailable() {
+        let mut config = ResearchConfig::default();
+        config.data.batch_size = 1;
+        let dataset = InMemoryDataset::new(synthetic_phase1_examples())
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+        let mut example = dataset.examples()[0].clone();
+        example.topology.chemistry_roles = unavailable_roles(example.topology.atom_types.size()[0]);
+        example.pocket.chemistry_roles = unavailable_roles(example.pocket.coords.size()[0]);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let forward = system.forward_example(&example);
+
+        let loss = ProbeLoss::new(PharmacophoreProbeConfig {
+            enable_ligand_role_probe: true,
+            enable_pocket_role_probe: true,
+            ..PharmacophoreProbeConfig::default()
+        })
+        .compute_weighted_components(&example, &forward, 1.0);
+
+        assert_eq!(loss.ligand_pharmacophore.double_value(&[]), 0.0);
+        assert_eq!(loss.pocket_pharmacophore.double_value(&[]), 0.0);
+    }
+
+    #[test]
+    fn supervised_role_example_rewards_compatible_logits() {
+        let targets = Tensor::from_slice(&[
+            1.0_f32, 0.0, 1.0, //
+            0.0, 1.0, 0.0,
+        ])
+        .reshape([2, 3]);
+        let availability = Tensor::ones([2], (Kind::Float, Device::Cpu));
+        let good_logits = &targets * 8.0 - 4.0;
+        let bad_logits = -&good_logits;
+
+        let good = masked_role_bce_with_logits(&good_logits, &targets, &availability);
+        let bad = masked_role_bce_with_logits(&bad_logits, &targets, &availability);
+
+        assert!(good.double_value(&[]) < bad.double_value(&[]));
+    }
+
+    #[test]
+    fn balanced_role_bce_upweights_rare_positive_errors() {
+        let targets = Tensor::from_slice(&[
+            1.0_f32, 0.0, 0.0, 0.0, //
+            0.0, 0.0, 0.0, 0.0,
+        ])
+        .reshape([2, 4]);
+        let availability = Tensor::ones([2], (Kind::Float, Device::Cpu));
+        let logits =
+            Tensor::from_slice(&[-2.0_f32, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).reshape([2, 4]);
+
+        let plain = masked_role_bce_with_logits(&logits, &targets, &availability);
+        let balanced = masked_balanced_role_bce_with_logits(&logits, &targets, &availability);
+
+        assert!(balanced.double_value(&[]) > plain.double_value(&[]));
+    }
+
+    fn unavailable_roles(rows: i64) -> ChemistryRoleFeatureMatrix {
+        ChemistryRoleFeatureMatrix {
+            role_vectors: Tensor::zeros(
+                [rows, CHEMISTRY_ROLE_FEATURE_DIM],
+                (Kind::Float, Device::Cpu),
+            ),
+            availability: Tensor::zeros([rows], (Kind::Float, Device::Cpu)),
+            provenance: ChemistryRoleFeatureProvenance::Unavailable,
+        }
     }
 
     fn is_finite_scalar(tensor: &Tensor) -> bool {

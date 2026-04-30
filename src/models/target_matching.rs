@@ -5,6 +5,21 @@ use tch::{Kind, Tensor};
 use crate::config::FlowTargetAlignmentPolicy;
 
 const NON_FINITE_ASSIGNMENT_COST: f64 = 1.0e18;
+const ATOM_TYPE_MISMATCH_ASSIGNMENT_COST: f64 = 4.0;
+const TOPOLOGY_DEGREE_ASSIGNMENT_COST: f64 = 0.25;
+
+/// Optional chemistry evidence used to break coordinate matching ties.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TargetMatchingFeatures<'a> {
+    /// Atom types for generated rows.
+    pub generated_atom_types: Option<&'a Tensor>,
+    /// Atom types for target rows.
+    pub target_atom_types: Option<&'a Tensor>,
+    /// Generated adjacency matrix when a scaffold graph is available.
+    pub generated_adjacency: Option<&'a Tensor>,
+    /// Target adjacency matrix used to compare lightweight degree signatures.
+    pub target_adjacency: Option<&'a Tensor>,
+}
 
 /// Cost summary for a generated-to-target row matching result.
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +60,21 @@ pub fn match_molecular_targets(
     generated_coords: &Tensor,
     target_coords: &Tensor,
     policy: FlowTargetAlignmentPolicy,
+) -> Option<TargetMatchingResult> {
+    match_molecular_targets_with_features(
+        generated_coords,
+        target_coords,
+        policy,
+        TargetMatchingFeatures::default(),
+    )
+}
+
+/// Match generated atom rows to target atom rows using coordinates plus optional chemistry evidence.
+pub fn match_molecular_targets_with_features(
+    generated_coords: &Tensor,
+    target_coords: &Tensor,
+    policy: FlowTargetAlignmentPolicy,
+    features: TargetMatchingFeatures<'_>,
 ) -> Option<TargetMatchingResult> {
     let generated_count = generated_coords.size().first().copied().unwrap_or(0).max(0) as usize;
     let target_count = target_coords.size().first().copied().unwrap_or(0).max(0) as usize;
@@ -109,7 +139,7 @@ pub fn match_molecular_targets(
         }
         FlowTargetAlignmentPolicy::HungarianDistance
         | FlowTargetAlignmentPolicy::LightweightOptimalTransport => {
-            distance_matching(generated_coords, target_coords, policy)
+            distance_matching(generated_coords, target_coords, policy, features)
         }
     }
 }
@@ -118,6 +148,7 @@ fn distance_matching(
     generated_coords: &Tensor,
     target_coords: &Tensor,
     policy: FlowTargetAlignmentPolicy,
+    features: TargetMatchingFeatures<'_>,
 ) -> Option<TargetMatchingResult> {
     let generated = coordinate_rows(generated_coords)?;
     let target = coordinate_rows(target_coords)?;
@@ -149,7 +180,8 @@ fn distance_matching(
         ));
     }
 
-    let costs = pairwise_squared_distances(&generated, &target);
+    let mut costs = pairwise_squared_distances(&generated, &target);
+    add_chemistry_costs(&mut costs, &features, generated_count, target_count);
     let (pairs, exact_assignment) = if generated_count <= target_count {
         assignment_for_rows(&costs)
     } else {
@@ -266,6 +298,68 @@ fn pairwise_squared_distances(generated: &[[f64; 3]], target: &[[f64; 3]]) -> Ve
                 .collect()
         })
         .collect()
+}
+
+fn add_chemistry_costs(
+    costs: &mut [Vec<f64>],
+    features: &TargetMatchingFeatures<'_>,
+    generated_count: usize,
+    target_count: usize,
+) {
+    if let (Some(generated_types), Some(target_types)) = (
+        tensor_i64_rows(features.generated_atom_types, generated_count),
+        tensor_i64_rows(features.target_atom_types, target_count),
+    ) {
+        for (generated_index, row) in costs.iter_mut().enumerate() {
+            for (target_index, cost) in row.iter_mut().enumerate() {
+                if generated_types[generated_index] != target_types[target_index] {
+                    *cost += ATOM_TYPE_MISMATCH_ASSIGNMENT_COST;
+                }
+            }
+        }
+    }
+
+    if let (Some(generated_degrees), Some(target_degrees)) = (
+        adjacency_degrees(features.generated_adjacency, generated_count),
+        adjacency_degrees(features.target_adjacency, target_count),
+    ) {
+        for (generated_index, row) in costs.iter_mut().enumerate() {
+            for (target_index, cost) in row.iter_mut().enumerate() {
+                *cost += (generated_degrees[generated_index] - target_degrees[target_index]).abs()
+                    * TOPOLOGY_DEGREE_ASSIGNMENT_COST;
+            }
+        }
+    }
+}
+
+fn tensor_i64_rows(tensor: Option<&Tensor>, expected_rows: usize) -> Option<Vec<i64>> {
+    let tensor = tensor?;
+    if tensor.size().len() != 1 || tensor.size()[0] != expected_rows as i64 {
+        return None;
+    }
+    let cpu = tensor.to_device(tch::Device::Cpu).to_kind(Kind::Int64);
+    Some(
+        (0..expected_rows as i64)
+            .map(|row| cpu.int64_value(&[row]))
+            .collect(),
+    )
+}
+
+fn adjacency_degrees(tensor: Option<&Tensor>, expected_rows: usize) -> Option<Vec<f64>> {
+    let tensor = tensor?;
+    if tensor.size().as_slice() != [expected_rows as i64, expected_rows as i64] {
+        return None;
+    }
+    let cpu = tensor.to_device(tch::Device::Cpu).to_kind(Kind::Double);
+    Some(
+        (0..expected_rows as i64)
+            .map(|row| {
+                (0..expected_rows as i64)
+                    .map(|col| cpu.double_value(&[row, col]).clamp(0.0, 1.0))
+                    .sum::<f64>()
+            })
+            .collect(),
+    )
 }
 
 fn transpose_costs(costs: &[Vec<f64>]) -> Vec<Vec<f64>> {
@@ -419,6 +513,30 @@ mod tests {
         assert!(matching.cost_summary.exact_assignment);
         assert!(matching.cost_summary.total_cost <= 1.0e-12);
         assert_eq!(matching.mask.sum(Kind::Float).double_value(&[]), 3.0);
+    }
+
+    #[test]
+    fn chemistry_features_break_coordinate_matching_ties() {
+        let generated = Tensor::zeros([2, 3], (Kind::Float, tch::Device::Cpu));
+        let target = Tensor::zeros([2, 3], (Kind::Float, tch::Device::Cpu));
+        let generated_atom_types = Tensor::from_slice(&[6_i64, 7]);
+        let target_atom_types = Tensor::from_slice(&[7_i64, 6]);
+
+        let matching = match_molecular_targets_with_features(
+            &generated,
+            &target,
+            FlowTargetAlignmentPolicy::HungarianDistance,
+            TargetMatchingFeatures {
+                generated_atom_types: Some(&generated_atom_types),
+                target_atom_types: Some(&target_atom_types),
+                generated_adjacency: None,
+                target_adjacency: None,
+            },
+        )
+        .expect("matching should succeed");
+
+        assert_eq!(matching.target_indices, vec![Some(1), Some(0)]);
+        assert!(matching.cost_summary.total_cost <= 1.0e-12);
     }
 
     #[test]

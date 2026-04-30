@@ -31,6 +31,82 @@ impl Phase1ResearchSystem {
         )
     }
 
+    /// Run one or more bounded de novo initialization samples for a single pocket.
+    pub(crate) fn forward_example_generation_samples(
+        &self,
+        example: &MolecularExample,
+    ) -> Vec<ResearchForward> {
+        self.forward_example_generation_samples_with_interaction_context_and_rollout_diagnostics(
+            example,
+            InteractionExecutionContext::default(),
+            true,
+        )
+    }
+
+    /// Run config-gated multi-sample generation forwards with explicit interaction context.
+    pub(crate) fn forward_example_generation_samples_with_interaction_context_and_rollout_diagnostics(
+        &self,
+        example: &MolecularExample,
+        interaction_execution_context: InteractionExecutionContext,
+        build_rollout_diagnostics: bool,
+    ) -> Vec<ResearchForward> {
+        let sample_count = self.generation_initialization_sample_count();
+        if sample_count == 1
+            && !self.generation_target.multi_sample_initialization.enabled
+        {
+            return vec![self.forward_example_with_interaction_context_and_rollout_diagnostics(
+                example,
+                interaction_execution_context,
+                build_rollout_diagnostics,
+            )];
+        }
+        (0..sample_count)
+            .map(|sample_index| {
+                let sample_context = self.generation_sample_context(
+                    interaction_execution_context.clone(),
+                    sample_index,
+                    sample_count,
+                );
+                self.forward_example_with_interaction_context_and_rollout_diagnostics(
+                    example,
+                    sample_context,
+                    build_rollout_diagnostics,
+                )
+            })
+            .collect()
+    }
+
+    pub(crate) fn generation_initialization_sample_count(&self) -> usize {
+        if self.generation_mode == GenerationModeConfig::DeNovoInitialization {
+            self.generation_target
+                .multi_sample_initialization
+                .effective_sample_count()
+        } else {
+            1
+        }
+    }
+
+    fn generation_sample_context(
+        &self,
+        mut context: InteractionExecutionContext,
+        sample_index: usize,
+        sample_count: usize,
+    ) -> InteractionExecutionContext {
+        if self.generation_mode != GenerationModeConfig::DeNovoInitialization
+            || !self.generation_target.multi_sample_initialization.enabled
+        {
+            return context;
+        }
+        let policy = &self.generation_target.multi_sample_initialization;
+        let initializer_seed = self.generation_target.de_novo_initialization.seed;
+        context.generation_sample_index = Some(sample_index);
+        context.generation_sample_count = Some(sample_count);
+        context.generation_sample_seed = Some(policy.derived_seed(initializer_seed, sample_index));
+        context.generation_sample_seed_provenance =
+            Some(policy.seed_provenance(initializer_seed, sample_index));
+        context
+    }
+
     fn forward_example_with_interaction_context_and_rollout_diagnostics(
         &self,
         example: &MolecularExample,
@@ -53,6 +129,8 @@ impl Phase1ResearchSystem {
     ) -> ResearchForward {
         let rollout_path_means =
             gate_summary_from_interaction_diagnostics(&optimizer_record.interaction_diagnostics);
+        let rollout_training =
+            self.rollout_training_record(example, &optimizer_record.state, &optimizer_record.decoded);
         let rollout = if build_rollout_diagnostics {
             no_grad(|| {
                 self.rollout_generation(
@@ -63,7 +141,11 @@ impl Phase1ResearchSystem {
                 )
             })
         } else {
-            self.skipped_rollout_diagnostics_record(&optimizer_record.state, rollout_path_means)
+            self.skipped_rollout_diagnostics_record(
+                &optimizer_record.state,
+                rollout_path_means,
+                &optimizer_record.interaction_context,
+            )
         };
         ResearchForward {
             encodings: optimizer_record.encodings,
@@ -78,8 +160,90 @@ impl Phase1ResearchSystem {
                 state: optimizer_record.state,
                 decoded: optimizer_record.decoded,
                 rollout,
+                rollout_training,
                 flow_matching: optimizer_record.flow_matching,
+                pocket_priors: optimizer_record.pocket_priors,
             },
+        }
+    }
+
+    fn rollout_training_record(
+        &self,
+        example: &MolecularExample,
+        initial_state: &ConditionedGenerationState,
+        initial_decoded: &DecoderOutput,
+    ) -> RolloutTrainingRecord {
+        let configured_steps = self.rollout_training_config.rollout_steps.clamp(1, 3);
+        let detach_policy = self.rollout_training_config.detach_policy.as_str().to_string();
+        let mode_allowed = self.rollout_training_config.allows_mode(self.generation_mode);
+        if !self.rollout_training_config.enabled || !mode_allowed {
+            let mut record = RolloutTrainingRecord::disabled(configured_steps, detach_policy);
+            record.enabled = self.rollout_training_config.enabled;
+            record.mode_allowed = mode_allowed;
+            record.memory_control = if self.rollout_training_config.enabled {
+                "skipped_by_generation_mode_gate".to_string()
+            } else {
+                "disabled".to_string()
+            };
+            return record;
+        }
+
+        let mut state = initial_state.clone();
+        let mut steps = Vec::with_capacity(configured_steps);
+        let mut previous_coord_delta: Option<Tensor> = None;
+        for step_index in 0..configured_steps {
+            state.partial_ligand.step_index = step_index as i64;
+            let decoded = if step_index == 0 {
+                initial_decoded.clone()
+            } else {
+                self.generator_stack.ligand_decoder.decode(&state)
+            };
+            let (next_coords, _mean_displacement, _coordinate_step_scale, updated_coord_delta) =
+                self.next_coordinate_state(
+                    example,
+                    &state.partial_ligand.coords,
+                    &decoded.coordinate_deltas,
+                    step_index,
+                    previous_coord_delta.as_ref(),
+                );
+            let detached_before_next_step = matches!(
+                self.rollout_training_config.detach_policy,
+                RolloutTrainingDetachPolicy::DetachBetweenSteps
+            );
+            steps.push(RolloutTrainingStepRecord {
+                step_index,
+                atom_type_logits: decoded.atom_type_logits.shallow_clone(),
+                coords: next_coords.shallow_clone(),
+                coordinate_deltas: &next_coords - &state.partial_ligand.coords,
+                stop_logit: decoded.stop_logit.shallow_clone(),
+                atom_mask: state.partial_ligand.atom_mask.shallow_clone(),
+                detached_before_next_step,
+            });
+            state.partial_ligand.atom_types = confidence_gated_atom_type_commit(
+                &decoded.atom_type_logits,
+                &state.partial_ligand.atom_types,
+            );
+            state.partial_ligand.coords = if detached_before_next_step {
+                next_coords.detach()
+            } else {
+                next_coords
+            };
+            previous_coord_delta = updated_coord_delta;
+        }
+
+        RolloutTrainingRecord {
+            enabled: true,
+            mode_allowed: true,
+            configured_steps,
+            executed_steps: steps.len(),
+            detach_policy,
+            memory_control: format!(
+                "bounded_steps={configured_steps};max_batch_examples={};detach_policy={}",
+                self.rollout_training_config.max_batch_examples,
+                self.rollout_training_config.detach_policy.as_str()
+            ),
+            target_source: "generated_rollout_state".to_string(),
+            steps,
         }
     }
 
@@ -97,7 +261,8 @@ impl Phase1ResearchSystem {
         }
         let mut conditioning_example_storage = None;
         let raw_encodings = if self.generation_mode == GenerationModeConfig::DeNovoInitialization {
-            let (topology, geometry, pocket) = self.de_novo_conditioning_modalities(example);
+            let (topology, geometry, pocket) =
+                self.de_novo_conditioning_modalities(example, &interaction_execution_context);
             let mut conditioning_example = example.clone();
             conditioning_example.topology = topology.clone();
             conditioning_example.geometry = geometry.clone();
@@ -146,7 +311,13 @@ impl Phase1ResearchSystem {
             &slots.geometry,
             &slots.pocket,
         ));
-        let generation_state = self.build_generation_state(example, &slots, &interactions);
+        let pocket_priors = self.generator_stack.pocket_prior_head.forward(&encodings.pocket);
+        let generation_state = self.build_generation_state(
+            example,
+            &slots,
+            &interactions,
+            &interaction_execution_context,
+        );
         let decoded = self.generator_stack.ligand_decoder.decode(&generation_state);
         let flow_matching = self.flow_matching_training_record(
             example,
@@ -168,6 +339,7 @@ impl Phase1ResearchSystem {
             state: generation_state,
             decoded,
             flow_matching,
+            pocket_priors,
             interaction_context: interaction_execution_context,
         }
     }
@@ -397,7 +569,9 @@ impl Phase1ResearchSystem {
             &slots.geometry,
             &slots.pocket,
         ));
-        let generation_state = self.build_generation_state(example, &slots, &interactions);
+        let pocket_priors = self.generator_stack.pocket_prior_head.forward(&encodings.pocket);
+        let generation_state =
+            self.build_generation_state(example, &slots, &interactions, &diagnostic_context);
         let decoded = self.generator_stack.ligand_decoder.decode(&generation_state);
         let flow_matching = self.flow_matching_training_record(
             example,
@@ -409,6 +583,8 @@ impl Phase1ResearchSystem {
         sync_context.flow_t = flow_matching.as_ref().map(|record| record.t);
         let rollout_path_means =
             gate_summary_from_interaction_diagnostics(&interaction_diagnostics);
+        let rollout_training =
+            self.rollout_training_record(example, &generation_state, &decoded);
         let rollout = if build_rollout_diagnostics {
             no_grad(|| {
                 self.rollout_generation(
@@ -419,7 +595,11 @@ impl Phase1ResearchSystem {
                 )
             })
         } else {
-            self.skipped_rollout_diagnostics_record(&generation_state, rollout_path_means)
+            self.skipped_rollout_diagnostics_record(
+                &generation_state,
+                rollout_path_means,
+                &diagnostic_context,
+            )
         };
 
         ResearchForward {
@@ -435,7 +615,9 @@ impl Phase1ResearchSystem {
                 state: generation_state,
                 decoded,
                 rollout,
+                rollout_training,
                 flow_matching,
+                pocket_priors,
             },
         }
     }
@@ -445,8 +627,10 @@ impl Phase1ResearchSystem {
         example: &MolecularExample,
         slots: &DecomposedModalities,
         interactions: &CrossModalInteractions,
+        interaction_execution_context: &InteractionExecutionContext,
     ) -> ConditionedGenerationState {
-        let partial_ligand = self.initial_partial_ligand_state(example);
+        let partial_ligand =
+            self.initial_partial_ligand_state(example, Some(interaction_execution_context));
         let device = partial_ligand.atom_types.device();
         let num_atoms = partial_ligand.atom_types.size()[0];
 
@@ -487,7 +671,11 @@ impl Phase1ResearchSystem {
         }
     }
 
-    fn initial_partial_ligand_state(&self, example: &MolecularExample) -> PartialLigandState {
+    fn initial_partial_ligand_state(
+        &self,
+        example: &MolecularExample,
+        interaction_execution_context: Option<&InteractionExecutionContext>,
+    ) -> PartialLigandState {
         if self.generation_mode == GenerationModeConfig::DeNovoInitialization {
             let config = &self.generation_target.de_novo_initialization;
             let (min_atom_count, max_atom_count) =
@@ -504,7 +692,9 @@ impl Phase1ResearchSystem {
                 },
                 atom_vocab_size: self.atom_vocab_size,
                 radius_fraction: config.radius_fraction,
-                seed: config.seed,
+                seed: interaction_execution_context
+                    .and_then(|context| context.generation_sample_seed)
+                    .unwrap_or(config.seed),
             };
             let centered_pocket = pocket_centered_features(&example.pocket);
             return initializer.initialize(&PocketInitializationContext {
@@ -521,7 +711,9 @@ impl Phase1ResearchSystem {
                 },
                 atom_type_token: config.atom_type_token,
                 radius_fraction: config.radius_fraction,
-                coordinate_seed: config.coordinate_seed,
+                coordinate_seed: interaction_execution_context
+                    .and_then(|context| context.generation_sample_seed)
+                    .unwrap_or(config.coordinate_seed),
             };
             return initializer.initialize(&PocketInitializationContext {
                 example_id: &example.example_id,

@@ -94,6 +94,51 @@ mod tests {
         assert_eq!(TrainingConfig::default().gradient_clipping.global_norm, None);
         assert_eq!(TrainingConfig::default().best_metric, "auto");
         assert!(TrainingConfig::default().build_rollout_diagnostics);
+        assert!(!TrainingConfig::default().rollout_training.enabled);
+        assert_eq!(TrainingConfig::default().rollout_training.rollout_steps, 1);
+        assert_eq!(
+            TrainingConfig::default().rollout_training.detach_policy,
+            RolloutTrainingDetachPolicy::DetachBetweenSteps
+        );
+    }
+
+    #[test]
+    fn flow_velocity_head_config_selects_equivariant_geometry_ablation() {
+        let head_config: FlowVelocityHeadConfig =
+            serde_json::from_str(r#"{"kind":"equivariant_geometry"}"#).unwrap();
+        assert_eq!(
+            head_config.kind,
+            FlowVelocityHeadKind::EquivariantGeometry
+        );
+
+        let mut config = ResearchConfig::default();
+        config.model.flow_velocity_head = head_config;
+        config.generation_method.active_method = "flow_matching".to_string();
+        config.generation_method.primary_backend = GenerationBackendConfig {
+            backend_id: "flow_matching".to_string(),
+            family: GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..GenerationBackendConfig::default()
+        };
+        config.training.primary_objective = PrimaryObjectiveConfig::FlowMatching;
+
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn q15_equivariant_flow_smoke_configs_load() {
+        let mlp = load_research_config("configs/q15_geometry_flow_mlp_smoke.research.json")
+            .expect("mlp smoke config should load");
+        let equivariant =
+            load_research_config("configs/q15_geometry_flow_equivariant_smoke.research.json")
+                .expect("equivariant smoke config should load");
+
+        assert_eq!(mlp.model.flow_velocity_head.kind, FlowVelocityHeadKind::Geometry);
+        assert_eq!(
+            equivariant.model.flow_velocity_head.kind,
+            FlowVelocityHeadKind::EquivariantGeometry
+        );
+        assert!(equivariant.model.pairwise_geometry.enabled);
     }
 
     #[test]
@@ -209,6 +254,43 @@ mod tests {
     }
 
     #[test]
+    fn rollout_training_config_is_default_off_and_schedulable() {
+        let mut config = ResearchConfig::default();
+        assert!(!config.training.rollout_training.active_at_step(10));
+        assert!(config
+            .training
+            .rollout_training
+            .allows_mode(GenerationModeConfig::TargetLigandDenoising));
+
+        config.training.rollout_training.enabled = true;
+        config.training.rollout_training.warmup_step = 3;
+        config.training.rollout_training.rollout_steps = 2;
+        config.training.rollout_training.max_batch_examples = 2;
+        config.training.rollout_training.allowed_generation_modes =
+            vec![GenerationModeConfig::DeNovoInitialization];
+        assert!(config.validate().is_ok());
+        assert!(!config.training.rollout_training.active_at_step(2));
+        assert!(config.training.rollout_training.active_at_step(3));
+        assert!(!config
+            .training
+            .rollout_training
+            .allows_mode(GenerationModeConfig::TargetLigandDenoising));
+        assert!(config
+            .training
+            .rollout_training
+            .allows_mode(GenerationModeConfig::DeNovoInitialization));
+    }
+
+    #[test]
+    fn rollout_training_config_rejects_unbounded_step_count() {
+        let mut config = ResearchConfig::default();
+        config.training.rollout_training.enabled = true;
+        config.training.rollout_training.rollout_steps = 4;
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("training.rollout_training.rollout_steps"));
+    }
+
+    #[test]
     fn training_stage_schedule_validates_warmup_floor() {
         let mut config = ResearchConfig::default();
         assert_eq!(config.training.schedule.warmup_floor, 0.0);
@@ -236,6 +318,57 @@ mod tests {
         .unwrap();
 
         assert_eq!(config.rollout_eval_step_weight_decay, 0.77);
+    }
+
+    #[test]
+    fn multi_sample_initialization_is_default_off_and_bounded() {
+        let mut config = ResearchConfig::default();
+        assert!(!config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .enabled);
+        assert_eq!(
+            config
+                .data
+                .generation_target
+                .multi_sample_initialization
+                .effective_sample_count(),
+            1
+        );
+
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .enabled = true;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .sample_count = 3;
+        assert_eq!(
+            config
+                .data
+                .generation_target
+                .multi_sample_initialization
+                .effective_sample_count(),
+            3
+        );
+        assert!(config.validate().is_ok());
+
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .sample_count = 5;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .max_samples_per_pocket = 4;
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("sample_count must be <= max_samples_per_pocket"));
     }
 
     #[test]
@@ -405,9 +538,9 @@ mod tests {
         let mut config = ResearchConfig::default();
         assert_eq!(
             config.model.interaction_tuning.gate_mode,
-            InteractionGateMode::PathScalar
+            InteractionGateMode::TargetSlot
         );
-        config.model.interaction_tuning.gate_mode = InteractionGateMode::TargetSlot;
+        config.model.interaction_tuning.gate_mode = InteractionGateMode::PathScalar;
         assert!(config.validate().is_ok());
 
         config
@@ -501,6 +634,28 @@ mod tests {
             .max_leakage_diagnostic = Some(f64::NAN);
         let err = config.validate().unwrap_err().to_string();
         assert!(err.contains("training.adaptive_stage_guard.max_leakage_diagnostic"));
+
+        config
+            .training
+            .adaptive_stage_guard
+            .max_leakage_diagnostic = Some(0.5);
+        config
+            .training
+            .adaptive_stage_guard
+            .min_raw_rollout_validity = Some(1.5);
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("training.adaptive_stage_guard.min_raw_rollout_validity"));
+
+        config
+            .training
+            .adaptive_stage_guard
+            .min_raw_rollout_validity = Some(0.5);
+        config
+            .training
+            .adaptive_stage_guard
+            .max_raw_rollout_clash_loss = Some(-0.1);
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("training.adaptive_stage_guard.max_raw_rollout_clash_loss"));
     }
 
     #[test]
@@ -821,6 +976,14 @@ mod tests {
             .training
             .objective_scale_diagnostics
             .running_scale_momentum = Some(0.5);
+        config
+            .training
+            .objective_scale_diagnostics
+            .family_budget_cap_fraction = Some(0.25);
+        config
+            .training
+            .objective_scale_diagnostics
+            .family_budget_action = ObjectiveBudgetAction::Clamp;
         config.training.objective_gradient_diagnostics.enabled = true;
         config
             .training
@@ -873,12 +1036,39 @@ mod tests {
             .training
             .objective_gradient_diagnostics
             .max_exact_families = 4;
+        config
+            .training
+            .objective_gradient_diagnostics
+            .dominance_fraction_threshold = 0.75;
         config.training.objective_gradient_diagnostics.enabled = false;
         config.training.objective_scale_diagnostics.warning_ratio = 0.0;
         let err = config.validate().unwrap_err();
         assert!(err
             .to_string()
             .contains("objective_scale_diagnostics.warning_ratio"));
+
+        config.training.objective_scale_diagnostics.warning_ratio = 10.0;
+        config
+            .training
+            .objective_scale_diagnostics
+            .family_budget_cap_fraction = Some(0.0);
+        let err = config.validate().unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("objective_scale_diagnostics.family_budget_cap_fraction"));
+
+        config
+            .training
+            .objective_scale_diagnostics
+            .family_budget_cap_fraction = Some(0.5);
+        config
+            .training
+            .objective_gradient_diagnostics
+            .dominance_fraction_threshold = 0.0;
+        let err = config.validate().unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("objective_gradient_diagnostics.dominance_fraction_threshold"));
     }
 
     #[test]
@@ -1155,6 +1345,14 @@ mod tests {
     fn chemistry_warmup_config_validates_stage_numbers() {
         let mut config = ResearchConfig::default();
         assert_eq!(config.training.chemistry_warmup.pocket_envelope_start_stage, 2);
+        assert_eq!(
+            config
+                .training
+                .chemistry_warmup
+                .nonbonded_distance_guardrail_start_stage,
+            2
+        );
+        assert_eq!(config.training.chemistry_warmup.angle_guardrail_start_stage, 2);
         assert_eq!(
             config
                 .training

@@ -14,6 +14,71 @@ Rust-first modular research framework for pocket-conditioned representation lear
 
 The crate name still says `diffusion` for compatibility. The active path is a modular representation-learning system with conditioned denoising/refinement, de novo pocket-conditioned molecular flow, deterministic rollout diagnostics, and explicit evidence attribution. Full molecular flow is config-gated: `de_novo_initialization` requires `flow_matching.geometry_only=false` plus geometry, atom-type, bond, topology, and pocket/context branches.
 
+## External Dependencies
+
+The core implementation is Rust. Python is used for reviewer tooling, artifact
+checks, and optional chemistry/docking backends; it is not the model-training
+implementation.
+
+### Required for Rust build and training
+
+| Dependency | Why it is needed | Notes |
+| --- | --- | --- |
+| Rust stable toolchain + Cargo | Build and run the crate | Edition 2021; install through `rustup` if needed. |
+| C/C++ build toolchain | Native dependencies used by `tch`/libtorch | `gcc`/`clang` plus normal linker tools are sufficient on Linux. |
+| libtorch / PyTorch C++ runtime | Tensor backend for `tch = 0.23` | Use a libtorch release compatible with the checked-in `Cargo.lock`, or set `LIBTORCH_USE_PYTORCH=1` when using a Python environment that has a compatible `torch` install. |
+
+The default configs run on CPU (`runtime.device=cpu`). CUDA is optional and
+must be configured consistently between libtorch/PyTorch and the local driver
+stack.
+
+### Required for validation and reviewer tooling
+
+| Dependency | Why it is needed | Install path |
+| --- | --- | --- |
+| Python 3.12 | Validation scripts, claim gates, backend adapters | `reviewer_env/environment.yml` pins the reviewer Python environment. |
+| RDKit | Chemistry validity, QED/logP/scaffold/diversity metrics | `./tools/bootstrap_reviewer_env.sh` creates `.reviewer-env` with RDKit via conda/mamba. |
+| `jq` | Shell examples and JSON inspection | Optional for Rust execution, useful for artifact review. |
+
+Create the packaged reviewer environment with:
+
+```bash
+./tools/bootstrap_reviewer_env.sh
+```
+
+For a lighter environment check:
+
+```bash
+.reviewer-env/bin/python tools/reviewer_env_check.py \
+  --config configs/unseen_pocket_pdbbindpp_real_backends.json \
+  --config configs/unseen_pocket_lp_pdbbind_refined_real_backends.json
+```
+
+The checked-in external-evaluation configs use `python3` as the backend
+executable. When running those configs with the packaged RDKit environment,
+activate `.reviewer-env` so `python3` resolves to that environment, or update
+the config executable to `.reviewer-env/bin/python` for the local run.
+
+Run the full reviewer revalidation only when the referenced datasets and
+checkpoint artifacts are present:
+
+```bash
+REVIEWER_PYTHON=.reviewer-env/bin/python ./tools/revalidate_reviewer_bundle.sh
+```
+
+### Optional external backends
+
+| Backend | Used by | Requirement |
+| --- | --- | --- |
+| AutoDock Vina | `tools/vina_score_backend.py`, `configs/unseen_pocket_vina_backend.json` | A `vina` executable on `PATH`, or `VINA_EXECUTABLE=/path/to/vina`. True Vina scoring also needs receptor/ligand PDBQT inputs. |
+| GNINA | `tools/gnina_score_backend.py`, `configs/unseen_pocket_gnina_backend.json` | A `gnina` executable on `PATH`, or `GNINA_EXECUTABLE=/path/to/gnina`. |
+| Pandoc | Refresh generated docs such as `docs/dataset_training_methods_zh.html/.docx/.odt` | Not needed for training. |
+| Python `torch` | `tools/run_diffsbdd_public_testset.py` public-baseline helper | Not needed for the Rust model unless you choose `LIBTORCH_USE_PYTORCH=1`. |
+
+The backend adapters degrade to explicit availability/input-completeness
+metrics when a backend is missing. Missing Vina/GNINA should therefore be read
+as missing stronger backend evidence, not as a successful docking run.
+
 ## Evidence Boundaries
 
 Claim-facing artifacts include candidate-level RDKit, AutoDock Vina `score_only`, and GNINA `score_only` outputs. These are backend scores, not experimental binding affinities. Proxy metrics such as `docking_like_score` are heuristic diagnostics only.
@@ -22,12 +87,13 @@ Layer attribution is strict:
 
 - `raw_rollout` and `raw_flow` are native model evidence.
 - `constrained_flow` is constrained-sampling evidence derived from raw flow output.
-- `inferred_bond_candidates`, `repaired`, `repaired_candidates`, `deterministic_proxy_candidates`, and `reranked_candidates` are postprocessing or selection evidence.
+- `inferred_bond`, `inferred_bond_candidates`, `repaired`, `repaired_candidates`, `deterministic_proxy`, `deterministic_proxy_candidates`, `reranked`, and `reranked_candidates` are postprocessing or selection evidence.
 
 Training/evaluation alignment is explicit in experiment artifacts:
 
 - `L_probe` and `L_leak` are optimizer-facing auxiliary losses when enabled by the staged trainer.
-- `rollout_eval_*` fields are detached diagnostics unless a future tensor-preserving trainable rollout objective is implemented.
+- `training.rollout_training` is the bounded optimizer-facing short-rollout objective when enabled and active; `rollout_eval_*` fields remain detached diagnostics.
+- Objective-family budget reports keep `task`, `rollout`, `pocket_interaction`, `chemistry`, `redundancy`, `probe`, `leakage`, `gate`, and `slot` contributions separate.
 - `finite_forward_fraction` is a smoke/default health metric; claim-bearing configs should select quality-aware best metrics with availability checks.
 - Backend score rows report coverage, missing-structure fraction, fallback use, and candidate counts before they can support stronger wording.
 
@@ -39,6 +105,7 @@ Current public-baseline details live in:
 - [`docs/postprocessing_failure_audit.md`](docs/postprocessing_failure_audit.md)
 - [`docs/q2_claim_contract.md`](docs/q2_claim_contract.md)
 - [`docs/q8_reviewer_scale_runbook.md`](docs/q8_reviewer_scale_runbook.md)
+- [`docs/q15_generation_alignment_final_contract.md`](docs/q15_generation_alignment_final_contract.md)
 
 The fast validation gate is:
 
@@ -48,7 +115,32 @@ python tools/validation_suite.py --mode quick --timeout 240
 tools/local_ci.sh fast
 ```
 
+Before using generated molecules in a real review workflow, run the stricter
+raw-native gate on the produced artifacts:
+
+```bash
+python3 tools/claim_regression_gate.py checkpoints/<artifact_dir> \
+  --enforce-real-generation-readiness \
+  --multi-seed-summary checkpoints/<multi_seed_dir>/multi_seed_summary.json
+```
+
+The same gate is available through local CI when the artifact paths are explicit:
+
+```bash
+REAL_GENERATION_ARTIFACT_DIR=checkpoints/<artifact_dir> \
+REAL_GENERATION_MULTI_SEED_SUMMARY=checkpoints/<multi_seed_dir>/multi_seed_summary.json \
+tools/local_ci.sh real-gen
+```
+
 ## Quick start
+
+First verify that Rust and libtorch are usable:
+
+```bash
+cargo check
+```
+
+Then run the bundled mini-dataset path:
 
 ```bash
 # Inspect dataset
@@ -99,31 +191,120 @@ Key configurations under [`configs/`](configs):
 | `unseen_pocket_manifest.json` | Full unseen-pocket experiment |
 | `unseen_pocket_real_backends.json` | External chemistry + pocket backends |
 | `unseen_pocket_claim_matrix.json` | Compact ablation matrix (regression gate) |
+| `q15_generation_alignment_ablation_matrix.json` | Claim-safe generation-alignment matrix over flow head, rollout training, chemistry guardrails, pocket-interaction loss richness, and direct-fusion negative control |
 | `flow_matching_experiment.json` | Flow-matching as primary objective |
 | `unseen_pocket_pdbbindpp_flow_best_candidate_paper.json` | Paper-quality flow-matching run |
 | `q1_method_comparison_summary.json` | Current layer-separated public-baseline performance summary |
 | `q1_public_baseline_run_status.json` | Current public-baseline status, coverage, and runtime provenance |
 | `q1_baseline_registry.json` | Public baseline source/status registry |
 
-See [Config files](#config-files-1) below for full list and field documentation.
+See [Config files (detailed)](#config-files-detailed) below for field documentation.
 
-## Dataset
+## Data Requirements
 
-### Layout
+### What is included
 
-**Manifest mode** — JSON with entries:
+The repository includes a tiny smoke dataset:
+
+| Dataset | Path | Role |
+| --- | --- | --- |
+| Mini PDBbind-like examples | `examples/datasets/mini_pdbbind` | Four small protein-ligand examples for parser checks, smoke training, and CI-style validation. |
+| Local PDBbind-like profile data | `data/PDBbind_v2020_refined` | Parser/pressure-test surface if populated locally; a small or unlabeled tree is not a claim-bearing benchmark by itself. |
+
+The full reviewer/claim configs require local real-data assets under `data/`.
+Those datasets are not replaced by the mini examples.
+
+### Supported input formats
+
+**Manifest mode** (`dataset_format=manifest_json`) uses an explicit JSON file.
+Paths are resolved relative to the manifest file:
+
 ```json
 { "entries": [{ "example_id": "x", "protein_id": "p", "pocket_path": "...", "ligand_path": "..." }] }
 ```
 
-**PDBbind-like directory mode**:
+Each entry must point to:
+
+- `pocket_path`: a PDB file containing the protein pocket or receptor context.
+- `ligand_path`: an SDF file containing the reference ligand structure.
+- `example_id`: stable complex key used for labels and artifacts.
+- `protein_id`: grouping key used for unseen-pocket splits.
+
+Optional affinity fields can be embedded directly in the manifest, but the
+usual path is a separate `label_table_path`.
+
+**PDBbind-like directory mode** (`dataset_format=pdbbind_like_dir`) scans one
+subdirectory per complex:
+
 ```
 dataset_root/
   complex_001/*.pdb, *.sdf
   complex_002/*.pdb, *.sdf
 ```
 
-**External labels** — CSV/TSV with `example_id`, `protein_id`, `measurement_type`, `raw_value`, `raw_unit`. Supports `Kd`, `Ki`, `IC50`, `pKd` with automatic normalization.
+Lightweight parsing picks the first sorted `.pdb` and `.sdf` in each complex
+directory. Strict parsing requires exactly one PDB and one SDF per directory.
+
+**Synthetic mode** (`dataset_format=synthetic`) needs no files and is reserved
+for smoke tests and focused model diagnostics.
+
+### Affinity label tables
+
+`label_table_path` can be CSV, TSV, or PDBbind INDEX-style text. CSV/TSV rows
+must include `example_id` or `protein_id`, plus one of these label forms:
+
+| Label form | Columns | Example |
+| --- | --- | --- |
+| Direct internal target | `affinity_kcal_mol` or `affinity` or `label` | `-9.4` |
+| Compact measurement | `affinity_record` or `measurement` | `Kd=19uM`, `Ki=5.1nM`, `pKd=7.2` |
+| Structured measurement | `measurement_type`, `raw_value`, optional `raw_unit` | `Ki`, `5.1`, `nM` |
+
+The loader normalizes supported `Kd`, `Ki`, `IC50`, and `pKd` families into the
+internal affinity target and records provenance in `dataset_validation_report.json`.
+Claim-bearing configs should require measurement metadata and normalization
+coverage through `data.quality_filters`.
+
+### Real benchmark datasets expected by configs
+
+| Config family | Required local assets | Notes |
+| --- | --- | --- |
+| Mini/smoke configs, e.g. `configs/research_manifest.json`, `configs/unseen_pocket_claim_matrix.json` | `examples/datasets/mini_pdbbind/manifest.json`, `examples/datasets/mini_pdbbind/affinity_labels.csv` | Runs out of the repository with no external dataset. |
+| PDBbind++ configs, e.g. `configs/unseen_pocket_pdbbindpp_real_backends.json`, `configs/unseen_pocket_pdbbindpp_flow_canonical.json` | `data/pdbbindpp-2020/manifest.json`, `data/pdbbindpp-2020/affinity_labels.csv`, and structures under `data/pdbbindpp-2020/extracted/pbpp-2020/<pdb_id>/<pdb_id>_pocket.pdb` plus `<pdb_id>_ligand.sdf` | Main larger-data reviewer surface. |
+| LP-PDBBind refined configs, e.g. `configs/unseen_pocket_lp_pdbbind_refined_real_backends.json` | `data/lp_pdbbind_refined/manifest.json`, `data/lp_pdbbind_refined/affinity_labels.csv`; the manifest points at the same `data/pdbbindpp-2020/extracted/pbpp-2020/...` structure layout | Second reviewer dataset/label contract. |
+| PDBbind-like directory profiles, e.g. `configs/unseen_pocket_medium_profile.json` | A directory tree such as `data/PDBbind_v2020_refined/<pdb_id>/<pdb_id>_protein.pdb` and `<pdb_id>_ligand.sdf` | Useful for parser and scale-up checks; add labels separately if training/evaluation should use affinity supervision. |
+
+Build a PDBbind++ manifest after placing/extracting the upstream structure
+files:
+
+```bash
+python3 tools/build_pdbbindpp_manifest.py \
+  --root data/pdbbindpp-2020/extracted/pbpp-2020 \
+  --output data/pdbbindpp-2020/manifest.json
+```
+
+Build the compact affinity table from an upstream CSV that contains PDB ids,
+refined/general category metadata, and compact `Kd/Ki`-style affinity records:
+
+```bash
+python3 tools/build_pdbbindpp_affinity_labels.py \
+  --source-csv /path/to/upstream_pdbbindpp_affinity.csv \
+  --manifest data/pdbbindpp-2020/manifest.json \
+  --output data/pdbbindpp-2020/affinity_labels.csv
+```
+
+Validate a data-bearing config before training:
+
+```bash
+cargo run --bin pocket_diffusion -- validate --kind experiment \
+  --config configs/unseen_pocket_pdbbindpp_real_backends.json
+
+cargo run --bin pocket_diffusion -- research inspect \
+  --config configs/research_pdbbindpp_profile.json
+```
+
+For a custom dataset, prefer `manifest_json` first. It is more auditable than
+directory discovery because every example has explicit source paths and stable
+IDs.
 
 ### Data contracts
 
@@ -135,10 +316,6 @@ dataset_root/
 | `claim-bearing` | Reproducible quality gates on label coverage, provenance, metadata |
 
 Ligand-centered coordinate and pocket extraction are tracked in `dataset_validation_report.json`. Target-ligand refinement configs may allow ligand-centered context but must keep that dependency visible in the report. De novo model execution recenters pocket features for the generated scaffold and uses target ligand fields only as training supervision; claim-bearing dataset configs should still enable `quality_filters.reject_target_ligand_context_leakage=true` to keep retained data contracts strict. Source-coordinate reconstruction support and generation coordinate-frame contracts are also persisted so candidate artifacts cannot silently mix coordinate frames.
-
-### Included sample
-
-Tiny dataset under [`examples/datasets/mini_pdbbind`](examples/datasets/mini_pdbbind) for smoke tests and format validation.
 
 ## Evaluation
 
@@ -179,6 +356,8 @@ Config-driven runs write to `training.checkpoint_dir`:
 | `latest.ot` / `step-N.ot` | Checkpoint weights |
 | `candidate_metrics_<split>.jsonl` | Candidate-level generation/backend metrics with layer attribution |
 | `generation_layers_<split>.json` | Layered generation summary and coordinate-frame contract |
+| `raw_native_generation_report.json` | Raw-native-first generation claim review with processed evidence kept additive |
+| `ablation_matrix_summary.json` | Ablation rows with raw generation quality, runtime, and objective-family behavior |
 
 Q1 public-baseline artifacts:
 
@@ -195,7 +374,7 @@ Q1 public-baseline artifacts:
 - Config hash + dataset fingerprint persisted per run
 - Resume restores weights, step index, optimizer/scheduler metadata (not Adam moment buffers)
 - Measurement-stratified protein splits + inverse-frequency affinity weighting for mixed `Kd/Ki/IC50` labels
-- See [Reproducibility artifacts](#reproducibility-artifacts-1) for details
+- See [Artifacts](#artifacts) for persisted run metadata and evidence files
 
 ## Config files (detailed)
 
@@ -303,6 +482,7 @@ The word `diffusion` remains in the crate name for compatibility. The config-dri
 | `configs/unseen_pocket_lp_pdbbind_refined_flow_best_candidate.json` | Best-flow candidate (LP-PDBBind) |
 | `configs/unseen_pocket_pdbbindpp_flow_best_candidate_paper.json` | Paper-quality flow-matching |
 | `configs/unseen_pocket_flow_ablation_matrix.json` | Flow ablation bundle (F3.1) |
+| `configs/q15_generation_alignment_ablation_matrix.json` | Q15 generation-alignment ablation matrix with claim-safe variant labels |
 | `configs/f31_ablation_bundle.json` | Ablation results |
 | `configs/f32_diagnostics_package.json` | Extended flow diagnostics (F3.2) |
 | `configs/unseen_pocket_multi_seed_pdbbindpp_flow.json` | Multi-seed flow (F4.1) |

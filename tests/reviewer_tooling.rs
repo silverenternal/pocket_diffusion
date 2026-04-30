@@ -19,7 +19,188 @@ fn claim_regression_gate_exposes_model_onboarding_flags() {
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(text.contains("--enforce-publication-readiness"));
     assert!(text.contains("--enforce-preference-readiness"));
+    assert!(text.contains("--enforce-real-generation-readiness"));
+    assert!(text.contains("--multi-seed-summary"));
     assert!(text.contains("--min-backend-supported-pair-fraction"));
+}
+
+#[test]
+fn local_ci_help_exposes_real_generation_gate() {
+    let output = Command::new("bash")
+        .args(["tools/local_ci.sh", "--help"])
+        .output()
+        .expect("bash should be available for local CI help");
+    assert!(output.status.success(), "local CI --help should succeed");
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("real-gen"));
+    assert!(text.contains("REAL_GENERATION_ARTIFACT_DIR"));
+    assert!(text.contains("REAL_GENERATION_MULTI_SEED_SUMMARY"));
+}
+
+#[test]
+fn claim_regression_gate_checks_real_generation_readiness_bundle() {
+    let artifact_dir = "/tmp/real_generation_readiness_case";
+    let multi_seed = "/tmp/real_generation_readiness_multi_seed.json";
+    let _ = fs::remove_dir_all(artifact_dir);
+    fs::create_dir_all(artifact_dir).unwrap();
+
+    fs::write(
+        format!("{artifact_dir}/run_artifacts.json"),
+        r#"{"schema_version":1}"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/split_report.json"),
+        r#"{
+          "train":{"ligand_atom_count_bins":{"small":1},"pocket_atom_count_bins":{"small":1},"protein_family_proxy_histogram":{"fam_a":1}},
+          "val":{"ligand_atom_count_bins":{"small":1},"pocket_atom_count_bins":{"small":1},"protein_family_proxy_histogram":{"fam_b":1}},
+          "test":{"ligand_atom_count_bins":{"small":1},"pocket_atom_count_bins":{"small":1},"protein_family_proxy_histogram":{"fam_c":1}},
+          "leakage_checks":{
+            "protein_overlap_detected":false,
+            "pocket_overlap_detected":false,
+            "pocket_family_proxy_overlap_detected":false,
+            "duplicate_example_ids_detected":false,
+            "train_val_protein_overlap":0,
+            "train_test_protein_overlap":0,
+            "val_test_protein_overlap":0,
+            "train_val_pocket_overlap":0,
+            "train_test_pocket_overlap":0,
+            "val_test_pocket_overlap":0,
+            "duplicated_example_ids":0
+          },
+          "quality_checks":{
+            "weak_val_family_count":false,
+            "weak_test_family_count":false,
+            "severe_atom_count_skew_detected":false,
+            "measurement_family_skew_detected":false,
+            "warnings":[]
+          }
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/experiment_summary.json"),
+        r#"{
+          "reproducibility":{"metric_schema_version":4},
+          "evaluation_matrix":{
+            "schema_version":1,
+            "pocket_identity_policy":"protein_id_disjoint",
+            "rows":[{
+              "split_label":"unseen_pocket_test",
+              "split_type":"unseen_pocket_test",
+              "evaluation_status":"evaluated",
+              "example_count":3,
+              "quality":{
+                "raw_valid_fraction":0.6,
+                "raw_pocket_contact_fraction":0.7,
+                "raw_clash_fraction":0.05,
+                "processed_valid_fraction":0.8,
+                "diversity_unique_fraction":0.4
+              },
+              "efficiency":{
+                "evaluation_time_ms":12.0,
+                "examples_per_second":2.0,
+                "evaluation_batch_size":1,
+                "forward_batch_count":3,
+                "no_grad":true
+              }
+            }]
+          }
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/claim_summary.json"),
+        r#"{
+          "artifact_dir":"/tmp/real_generation_readiness_case",
+          "validation":{"unseen_protein_fraction":1.0,"slot_activation_mean":0.4,"gate_activation_mean":0.3,"leakage_proxy_mean":0.05},
+          "test":{"unseen_protein_fraction":1.0,"candidate_valid_fraction":0.6,"pocket_contact_fraction":0.7,"strict_pocket_fit_score":0.5,"slot_activation_mean":0.4,"gate_activation_mean":0.3,"leakage_proxy_mean":0.05},
+          "backend_metrics":{
+            "chemistry_validity":{"available":true,"backend_name":"rdkit_validity_backend","metrics":{"backend_examples_scored":3.0,"rdkit_available":1.0,"rdkit_sanitized_fraction":1.0,"rdkit_unique_smiles_fraction":0.7},"status":"external chemistry backend"},
+            "docking_affinity":{"available":true,"backend_name":"vina_score_backend","metrics":{"backend_examples_scored":3.0,"contact_fraction":0.7},"status":"external docking backend"},
+            "pocket_compatibility":{"available":true,"backend_name":"pocket_contact_backend","metrics":{"backend_examples_scored":3.0,"clash_fraction":0.05,"strict_pocket_fit_score":0.5},"status":"external pocket backend"}
+          },
+          "layered_generation_metrics":{
+            "raw_rollout":{"valid_fraction":0.6,"atom_type_sequence_diversity":0.4,"novel_atom_type_sequence_fraction":0.5},
+            "repaired_candidates":{"valid_fraction":0.8,"atom_type_sequence_diversity":0.4,"novel_atom_type_sequence_fraction":0.5},
+            "inferred_bond_candidates":{"valid_fraction":0.8,"atom_type_sequence_diversity":0.4,"novel_atom_type_sequence_fraction":0.5},
+            "reranked_candidates":{"valid_fraction":0.8,"atom_type_sequence_diversity":0.4,"novel_atom_type_sequence_fraction":0.5}
+          },
+          "chemistry_novelty_diversity":{
+            "review_layer":"raw_rollout",
+            "atom_type_sequence_diversity":0.4,
+            "bond_topology_diversity":0.4,
+            "coordinate_shape_diversity":0.4,
+            "novel_atom_type_sequence_fraction":0.5,
+            "novel_bond_topology_fraction":0.5,
+            "novel_coordinate_shape_fraction":0.5,
+            "interpretation":"test fixture"
+          },
+          "reranker_report":{},
+          "slot_stability":{},
+          "leakage_calibration":{},
+          "raw_native_evidence":{
+            "schema_version":1,
+            "evidence_role":"model_native_raw_first",
+            "raw_model_layer":"raw_rollout",
+            "model_native_raw":true,
+            "candidate_count":3,
+            "valid_fraction":0.6,
+            "native_graph_valid_fraction":0.6,
+            "mean_centroid_offset":1.0,
+            "mean_displacement":0.2,
+            "clash_fraction":0.05,
+            "pocket_contact_fraction":0.7,
+            "strict_pocket_fit_score":0.5,
+            "slot_activation_mean":0.4,
+            "gate_activation_mean":0.3,
+            "leakage_proxy_mean":0.05,
+            "raw_native_gate":{"processed_metrics_excluded":true,"passed":true,"failed_reasons":[]}
+          }
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/raw_native_generation_report.json"),
+        r#"{
+          "schema_version":1,
+          "report_role":"raw_native_generation_first_claim_review",
+          "split_label":"unseen_pocket_test",
+          "raw_native":{"layer_name":"raw_rollout","model_native_raw":true,"candidate_count":3,"valid_fraction":0.6,"pocket_contact_fraction":0.7,"clash_fraction":0.05,"validity_conditioned_unique_fraction":0.4,"claim_boundary":"model_native_raw_first"},
+          "processed":{"layer_name":"reranked_candidates","model_native_raw":false,"candidate_count":3,"valid_fraction":0.8,"pocket_contact_fraction":0.8,"clash_fraction":0.02,"validity_conditioned_unique_fraction":0.5,"claim_boundary":"additive_processed_evidence"},
+          "rollout_diagnostics":{"generation_mode":"de_novo_initialization","raw_model_mean_displacement":0.2,"latest_rollout_training_enabled":true,"latest_rollout_training_active":true,"latest_generated_state_validity":0.6},
+          "objective_families":[{"family":"task","unweighted_value":1.0,"effective_weight":1.0,"weighted_value":1.0,"enabled":true}],
+          "claim_eligibility":{"status":"supported","processed_evidence_additive_only":true,"unsupported_reasons":[]}
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        format!("{artifact_dir}/ablation_matrix_summary.json"),
+        r#"{
+          "artifact_dir":"/tmp/real_generation_readiness_case/ablations",
+          "variants":[
+            {"variant_label":"flow_head_equivariant_geometry","raw_generation_quality":{"raw_valid_fraction":0.6},"runtime":{"examples_per_second":2.0},"objective_families":[{"family":"task"}]},
+            {"variant_label":"rollout_training_disabled","raw_generation_quality":{"raw_valid_fraction":0.5},"runtime":{"examples_per_second":2.0},"objective_families":[{"family":"task"}]},
+            {"variant_label":"chemistry_native_constraints_disabled","raw_generation_quality":{"raw_valid_fraction":0.5},"runtime":{"examples_per_second":2.0},"objective_families":[{"family":"task"}]},
+            {"variant_label":"pocket_interaction_thin_contact_loss","raw_generation_quality":{"raw_valid_fraction":0.5},"runtime":{"examples_per_second":2.0},"objective_families":[{"family":"task"}]},
+            {"variant_label":"direct_fusion_negative_control","raw_generation_quality":{"raw_valid_fraction":0.5},"runtime":{"examples_per_second":2.0},"objective_families":[{"family":"task"}]}
+          ]
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        multi_seed,
+        r#"{"schema_version":1,"seed_count":3,"seeds":[17,42,101]}"#,
+    )
+    .unwrap();
+
+    run_python(&[
+        "tools/claim_regression_gate.py",
+        artifact_dir,
+        "--enforce-real-generation-readiness",
+        "--multi-seed-summary",
+        multi_seed,
+    ]);
 }
 
 #[test]

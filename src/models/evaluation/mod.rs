@@ -37,7 +37,8 @@ pub use drug_metrics::{
 };
 pub(crate) use evaluators::{
     generate_claim_facing_candidates_from_forward, generate_layered_candidates_from_forward,
-    generate_layered_candidates_with_options, CandidateGenerationLayers,
+    generate_layered_candidates_from_generation_samples, generate_layered_candidates_with_options,
+    CandidateGenerationLayers,
 };
 pub use evaluators::{
     CommandChemistryValidityEvaluator, CommandDockingEvaluator,

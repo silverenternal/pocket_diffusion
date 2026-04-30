@@ -35,6 +35,26 @@ current Q1 readiness gate passes on the layer-separated public-baseline
 artifacts; optional checks remain recorded separately so missing noncritical
 extras do not mask required failures.
 
+## Training Metrics Audit Checks
+
+When changing training metrics, primary objective decomposition, flow branch
+schedule reporting, or objective scale diagnostics, run the focused checks below
+in addition to the normal format and compile gates:
+
+```bash
+cargo test primary_component --lib
+cargo test objective_budget --lib
+cargo test objective_family_budget --lib
+cargo test full_flow_branch_scale_report_covers_all_optimizer_branches --lib
+cargo test full_flow_primary_branch_schedule_is_reported_without_auxiliary_stage_changes --lib
+cargo test --test artifact_compatibility
+```
+
+These checks protect the registry-backed audit boundaries documented in
+[`training_metrics_audit.md`](training_metrics_audit.md): primary component
+provenance, branch component audits, objective-family budget grouping, and
+backward-compatible persisted artifacts.
+
 ## Local CI Workflow
 
 Use `tools/local_ci.sh` for contributor-facing gates:
@@ -44,6 +64,7 @@ Use `tools/local_ci.sh` for contributor-facing gates:
 | Fast local gate | `tools/local_ci.sh fast` | Normal pre-review check; usually minutes on a warm build | No external docking backend required; runs a targeted reviewer tooling executable regression and quick manifest validation |
 | Claim gate | `tools/local_ci.sh claim` | Before editing claim contracts, reports, or evidence manifests | Existing compact claim artifacts under `checkpoints/`; no regeneration required |
 | Reviewer/evidence gate | `tools/local_ci.sh reviewer` | Before promoting reviewer-facing evidence or backend/data claims | Packaged reviewer Python preferred; configured RDKit/pocket/Vina/GNINA-style backends and data must be available when thresholds are enforced |
+| Real-generation gate | `REAL_GENERATION_ARTIFACT_DIR=checkpoints/<artifact_dir> REAL_GENERATION_MULTI_SEED_SUMMARY=checkpoints/<multi_seed_dir>/multi_seed_summary.json tools/local_ci.sh real-gen` | Before using generated molecules in a real molecular-generation review workflow | Requires raw-native artifacts, Q15 ablation matrix summary, clean split-leakage checks, non-heuristic backend coverage, and at least three seeds |
 | Full refresh gate | `tools/local_ci.sh full` | Explicit compact claim experiment refresh | Same as reviewer, plus the compact claim matrix run |
 
 Backend-unavailable behavior is part of the contract: missing executables,
@@ -58,7 +79,7 @@ metrics or zero-valued claim evidence.
 - `python_tools`: Python files compiled by the syntax check.
 - `json_artifacts`: required and optional JSON claim/config artifacts.
 - `experiment_configs`: experiment configs passed to `cargo run -- validate`.
-- `evidence_families`: short labels for Q1/Q2/Q3/Q5 and shared artifact contracts.
+- `evidence_families`: short labels for Q1/Q2/Q3/Q5/Q15 and shared artifact contracts.
 
 To add a new artifact family, add its paths to `json_artifacts` with a `family`
 label and set `required=false` until the artifact is expected in every checkout.

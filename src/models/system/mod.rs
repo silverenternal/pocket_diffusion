@@ -5,14 +5,18 @@
 
 use tch::{nn, no_grad, Kind, Tensor};
 
+mod atom_commit;
 mod flow_training;
+mod pocket_constraints;
 mod slicing;
 
+use self::atom_commit::confidence_gated_atom_type_commit;
 use self::flow_training::{
-    atom_change_fraction, clip_coordinate_delta_norm, constrain_to_pocket_envelope,
-    flow_matching_t_from_example, per_atom_displacement_mean, pocket_guidance_delta,
-    resolved_generation_backend_family, tensor_to_coords, tensor_to_i64_vec,
+    atom_change_fraction, clip_coordinate_delta_norm, flow_matching_t_from_example,
+    per_atom_displacement_mean, pocket_guidance_delta, resolved_generation_backend_family,
+    tensor_to_coords, tensor_to_i64_vec,
 };
+use self::pocket_constraints::constrain_to_pocket_envelope;
 use self::slicing::{
     merge_slot_contexts, slice_cross_modal_interactions, slice_decomposed_modalities,
     slice_encoded_modalities,
@@ -24,7 +28,8 @@ use super::{
     GenerationGateSummary, GenerationPathUsageSummary, GenerationRolloutRecord,
     GenerationStepPathUsageSummary, GenerationStepRecord, GeometryEncoderImpl,
     GeometryFlowMatchingHead, GeometrySemanticBranch, ModalityEncoding, ModularLigandDecoder,
-    PartialLigandState, PocketCentroidScaffoldInitializer, PocketEncoderImpl,
+    NativeGraphExtractionConfig, PartialLigandState, PocketCentroidScaffoldInitializer,
+    PocketConditionedPriorHead, PocketConditionedPriorOutput, PocketEncoderImpl,
     PocketInitializationContext, PocketSemanticBranch, PocketVolumeAtomCountPrior, ProbeOutputs,
     SemanticProbeHeads, SlotEncoding, SoftSlotDecomposer, TopologyEncoderImpl,
     TopologySemanticBranch,
@@ -41,7 +46,7 @@ use crate::{
     config::{
         FlowVelocityHeadKind, GenerationBackendFamilyConfig, GenerationModeConfig,
         GenerationRolloutMode, GenerationTargetConfig, InferenceContextRefreshPolicy,
-        ResearchConfig,
+        ResearchConfig, RolloutTrainingConfig, RolloutTrainingDetachPolicy,
     },
     data::{
         features::{

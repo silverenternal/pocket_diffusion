@@ -9,7 +9,8 @@ use pocket_diffusion::models::{
     PREFERENCE_PAIR_SCHEMA_VERSION,
 };
 use pocket_diffusion::training::{
-    PrimaryBranchWeightRecord, ResumeContinuityMode, ResumeMode, SplitReport, TrainingRunSummary,
+    PrimaryBranchComponentAudit, PrimaryBranchWeightRecord, ResumeContinuityMode, ResumeMode,
+    SplitReport, TrainingRunSummary,
 };
 
 #[test]
@@ -202,6 +203,7 @@ fn branch_weight_record_serializes_matching_provenance_fields() {
         weighted_value: 2.0,
         optimizer_facing: true,
         provenance: "molecular_flow_contract_v1".to_string(),
+        component_audit: PrimaryBranchComponentAudit::for_branch("geometry"),
         target_matching_policy: Some("hungarian_distance".to_string()),
         target_matching_mean_cost: Some(0.25),
         target_matching_max_cost: Some(0.5),
@@ -217,6 +219,7 @@ fn branch_weight_record_serializes_matching_provenance_fields() {
     assert_eq!(value["unweighted_value"], 2.0);
     assert_eq!(value["schedule_multiplier"], 1.0);
     assert_eq!(value["weighted_value"], 2.0);
+    assert_eq!(value["component_audit"]["branch_name"], "geometry");
     assert_eq!(value["target_matching_policy"], "hungarian_distance");
     assert_eq!(value["target_matching_coverage"], 0.8);
     assert_eq!(value["target_matching_matched_count"], 4);
@@ -233,6 +236,7 @@ fn branch_weight_record_serializes_matching_provenance_fields() {
     assert_eq!(legacy.unweighted_value, 0.0);
     assert_eq!(legacy.schedule_multiplier, 0.0);
     assert_eq!(legacy.weighted_value, 0.0);
+    assert_eq!(legacy.component_audit.observed_component_count, 0);
     assert!(legacy.target_matching_policy.is_none());
     assert!(legacy.target_matching_coverage.is_none());
 }
@@ -778,7 +782,7 @@ fn preference_candidate(example_id: &str, coords: Vec<[f32; 3]>) -> GeneratedCan
         model_native_raw: true,
         postprocessor_chain: Vec::new(),
         claim_boundary:
-            "raw model-native output before repair, constraints, reranking, or backend scoring"
+            "raw model-native decoder output before repair, reranking, or backend scoring"
                 .to_string(),
         source_pocket_path: None,
         source_ligand_path: None,

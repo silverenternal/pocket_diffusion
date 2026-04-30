@@ -59,7 +59,8 @@
     {"path": "artifacts/evidence/q2/postprocessing_failure_audit.json", "required": true, "family": "q2"},
     {"path": "configs/q3_rotation_consistency_report.json", "required": false, "family": "q3"},
     {"path": "configs/q3_model_improvement_leaderboard.json", "required": false, "family": "q3"},
-    {"path": "configs/q3_non_degradation_gate.json", "required": false, "family": "q3"}
+    {"path": "configs/q3_non_degradation_gate.json", "required": false, "family": "q3"},
+    {"path": "configs/q15_generation_alignment_ablation_matrix.json", "required": true, "family": "q15"}
   ],
   "experiment_configs": [
     {"path": "configs/unseen_pocket_pdbbindpp_real_backends.json", "required": true, "family": "real_backend"},
@@ -82,6 +83,7 @@
     "q2": "Q2 claim contract, public-baseline comparison, postprocessing audit, and proxy/backend correlation artifacts.",
     "q3": "Q3 model-improvement, non-degradation, and rotation consistency artifacts; optional during quick validation.",
     "q5": "Q5 chemistry-collaboration smoke artifacts discovered dynamically under checkpoints/.",
-    "artifact_contract": "Shared metric, provenance, retention, and source/artifact boundary manifests."
+    "artifact_contract": "Shared metric, provenance, retention, and source/artifact boundary manifests.",
+    "q15": "Q15 raw-native generation-alignment ablation config for real molecular-generation review."
   }
 }

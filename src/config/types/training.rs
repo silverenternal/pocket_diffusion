@@ -30,12 +30,18 @@ pub struct TrainingConfig {
     /// Warmup stage controls for chemistry-aware auxiliary objectives.
     #[serde(default)]
     pub chemistry_warmup: ChemistryObjectiveWarmupConfig,
+    /// Sparse binary topology calibration for over-dense graph predictions.
+    #[serde(default)]
+    pub sparse_topology_calibration: SparseTopologyCalibrationConfig,
     /// Reporting-only normalization and scale checks for primary objective components.
     #[serde(default)]
     pub objective_scale_diagnostics: ObjectiveScaleDiagnosticsConfig,
     /// Sparse objective-family gradient diagnostics. Disabled by default.
     #[serde(default)]
     pub objective_gradient_diagnostics: ObjectiveGradientDiagnosticsConfig,
+    /// Optional optimizer-facing short-rollout training. Disabled by default.
+    #[serde(default)]
+    pub rollout_training: RolloutTrainingConfig,
     /// Checkpoint directory for trainer skeleton output.
     pub checkpoint_dir: PathBuf,
     /// Checkpoint interval in steps.
@@ -97,8 +103,10 @@ impl Default for TrainingConfig {
             explicit_leakage_probes: ExplicitLeakageProbeConfig::default(),
             pharmacophore_probes: PharmacophoreProbeConfig::default(),
             chemistry_warmup: ChemistryObjectiveWarmupConfig::default(),
+            sparse_topology_calibration: SparseTopologyCalibrationConfig::default(),
             objective_scale_diagnostics: ObjectiveScaleDiagnosticsConfig::default(),
             objective_gradient_diagnostics: ObjectiveGradientDiagnosticsConfig::default(),
+            rollout_training: RolloutTrainingConfig::default(),
             checkpoint_dir: PathBuf::from("./checkpoints"),
             checkpoint_every: 10,
             validation_every: 0,
@@ -137,8 +145,10 @@ impl TrainingConfig {
         self.explicit_leakage_probes.validate()?;
         self.pharmacophore_probes.validate()?;
         self.chemistry_warmup.validate()?;
+        self.sparse_topology_calibration.validate()?;
         self.objective_scale_diagnostics.validate()?;
         self.objective_gradient_diagnostics.validate()?;
+        self.rollout_training.validate()?;
         for (name, value) in [
             (
                 "training.flow_matching_loss_weight",
@@ -209,6 +219,162 @@ impl TrainingConfig {
         }
         Ok(())
     }
+}
+
+/// Memory policy for optimizer-facing short-rollout records.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum RolloutTrainingDetachPolicy {
+    /// Detach the generated ligand state between rollout steps.
+    #[default]
+    DetachBetweenSteps,
+    /// Keep the full graph across the bounded short rollout.
+    FullGraph,
+}
+
+impl RolloutTrainingDetachPolicy {
+    /// Stable report label.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::DetachBetweenSteps => "detach_between_steps",
+            Self::FullGraph => "full_graph",
+        }
+    }
+}
+
+/// Config for bounded optimizer-facing short-rollout training.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RolloutTrainingConfig {
+    /// Whether tensor-preserving short-rollout records and losses are enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// First global trainer step at which rollout-state losses contribute.
+    #[serde(default)]
+    pub warmup_step: usize,
+    /// Number of generated steps to keep in the differentiable record.
+    #[serde(default = "default_rollout_training_steps")]
+    pub rollout_steps: usize,
+    /// Graph-retention policy between generated rollout steps.
+    #[serde(default)]
+    pub detach_policy: RolloutTrainingDetachPolicy,
+    /// Maximum examples in a batch that contribute rollout-state loss.
+    #[serde(default = "default_rollout_training_max_batch_examples")]
+    pub max_batch_examples: usize,
+    /// Optional mode gate. Empty means all generation modes are allowed.
+    #[serde(default)]
+    pub allowed_generation_modes: Vec<GenerationModeConfig>,
+    /// Weight for atom-type supervision on generated short-rollout states.
+    #[serde(default = "default_rollout_training_atom_validity_weight")]
+    pub atom_validity_weight: f64,
+    /// Weight for native bond-logit consistency when molecular flow logits exist.
+    #[serde(default = "default_rollout_training_bond_consistency_weight")]
+    pub bond_consistency_weight: f64,
+    /// Weight for generated atom-pocket contact compatibility.
+    #[serde(default = "default_rollout_training_pocket_contact_weight")]
+    pub pocket_contact_weight: f64,
+    /// Weight for generated atom-pocket clash margin.
+    #[serde(default = "default_rollout_training_clash_weight")]
+    pub clash_weight: f64,
+    /// Weight for endpoint consistency against available reference coordinates.
+    #[serde(default = "default_rollout_training_endpoint_weight")]
+    pub endpoint_consistency_weight: f64,
+}
+
+impl Default for RolloutTrainingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            warmup_step: 0,
+            rollout_steps: default_rollout_training_steps(),
+            detach_policy: RolloutTrainingDetachPolicy::default(),
+            max_batch_examples: default_rollout_training_max_batch_examples(),
+            allowed_generation_modes: Vec::new(),
+            atom_validity_weight: default_rollout_training_atom_validity_weight(),
+            bond_consistency_weight: default_rollout_training_bond_consistency_weight(),
+            pocket_contact_weight: default_rollout_training_pocket_contact_weight(),
+            clash_weight: default_rollout_training_clash_weight(),
+            endpoint_consistency_weight: default_rollout_training_endpoint_weight(),
+        }
+    }
+}
+
+impl RolloutTrainingConfig {
+    /// Whether losses are active at this global training step.
+    pub fn active_at_step(&self, step: usize) -> bool {
+        self.enabled && step >= self.warmup_step
+    }
+
+    /// Whether this generation mode is allowed to emit trainable rollout records.
+    pub fn allows_mode(&self, mode: GenerationModeConfig) -> bool {
+        self.allowed_generation_modes.is_empty() || self.allowed_generation_modes.contains(&mode)
+    }
+
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.enabled && !(1..=3).contains(&self.rollout_steps) {
+            return Err(ConfigValidationError::new(
+                "training.rollout_training.rollout_steps must be between 1 and 3 when enabled",
+            ));
+        }
+        if self.max_batch_examples == 0 {
+            return Err(ConfigValidationError::new(
+                "training.rollout_training.max_batch_examples must be greater than zero",
+            ));
+        }
+        for (name, value) in [
+            (
+                "training.rollout_training.atom_validity_weight",
+                self.atom_validity_weight,
+            ),
+            (
+                "training.rollout_training.bond_consistency_weight",
+                self.bond_consistency_weight,
+            ),
+            (
+                "training.rollout_training.pocket_contact_weight",
+                self.pocket_contact_weight,
+            ),
+            ("training.rollout_training.clash_weight", self.clash_weight),
+            (
+                "training.rollout_training.endpoint_consistency_weight",
+                self.endpoint_consistency_weight,
+            ),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(ConfigValidationError::new(format!(
+                    "{name} must be finite and non-negative"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn default_rollout_training_steps() -> usize {
+    1
+}
+
+fn default_rollout_training_max_batch_examples() -> usize {
+    4
+}
+
+fn default_rollout_training_atom_validity_weight() -> f64 {
+    0.1
+}
+
+fn default_rollout_training_bond_consistency_weight() -> f64 {
+    0.05
+}
+
+fn default_rollout_training_pocket_contact_weight() -> f64 {
+    0.05
+}
+
+fn default_rollout_training_clash_weight() -> f64 {
+    0.05
+}
+
+fn default_rollout_training_endpoint_weight() -> f64 {
+    0.05
 }
 
 fn default_best_validation_metric() -> String {
@@ -403,11 +569,33 @@ fn default_stage_warmup_floor() -> f64 {
     0.0
 }
 
-/// Reporting-only primary objective scale diagnostics.
+/// Action to take when a non-primary objective family exceeds its configured
+/// absolute weighted-loss budget.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectiveBudgetAction {
+    /// Keep the raw objective value and emit a scale warning.
+    #[default]
+    Warn,
+    /// Scale the family tensor down so it respects the configured budget.
+    Clamp,
+}
+
+impl ObjectiveBudgetAction {
+    /// Stable report label.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Warn => "warn",
+            Self::Clamp => "clamp",
+        }
+    }
+}
+
+/// Primary objective scale diagnostics and optional objective-family budgets.
 ///
-/// These controls never rescale the optimizer objective. They only determine
-/// how trainer metrics normalize component values and when a scale warning is
-/// emitted for inspection.
+/// Primary component scale checks are reporting-only. Objective-family budget
+/// caps are default-off; when enabled with `family_budget_action=clamp`, the
+/// trainer rescales non-primary objective-family tensors before backprop.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObjectiveScaleDiagnosticsConfig {
     /// Emit per-component primary scale records.
@@ -422,6 +610,12 @@ pub struct ObjectiveScaleDiagnosticsConfig {
     /// Optional EMA momentum for normalizing by recent absolute component magnitudes.
     #[serde(default)]
     pub running_scale_momentum: Option<f64>,
+    /// Optional maximum share of total absolute weighted loss for any non-primary family.
+    #[serde(default)]
+    pub family_budget_cap_fraction: Option<f64>,
+    /// Behavior when a non-primary family exceeds `family_budget_cap_fraction`.
+    #[serde(default)]
+    pub family_budget_action: ObjectiveBudgetAction,
 }
 
 impl Default for ObjectiveScaleDiagnosticsConfig {
@@ -431,6 +625,8 @@ impl Default for ObjectiveScaleDiagnosticsConfig {
             warning_ratio: default_objective_scale_warning_ratio(),
             epsilon: default_objective_scale_epsilon(),
             running_scale_momentum: None,
+            family_budget_cap_fraction: None,
+            family_budget_action: ObjectiveBudgetAction::default(),
         }
     }
 }
@@ -451,6 +647,18 @@ impl ObjectiveScaleDiagnosticsConfig {
             if !momentum.is_finite() || !(0.0..1.0).contains(&momentum) {
                 return Err(ConfigValidationError::new(
                     "training.objective_scale_diagnostics.running_scale_momentum must be omitted or finite in [0, 1)",
+                ));
+            }
+        }
+        if let Some(cap) = self.family_budget_cap_fraction {
+            if !cap.is_finite() || !(0.0..=1.0).contains(&cap) {
+                return Err(ConfigValidationError::new(
+                    "training.objective_scale_diagnostics.family_budget_cap_fraction must be omitted or finite in (0, 1]",
+                ));
+            }
+            if cap == 0.0 {
+                return Err(ConfigValidationError::new(
+                    "training.objective_scale_diagnostics.family_budget_cap_fraction must be omitted or finite in (0, 1]",
                 ));
             }
         }
@@ -509,6 +717,9 @@ pub struct ObjectiveGradientDiagnosticsConfig {
     /// Maximum objective families evaluated with exact retained-graph autograd per sampled step.
     #[serde(default = "default_objective_gradient_max_exact_families")]
     pub max_exact_families: usize,
+    /// Mark a family dominant when it owns at least this fraction of sampled gradient norm.
+    #[serde(default = "default_objective_gradient_dominance_fraction_threshold")]
+    pub dominance_fraction_threshold: f64,
 }
 
 impl Default for ObjectiveGradientDiagnosticsConfig {
@@ -520,6 +731,7 @@ impl Default for ObjectiveGradientDiagnosticsConfig {
             include_auxiliary: default_objective_gradient_include_auxiliary(),
             included_families: Vec::new(),
             max_exact_families: default_objective_gradient_max_exact_families(),
+            dominance_fraction_threshold: default_objective_gradient_dominance_fraction_threshold(),
         }
     }
 }
@@ -547,6 +759,14 @@ impl ObjectiveGradientDiagnosticsConfig {
                 "training.objective_gradient_diagnostics.max_exact_families must be greater than zero when exact sampling is enabled",
             ));
         }
+        if !self.dominance_fraction_threshold.is_finite()
+            || !(0.0..=1.0).contains(&self.dominance_fraction_threshold)
+            || self.dominance_fraction_threshold == 0.0
+        {
+            return Err(ConfigValidationError::new(
+                "training.objective_gradient_diagnostics.dominance_fraction_threshold must be finite in (0, 1]",
+            ));
+        }
         Ok(())
     }
 }
@@ -561,6 +781,10 @@ fn default_objective_gradient_include_auxiliary() -> bool {
 
 fn default_objective_gradient_max_exact_families() -> usize {
     4
+}
+
+fn default_objective_gradient_dominance_fraction_threshold() -> f64 {
+    0.80
 }
 
 fn is_supported_objective_gradient_family(family: &str) -> bool {
@@ -589,14 +813,28 @@ fn is_supported_objective_gradient_family(family: &str) -> bool {
             | "auxiliary:consistency"
             | "pocket_contact"
             | "auxiliary:pocket_contact"
+            | "pocket_pair_distance"
+            | "auxiliary:pocket_pair_distance"
             | "pocket_clash"
             | "auxiliary:pocket_clash"
+            | "pocket_shape_complementarity"
+            | "auxiliary:pocket_shape_complementarity"
             | "pocket_envelope"
             | "auxiliary:pocket_envelope"
+            | "pocket_prior"
+            | "auxiliary:pocket_prior"
             | "valence_guardrail"
             | "auxiliary:valence_guardrail"
+            | "valence_overage_guardrail"
+            | "auxiliary:valence_overage_guardrail"
+            | "valence_underage_guardrail"
+            | "auxiliary:valence_underage_guardrail"
             | "bond_length_guardrail"
             | "auxiliary:bond_length_guardrail"
+            | "nonbonded_distance_guardrail"
+            | "auxiliary:nonbonded_distance_guardrail"
+            | "angle_guardrail"
+            | "auxiliary:angle_guardrail"
     )
 }
 
@@ -639,6 +877,18 @@ pub struct AdaptiveStageGuardConfig {
     /// Optional maximum detached leakage diagnostic before advancing stages.
     #[serde(default)]
     pub max_leakage_diagnostic: Option<f64>,
+    /// Optional minimum raw generated-state validity proxy before advancing stages.
+    #[serde(default)]
+    pub min_raw_rollout_validity: Option<f64>,
+    /// Optional maximum generated-state clash-margin loss before advancing stages.
+    #[serde(default)]
+    pub max_raw_rollout_clash_loss: Option<f64>,
+    /// Optional maximum generated-state pocket-contact loss before advancing stages.
+    #[serde(default)]
+    pub max_raw_rollout_pocket_contact_loss: Option<f64>,
+    /// Optional maximum detached rollout pocket-anchor loss before advancing stages.
+    #[serde(default)]
+    pub max_rollout_eval_pocket_anchor_loss: Option<f64>,
     /// Minimum relative primary-loss improvement across the readiness window.
     #[serde(default)]
     pub min_primary_loss_improvement_fraction: f64,
@@ -659,6 +909,10 @@ impl Default for AdaptiveStageGuardConfig {
             max_gate_saturation_fraction: default_adaptive_stage_max_gate_saturation_fraction(),
             min_slot_signature_matching_score: None,
             max_leakage_diagnostic: None,
+            min_raw_rollout_validity: None,
+            max_raw_rollout_clash_loss: None,
+            max_raw_rollout_pocket_contact_loss: None,
+            max_rollout_eval_pocket_anchor_loss: None,
             min_primary_loss_improvement_fraction: 0.0,
         }
     }
@@ -697,6 +951,35 @@ impl AdaptiveStageGuardConfig {
                 return Err(ConfigValidationError::new(
                     "training.adaptive_stage_guard.max_leakage_diagnostic must be finite and non-negative",
                 ));
+            }
+        }
+        if let Some(threshold) = self.min_raw_rollout_validity {
+            if !threshold.is_finite() || !(0.0..=1.0).contains(&threshold) {
+                return Err(ConfigValidationError::new(
+                    "training.adaptive_stage_guard.min_raw_rollout_validity must be finite and between 0 and 1",
+                ));
+            }
+        }
+        for (name, threshold) in [
+            (
+                "training.adaptive_stage_guard.max_raw_rollout_clash_loss",
+                self.max_raw_rollout_clash_loss,
+            ),
+            (
+                "training.adaptive_stage_guard.max_raw_rollout_pocket_contact_loss",
+                self.max_raw_rollout_pocket_contact_loss,
+            ),
+            (
+                "training.adaptive_stage_guard.max_rollout_eval_pocket_anchor_loss",
+                self.max_rollout_eval_pocket_anchor_loss,
+            ),
+        ] {
+            if let Some(threshold) = threshold {
+                if !threshold.is_finite() || threshold < 0.0 {
+                    return Err(ConfigValidationError::new(format!(
+                        "{name} must be finite and non-negative"
+                    )));
+                }
             }
         }
         if !self.min_primary_loss_improvement_fraction.is_finite()
@@ -761,18 +1044,33 @@ pub struct LossWeightConfig {
     /// Pocket-ligand contact encouragement objective.
     #[serde(default)]
     pub rho_pocket_contact: f64,
+    /// Atom-pocket pair distance-bin objective.
+    #[serde(default)]
+    pub lambda_pocket_pair_distance: f64,
     /// Pocket-ligand steric-clash penalty objective.
     #[serde(default)]
     pub sigma_pocket_clash: f64,
+    /// Coarse pocket-ligand shape-complementarity objective.
+    #[serde(default)]
+    pub omega_pocket_shape_complementarity: f64,
     /// Pocket-envelope containment objective.
     #[serde(default)]
     pub tau_pocket_envelope: f64,
+    /// Explicit pocket-conditioned size and composition prior objective.
+    #[serde(default)]
+    pub kappa_pocket_prior: f64,
     /// Conservative valence overage objective.
     #[serde(default)]
     pub upsilon_valence_guardrail: f64,
     /// Topology-implied bond-length objective.
     #[serde(default)]
     pub phi_bond_length_guardrail: f64,
+    /// Generated non-bonded short-distance margin objective.
+    #[serde(default)]
+    pub chi_nonbonded_distance_guardrail: f64,
+    /// Generated local-angle plausibility objective.
+    #[serde(default)]
+    pub psi_angle_guardrail: f64,
 }
 
 impl Default for LossWeightConfig {
@@ -788,10 +1086,15 @@ impl Default for LossWeightConfig {
             slot_sparsity_weight: default_slot_sparsity_weight(),
             slot_balance_weight: default_slot_balance_weight(),
             rho_pocket_contact: 0.0,
+            lambda_pocket_pair_distance: 0.0,
             sigma_pocket_clash: 0.0,
+            omega_pocket_shape_complementarity: 0.0,
             tau_pocket_envelope: 0.0,
+            kappa_pocket_prior: 0.0,
             upsilon_valence_guardrail: 0.0,
             phi_bond_length_guardrail: 0.0,
+            chi_nonbonded_distance_guardrail: 0.0,
+            psi_angle_guardrail: 0.0,
         }
     }
 }
@@ -819,12 +1122,24 @@ impl LossWeightConfig {
                 self.rho_pocket_contact,
             ),
             (
+                "training.loss_weights.lambda_pocket_pair_distance",
+                self.lambda_pocket_pair_distance,
+            ),
+            (
                 "training.loss_weights.sigma_pocket_clash",
                 self.sigma_pocket_clash,
             ),
             (
+                "training.loss_weights.omega_pocket_shape_complementarity",
+                self.omega_pocket_shape_complementarity,
+            ),
+            (
                 "training.loss_weights.tau_pocket_envelope",
                 self.tau_pocket_envelope,
+            ),
+            (
+                "training.loss_weights.kappa_pocket_prior",
+                self.kappa_pocket_prior,
             ),
             (
                 "training.loss_weights.upsilon_valence_guardrail",
@@ -833,6 +1148,14 @@ impl LossWeightConfig {
             (
                 "training.loss_weights.phi_bond_length_guardrail",
                 self.phi_bond_length_guardrail,
+            ),
+            (
+                "training.loss_weights.chi_nonbonded_distance_guardrail",
+                self.chi_nonbonded_distance_guardrail,
+            ),
+            (
+                "training.loss_weights.psi_angle_guardrail",
+                self.psi_angle_guardrail,
             ),
         ] {
             if !value.is_finite() || value < 0.0 {
@@ -1005,12 +1328,21 @@ pub struct ChemistryObjectiveWarmupConfig {
     /// Stage where the pocket-envelope containment loss may become active.
     #[serde(default = "default_stage2_start")]
     pub pocket_envelope_start_stage: usize,
+    /// Stage where pocket-conditioned size/composition priors may become active.
+    #[serde(default = "default_stage2_start")]
+    pub pocket_prior_start_stage: usize,
     /// Stage where the valence guardrail loss may become active.
     #[serde(default = "default_stage2_start")]
     pub valence_guardrail_start_stage: usize,
     /// Stage where the bond-length guardrail loss may become active.
     #[serde(default = "default_stage2_start")]
     pub bond_length_guardrail_start_stage: usize,
+    /// Stage where the non-bonded distance guardrail loss may become active.
+    #[serde(default = "default_stage2_start")]
+    pub nonbonded_distance_guardrail_start_stage: usize,
+    /// Stage where the local-angle guardrail loss may become active.
+    #[serde(default = "default_stage2_start")]
+    pub angle_guardrail_start_stage: usize,
     /// Stage where pharmacophore role probe subterms may become active.
     #[serde(default = "default_stage3_start")]
     pub pharmacophore_probe_start_stage: usize,
@@ -1023,8 +1355,11 @@ impl Default for ChemistryObjectiveWarmupConfig {
     fn default() -> Self {
         Self {
             pocket_envelope_start_stage: default_stage2_start(),
+            pocket_prior_start_stage: default_stage2_start(),
             valence_guardrail_start_stage: default_stage2_start(),
             bond_length_guardrail_start_stage: default_stage2_start(),
+            nonbonded_distance_guardrail_start_stage: default_stage2_start(),
+            angle_guardrail_start_stage: default_stage2_start(),
             pharmacophore_probe_start_stage: default_stage3_start(),
             pharmacophore_leakage_start_stage: default_stage3_start(),
         }
@@ -1039,12 +1374,24 @@ impl ChemistryObjectiveWarmupConfig {
                 self.pocket_envelope_start_stage,
             ),
             (
+                "training.chemistry_warmup.pocket_prior_start_stage",
+                self.pocket_prior_start_stage,
+            ),
+            (
                 "training.chemistry_warmup.valence_guardrail_start_stage",
                 self.valence_guardrail_start_stage,
             ),
             (
                 "training.chemistry_warmup.bond_length_guardrail_start_stage",
                 self.bond_length_guardrail_start_stage,
+            ),
+            (
+                "training.chemistry_warmup.nonbonded_distance_guardrail_start_stage",
+                self.nonbonded_distance_guardrail_start_stage,
+            ),
+            (
+                "training.chemistry_warmup.angle_guardrail_start_stage",
+                self.angle_guardrail_start_stage,
             ),
             (
                 "training.chemistry_warmup.pharmacophore_probe_start_stage",
@@ -1071,6 +1418,264 @@ fn default_stage2_start() -> usize {
 
 fn default_stage3_start() -> usize {
     3
+}
+
+/// Target-aware sparse calibration for binary topology and bond heads.
+///
+/// This is intentionally separated from BCE weighting so sparse-graph density
+/// control can be warm-started, audited, and disabled independently for
+/// ablations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SparseTopologyCalibrationConfig {
+    /// Whether sparse topology calibration contributes to configured objectives.
+    #[serde(default = "default_sparse_topology_calibration_enabled")]
+    pub enabled: bool,
+    /// First zero-based optimizer step where the calibration ramp starts.
+    #[serde(default = "default_sparse_topology_calibration_start_step")]
+    pub start_step: usize,
+    /// Number of optimizer steps used to ramp from zero to each final weight.
+    #[serde(default = "default_sparse_topology_calibration_warmup_steps")]
+    pub warmup_steps: usize,
+    /// Internal weight for topology semantic-probe adjacency calibration.
+    #[serde(default = "default_sparse_topology_probe_weight")]
+    pub probe_weight: f64,
+    /// Internal weight for molecular-flow bond/topology calibration.
+    #[serde(default = "default_sparse_topology_flow_weight")]
+    pub flow_weight: f64,
+    /// Internal weight for rollout bond-consistency calibration.
+    #[serde(default = "default_sparse_topology_rollout_weight")]
+    pub rollout_weight: f64,
+    /// Minimum target-rate denominator used to stabilize very sparse batches.
+    #[serde(default = "default_sparse_topology_min_rate_scale")]
+    pub min_rate_scale: f64,
+    /// Upper bound applied to each unweighted sparse-density calibration term.
+    #[serde(default = "default_sparse_topology_max_raw_loss")]
+    pub max_raw_loss: f64,
+    /// Internal weight for native graph confidence pressure on flow graph heads.
+    #[serde(default = "default_sparse_topology_confidence_pressure_weight")]
+    pub confidence_pressure_weight: f64,
+    /// Upper bound applied to the unweighted native graph confidence pressure.
+    #[serde(default = "default_sparse_topology_confidence_pressure_max_loss")]
+    pub confidence_pressure_max_loss: f64,
+    /// Internal weight for expected-degree alignment on molecular-flow graph heads.
+    #[serde(default = "default_sparse_topology_degree_alignment_weight")]
+    pub degree_alignment_weight: f64,
+    /// Internal weight for expected-degree alignment on topology semantic probes.
+    #[serde(default = "default_sparse_topology_probe_degree_alignment_weight")]
+    pub probe_degree_alignment_weight: f64,
+    /// Upper bound applied to the unweighted expected-degree alignment term.
+    #[serde(default = "default_sparse_topology_degree_alignment_max_loss")]
+    pub degree_alignment_max_loss: f64,
+    /// Internal weight for native graph extraction-score calibration.
+    #[serde(default = "default_sparse_topology_native_score_calibration_weight")]
+    pub native_score_calibration_weight: f64,
+    /// Upper bound applied to the unweighted native extraction-score calibration term.
+    #[serde(default = "default_sparse_topology_native_score_calibration_max_loss")]
+    pub native_score_calibration_max_loss: f64,
+    /// Score threshold mirrored from native graph extraction for training-time calibration.
+    #[serde(default = "default_sparse_topology_native_score_threshold")]
+    pub native_score_threshold: f64,
+}
+
+impl Default for SparseTopologyCalibrationConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_sparse_topology_calibration_enabled(),
+            start_step: default_sparse_topology_calibration_start_step(),
+            warmup_steps: default_sparse_topology_calibration_warmup_steps(),
+            probe_weight: default_sparse_topology_probe_weight(),
+            flow_weight: default_sparse_topology_flow_weight(),
+            rollout_weight: default_sparse_topology_rollout_weight(),
+            min_rate_scale: default_sparse_topology_min_rate_scale(),
+            max_raw_loss: default_sparse_topology_max_raw_loss(),
+            confidence_pressure_weight: default_sparse_topology_confidence_pressure_weight(),
+            confidence_pressure_max_loss: default_sparse_topology_confidence_pressure_max_loss(),
+            degree_alignment_weight: default_sparse_topology_degree_alignment_weight(),
+            probe_degree_alignment_weight:
+                default_sparse_topology_probe_degree_alignment_weight(),
+            degree_alignment_max_loss: default_sparse_topology_degree_alignment_max_loss(),
+            native_score_calibration_weight:
+                default_sparse_topology_native_score_calibration_weight(),
+            native_score_calibration_max_loss:
+                default_sparse_topology_native_score_calibration_max_loss(),
+            native_score_threshold: default_sparse_topology_native_score_threshold(),
+        }
+    }
+}
+
+impl SparseTopologyCalibrationConfig {
+    /// Step-local schedule multiplier in `[0, 1]`.
+    pub fn schedule_multiplier(&self, step: Option<usize>) -> f64 {
+        if !self.enabled {
+            return 0.0;
+        }
+        let Some(step) = step else {
+            return 1.0;
+        };
+        if step < self.start_step {
+            return 0.0;
+        }
+        if self.warmup_steps == 0 {
+            return 1.0;
+        }
+        ((step + 1 - self.start_step) as f64 / self.warmup_steps as f64).clamp(0.0, 1.0)
+    }
+
+    /// Effective semantic-probe calibration weight for this step.
+    pub fn effective_probe_weight(&self, step: Option<usize>) -> f64 {
+        self.probe_weight * self.schedule_multiplier(step)
+    }
+
+    /// Effective flow-branch calibration weight for this step.
+    pub fn effective_flow_weight(&self, step: Option<usize>) -> f64 {
+        self.flow_weight * self.schedule_multiplier(step)
+    }
+
+    /// Effective rollout-state calibration weight for this step.
+    pub fn effective_rollout_weight(&self, step: Option<usize>) -> f64 {
+        self.rollout_weight * self.schedule_multiplier(step)
+    }
+
+    fn validate(&self) -> Result<(), ConfigValidationError> {
+        for (name, value) in [
+            (
+                "training.sparse_topology_calibration.probe_weight",
+                self.probe_weight,
+            ),
+            (
+                "training.sparse_topology_calibration.flow_weight",
+                self.flow_weight,
+            ),
+            (
+                "training.sparse_topology_calibration.rollout_weight",
+                self.rollout_weight,
+            ),
+            (
+                "training.sparse_topology_calibration.confidence_pressure_weight",
+                self.confidence_pressure_weight,
+            ),
+            (
+                "training.sparse_topology_calibration.degree_alignment_weight",
+                self.degree_alignment_weight,
+            ),
+            (
+                "training.sparse_topology_calibration.probe_degree_alignment_weight",
+                self.probe_degree_alignment_weight,
+            ),
+            (
+                "training.sparse_topology_calibration.native_score_calibration_weight",
+                self.native_score_calibration_weight,
+            ),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(ConfigValidationError::new(format!(
+                    "{name} must be finite and non-negative"
+                )));
+            }
+        }
+        if !self.min_rate_scale.is_finite() || self.min_rate_scale <= 0.0 {
+            return Err(ConfigValidationError::new(
+                "training.sparse_topology_calibration.min_rate_scale must be finite and positive",
+            ));
+        }
+        for (name, value) in [
+            (
+                "training.sparse_topology_calibration.max_raw_loss",
+                self.max_raw_loss,
+            ),
+            (
+                "training.sparse_topology_calibration.confidence_pressure_max_loss",
+                self.confidence_pressure_max_loss,
+            ),
+            (
+                "training.sparse_topology_calibration.degree_alignment_max_loss",
+                self.degree_alignment_max_loss,
+            ),
+            (
+                "training.sparse_topology_calibration.native_score_calibration_max_loss",
+                self.native_score_calibration_max_loss,
+            ),
+        ] {
+            if !value.is_finite() || value <= 0.0 {
+                return Err(ConfigValidationError::new(format!(
+                    "{name} must be finite and positive"
+                )));
+            }
+        }
+        if !self.native_score_threshold.is_finite()
+            || self.native_score_threshold <= 0.0
+            || self.native_score_threshold >= 1.0
+        {
+            return Err(ConfigValidationError::new(
+                "training.sparse_topology_calibration.native_score_threshold must be finite and in (0, 1)",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn default_sparse_topology_calibration_enabled() -> bool {
+    true
+}
+
+fn default_sparse_topology_calibration_start_step() -> usize {
+    2
+}
+
+fn default_sparse_topology_calibration_warmup_steps() -> usize {
+    4
+}
+
+fn default_sparse_topology_probe_weight() -> f64 {
+    0.01
+}
+
+fn default_sparse_topology_flow_weight() -> f64 {
+    0.02
+}
+
+fn default_sparse_topology_rollout_weight() -> f64 {
+    0.02
+}
+
+fn default_sparse_topology_min_rate_scale() -> f64 {
+    0.05
+}
+
+fn default_sparse_topology_max_raw_loss() -> f64 {
+    8.0
+}
+
+fn default_sparse_topology_confidence_pressure_weight() -> f64 {
+    0.5
+}
+
+fn default_sparse_topology_confidence_pressure_max_loss() -> f64 {
+    8.0
+}
+
+fn default_sparse_topology_degree_alignment_weight() -> f64 {
+    0.1
+}
+
+fn default_sparse_topology_probe_degree_alignment_weight() -> f64 {
+    0.02
+}
+
+fn default_sparse_topology_degree_alignment_max_loss() -> f64 {
+    6.0
+}
+
+fn default_sparse_topology_native_score_calibration_weight() -> f64 {
+    0.15
+}
+
+fn default_sparse_topology_native_score_calibration_max_loss() -> f64 {
+    6.0
+}
+
+fn default_sparse_topology_native_score_threshold() -> f64 {
+    0.60
 }
 
 /// Active primary objective for the staged trainer.

@@ -29,6 +29,16 @@ DEFAULT_GATE_THRESHOLDS = {
 }
 
 
+DEFAULT_REAL_GENERATION_THRESHOLDS = {
+    "min_raw_native_valid_fraction": 0.1,
+    "min_raw_native_graph_valid_fraction": 0.1,
+    "min_raw_native_pocket_contact_fraction": 0.5,
+    "max_raw_native_clash_fraction": 0.2,
+    "min_raw_native_unique_fraction": 0.1,
+    "min_real_generation_seed_count": 3,
+}
+
+
 REQUIRED_CLAIM_FIELDS = {
     "validation",
     "test",
@@ -154,6 +164,50 @@ def parse_args(argv):
             "Require usable preference evidence for generator-level alignment onboarding "
             "(schema, counts, backend-supported coverage, and source hygiene)."
         ),
+    )
+    parser.add_argument(
+        "--enforce-real-generation-readiness",
+        action="store_true",
+        help=(
+            "Require Q15 real-use molecular generation evidence: raw-native quality, "
+            "non-leaky splits, real backend coverage, generation-alignment ablations, "
+            "and multi-seed support."
+        ),
+    )
+    parser.add_argument(
+        "--multi-seed-summary",
+        default=None,
+        help="Multi-seed summary JSON required by --enforce-real-generation-readiness.",
+    )
+    parser.add_argument(
+        "--min-raw-native-valid-fraction",
+        type=float,
+        default=DEFAULT_REAL_GENERATION_THRESHOLDS["min_raw_native_valid_fraction"],
+    )
+    parser.add_argument(
+        "--min-raw-native-graph-valid-fraction",
+        type=float,
+        default=DEFAULT_REAL_GENERATION_THRESHOLDS["min_raw_native_graph_valid_fraction"],
+    )
+    parser.add_argument(
+        "--min-raw-native-pocket-contact-fraction",
+        type=float,
+        default=DEFAULT_REAL_GENERATION_THRESHOLDS["min_raw_native_pocket_contact_fraction"],
+    )
+    parser.add_argument(
+        "--max-raw-native-clash-fraction",
+        type=float,
+        default=DEFAULT_REAL_GENERATION_THRESHOLDS["max_raw_native_clash_fraction"],
+    )
+    parser.add_argument(
+        "--min-raw-native-unique-fraction",
+        type=float,
+        default=DEFAULT_REAL_GENERATION_THRESHOLDS["min_raw_native_unique_fraction"],
+    )
+    parser.add_argument(
+        "--min-real-generation-seed-count",
+        type=int,
+        default=DEFAULT_REAL_GENERATION_THRESHOLDS["min_real_generation_seed_count"],
     )
     parser.add_argument(
         "--min-preference-profile-count",
@@ -631,6 +685,251 @@ def validate_preference_readiness(claim, args):
     )
 
 
+def _require_finite_at_least(value, threshold, label):
+    require(finite_number(value), f"{label} is missing or non-finite")
+    require(value >= threshold, f"{label}={value} below threshold {threshold}")
+
+
+def _require_finite_at_most(value, threshold, label):
+    require(finite_number(value), f"{label} is missing or non-finite")
+    require(value <= threshold, f"{label}={value} above threshold {threshold}")
+
+
+def _require_nonheuristic_backend(claim, section):
+    backend = (claim.get("backend_metrics") or {}).get(section) or {}
+    require(backend.get("available") is True, f"real-generation gate requires available {section} backend")
+    backend_name = str(backend.get("backend_name") or "").lower()
+    status = str(backend.get("status") or "").lower()
+    require(backend_name, f"real-generation gate requires {section}.backend_name")
+    require(
+        "heuristic" not in backend_name and "heuristic" not in status,
+        f"real-generation gate rejects heuristic-only {section} backend `{backend.get('backend_name')}`",
+    )
+    metrics = backend.get("metrics") or {}
+    if "backend_examples_scored" in metrics:
+        _require_finite_at_least(
+            metrics.get("backend_examples_scored"),
+            1.0,
+            f"backend_metrics.{section}.backend_examples_scored",
+        )
+
+
+def _require_clean_split_leakage(split):
+    leakage = split.get("leakage_checks") or {}
+    for key in (
+        "protein_overlap_detected",
+        "pocket_overlap_detected",
+        "pocket_family_proxy_overlap_detected",
+        "duplicate_example_ids_detected",
+    ):
+        if key in leakage:
+            require(leakage.get(key) is False, f"real-generation gate split leakage check failed: {key}")
+    for key in (
+        "train_val_protein_overlap",
+        "train_test_protein_overlap",
+        "val_test_protein_overlap",
+        "train_val_pocket_overlap",
+        "train_test_pocket_overlap",
+        "val_test_pocket_overlap",
+        "duplicated_example_ids",
+    ):
+        if key in leakage:
+            require(leakage.get(key) == 0, f"real-generation gate split leakage count nonzero: {key}")
+
+
+def _evaluation_matrix_test_row(experiment):
+    matrix = experiment.get("evaluation_matrix") or {}
+    rows = matrix.get("rows") or []
+    for row in rows:
+        if row.get("split_type") == "unseen_pocket_test" or row.get("split_label") == "unseen_pocket_test":
+            return row
+    return None
+
+
+def _validate_evaluation_matrix(experiment, args):
+    row = _evaluation_matrix_test_row(experiment)
+    require(row is not None, "real-generation gate requires evaluation_matrix unseen_pocket_test row")
+    require(row.get("evaluation_status") == "evaluated", "unseen_pocket_test evaluation row must be evaluated")
+    quality = row.get("quality") or {}
+    efficiency = row.get("efficiency") or {}
+    _require_finite_at_least(
+        quality.get("raw_valid_fraction"),
+        args.min_raw_native_valid_fraction,
+        "evaluation_matrix.unseen_pocket_test.quality.raw_valid_fraction",
+    )
+    _require_finite_at_least(
+        quality.get("raw_pocket_contact_fraction"),
+        args.min_raw_native_pocket_contact_fraction,
+        "evaluation_matrix.unseen_pocket_test.quality.raw_pocket_contact_fraction",
+    )
+    _require_finite_at_most(
+        quality.get("raw_clash_fraction"),
+        args.max_raw_native_clash_fraction,
+        "evaluation_matrix.unseen_pocket_test.quality.raw_clash_fraction",
+    )
+    _require_finite_at_least(
+        efficiency.get("examples_per_second"),
+        0.0,
+        "evaluation_matrix.unseen_pocket_test.efficiency.examples_per_second",
+    )
+    require(
+        efficiency.get("no_grad") is True,
+        "evaluation_matrix.unseen_pocket_test.efficiency.no_grad must be true",
+    )
+
+
+def _validate_raw_native_generation_report(artifact_dir, args):
+    report_path = artifact_dir / "raw_native_generation_report.json"
+    require(report_path.is_file(), "real-generation gate requires raw_native_generation_report.json")
+    report = load_json(report_path)
+    require(report.get("schema_version", 0) >= 1, "raw_native_generation_report schema_version must be >= 1")
+    raw = report.get("raw_native") or {}
+    processed = report.get("processed") or {}
+    eligibility = report.get("claim_eligibility") or {}
+    require(raw.get("model_native_raw") is True, "raw_native_generation_report.raw_native must be model-native")
+    require(
+        processed.get("model_native_raw") is False,
+        "raw_native_generation_report.processed must remain additive processed evidence",
+    )
+    require(
+        eligibility.get("processed_evidence_additive_only") is True,
+        "raw_native_generation_report claim eligibility must keep processed evidence additive-only",
+    )
+    require(
+        eligibility.get("status") in {"supported", "weakly_supported"},
+        "raw_native_generation_report does not support raw-native generation claims",
+    )
+    _require_finite_at_least(
+        raw.get("valid_fraction"),
+        args.min_raw_native_valid_fraction,
+        "raw_native_generation_report.raw_native.valid_fraction",
+    )
+    _require_finite_at_least(
+        raw.get("pocket_contact_fraction"),
+        args.min_raw_native_pocket_contact_fraction,
+        "raw_native_generation_report.raw_native.pocket_contact_fraction",
+    )
+    _require_finite_at_most(
+        raw.get("clash_fraction"),
+        args.max_raw_native_clash_fraction,
+        "raw_native_generation_report.raw_native.clash_fraction",
+    )
+    _require_finite_at_least(
+        raw.get("validity_conditioned_unique_fraction"),
+        args.min_raw_native_unique_fraction,
+        "raw_native_generation_report.raw_native.validity_conditioned_unique_fraction",
+    )
+    require(
+        isinstance(report.get("objective_families"), list) and report["objective_families"],
+        "raw_native_generation_report requires non-empty objective_families",
+    )
+
+
+def _validate_generation_alignment_ablation_matrix(artifact_dir, args):
+    matrix_path = artifact_dir / "ablation_matrix_summary.json"
+    require(matrix_path.is_file(), "real-generation gate requires ablation_matrix_summary.json")
+    matrix = load_json(matrix_path)
+    variants = matrix.get("variants") or []
+    require(isinstance(variants, list) and variants, "ablation matrix variants must be non-empty")
+    by_label = {variant.get("variant_label"): variant for variant in variants if isinstance(variant, dict)}
+    required_labels = {
+        "flow_head_equivariant_geometry",
+        "rollout_training_disabled",
+        "chemistry_native_constraints_disabled",
+        "pocket_interaction_thin_contact_loss",
+        "direct_fusion_negative_control",
+    }
+    missing = sorted(required_labels.difference(by_label))
+    require(not missing, f"real-generation gate missing Q15 ablation variants: {missing}")
+    for label in sorted(required_labels):
+        variant = by_label[label]
+        raw = variant.get("raw_generation_quality") or {}
+        runtime = variant.get("runtime") or {}
+        objective_families = variant.get("objective_families") or []
+        _require_finite_at_least(
+            raw.get("raw_valid_fraction"),
+            0.0,
+            f"ablation_matrix.{label}.raw_generation_quality.raw_valid_fraction",
+        )
+        _require_finite_at_least(
+            runtime.get("examples_per_second"),
+            0.0,
+            f"ablation_matrix.{label}.runtime.examples_per_second",
+        )
+        require(
+            isinstance(objective_families, list) and objective_families,
+            f"ablation_matrix.{label}.objective_families must be non-empty",
+        )
+        families = {entry.get("family") for entry in objective_families if isinstance(entry, dict)}
+        require("task" in families, f"ablation_matrix.{label}.objective_families missing task family")
+
+
+def _multi_seed_count(summary):
+    seed_count = summary.get("seed_count")
+    if isinstance(seed_count, int):
+        return seed_count
+    seeds = summary.get("seeds")
+    if isinstance(seeds, list):
+        return len(seeds)
+    per_seed = summary.get("per_seed_summary")
+    if isinstance(per_seed, list):
+        return len(per_seed)
+    results = summary.get("multi_seed_results")
+    if isinstance(results, list):
+        return len(results)
+    return 0
+
+
+def _validate_multi_seed_summary(args):
+    require(args.multi_seed_summary, "real-generation gate requires --multi-seed-summary")
+    path = Path(args.multi_seed_summary)
+    require(path.is_file(), f"missing multi-seed summary: {path}")
+    summary = load_json(path)
+    seed_count = _multi_seed_count(summary)
+    require(
+        seed_count >= args.min_real_generation_seed_count,
+        f"real-generation gate requires at least {args.min_real_generation_seed_count} seeds (got {seed_count})",
+    )
+
+
+def validate_real_generation_readiness(artifact_dir, claim, experiment, split, args):
+    raw = claim.get("raw_native_evidence")
+    require(isinstance(raw, dict) and raw, "real-generation gate requires raw_native_evidence")
+    require(raw.get("model_native_raw") is True, "raw_native_evidence must be model-native raw")
+    require(
+        raw.get("raw_model_layer") in {"raw_rollout", "raw_flow", "raw_native_graph_extraction"},
+        f"raw_native_evidence uses unsupported raw_model_layer={raw.get('raw_model_layer')}",
+    )
+    require(raw.get("candidate_count", 0) > 0, "raw_native_evidence requires raw candidates")
+    _require_finite_at_least(
+        raw.get("valid_fraction"),
+        args.min_raw_native_valid_fraction,
+        "raw_native_evidence.valid_fraction",
+    )
+    _require_finite_at_least(
+        raw.get("native_graph_valid_fraction"),
+        args.min_raw_native_graph_valid_fraction,
+        "raw_native_evidence.native_graph_valid_fraction",
+    )
+    _require_finite_at_least(
+        raw.get("pocket_contact_fraction"),
+        args.min_raw_native_pocket_contact_fraction,
+        "raw_native_evidence.pocket_contact_fraction",
+    )
+    _require_finite_at_most(
+        raw.get("clash_fraction"),
+        args.max_raw_native_clash_fraction,
+        "raw_native_evidence.clash_fraction",
+    )
+    _require_clean_split_leakage(split)
+    for section in ("chemistry_validity", "docking_affinity", "pocket_compatibility"):
+        _require_nonheuristic_backend(claim, section)
+    _validate_evaluation_matrix(experiment, args)
+    _validate_raw_native_generation_report(artifact_dir, args)
+    _validate_generation_alignment_ablation_matrix(artifact_dir, args)
+    _validate_multi_seed_summary(args)
+
+
 def _value_at_path(payload, dotted_path):
     current = payload
     for key in dotted_path.split("."):
@@ -870,6 +1169,8 @@ def validate_artifact_dir(artifact_dir, args, claim_contract):
         validate_publication_readiness(claim)
     if args.enforce_preference_readiness:
         validate_preference_readiness(claim, args)
+    if args.enforce_real_generation_readiness:
+        validate_real_generation_readiness(artifact_dir, claim, experiment, split, args)
     validate_baseline_matrix(claim_contract, artifact_dir, claim)
     validate_claim_contract_mappings(claim_contract, artifact_dir, claim)
 

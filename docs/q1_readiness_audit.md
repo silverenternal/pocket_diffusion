@@ -1,12 +1,12 @@
 # Q1 Readiness Audit
 
-- readiness_score: 0.91
-- gate_failure_count: 1
+- readiness_score: 1.00
+- gate_failure_count: 0
 - claim_summary_artifacts: 78
 - excluded_claim_summary_artifacts: 169
 - candidate_metric_artifacts: 117
 - baseline_reports: 5
-- ablation_reports: 23
+- ablation_reports: 24
 - multi_seed_reports: 12
 - statistical_reports: 2
 - q2_claim_contract: present
@@ -19,7 +19,7 @@
 - claim_summaries_present: pass
 - multi_seed_reports_present: pass
 - no_proxy_only_binding_claim_surfaces: pass
-- q2_claim_contract_guardrails_present: missing_or_fail
+- q2_claim_contract_guardrails_present: pass
 - real_backend_candidate_metrics_at_90pct: pass
 - real_backend_candidate_metrics_present: pass
 - statistical_reports_present: pass
@@ -195,6 +195,7 @@
 - `checkpoints/tight_geometry_pressure/ablation_matrix_summary.json`
 - `configs/ablation_delta_table.json`
 - `configs/f31_ablation_bundle.json`
+- `configs/q15_generation_alignment_ablation_matrix.json`
 - `configs/q1_ablation_matrix.json`
 - `configs/q1_cross_attention_head_ablation.json`
 - `configs/q1_pairwise_geometry_ablation.json`
@@ -226,4 +227,4 @@
 - `docs/q1_statistical_tests.md`
 
 ## Gate Failures
-- `repository`: q2_claim_contract_missing_or_incomplete
+- none

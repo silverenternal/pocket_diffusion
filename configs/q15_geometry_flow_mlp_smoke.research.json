@@ -1,0 +1,97 @@
+{
+  "data": {
+    "root_dir": ".",
+    "dataset_format": "synthetic",
+    "manifest_path": null,
+    "label_table_path": null,
+    "max_ligand_atoms": 64,
+    "max_pocket_atoms": 256,
+    "pocket_cutoff_angstrom": 6.0,
+    "max_examples": 8,
+    "batch_size": 2,
+    "split_seed": 42,
+    "val_fraction": 0.25,
+    "test_fraction": 0.25,
+    "stratify_by_measurement": false
+  },
+  "model": {
+    "hidden_dim": 64,
+    "num_slots": 4,
+    "atom_vocab_size": 32,
+    "bond_vocab_size": 8,
+    "pocket_feature_dim": 24,
+    "pair_feature_dim": 8,
+    "flow_velocity_head": {
+      "kind": "geometry"
+    },
+    "pairwise_geometry": {
+      "enabled": false,
+      "radius": 4.5,
+      "max_neighbors": 16,
+      "residual_scale": 0.1
+    },
+    "decoder_conditioning": {
+      "kind": "mean_pooled"
+    }
+  },
+  "generation_method": {
+    "active_method": "flow_matching",
+    "primary_backend": {
+      "backend_id": "flow_matching",
+      "family": "flow_matching",
+      "trainable": true,
+      "sampling_steps": 2
+    },
+    "comparison_methods": [],
+    "comparison_backends": [],
+    "candidate_count": 1,
+    "enable_comparison_runner": false,
+    "flow_matching": {
+      "steps": 2,
+      "noise_scale": 0.15,
+      "integration_method": "euler",
+      "geometry_only": true,
+      "use_corrupted_x0": true
+    }
+  },
+  "training": {
+    "learning_rate": 0.001,
+    "max_steps": 2,
+    "data_order": {
+      "shuffle": false,
+      "sampler_seed": 0,
+      "drop_last": false
+    },
+    "gradient_clipping": {
+      "global_norm": null
+    },
+    "schedule": {
+      "stage1_steps": 1,
+      "stage2_steps": 2,
+      "stage3_steps": 2
+    },
+    "loss_weights": {
+      "alpha_task": 1.0,
+      "beta_intra_red": 0.0,
+      "gamma_probe": 0.0,
+      "delta_leak": 0.0,
+      "eta_gate": 0.0,
+      "mu_slot": 0.0,
+      "nu_consistency": 0.0
+    },
+    "checkpoint_dir": "./checkpoints/q15_equivariant_flow/mlp_smoke",
+    "checkpoint_every": 1,
+    "validation_every": 2,
+    "best_metric": "finite_forward_fraction",
+    "log_every": 100,
+    "primary_objective": "flow_matching",
+    "flow_matching_loss_weight": 1.0,
+    "hybrid_denoising_weight": 0.0,
+    "hybrid_flow_weight": 1.0,
+    "affinity_weighting": "none"
+  },
+  "runtime": {
+    "device": "cpu",
+    "data_workers": 0
+  }
+}

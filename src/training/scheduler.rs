@@ -27,14 +27,24 @@ pub struct EffectiveLossWeights {
     pub consistency: f64,
     /// Pocket-ligand contact encouragement objective.
     pub pocket_contact: f64,
+    /// Atom-pocket pair distance-bin objective.
+    pub pocket_pair_distance: f64,
     /// Pocket-ligand steric-clash penalty objective.
     pub pocket_clash: f64,
+    /// Coarse pocket-ligand shape-complementarity objective.
+    pub pocket_shape_complementarity: f64,
     /// Pocket-envelope containment objective.
     pub pocket_envelope: f64,
+    /// Explicit pocket-conditioned size and composition prior objective.
+    pub pocket_prior: f64,
     /// Conservative valence overage objective.
     pub valence_guardrail: f64,
     /// Topology-implied bond-length objective.
     pub bond_length_guardrail: f64,
+    /// Generated non-bonded short-distance margin objective.
+    pub nonbonded_distance_guardrail: f64,
+    /// Generated local-angle plausibility objective.
+    pub angle_guardrail: f64,
 }
 
 /// Maps optimization steps to staged loss activation.
@@ -123,16 +133,32 @@ impl StageScheduler {
             } else {
                 w.rho_pocket_contact * ramp
             },
+            pocket_pair_distance: if matches!(stage, TrainingStage::Stage1) {
+                0.0
+            } else {
+                w.lambda_pocket_pair_distance * ramp
+            },
             pocket_clash: if matches!(stage, TrainingStage::Stage1) {
                 0.0
             } else {
                 w.sigma_pocket_clash * ramp
+            },
+            pocket_shape_complementarity: if matches!(stage, TrainingStage::Stage1) {
+                0.0
+            } else {
+                w.omega_pocket_shape_complementarity * ramp
             },
             pocket_envelope: self.weight_after_stage(
                 stage,
                 ramp,
                 self.chemistry_warmup.pocket_envelope_start_stage,
                 w.tau_pocket_envelope,
+            ),
+            pocket_prior: self.weight_after_stage(
+                stage,
+                ramp,
+                self.chemistry_warmup.pocket_prior_start_stage,
+                w.kappa_pocket_prior,
             ),
             valence_guardrail: self.weight_after_stage(
                 stage,
@@ -145,6 +171,19 @@ impl StageScheduler {
                 ramp,
                 self.chemistry_warmup.bond_length_guardrail_start_stage,
                 w.phi_bond_length_guardrail,
+            ),
+            nonbonded_distance_guardrail: self.weight_after_stage(
+                stage,
+                ramp,
+                self.chemistry_warmup
+                    .nonbonded_distance_guardrail_start_stage,
+                w.chi_nonbonded_distance_guardrail,
+            ),
+            angle_guardrail: self.weight_after_stage(
+                stage,
+                ramp,
+                self.chemistry_warmup.angle_guardrail_start_stage,
+                w.psi_angle_guardrail,
             ),
         }
     }
@@ -216,6 +255,9 @@ mod tests {
         weights.tau_pocket_envelope = 0.4;
         weights.upsilon_valence_guardrail = 0.5;
         weights.phi_bond_length_guardrail = 0.6;
+        weights.chi_nonbonded_distance_guardrail = 0.7;
+        weights.psi_angle_guardrail = 0.8;
+        weights.kappa_pocket_prior = 0.9;
         weights
     }
 
@@ -227,15 +269,21 @@ mod tests {
         assert_eq!(stage1.pocket_envelope, 0.0);
         assert_eq!(stage1.valence_guardrail, 0.0);
         assert_eq!(stage1.bond_length_guardrail, 0.0);
+        assert_eq!(stage1.nonbonded_distance_guardrail, 0.0);
+        assert_eq!(stage1.angle_guardrail, 0.0);
         assert_eq!(stage1.pharmacophore_probe, 0.0);
         assert_eq!(stage1.pharmacophore_leakage, 0.0);
+        assert_eq!(stage1.pocket_prior, 0.0);
 
         let stage2 = scheduler.weights_for_step(1);
         assert_eq!(stage2.pocket_envelope, 0.0);
         assert_eq!(stage2.valence_guardrail, 0.0);
         assert_eq!(stage2.bond_length_guardrail, 0.0);
+        assert_eq!(stage2.nonbonded_distance_guardrail, 0.0);
+        assert_eq!(stage2.angle_guardrail, 0.0);
         assert_eq!(stage2.pharmacophore_probe, 0.0);
         assert_eq!(stage2.pharmacophore_leakage, 0.0);
+        assert_eq!(stage2.pocket_prior, 0.0);
 
         let stage3 = scheduler.weights_for_step(2);
         assert_eq!(stage3.pharmacophore_probe, 0.0);
@@ -249,8 +297,11 @@ mod tests {
             nonzero_chemistry_weights(),
             ChemistryObjectiveWarmupConfig {
                 pocket_envelope_start_stage: 4,
+                pocket_prior_start_stage: 4,
                 valence_guardrail_start_stage: 4,
                 bond_length_guardrail_start_stage: 4,
+                nonbonded_distance_guardrail_start_stage: 4,
+                angle_guardrail_start_stage: 4,
                 pharmacophore_probe_start_stage: 4,
                 pharmacophore_leakage_start_stage: 4,
             },
@@ -261,22 +312,71 @@ mod tests {
             assert_eq!(weights.pocket_envelope, 0.0);
             assert_eq!(weights.valence_guardrail, 0.0);
             assert_eq!(weights.bond_length_guardrail, 0.0);
+            assert_eq!(weights.nonbonded_distance_guardrail, 0.0);
+            assert_eq!(weights.angle_guardrail, 0.0);
             assert_eq!(weights.pharmacophore_probe, 0.0);
             assert_eq!(weights.pharmacophore_leakage, 0.0);
+            assert_eq!(weights.pocket_prior, 0.0);
         }
 
         let stage4_start = scheduler.weights_for_step(3);
         assert_eq!(stage4_start.pocket_envelope, 0.0);
         assert_eq!(stage4_start.valence_guardrail, 0.0);
         assert_eq!(stage4_start.bond_length_guardrail, 0.0);
+        assert_eq!(stage4_start.nonbonded_distance_guardrail, 0.0);
+        assert_eq!(stage4_start.angle_guardrail, 0.0);
         assert_eq!(stage4_start.pharmacophore_probe, 0.0);
         assert_eq!(stage4_start.pharmacophore_leakage, 0.0);
+        assert_eq!(stage4_start.pocket_prior, 0.0);
         let stage4_warmed = scheduler.weights_for_step(4);
         assert!(stage4_warmed.pocket_envelope > 0.0);
         assert!(stage4_warmed.valence_guardrail > 0.0);
         assert!(stage4_warmed.bond_length_guardrail > 0.0);
+        assert!(stage4_warmed.nonbonded_distance_guardrail > 0.0);
+        assert!(stage4_warmed.angle_guardrail > 0.0);
         assert!(stage4_warmed.pharmacophore_probe > 0.0);
         assert!(stage4_warmed.pharmacophore_leakage > 0.0);
+        assert!(stage4_warmed.pocket_prior > 0.0);
+    }
+
+    #[test]
+    fn pocket_prior_weight_is_stage_gated_and_ablation_friendly() {
+        let mut weights = LossWeightConfig::default();
+        weights.kappa_pocket_prior = 0.4;
+        let scheduler = StageScheduler::new_with_chemistry_warmup(
+            compact_schedule(),
+            weights.clone(),
+            ChemistryObjectiveWarmupConfig {
+                pocket_prior_start_stage: 3,
+                ..ChemistryObjectiveWarmupConfig::default()
+            },
+        );
+
+        assert_eq!(scheduler.weights_for_step(0).pocket_prior, 0.0);
+        assert_eq!(scheduler.weights_for_step(1).pocket_prior, 0.0);
+        assert_eq!(scheduler.weights_for_step(2).pocket_prior, 0.0);
+
+        let mut schedule = compact_schedule();
+        schedule.stage3_steps = 4;
+        let warmed = StageScheduler::new_with_chemistry_warmup(
+            schedule,
+            weights.clone(),
+            ChemistryObjectiveWarmupConfig {
+                pocket_prior_start_stage: 3,
+                ..ChemistryObjectiveWarmupConfig::default()
+            },
+        )
+        .weights_for_step(3);
+        assert!(warmed.pocket_prior > 0.0);
+
+        let disabled = StageScheduler::new(
+            compact_schedule(),
+            LossWeightConfig {
+                kappa_pocket_prior: 0.0,
+                ..LossWeightConfig::default()
+            },
+        );
+        assert_eq!(disabled.weights_for_step(4).pocket_prior, 0.0);
     }
 
     #[test]

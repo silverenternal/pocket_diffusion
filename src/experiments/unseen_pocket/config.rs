@@ -29,6 +29,21 @@ pub struct AblationConfig {
     /// Override flow-matching transport controls for generation-mode boundary ablations.
     #[serde(default)]
     pub flow_matching_override: Option<crate::config::FlowMatchingConfig>,
+    /// Override the geometry-flow velocity head for generation-alignment ablations.
+    #[serde(default)]
+    pub flow_velocity_head_override: Option<crate::config::FlowVelocityHeadConfig>,
+    /// Override pairwise geometry messages used by flow velocity heads.
+    #[serde(default)]
+    pub pairwise_geometry_override: Option<crate::config::PairwiseGeometryConfig>,
+    /// Override optimizer-facing short-rollout training controls.
+    #[serde(default)]
+    pub rollout_training_override: Option<crate::config::RolloutTrainingConfig>,
+    /// Override staged loss weights for objective-family ablations.
+    #[serde(default)]
+    pub loss_weights_override: Option<crate::config::LossWeightConfig>,
+    /// Override pharmacophore role probes for rich pocket-interaction ablations.
+    #[serde(default)]
+    pub pharmacophore_probes_override: Option<crate::config::PharmacophoreProbeConfig>,
     /// Override slot count for representation-capacity ablations.
     #[serde(default)]
     pub num_slots_override: Option<i64>,
@@ -85,6 +100,11 @@ impl Default for AblationConfig {
             generation_backend_override: None,
             generation_mode_override: None,
             flow_matching_override: None,
+            flow_velocity_head_override: None,
+            pairwise_geometry_override: None,
+            rollout_training_override: None,
+            loss_weights_override: None,
+            pharmacophore_probes_override: None,
             num_slots_override: None,
             slot_attention_masking_override: None,
             eta_gate_override: None,
@@ -250,6 +270,18 @@ pub struct AblationMatrixConfig {
     /// Whether to include a no-staged-schedule variant.
     #[serde(default = "default_include_staged_schedule_ablation")]
     pub include_staged_schedule_ablation: bool,
+    /// Whether to include MLP-vs-equivariant geometry-flow head variants.
+    #[serde(default = "default_include_generation_alignment_flow_head_ablation")]
+    pub include_generation_alignment_flow_head_ablation: bool,
+    /// Whether to include optimizer-facing rollout-training on/off variants.
+    #[serde(default = "default_include_generation_alignment_rollout_training_ablation")]
+    pub include_generation_alignment_rollout_training_ablation: bool,
+    /// Whether to include native chemistry-constraint on/off variants.
+    #[serde(default = "default_include_generation_alignment_chemistry_ablation")]
+    pub include_generation_alignment_chemistry_ablation: bool,
+    /// Whether to include thin-vs-rich pocket-interaction loss variants.
+    #[serde(default = "default_include_generation_alignment_pocket_interaction_ablation")]
+    pub include_generation_alignment_pocket_interaction_ablation: bool,
 }
 
 impl Default for AblationMatrixConfig {
@@ -284,6 +316,14 @@ impl Default for AblationMatrixConfig {
             include_redundancy_ablation: default_include_redundancy_ablation(),
             include_modality_focus_ablation: default_include_modality_focus_ablation(),
             include_staged_schedule_ablation: default_include_staged_schedule_ablation(),
+            include_generation_alignment_flow_head_ablation:
+                default_include_generation_alignment_flow_head_ablation(),
+            include_generation_alignment_rollout_training_ablation:
+                default_include_generation_alignment_rollout_training_ablation(),
+            include_generation_alignment_chemistry_ablation:
+                default_include_generation_alignment_chemistry_ablation(),
+            include_generation_alignment_pocket_interaction_ablation:
+                default_include_generation_alignment_pocket_interaction_ablation(),
         }
     }
 }
@@ -329,6 +369,22 @@ fn default_include_modality_focus_ablation() -> bool {
 }
 
 fn default_include_staged_schedule_ablation() -> bool {
+    false
+}
+
+fn default_include_generation_alignment_flow_head_ablation() -> bool {
+    false
+}
+
+fn default_include_generation_alignment_rollout_training_ablation() -> bool {
+    false
+}
+
+fn default_include_generation_alignment_chemistry_ablation() -> bool {
+    false
+}
+
+fn default_include_generation_alignment_pocket_interaction_ablation() -> bool {
     false
 }
 

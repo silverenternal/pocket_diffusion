@@ -37,6 +37,7 @@
         "max_coordinate_delta_norm": 1.5,
         "stop_delta_threshold": 0.02,
         "stop_patience": 2,
+        "generation_mode": "flow_refinement",
         "sampling_seed": 4242
       }
     },
@@ -46,7 +47,43 @@
       "atom_vocab_size": 32,
       "bond_vocab_size": 8,
       "pocket_feature_dim": 24,
-      "pair_feature_dim": 8
+      "pair_feature_dim": 8,
+      "topology_encoder": {
+        "kind": "typed_message_passing",
+        "message_passing_layers": 3,
+        "residual_scale": 0.5,
+        "normalize_messages": true,
+        "bond_type_vocab_size": 8
+      },
+      "geometry_encoder": {
+        "operator": "local_frame_pair_message",
+        "distance_kernel_count": 8,
+        "distance_kernel_max_distance": 8.0,
+        "distance_kernel_gamma": 0.75,
+        "residual_scale": 0.5
+      },
+      "pocket_encoder": {
+        "kind": "ligand_relative_local_frame",
+        "message_passing_layers": 3,
+        "neighbor_radius": 6.0,
+        "residual_scale": 0.5
+      },
+      "flow_velocity_head": {
+        "kind": "atom_pocket_cross_attention",
+        "gate_initial_bias": -0.5
+      },
+      "pairwise_geometry": {
+        "enabled": true,
+        "radius": 4.5,
+        "max_neighbors": 16,
+        "residual_scale": 0.1
+      },
+      "decoder_conditioning": {
+        "kind": "local_atom_slot_attention",
+        "local_gate_initial_bias": -0.5
+      },
+      "interaction_mode": "transformer",
+      "modality_focus": "all"
     },
     "generation_method": {
       "active_method": "flow_matching",
@@ -67,8 +104,66 @@
         "steps": 20,
         "noise_scale": 0.15,
         "integration_method": "euler",
-        "geometry_only": true,
-        "use_corrupted_x0": true
+        "geometry_only": false,
+        "use_corrupted_x0": true,
+        "multi_modal": {
+          "enabled_branches": [
+            "geometry",
+            "atom_type",
+            "bond",
+            "topology",
+            "pocket_context"
+          ],
+          "branch_loss_weights": {
+            "geometry": 1.0,
+            "atom_type": 0.35,
+            "bond": 0.65,
+            "topology": 0.65,
+            "pocket_context": 0.35,
+            "synchronization": 0.2
+          },
+          "branch_schedule": {
+            "geometry": {
+              "enabled": true,
+              "start_step": 0,
+              "warmup_steps": 0,
+              "final_weight_multiplier": 1.0
+            },
+            "atom_type": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "bond": {
+              "enabled": true,
+              "start_step": 1,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "topology": {
+              "enabled": true,
+              "start_step": 2,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "pocket_context": {
+              "enabled": true,
+              "start_step": 2,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            },
+            "synchronization": {
+              "enabled": true,
+              "start_step": 3,
+              "warmup_steps": 2,
+              "final_weight_multiplier": 1.0
+            }
+          },
+          "target_alignment_policy": "hungarian_distance",
+          "allow_zero_weight_branch_ablation": false,
+          "claim_full_molecular_flow": true
+        }
       }
     },
     "preference_alignment": {
@@ -92,11 +187,61 @@
       "loss_weights": {
         "alpha_task": 1.0,
         "beta_intra_red": 0.05,
-        "gamma_probe": 0.15,
+        "gamma_probe": 0.06,
         "delta_leak": 0.05,
         "eta_gate": 0.05,
         "mu_slot": 0.05,
-        "nu_consistency": 0.1
+        "nu_consistency": 0.1,
+        "rho_pocket_contact": 0.05,
+        "lambda_pocket_pair_distance": 0.02,
+        "sigma_pocket_clash": 0.02,
+        "omega_pocket_shape_complementarity": 0.02,
+        "tau_pocket_envelope": 0.02,
+        "kappa_pocket_prior": 0.01,
+        "upsilon_valence_guardrail": 0.03,
+        "phi_bond_length_guardrail": 0.02,
+        "chi_nonbonded_distance_guardrail": 0.01,
+        "psi_angle_guardrail": 0.01
+      },
+      "pharmacophore_probes": {
+        "enable_ligand_role_probe": true,
+        "enable_pocket_role_probe": true,
+        "enable_topology_to_pocket_role_leakage": true,
+        "enable_geometry_to_pocket_role_leakage": true,
+        "enable_pocket_to_ligand_role_leakage": true,
+        "leakage_margin": 0.05
+      },
+      "chemistry_warmup": {
+        "pocket_envelope_start_stage": 2,
+        "pocket_prior_start_stage": 2,
+        "valence_guardrail_start_stage": 2,
+        "bond_length_guardrail_start_stage": 2,
+        "nonbonded_distance_guardrail_start_stage": 2,
+        "angle_guardrail_start_stage": 2,
+        "pharmacophore_probe_start_stage": 3,
+        "pharmacophore_leakage_start_stage": 3
+      },
+      "sparse_topology_calibration": {
+        "enabled": true,
+        "start_step": 1,
+        "warmup_steps": 4,
+        "probe_weight": 0.0075,
+        "flow_weight": 0.03,
+        "rollout_weight": 0.02,
+        "min_rate_scale": 0.05,
+        "max_raw_loss": 8.0,
+        "confidence_pressure_weight": 0.15,
+        "confidence_pressure_max_loss": 10.0,
+        "degree_alignment_weight": 0.12,
+        "probe_degree_alignment_weight": 0.055,
+        "degree_alignment_max_loss": 6.0,
+        "native_score_calibration_weight": 0.2,
+        "native_score_calibration_max_loss": 6.0,
+        "native_score_threshold": 0.6
+      },
+      "objective_scale_diagnostics": {
+        "family_budget_cap_fraction": 0.35,
+        "family_budget_action": "clamp"
       },
       "checkpoint_dir": "./checkpoints/pdbbindpp_flow_best_candidate",
       "checkpoint_every": 100,

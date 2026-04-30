@@ -177,13 +177,11 @@ fn valence_sane_proxy(candidate: &GeneratedCandidateRecord) -> bool {
 
 fn max_reasonable_valence(atom_type: i64) -> usize {
     match atom_type {
-        1 => 1,
-        6 => 4,
-        7 => 4,
-        8 => 3,
-        9 | 17 | 35 | 53 => 1,
-        15 => 5,
-        16 => 6,
+        0 => 4,
+        1 => 4,
+        2 => 2,
+        3 => 6,
+        4 => 1,
         _ => 4,
     }
 }

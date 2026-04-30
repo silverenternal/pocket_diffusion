@@ -684,6 +684,16 @@ mod tests {
 
     #[test]
     fn resumed_training_preserves_prior_history_in_summary() {
+        std::thread::Builder::new()
+            .name("resumed_training_preserves_prior_history_in_summary".to_string())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(resumed_training_preserves_prior_history_in_summary_impl)
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    fn resumed_training_preserves_prior_history_in_summary_impl() {
         let temp = tempfile::tempdir().unwrap();
         let checkpoint_dir = temp.path().join("checkpoints");
 

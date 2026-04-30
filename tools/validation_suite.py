@@ -127,6 +127,7 @@ JSON_ARTIFACTS = [
     Q3_ROTATION_CONSISTENCY_REPORT,
     Q3_MODEL_IMPROVEMENT_LEADERBOARD,
     Q3_NON_DEGRADATION_GATE,
+    "configs/q15_generation_alignment_ablation_matrix.json",
 ]
 
 EXPERIMENT_CONFIGS = [

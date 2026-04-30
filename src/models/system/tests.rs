@@ -546,9 +546,15 @@ mod tests {
 
     #[test]
     fn model_stack_wrappers_preserve_separate_modality_boundaries() {
-        let config = ResearchConfig::default();
+        let mut config = ResearchConfig::default();
+        config.model.flow_velocity_head.kind =
+            crate::config::FlowVelocityHeadKind::EquivariantGeometry;
         let var_store = nn::VarStore::new(Device::Cpu);
         let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        assert!(matches!(
+            &system.generator_stack.flow_matching_head,
+            crate::models::FlowVelocityHead::EquivariantGeometry(_)
+        ));
         let example = synthetic_phase1_examples()
             .into_iter()
             .next()
@@ -1000,6 +1006,33 @@ mod tests {
     }
 
     #[test]
+    fn flow_matching_selects_equivariant_velocity_head_through_config() {
+        let mut config = ResearchConfig::default();
+        config.training.primary_objective = crate::config::PrimaryObjectiveConfig::FlowMatching;
+        config.model.flow_velocity_head.kind =
+            crate::config::FlowVelocityHeadKind::EquivariantGeometry;
+        config.generation_method.active_method = "flow_matching".to_string();
+        config.generation_method.primary_backend = crate::config::GenerationBackendConfig {
+            backend_id: "flow_matching".to_string(),
+            family: crate::config::GenerationBackendFamilyConfig::FlowMatching,
+            trainable: true,
+            ..crate::config::GenerationBackendConfig::default()
+        };
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let example = synthetic_phase1_examples()
+            .into_iter()
+            .next()
+            .unwrap()
+            .with_pocket_feature_dim(config.model.pocket_feature_dim);
+
+        let forward = system.forward_example(&example);
+        let flow = forward.generation.flow_matching.as_ref().unwrap();
+
+        assert_eq!(flow.predicted_velocity.size(), flow.sampled_coords.size());
+    }
+
+    #[test]
     fn flow_matching_labels_reference_fallback_when_corrupted_x0_shape_mismatches() {
         let config = ResearchConfig::default();
         let example = synthetic_phase1_examples()
@@ -1173,7 +1206,10 @@ mod tests {
             max_target_velocity < 1.0e-6,
             "target matching should be exact when targets are a permutation of actual x0; max velocity {max_target_velocity}"
         );
-        assert_eq!(flow.target_matching_mean_cost, 0.0);
+        assert!(
+            flow.target_matching_mean_cost.is_finite() && flow.target_matching_mean_cost >= 0.0,
+            "chemistry-aware matching should report a finite non-negative assignment cost"
+        );
     }
 
     #[test]
@@ -1338,6 +1374,151 @@ mod tests {
                 ["molecular_flow_native_valence_violation_fraction"],
             0.0
         );
+    }
+
+    #[test]
+    fn de_novo_multi_sample_initialization_is_reproducible_and_reported() {
+        let mut config = flow_full_branch_config();
+        config.data.generation_target.generation_mode =
+            crate::config::GenerationModeConfig::DeNovoInitialization;
+        config
+            .data
+            .generation_target
+            .de_novo_initialization
+            .min_atom_count = 5;
+        config
+            .data
+            .generation_target
+            .de_novo_initialization
+            .max_atom_count = 5;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .enabled = true;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .sample_count = 3;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .max_samples_per_pocket = 3;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .seed_offset = 17;
+        config.validate().unwrap();
+
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let example = synthetic_custom_example(
+            "de-novo-multi-sample",
+            "protein-multi-sample",
+            3,
+            18,
+            0.9,
+            config.model.pocket_feature_dim,
+        );
+
+        let left = system.forward_example_generation_samples(&example);
+        let right = system.forward_example_generation_samples(&example);
+        assert_eq!(left.len(), 3);
+        assert_eq!(right.len(), 3);
+
+        for sample_index in 0..3 {
+            let rollout = &left[sample_index].generation.rollout;
+            assert_eq!(rollout.sample_index, sample_index);
+            assert_eq!(rollout.sample_count, 3);
+            assert_eq!(rollout.pocket_id, example.protein_id);
+            assert!(rollout.sample_seed.is_some());
+            assert!(rollout
+                .sample_seed_provenance
+                .contains("multi_sample_initialization"));
+            assert_eq!(
+                rollout.sample_seed,
+                right[sample_index].generation.rollout.sample_seed
+            );
+            assert_tensor_equal(
+                "multi-sample atom types are deterministic",
+                &left[sample_index].generation.state.partial_ligand.atom_types,
+                &right[sample_index].generation.state.partial_ligand.atom_types,
+            );
+            assert_tensor_close(
+                "multi-sample coordinates are deterministic",
+                &left[sample_index].generation.state.partial_ligand.coords,
+                &right[sample_index].generation.state.partial_ligand.coords,
+                1.0e-8,
+            );
+        }
+
+        let coordinate_delta = (&left[0].generation.state.partial_ligand.coords
+            - &left[1].generation.state.partial_ligand.coords)
+            .abs()
+            .sum(Kind::Float)
+            .double_value(&[]);
+        assert!(
+            coordinate_delta > 1.0e-6,
+            "distinct sample seeds should produce distinct scaffold coordinates"
+        );
+    }
+
+    #[test]
+    fn de_novo_multi_sample_initialization_honors_variable_sample_counts() {
+        let mut config = flow_full_branch_config();
+        config.data.generation_target.generation_mode =
+            crate::config::GenerationModeConfig::DeNovoInitialization;
+        config
+            .data
+            .generation_target
+            .de_novo_initialization
+            .min_atom_count = 4;
+        config
+            .data
+            .generation_target
+            .de_novo_initialization
+            .max_atom_count = 4;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .enabled = true;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .sample_count = 2;
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .max_samples_per_pocket = 4;
+        config.validate().unwrap();
+
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        let example = synthetic_custom_example(
+            "de-novo-variable-sample-count",
+            "protein-variable-sample-count",
+            3,
+            14,
+            0.7,
+            config.model.pocket_feature_dim,
+        );
+        assert_eq!(system.forward_example_generation_samples(&example).len(), 2);
+
+        config
+            .data
+            .generation_target
+            .multi_sample_initialization
+            .sample_count = 4;
+        config.validate().unwrap();
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let system = Phase1ResearchSystem::new(&var_store.root(), &config);
+        assert_eq!(system.forward_example_generation_samples(&example).len(), 4);
     }
 
     #[test]

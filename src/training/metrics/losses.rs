@@ -37,6 +37,9 @@ pub struct PrimaryObjectiveComponentProvenance {
     pub component_name: String,
     /// High-level source family for the component.
     pub anchor: String,
+    /// Target/provenance source consumed by this component.
+    #[serde(default = "default_primary_component_target_source")]
+    pub target_source: String,
     /// Whether this value remains connected to differentiable tensor operations.
     pub differentiable: bool,
     /// Whether this value is allowed to contribute to the optimizer-facing total.
@@ -95,6 +98,25 @@ pub struct PrimaryObjectiveComponentScaleRecord {
     pub warning: Option<String>,
 }
 
+/// Stable metadata for one primary-objective component name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PrimaryObjectiveComponentDescriptor {
+    /// High-level source family for the component.
+    pub anchor: &'static str,
+    /// Target/provenance source consumed by this component.
+    pub target_source: &'static str,
+    /// Whether this value remains connected to differentiable tensor operations.
+    pub differentiable: bool,
+    /// Whether this value is allowed to contribute to the optimizer-facing total.
+    pub optimizer_facing: bool,
+    /// Human-readable interpretation of the component role.
+    pub role: &'static str,
+    /// Flow branch that owns this component when branch schedules are reported.
+    pub branch_name: Option<&'static str>,
+    /// Short audit boundary used by objective coverage artifacts.
+    pub claim_boundary: &'static str,
+}
+
 /// Effective branch-schedule report for the primary flow objective family.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PrimaryBranchScheduleReport {
@@ -113,6 +135,64 @@ pub struct PrimaryBranchScheduleReport {
     /// Per-branch effective weights.
     #[serde(default)]
     pub entries: Vec<PrimaryBranchWeightRecord>,
+}
+
+/// Audit summary for primary components owned by one scheduled flow branch.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct PrimaryBranchComponentAudit {
+    /// Stable branch name.
+    #[serde(default)]
+    pub branch_name: String,
+    /// Observed primary component names assigned to this branch by the component registry.
+    #[serde(default)]
+    pub observed_component_names: Vec<String>,
+    /// Number of observed primary components assigned to this branch.
+    #[serde(default)]
+    pub observed_component_count: usize,
+    /// Number of observed components allowed to contribute to optimizer-facing totals.
+    #[serde(default)]
+    pub optimizer_facing_component_count: usize,
+    /// Number of observed diagnostic-only components assigned to this branch.
+    #[serde(default)]
+    pub diagnostic_component_count: usize,
+    /// Sum of emitted component scalar values for this branch; audit-only because some subterms are nested decompositions.
+    #[serde(default)]
+    pub observed_component_value_sum: f64,
+    /// Sum of emitted optimizer-facing component scalar values for this branch.
+    #[serde(default)]
+    pub optimizer_facing_component_value_sum: f64,
+    /// Sum of emitted diagnostic-only component scalar values for this branch.
+    #[serde(default)]
+    pub diagnostic_component_value_sum: f64,
+}
+
+impl PrimaryBranchComponentAudit {
+    /// Build an empty audit record for a scheduled branch.
+    pub fn for_branch(branch_name: impl Into<String>) -> Self {
+        Self {
+            branch_name: branch_name.into(),
+            ..Self::default()
+        }
+    }
+
+    fn observe_component(
+        &mut self,
+        component_name: &'static str,
+        value: f64,
+        descriptor: PrimaryObjectiveComponentDescriptor,
+    ) {
+        self.observed_component_names
+            .push(component_name.to_string());
+        self.observed_component_count += 1;
+        self.observed_component_value_sum += value;
+        if descriptor.optimizer_facing {
+            self.optimizer_facing_component_count += 1;
+            self.optimizer_facing_component_value_sum += value;
+        } else {
+            self.diagnostic_component_count += 1;
+            self.diagnostic_component_value_sum += value;
+        }
+    }
 }
 
 /// Effective weight for one primary flow branch.
@@ -135,6 +215,9 @@ pub struct PrimaryBranchWeightRecord {
     pub optimizer_facing: bool,
     /// Flow contract version or objective provenance label.
     pub provenance: String,
+    /// Registry-derived audit of primary components owned by this branch.
+    #[serde(default)]
+    pub component_audit: PrimaryBranchComponentAudit,
     /// Atom-row matching policy when this branch consumes matched molecular targets.
     #[serde(default)]
     pub target_matching_policy: Option<String>,
@@ -206,9 +289,60 @@ pub struct PrimaryObjectiveComponentMetrics {
     /// Bond existence/type flow contribution.
     #[serde(default)]
     pub flow_bond: Option<f64>,
+    /// Sparse negative-class density calibration subterm inside `flow_bond`.
+    #[serde(default)]
+    pub flow_bond_sparse_negative_rate: Option<f64>,
+    /// Bounded native graph confidence pressure subterm inside `flow_bond`.
+    #[serde(default)]
+    pub flow_bond_confidence_pressure: Option<f64>,
+    /// Expected-degree alignment subterm inside `flow_bond`.
+    #[serde(default)]
+    pub flow_bond_degree_alignment: Option<f64>,
     /// Topology synchronization flow contribution.
     #[serde(default)]
     pub flow_topology: Option<f64>,
+    /// Sparse negative-class density calibration subterm inside `flow_topology`.
+    #[serde(default)]
+    pub flow_topology_sparse_negative_rate: Option<f64>,
+    /// Bounded native graph confidence pressure subterm inside `flow_topology`.
+    #[serde(default)]
+    pub flow_topology_confidence_pressure: Option<f64>,
+    /// Expected-degree alignment subterm inside `flow_topology`.
+    #[serde(default)]
+    pub flow_topology_degree_alignment: Option<f64>,
+    /// Joint bond/topology native extraction-score calibration contribution.
+    #[serde(default)]
+    pub flow_native_score_calibration: Option<f64>,
+    /// Uncapped native score calibration diagnostic before the max-loss safety cap.
+    #[serde(default)]
+    pub flow_native_score_calibration_uncapped_raw: Option<f64>,
+    /// Ratio between capped and uncapped native score calibration raw loss.
+    #[serde(default)]
+    pub flow_native_score_calibration_cap_scale: Option<f64>,
+    /// Native score calibration subterm for negative pairs above the extraction ceiling.
+    #[serde(default)]
+    pub flow_native_score_calibration_false_positive_margin: Option<f64>,
+    /// Native score calibration subterm for positive pairs below the extraction floor.
+    #[serde(default)]
+    pub flow_native_score_calibration_false_negative_margin: Option<f64>,
+    /// Native score calibration subterm for dense score mass above the target budget.
+    #[serde(default)]
+    pub flow_native_score_calibration_density_budget: Option<f64>,
+    /// Native score calibration subterm for soft-thresholded positive target misses.
+    #[serde(default)]
+    pub flow_native_score_calibration_soft_positive_miss: Option<f64>,
+    /// Native score calibration subterm for soft-thresholded negative-pair extraction.
+    #[serde(default)]
+    pub flow_native_score_calibration_soft_negative_extraction: Option<f64>,
+    /// Native score calibration subterm for soft extraction mass above the target budget.
+    #[serde(default)]
+    pub flow_native_score_calibration_soft_extraction_budget: Option<f64>,
+    /// Native score calibration subterm for per-atom score-degree mismatch.
+    #[serde(default)]
+    pub flow_native_score_calibration_degree_alignment: Option<f64>,
+    /// Native score calibration subterm for positive-vs-negative score separation.
+    #[serde(default)]
+    pub flow_native_score_calibration_score_separation: Option<f64>,
     /// Ligand-pocket contact interaction-profile flow contribution.
     #[serde(default)]
     pub flow_pocket_context: Option<f64>,
@@ -218,158 +352,54 @@ pub struct PrimaryObjectiveComponentMetrics {
 }
 
 impl PrimaryObjectiveComponentMetrics {
+    /// Add observed component values from another metric bundle in-place.
+    pub(crate) fn add_assign(&mut self, other: &Self) {
+        other.for_each_observed_component(|component_name, value| {
+            self.add_component_value(component_name, value);
+        });
+    }
+
+    /// Return a metric bundle with every observed component multiplied by `factor`.
+    pub(crate) fn scale(&self, factor: f64) -> Self {
+        let mut scaled = Self::default();
+        self.for_each_observed_component(|component_name, value| {
+            scaled.add_component_value(component_name, value * factor);
+        });
+        scaled
+    }
+
     /// Return provenance records for components observed in this metric bundle.
     pub fn provenance_records(&self) -> Vec<PrimaryObjectiveComponentProvenance> {
         let mut records = Vec::new();
-        push_primary_component_provenance(
-            &mut records,
-            "topology",
-            self.topology,
-            "decoder_or_surrogate_topology",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "geometry",
-            self.geometry,
-            "decoder_or_surrogate_geometry",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "pocket_anchor",
-            self.pocket_anchor,
-            "decoder_pocket_anchor",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "rollout",
-            self.rollout,
-            "tensor_preserving_rollout",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "rollout_eval_recovery",
-            self.rollout_eval_recovery,
-            "sampled_rollout_record",
-            false,
-            false,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "rollout_eval_pocket_anchor",
-            self.rollout_eval_pocket_anchor,
-            "sampled_rollout_record",
-            false,
-            false,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "rollout_eval_stop",
-            self.rollout_eval_stop,
-            "sampled_rollout_stop_policy",
-            false,
-            false,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "flow_velocity",
-            self.flow_velocity,
-            "flow_matching_velocity",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "flow_endpoint",
-            self.flow_endpoint,
-            "flow_matching_velocity_derived_endpoint_consistency",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "flow_atom_type",
-            self.flow_atom_type,
-            "molecular_flow_atom_type",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "flow_bond",
-            self.flow_bond,
-            "molecular_flow_bond",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "flow_topology",
-            self.flow_topology,
-            "molecular_flow_topology",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "flow_pocket_context",
-            self.flow_pocket_context,
-            "molecular_flow_pocket_interaction_profile",
-            true,
-            true,
-        );
-        push_primary_component_provenance(
-            &mut records,
-            "flow_synchronization",
-            self.flow_synchronization,
-            "molecular_flow_branch_synchronization",
-            true,
-            true,
-        );
+        self.for_each_observed_component(|component_name, _| {
+            records.push(primary_objective_component_provenance_record(component_name));
+        });
         records
     }
 
     /// Return observed component names and values in stable report order.
     pub fn observed_component_values(&self) -> Vec<(&'static str, f64)> {
         let mut values = Vec::new();
-        push_observed_component(&mut values, "topology", self.topology);
-        push_observed_component(&mut values, "geometry", self.geometry);
-        push_observed_component(&mut values, "pocket_anchor", self.pocket_anchor);
-        push_observed_component(&mut values, "rollout", self.rollout);
-        push_observed_component(
-            &mut values,
-            "rollout_eval_recovery",
-            self.rollout_eval_recovery,
-        );
-        push_observed_component(
-            &mut values,
-            "rollout_eval_pocket_anchor",
-            self.rollout_eval_pocket_anchor,
-        );
-        push_observed_component(&mut values, "rollout_eval_stop", self.rollout_eval_stop);
-        push_observed_component(&mut values, "flow_velocity", self.flow_velocity);
-        push_observed_component(&mut values, "flow_endpoint", self.flow_endpoint);
-        push_observed_component(&mut values, "flow_atom_type", self.flow_atom_type);
-        push_observed_component(&mut values, "flow_bond", self.flow_bond);
-        push_observed_component(&mut values, "flow_topology", self.flow_topology);
-        push_observed_component(
-            &mut values,
-            "flow_pocket_context",
-            self.flow_pocket_context,
-        );
-        push_observed_component(
-            &mut values,
-            "flow_synchronization",
-            self.flow_synchronization,
-        );
+        self.for_each_observed_component(|component_name, value| {
+            values.push((component_name, value));
+        });
         values
+    }
+
+    /// Group observed primary components by registry-owned flow branch.
+    pub fn branch_component_audits(&self) -> Vec<PrimaryBranchComponentAudit> {
+        let mut audits: BTreeMap<&'static str, PrimaryBranchComponentAudit> = BTreeMap::new();
+        self.for_each_observed_component(|component_name, value| {
+            let descriptor = primary_objective_component_descriptor(component_name);
+            let Some(branch_name) = descriptor.branch_name else {
+                return;
+            };
+            audits
+                .entry(branch_name)
+                .or_insert_with(|| PrimaryBranchComponentAudit::for_branch(branch_name))
+                .observe_component(component_name, value, descriptor);
+        });
+        audits.into_values().collect()
     }
 
     /// Build reporting-only component scale diagnostics.
@@ -403,7 +433,8 @@ impl PrimaryObjectiveComponentMetrics {
                     weighted_value: value * objective_weight,
                     normalization_scale,
                     normalized_value,
-                    optimizer_facing: !component_name.starts_with("rollout_eval_"),
+                    optimizer_facing: primary_objective_component_descriptor(component_name)
+                        .optimizer_facing,
                     status: "ok".to_string(),
                     warning: None,
                 }
@@ -454,42 +485,602 @@ impl PrimaryObjectiveComponentMetrics {
             normalization_source,
         }
     }
+
+    fn for_each_observed_component(&self, mut visit: impl FnMut(&'static str, f64)) {
+        macro_rules! visit_component {
+            ($field:ident) => {
+                if let Some(value) = self.$field {
+                    visit(stringify!($field), value);
+                }
+            };
+        }
+
+        visit_component!(topology);
+        visit_component!(geometry);
+        visit_component!(pocket_anchor);
+        visit_component!(rollout);
+        visit_component!(rollout_eval_recovery);
+        visit_component!(rollout_eval_pocket_anchor);
+        visit_component!(rollout_eval_stop);
+        visit_component!(flow_velocity);
+        visit_component!(flow_endpoint);
+        visit_component!(flow_atom_type);
+        visit_component!(flow_bond);
+        visit_component!(flow_bond_sparse_negative_rate);
+        visit_component!(flow_bond_confidence_pressure);
+        visit_component!(flow_bond_degree_alignment);
+        visit_component!(flow_topology);
+        visit_component!(flow_topology_sparse_negative_rate);
+        visit_component!(flow_topology_confidence_pressure);
+        visit_component!(flow_topology_degree_alignment);
+        visit_component!(flow_native_score_calibration);
+        visit_component!(flow_native_score_calibration_uncapped_raw);
+        visit_component!(flow_native_score_calibration_cap_scale);
+        visit_component!(flow_native_score_calibration_false_positive_margin);
+        visit_component!(flow_native_score_calibration_false_negative_margin);
+        visit_component!(flow_native_score_calibration_density_budget);
+        visit_component!(flow_native_score_calibration_soft_positive_miss);
+        visit_component!(flow_native_score_calibration_soft_negative_extraction);
+        visit_component!(flow_native_score_calibration_soft_extraction_budget);
+        visit_component!(flow_native_score_calibration_degree_alignment);
+        visit_component!(flow_native_score_calibration_score_separation);
+        visit_component!(flow_pocket_context);
+        visit_component!(flow_synchronization);
+    }
+
+    fn add_component_value(&mut self, component_name: &'static str, value: f64) {
+        macro_rules! add_component {
+            ($field:ident) => {{
+                self.$field = Some(self.$field.unwrap_or(0.0) + value);
+            }};
+        }
+
+        match component_name {
+            "topology" => add_component!(topology),
+            "geometry" => add_component!(geometry),
+            "pocket_anchor" => add_component!(pocket_anchor),
+            "rollout" => add_component!(rollout),
+            "rollout_eval_recovery" => add_component!(rollout_eval_recovery),
+            "rollout_eval_pocket_anchor" => add_component!(rollout_eval_pocket_anchor),
+            "rollout_eval_stop" => add_component!(rollout_eval_stop),
+            "flow_velocity" => add_component!(flow_velocity),
+            "flow_endpoint" => add_component!(flow_endpoint),
+            "flow_atom_type" => add_component!(flow_atom_type),
+            "flow_bond" => add_component!(flow_bond),
+            "flow_bond_sparse_negative_rate" => add_component!(flow_bond_sparse_negative_rate),
+            "flow_bond_confidence_pressure" => add_component!(flow_bond_confidence_pressure),
+            "flow_bond_degree_alignment" => add_component!(flow_bond_degree_alignment),
+            "flow_topology" => add_component!(flow_topology),
+            "flow_topology_sparse_negative_rate" => {
+                add_component!(flow_topology_sparse_negative_rate)
+            }
+            "flow_topology_confidence_pressure" => {
+                add_component!(flow_topology_confidence_pressure)
+            }
+            "flow_topology_degree_alignment" => add_component!(flow_topology_degree_alignment),
+            "flow_native_score_calibration" => add_component!(flow_native_score_calibration),
+            "flow_native_score_calibration_uncapped_raw" => {
+                add_component!(flow_native_score_calibration_uncapped_raw)
+            }
+            "flow_native_score_calibration_cap_scale" => {
+                add_component!(flow_native_score_calibration_cap_scale)
+            }
+            "flow_native_score_calibration_false_positive_margin" => {
+                add_component!(flow_native_score_calibration_false_positive_margin)
+            }
+            "flow_native_score_calibration_false_negative_margin" => {
+                add_component!(flow_native_score_calibration_false_negative_margin)
+            }
+            "flow_native_score_calibration_density_budget" => {
+                add_component!(flow_native_score_calibration_density_budget)
+            }
+            "flow_native_score_calibration_soft_positive_miss" => {
+                add_component!(flow_native_score_calibration_soft_positive_miss)
+            }
+            "flow_native_score_calibration_soft_negative_extraction" => {
+                add_component!(flow_native_score_calibration_soft_negative_extraction)
+            }
+            "flow_native_score_calibration_soft_extraction_budget" => {
+                add_component!(flow_native_score_calibration_soft_extraction_budget)
+            }
+            "flow_native_score_calibration_degree_alignment" => {
+                add_component!(flow_native_score_calibration_degree_alignment)
+            }
+            "flow_native_score_calibration_score_separation" => {
+                add_component!(flow_native_score_calibration_score_separation)
+            }
+            "flow_pocket_context" => add_component!(flow_pocket_context),
+            "flow_synchronization" => add_component!(flow_synchronization),
+            _ => debug_assert!(false, "unknown primary component {component_name}"),
+        }
+    }
 }
 
-fn push_observed_component(
-    values: &mut Vec<(&'static str, f64)>,
+#[derive(Debug, Clone, Copy)]
+struct PrimaryObjectiveComponentSpec {
     component_name: &'static str,
-    value: Option<f64>,
-) {
-    if let Some(value) = value {
-        values.push((component_name, value));
+    descriptor: PrimaryObjectiveComponentDescriptor,
+}
+
+impl PrimaryObjectiveComponentSpec {
+    const fn trainable(
+        component_name: &'static str,
+        anchor: &'static str,
+        target_source: &'static str,
+        branch_name: Option<&'static str>,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            component_name,
+            descriptor: PrimaryObjectiveComponentDescriptor {
+                anchor,
+                target_source,
+                differentiable: true,
+                optimizer_facing: true,
+                role: "trainable_objective",
+                branch_name,
+                claim_boundary,
+            },
+        }
+    }
+
+    const fn diagnostic(
+        component_name: &'static str,
+        anchor: &'static str,
+        target_source: &'static str,
+        branch_name: Option<&'static str>,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            component_name,
+            descriptor: PrimaryObjectiveComponentDescriptor {
+                anchor,
+                target_source,
+                differentiable: false,
+                optimizer_facing: false,
+                role: "evaluation_only",
+                branch_name,
+                claim_boundary,
+            },
+        }
     }
 }
 
-fn push_primary_component_provenance(
-    records: &mut Vec<PrimaryObjectiveComponentProvenance>,
+const TENSOR_PRIMARY_COMPONENT_BOUNDARY: &str = "tensor-preserving primary objective component";
+const ROLLOUT_EVAL_COMPONENT_BOUNDARY: &str =
+    "detached sampled-rollout diagnostic; not optimizer-facing unless a future tensor-preserving trainable_rollout_* objective is implemented";
+const FLOW_PRIMARY_COMPONENT_BOUNDARY: &str =
+    "flow component is optimizer-facing only for flow-compatible primary objectives";
+const NATIVE_SCORE_CAP_AUDIT_BOUNDARY: &str =
+    "native-score calibration cap audit; diagnostic only and excluded from optimizer-facing totals";
+
+const PRIMARY_OBJECTIVE_COMPONENT_SPECS: &[PrimaryObjectiveComponentSpec] = &[
+    PrimaryObjectiveComponentSpec::trainable(
+        "topology",
+        "decoder_or_surrogate_topology",
+        "reference_ligand",
+        None,
+        TENSOR_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "geometry",
+        "decoder_or_surrogate_geometry",
+        "reference_ligand",
+        None,
+        TENSOR_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "pocket_anchor",
+        "decoder_pocket_anchor",
+        "pocket_geometry",
+        None,
+        TENSOR_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "rollout",
+        "tensor_preserving_rollout",
+        "generated_rollout_state",
+        None,
+        "reserved for future tensor-preserving rollout objective",
+    ),
+    PrimaryObjectiveComponentSpec::diagnostic(
+        "rollout_eval_recovery",
+        "sampled_rollout_record",
+        "generated_rollout_state",
+        None,
+        ROLLOUT_EVAL_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::diagnostic(
+        "rollout_eval_pocket_anchor",
+        "sampled_rollout_record",
+        "generated_rollout_state",
+        None,
+        ROLLOUT_EVAL_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::diagnostic(
+        "rollout_eval_stop",
+        "sampled_rollout_stop_policy",
+        "generated_rollout_state",
+        None,
+        ROLLOUT_EVAL_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_velocity",
+        "flow_matching_velocity",
+        "reference_ligand",
+        Some("geometry"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_endpoint",
+        "flow_matching_velocity_derived_endpoint_consistency",
+        "reference_ligand",
+        Some("geometry"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_atom_type",
+        "molecular_flow_atom_type",
+        "reference_ligand",
+        Some("atom_type"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_bond",
+        "molecular_flow_bond",
+        "reference_ligand",
+        Some("bond"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_bond_sparse_negative_rate",
+        "molecular_flow_bond_sparse_calibration",
+        "reference_ligand",
+        Some("bond"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_bond_confidence_pressure",
+        "molecular_flow_bond_native_graph_confidence",
+        "reference_ligand",
+        Some("bond"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_bond_degree_alignment",
+        "molecular_flow_bond_expected_degree_alignment",
+        "reference_ligand",
+        Some("bond"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_topology",
+        "molecular_flow_topology",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_topology_sparse_negative_rate",
+        "molecular_flow_topology_sparse_calibration",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_topology_confidence_pressure",
+        "molecular_flow_topology_native_graph_confidence",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_topology_degree_alignment",
+        "molecular_flow_topology_expected_degree_alignment",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration",
+        "molecular_flow_native_extraction_score_calibration",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::diagnostic(
+        "flow_native_score_calibration_uncapped_raw",
+        "molecular_flow_native_score_cap_audit",
+        "optimizer_loss_audit",
+        Some("topology"),
+        NATIVE_SCORE_CAP_AUDIT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::diagnostic(
+        "flow_native_score_calibration_cap_scale",
+        "molecular_flow_native_score_cap_audit",
+        "optimizer_loss_audit",
+        Some("topology"),
+        NATIVE_SCORE_CAP_AUDIT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_false_positive_margin",
+        "molecular_flow_native_score_false_positive_margin",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_false_negative_margin",
+        "molecular_flow_native_score_false_negative_margin",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_density_budget",
+        "molecular_flow_native_score_density_budget",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_soft_positive_miss",
+        "molecular_flow_native_score_soft_positive_miss",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_soft_negative_extraction",
+        "molecular_flow_native_score_soft_negative_extraction",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_soft_extraction_budget",
+        "molecular_flow_native_score_soft_extraction_budget",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_degree_alignment",
+        "molecular_flow_native_score_degree_alignment",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_native_score_calibration_score_separation",
+        "molecular_flow_native_score_separation",
+        "reference_ligand",
+        Some("topology"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_pocket_context",
+        "molecular_flow_pocket_interaction_profile",
+        "pocket_ligand_pair",
+        Some("pocket_context"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+    PrimaryObjectiveComponentSpec::trainable(
+        "flow_synchronization",
+        "molecular_flow_branch_synchronization",
+        "generated_rollout_state",
+        Some("synchronization"),
+        FLOW_PRIMARY_COMPONENT_BOUNDARY,
+    ),
+];
+
+fn primary_objective_component_spec(
     component_name: &str,
-    value: Option<f64>,
-    anchor: &str,
-    differentiable: bool,
-    optimizer_facing: bool,
-) {
-    if value.is_none() {
-        return;
-    }
-    records.push(PrimaryObjectiveComponentProvenance {
+) -> Option<&'static PrimaryObjectiveComponentSpec> {
+    PRIMARY_OBJECTIVE_COMPONENT_SPECS
+        .iter()
+        .find(|spec| spec.component_name == component_name)
+}
+
+/// Return stable primary component names covered by the audit registry.
+pub fn primary_objective_component_names() -> impl Iterator<Item = &'static str> {
+    PRIMARY_OBJECTIVE_COMPONENT_SPECS
+        .iter()
+        .map(|spec| spec.component_name)
+}
+
+/// Return stable metadata for a primary-objective component.
+pub fn primary_objective_component_descriptor(
+    component_name: &str,
+) -> PrimaryObjectiveComponentDescriptor {
+    primary_objective_component_spec(component_name)
+        .map(|spec| spec.descriptor)
+        .unwrap_or_else(legacy_primary_component_descriptor)
+}
+
+/// Return the flow branch that owns a primary component, if any.
+pub fn primary_objective_component_branch_name(component_name: &str) -> Option<&'static str> {
+    primary_objective_component_spec(component_name).and_then(|spec| spec.descriptor.branch_name)
+}
+
+/// Build a provenance record from the shared component registry.
+pub fn primary_objective_component_provenance_record(
+    component_name: &str,
+) -> PrimaryObjectiveComponentProvenance {
+    let descriptor = primary_objective_component_descriptor(component_name);
+    PrimaryObjectiveComponentProvenance {
         component_name: component_name.to_string(),
-        anchor: anchor.to_string(),
-        differentiable,
-        optimizer_facing,
-        role: if optimizer_facing {
-            "trainable_objective".to_string()
-        } else {
-            "evaluation_only".to_string()
-        },
+        anchor: descriptor.anchor.to_string(),
+        target_source: descriptor.target_source.to_string(),
+        differentiable: descriptor.differentiable,
+        optimizer_facing: descriptor.optimizer_facing,
+        role: descriptor.role.to_string(),
         effective_branch_weight: None,
         branch_schedule_source: None,
-    });
+    }
+}
+
+fn legacy_primary_component_descriptor() -> PrimaryObjectiveComponentDescriptor {
+    PrimaryObjectiveComponentDescriptor {
+        anchor: "legacy_unknown",
+        target_source: "legacy_unknown",
+        differentiable: false,
+        optimizer_facing: false,
+        role: "evaluation_only",
+        branch_name: None,
+        claim_boundary: "diagnostic primary objective component",
+    }
+}
+
+#[cfg(test)]
+mod primary_component_descriptor_tests {
+    use super::*;
+
+    #[test]
+    fn descriptor_marks_native_score_cap_audit_as_non_optimizer_topology_component() {
+        let descriptor =
+            primary_objective_component_descriptor("flow_native_score_calibration_cap_scale");
+
+        assert_eq!(descriptor.branch_name, Some("topology"));
+        assert_eq!(descriptor.target_source, "optimizer_loss_audit");
+        assert!(!descriptor.optimizer_facing);
+        assert!(!descriptor.differentiable);
+        assert!(descriptor.claim_boundary.contains("diagnostic only"));
+    }
+
+    #[test]
+    fn descriptor_routes_flow_subterms_to_branch_schedule_owners() {
+        assert_eq!(
+            primary_objective_component_branch_name("flow_bond_confidence_pressure"),
+            Some("bond")
+        );
+        assert_eq!(
+            primary_objective_component_branch_name(
+                "flow_native_score_calibration_false_positive_margin"
+            ),
+            Some("topology")
+        );
+        assert_eq!(
+            primary_objective_component_branch_name("flow_pocket_context"),
+            Some("pocket_context")
+        );
+    }
+
+    #[test]
+    fn descriptor_registry_names_are_unique() {
+        let mut seen = std::collections::BTreeSet::new();
+        for component_name in primary_objective_component_names() {
+            assert!(
+                seen.insert(component_name),
+                "duplicate primary component descriptor for {component_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn observed_components_are_all_descriptor_backed() {
+        let components = PrimaryObjectiveComponentMetrics {
+            topology: Some(1.0),
+            geometry: Some(1.0),
+            pocket_anchor: Some(1.0),
+            rollout: Some(1.0),
+            rollout_eval_recovery: Some(1.0),
+            rollout_eval_pocket_anchor: Some(1.0),
+            rollout_eval_stop: Some(1.0),
+            flow_velocity: Some(1.0),
+            flow_endpoint: Some(1.0),
+            flow_atom_type: Some(1.0),
+            flow_bond: Some(1.0),
+            flow_bond_sparse_negative_rate: Some(1.0),
+            flow_bond_confidence_pressure: Some(1.0),
+            flow_bond_degree_alignment: Some(1.0),
+            flow_topology: Some(1.0),
+            flow_topology_sparse_negative_rate: Some(1.0),
+            flow_topology_confidence_pressure: Some(1.0),
+            flow_topology_degree_alignment: Some(1.0),
+            flow_native_score_calibration: Some(1.0),
+            flow_native_score_calibration_uncapped_raw: Some(1.0),
+            flow_native_score_calibration_cap_scale: Some(1.0),
+            flow_native_score_calibration_false_positive_margin: Some(1.0),
+            flow_native_score_calibration_false_negative_margin: Some(1.0),
+            flow_native_score_calibration_density_budget: Some(1.0),
+            flow_native_score_calibration_soft_positive_miss: Some(1.0),
+            flow_native_score_calibration_soft_negative_extraction: Some(1.0),
+            flow_native_score_calibration_soft_extraction_budget: Some(1.0),
+            flow_native_score_calibration_degree_alignment: Some(1.0),
+            flow_native_score_calibration_score_separation: Some(1.0),
+            flow_pocket_context: Some(1.0),
+            flow_synchronization: Some(1.0),
+        };
+
+        let observed = components.observed_component_values();
+        let provenance = components.provenance_records();
+
+        assert_eq!(observed.len(), provenance.len());
+        for ((component_name, _), record) in observed.iter().zip(provenance.iter()) {
+            assert_eq!(*component_name, record.component_name);
+            assert_ne!(record.anchor, "legacy_unknown");
+            assert_ne!(record.target_source, "legacy_unknown");
+        }
+    }
+
+    #[test]
+    fn branch_component_audits_group_observed_flow_terms_by_registry_owner() {
+        let components = PrimaryObjectiveComponentMetrics {
+            flow_bond: Some(2.0),
+            flow_bond_confidence_pressure: Some(0.5),
+            flow_native_score_calibration: Some(1.5),
+            flow_native_score_calibration_cap_scale: Some(0.25),
+            flow_pocket_context: Some(3.0),
+            ..PrimaryObjectiveComponentMetrics::default()
+        };
+
+        let audits = components.branch_component_audits();
+        let audit = |name: &str| {
+            audits
+                .iter()
+                .find(|audit| audit.branch_name == name)
+                .unwrap()
+        };
+
+        assert_eq!(audit("bond").observed_component_count, 2);
+        assert_eq!(audit("bond").optimizer_facing_component_count, 2);
+        assert_eq!(audit("bond").diagnostic_component_count, 0);
+        assert_eq!(audit("topology").observed_component_count, 2);
+        assert_eq!(audit("topology").optimizer_facing_component_count, 1);
+        assert_eq!(audit("topology").diagnostic_component_count, 1);
+        assert_eq!(audit("pocket_context").observed_component_count, 1);
+    }
+
+    #[test]
+    fn component_add_assign_and_scale_preserve_observed_registry_values() {
+        let mut components = PrimaryObjectiveComponentMetrics {
+            topology: Some(1.0),
+            flow_native_score_calibration_cap_scale: Some(0.25),
+            ..PrimaryObjectiveComponentMetrics::default()
+        };
+        let other = PrimaryObjectiveComponentMetrics {
+            topology: Some(2.0),
+            flow_bond: Some(3.0),
+            flow_native_score_calibration_cap_scale: Some(0.5),
+            ..PrimaryObjectiveComponentMetrics::default()
+        };
+
+        components.add_assign(&other);
+        let scaled = components.scale(2.0);
+
+        assert_eq!(components.topology, Some(3.0));
+        assert_eq!(components.flow_bond, Some(3.0));
+        assert_eq!(components.flow_native_score_calibration_cap_scale, Some(0.75));
+        assert_eq!(scaled.topology, Some(6.0));
+        assert_eq!(scaled.flow_bond, Some(6.0));
+        assert_eq!(scaled.flow_native_score_calibration_cap_scale, Some(1.5));
+        assert_eq!(scaled.geometry, None);
+    }
+}
+
+fn default_primary_component_target_source() -> String {
+    "legacy_unknown".to_string()
 }
 
 /// Auxiliary losses emitted by each training step.
@@ -499,6 +1090,9 @@ pub struct AuxiliaryLossMetrics {
     pub intra_red: f64,
     /// Semantic probe objective.
     pub probe: f64,
+    /// Internal sparse negative-class calibration inside topology adjacency probing.
+    #[serde(default)]
+    pub probe_topology_sparse_negative_rate: f64,
     /// Ligand pharmacophore role probe subterm.
     #[serde(default)]
     pub probe_ligand_pharmacophore: f64,
@@ -540,6 +1134,9 @@ pub struct AuxiliaryLossMetrics {
     /// Explicit geometry-to-pocket-role leakage penalty.
     #[serde(default)]
     pub leak_geometry_to_pocket_role: f64,
+    /// Explicit pocket-to-topology-role leakage penalty.
+    #[serde(default)]
+    pub leak_pocket_to_topology_role: f64,
     /// Explicit pocket-to-ligand-role leakage penalty.
     #[serde(default)]
     pub leak_pocket_to_ligand_role: f64,
@@ -558,18 +1155,48 @@ pub struct AuxiliaryLossMetrics {
     /// Pocket-ligand contact encouragement objective.
     #[serde(default)]
     pub pocket_contact: f64,
+    /// Atom-pocket pair distance-bin objective.
+    #[serde(default)]
+    pub pocket_pair_distance: f64,
     /// Pocket-ligand steric-clash penalty objective.
     #[serde(default)]
     pub pocket_clash: f64,
+    /// Coarse pocket-ligand shape-complementarity objective.
+    #[serde(default)]
+    pub pocket_shape_complementarity: f64,
     /// Pocket-envelope containment objective.
     #[serde(default)]
     pub pocket_envelope: f64,
+    /// Explicit pocket-conditioned size and composition prior objective.
+    #[serde(default)]
+    pub pocket_prior: f64,
+    /// Atom-count classification subterm for the pocket prior.
+    #[serde(default)]
+    pub pocket_prior_atom_count: f64,
+    /// Composition-distribution subterm for the pocket prior.
+    #[serde(default)]
+    pub pocket_prior_composition: f64,
+    /// Mean absolute atom-count prediction error for the pocket prior.
+    #[serde(default)]
+    pub pocket_prior_atom_count_mae: f64,
     /// Conservative valence overage objective.
     #[serde(default)]
     pub valence_guardrail: f64,
+    /// Expected valence above element-specific capacity.
+    #[serde(default)]
+    pub valence_overage_guardrail: f64,
+    /// Expected valence below a conservative lower bound.
+    #[serde(default)]
+    pub valence_underage_guardrail: f64,
     /// Topology-implied bond-length objective.
     #[serde(default)]
     pub bond_length_guardrail: f64,
+    /// Generated non-bonded short-distance margin objective.
+    #[serde(default)]
+    pub nonbonded_distance_guardrail: f64,
+    /// Generated local-angle plausibility objective.
+    #[serde(default)]
+    pub angle_guardrail: f64,
     /// Mutual information between topology and geometry (decoupling indicator).
     #[serde(default)]
     pub mi_topo_geo: f64,
@@ -606,14 +1233,24 @@ pub enum AuxiliaryObjectiveFamily {
     Consistency,
     /// Pocket-ligand contact encouragement.
     PocketContact,
+    /// Atom-pocket pair distance-bin supervision.
+    PocketPairDistance,
     /// Pocket-ligand steric-clash penalty.
     PocketClash,
+    /// Coarse pocket-ligand shape-complementarity penalty.
+    PocketShapeComplementarity,
     /// Pocket-envelope containment.
     PocketEnvelope,
+    /// Explicit pocket-conditioned size and composition priors.
+    PocketPrior,
     /// Conservative valence overage.
     ValenceGuardrail,
     /// Topology-implied bond-length deviation.
     BondLengthGuardrail,
+    /// Generated non-bonded short-distance margin.
+    NonbondedDistanceGuardrail,
+    /// Generated local-angle plausibility proxy.
+    AngleGuardrail,
 }
 
 impl AuxiliaryObjectiveFamily {
@@ -629,10 +1266,15 @@ impl AuxiliaryObjectiveFamily {
             Self::Slot => "slot",
             Self::Consistency => "consistency",
             Self::PocketContact => "pocket_contact",
+            Self::PocketPairDistance => "pocket_pair_distance",
             Self::PocketClash => "pocket_clash",
+            Self::PocketShapeComplementarity => "pocket_shape_complementarity",
             Self::PocketEnvelope => "pocket_envelope",
+            Self::PocketPrior => "pocket_prior",
             Self::ValenceGuardrail => "valence_guardrail",
             Self::BondLengthGuardrail => "bond_length_guardrail",
+            Self::NonbondedDistanceGuardrail => "nonbonded_distance_guardrail",
+            Self::AngleGuardrail => "angle_guardrail",
         }
     }
 }
@@ -673,6 +1315,393 @@ pub struct AuxiliaryObjectiveReport {
     pub entries: Vec<AuxiliaryObjectiveReportEntry>,
 }
 
+/// Aggregated optimizer objective-family scale record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ObjectiveFamilyBudgetEntry {
+    /// Stable high-level family label, e.g. task, rollout, chemistry.
+    pub family: String,
+    /// Aggregate unweighted value before staged family weights are applied.
+    pub unweighted_value: f64,
+    /// Aggregate effective weight implied by the weighted and unweighted totals.
+    pub effective_weight: f64,
+    /// Final weighted contribution after optional budget clamping.
+    #[serde(default)]
+    pub weighted_value: f64,
+    /// Weighted contribution before optional budget clamping.
+    #[serde(default)]
+    pub raw_weighted_value: f64,
+    /// Fraction of the final total absolute weighted objective owned by this family.
+    #[serde(default)]
+    pub percentage_of_total: f64,
+    /// Optional configured non-primary family budget cap.
+    #[serde(default)]
+    pub budget_cap_fraction: Option<f64>,
+    /// Configured budget behavior: none, warn, or clamp.
+    #[serde(default = "default_objective_family_budget_action")]
+    pub budget_action: String,
+    /// Whether this family was scaled down by budget clamping.
+    #[serde(default)]
+    pub budget_clamped: bool,
+    /// Whether this family contributes to the optimizer objective.
+    pub enabled: bool,
+    /// Compact scale status.
+    #[serde(default)]
+    pub status: String,
+    /// Optional scale or budget warning.
+    #[serde(default)]
+    pub warning: Option<String>,
+}
+
+impl ObjectiveFamilyBudgetEntry {
+    /// Build one high-level objective-family budget entry.
+    pub fn new(
+        family: impl Into<String>,
+        unweighted_value: f64,
+        effective_weight: f64,
+        weighted_value: f64,
+        enabled: bool,
+    ) -> Self {
+        let enabled = enabled && effective_weight.is_finite() && effective_weight > 0.0;
+        let status = if !unweighted_value.is_finite()
+            || !effective_weight.is_finite()
+            || !weighted_value.is_finite()
+        {
+            "nonfinite".to_string()
+        } else if enabled {
+            "active".to_string()
+        } else {
+            "inactive_zero_weight".to_string()
+        };
+        Self {
+            family: family.into(),
+            unweighted_value,
+            effective_weight,
+            weighted_value,
+            raw_weighted_value: weighted_value,
+            percentage_of_total: 0.0,
+            budget_cap_fraction: None,
+            budget_action: default_objective_family_budget_action(),
+            budget_clamped: false,
+            enabled,
+            status,
+            warning: None,
+        }
+    }
+}
+
+fn default_objective_family_budget_action() -> String {
+    "none".to_string()
+}
+
+/// Aggregated objective-family budget report for one optimizer step.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ObjectiveFamilyBudgetReport {
+    /// Per-family records in stable budget-family order.
+    #[serde(default)]
+    pub entries: Vec<ObjectiveFamilyBudgetEntry>,
+    /// Absolute weighted primary/task contribution.
+    #[serde(default)]
+    pub primary_weighted_abs_value: f64,
+    /// Sum of final absolute weighted family contributions.
+    #[serde(default)]
+    pub total_weighted_abs_value: f64,
+    /// Sum of raw absolute weighted family contributions before clamping.
+    #[serde(default)]
+    pub raw_total_weighted_abs_value: f64,
+    /// Configured non-primary family cap, if any.
+    #[serde(default)]
+    pub budget_cap_fraction: Option<f64>,
+    /// Configured budget behavior: none, warn, or clamp.
+    #[serde(default = "default_objective_family_budget_action")]
+    pub budget_action: String,
+    /// Number of families that exceeded a warning-only budget cap.
+    #[serde(default)]
+    pub budget_warning_count: usize,
+    /// Number of families clamped by the configured budget cap.
+    #[serde(default)]
+    pub budget_clamped_count: usize,
+}
+
+impl ObjectiveFamilyBudgetReport {
+    /// Populate percentages without applying a budget cap.
+    pub fn refresh_percentages(&mut self, epsilon: f64) {
+        for entry in &mut self.entries {
+            entry.raw_weighted_value = entry.weighted_value;
+            entry.percentage_of_total = 0.0;
+            entry.budget_cap_fraction = None;
+            entry.budget_action = default_objective_family_budget_action();
+            entry.budget_clamped = false;
+        }
+        self.budget_cap_fraction = None;
+        self.budget_action = default_objective_family_budget_action();
+        self.budget_warning_count = 0;
+        self.budget_clamped_count = 0;
+        self.recompute_totals_and_percentages(epsilon);
+    }
+
+    /// Apply optional non-primary family caps and recompute final percentages.
+    pub fn apply_budget_caps(
+        &mut self,
+        budget_cap_fraction: Option<f64>,
+        budget_action: &str,
+        dominance_warning_ratio: f64,
+        epsilon: f64,
+    ) {
+        let epsilon = positive_or_default(epsilon, 1.0e-12);
+        let dominance_warning_ratio = positive_or_default(dominance_warning_ratio, 10.0);
+        let budget_cap_fraction =
+            budget_cap_fraction.filter(|cap| cap.is_finite() && *cap > 0.0);
+        let budget_action = if budget_cap_fraction.is_some() {
+            budget_action
+        } else {
+            "none"
+        };
+
+        for entry in &mut self.entries {
+            entry.raw_weighted_value = entry.weighted_value;
+            entry.percentage_of_total = 0.0;
+            entry.budget_cap_fraction = if objective_family_budget_applies(&entry.family) {
+                budget_cap_fraction
+            } else {
+                None
+            };
+            entry.budget_action = if entry.budget_cap_fraction.is_some() {
+                budget_action.to_string()
+            } else {
+                default_objective_family_budget_action()
+            };
+            entry.budget_clamped = false;
+        }
+
+        let raw_total_abs = self
+            .entries
+            .iter()
+            .filter(|entry| entry.enabled && entry.raw_weighted_value.is_finite())
+            .map(|entry| entry.raw_weighted_value.abs())
+            .sum::<f64>()
+            .max(epsilon);
+        let primary_abs = self
+            .entries
+            .iter()
+            .find(|entry| entry.family == "task")
+            .filter(|entry| entry.enabled && entry.raw_weighted_value.is_finite())
+            .map(|entry| entry.raw_weighted_value.abs())
+            .unwrap_or(0.0)
+            .max(epsilon);
+
+        self.budget_warning_count = 0;
+        self.budget_clamped_count = 0;
+        for entry in &mut self.entries {
+            if !entry.enabled || !entry.raw_weighted_value.is_finite() {
+                continue;
+            }
+            let raw_abs = entry.raw_weighted_value.abs();
+            if raw_abs <= epsilon {
+                continue;
+            }
+            if let Some(cap) = entry.budget_cap_fraction {
+                let raw_percentage = raw_abs / raw_total_abs;
+                if raw_percentage > cap {
+                    if budget_action == "clamp" {
+                        let limit =
+                            objective_family_budget_limit(raw_abs, raw_total_abs, cap, epsilon);
+                        if raw_abs > limit + epsilon {
+                            let sign = if entry.raw_weighted_value.is_sign_negative() {
+                                -1.0
+                            } else {
+                                1.0
+                            };
+                            entry.weighted_value = sign * limit;
+                            entry.budget_clamped = true;
+                            entry.status = "budget_clamped".to_string();
+                            entry.warning = Some(format!(
+                                "weighted objective family clamped to configured budget cap {:.4}",
+                                cap
+                            ));
+                            self.budget_clamped_count += 1;
+                            continue;
+                        }
+                    } else {
+                        entry.status = "budget_cap_warning".to_string();
+                        entry.warning = Some(format!(
+                            "weighted objective family exceeds configured budget cap {:.4}",
+                            cap
+                        ));
+                        self.budget_warning_count += 1;
+                        continue;
+                    }
+                }
+            }
+
+            if objective_family_budget_applies(&entry.family)
+                && raw_abs > primary_abs * dominance_warning_ratio
+            {
+                entry.status = "dominant".to_string();
+                entry.warning = Some(format!(
+                    "weighted objective family exceeds {:.4}x the weighted primary objective",
+                    dominance_warning_ratio
+                ));
+            }
+        }
+
+        self.budget_cap_fraction = budget_cap_fraction;
+        self.budget_action = budget_action.to_string();
+        self.recompute_totals_and_percentages(epsilon);
+    }
+
+    fn recompute_totals_and_percentages(&mut self, epsilon: f64) {
+        let epsilon = positive_or_default(epsilon, 1.0e-12);
+        self.primary_weighted_abs_value = self
+            .entries
+            .iter()
+            .find(|entry| entry.family == "task")
+            .filter(|entry| entry.enabled && entry.weighted_value.is_finite())
+            .map(|entry| entry.weighted_value.abs())
+            .unwrap_or(0.0);
+        self.total_weighted_abs_value = self
+            .entries
+            .iter()
+            .filter(|entry| entry.enabled && entry.weighted_value.is_finite())
+            .map(|entry| entry.weighted_value.abs())
+            .sum::<f64>();
+        self.raw_total_weighted_abs_value = self
+            .entries
+            .iter()
+            .filter(|entry| entry.enabled && entry.raw_weighted_value.is_finite())
+            .map(|entry| entry.raw_weighted_value.abs())
+            .sum::<f64>();
+        let denominator = self.total_weighted_abs_value.max(epsilon);
+        for entry in &mut self.entries {
+            entry.percentage_of_total = if entry.enabled && entry.weighted_value.is_finite() {
+                entry.weighted_value.abs() / denominator
+            } else {
+                0.0
+            };
+        }
+    }
+}
+
+fn positive_or_default(value: f64, default_value: f64) -> f64 {
+    if value.is_finite() && value > 0.0 {
+        value
+    } else {
+        default_value
+    }
+}
+
+fn objective_family_budget_applies(family: &str) -> bool {
+    family != "task"
+}
+
+fn objective_family_budget_limit(
+    raw_abs: f64,
+    raw_total_abs: f64,
+    cap: f64,
+    epsilon: f64,
+) -> f64 {
+    if cap >= 1.0 {
+        return raw_abs;
+    }
+    let other_abs = (raw_total_abs - raw_abs).max(0.0);
+    if other_abs <= epsilon {
+        0.0
+    } else {
+        (cap * other_abs / (1.0 - cap)).max(0.0)
+    }
+}
+
+/// Optimizer-facing short-rollout loss and scheduled-sampling diagnostics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RolloutTrainingLossMetrics {
+    /// Whether `training.rollout_training.enabled` was true.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Whether this step is at or past the configured rollout warmup step.
+    #[serde(default)]
+    pub active: bool,
+    /// Configured warmup step for rollout-state losses.
+    #[serde(default)]
+    pub warmup_step: usize,
+    /// Configured bounded rollout step count.
+    #[serde(default)]
+    pub configured_steps: usize,
+    /// Mean emitted differentiable rollout records per contributing example.
+    #[serde(default)]
+    pub executed_steps_mean: f64,
+    /// Maximum examples allowed to contribute rollout-state loss.
+    #[serde(default)]
+    pub max_batch_examples: usize,
+    /// Number of examples that contributed rollout-state loss.
+    #[serde(default)]
+    pub contributing_examples: usize,
+    /// Detach policy used between generated states.
+    #[serde(default)]
+    pub detach_policy: String,
+    /// Target/evidence source for rollout-state losses.
+    #[serde(default)]
+    pub target_source: String,
+    /// Teacher-forced primary loss observed on the same step.
+    #[serde(default)]
+    pub teacher_forced_loss: f64,
+    /// Weighted rollout-state loss added to the optimizer objective.
+    #[serde(default)]
+    pub rollout_state_loss: f64,
+    /// Divergence between rollout-state loss and teacher-forced primary loss.
+    #[serde(default)]
+    pub teacher_rollout_divergence: f64,
+    /// Compact generated-state validity proxy in `[0, 1]`.
+    #[serde(default)]
+    pub generated_state_validity: f64,
+    /// Weighted atom-validity contribution.
+    #[serde(default)]
+    pub atom_validity: f64,
+    /// Weighted bond-consistency contribution.
+    #[serde(default)]
+    pub bond_consistency: f64,
+    /// Weighted sparse negative-class calibration inside rollout bond consistency.
+    #[serde(default)]
+    pub bond_sparse_negative_rate: f64,
+    /// Weighted pocket-contact contribution.
+    #[serde(default)]
+    pub pocket_contact: f64,
+    /// Weighted clash-margin contribution.
+    #[serde(default)]
+    pub clash_margin: f64,
+    /// Weighted endpoint-consistency contribution.
+    #[serde(default)]
+    pub endpoint_consistency: f64,
+    /// Memory-control note for audit reports.
+    #[serde(default)]
+    pub memory_control: String,
+}
+
+impl Default for RolloutTrainingLossMetrics {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            active: false,
+            warmup_step: 0,
+            configured_steps: 0,
+            executed_steps_mean: 0.0,
+            max_batch_examples: 0,
+            contributing_examples: 0,
+            detach_policy: "disabled".to_string(),
+            target_source: "generated_rollout_state".to_string(),
+            teacher_forced_loss: 0.0,
+            rollout_state_loss: 0.0,
+            teacher_rollout_divergence: 0.0,
+            generated_state_validity: 0.0,
+            atom_validity: 0.0,
+            bond_consistency: 0.0,
+            bond_sparse_negative_rate: 0.0,
+            pocket_contact: 0.0,
+            clash_margin: 0.0,
+            endpoint_consistency: 0.0,
+            memory_control: "disabled".to_string(),
+        }
+    }
+}
+
 /// Named loss values emitted by each training step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LossBreakdown {
@@ -680,6 +1709,12 @@ pub struct LossBreakdown {
     pub primary: PrimaryObjectiveMetrics,
     /// Auxiliary regularizer metrics.
     pub auxiliaries: AuxiliaryLossMetrics,
+    /// Optional optimizer-facing short-rollout objective diagnostics.
+    #[serde(default)]
+    pub rollout_training: RolloutTrainingLossMetrics,
+    /// High-level objective-family scale and budget report.
+    #[serde(default)]
+    pub objective_family_budget_report: ObjectiveFamilyBudgetReport,
     /// Weighted total objective.
     pub total: f64,
 }
@@ -708,6 +1743,9 @@ pub struct StageProgressMetrics {
     /// Compact readiness status: disabled, ready, warning, or held.
     #[serde(default)]
     pub readiness_status: String,
+    /// Explicit promotion-gate decision: fixed_schedule, promoted, held_previous_stage, etc.
+    #[serde(default)]
+    pub promotion_gate_decision: String,
     /// Deterministic reasons used to advance, warn, or hold.
     #[serde(default)]
     pub readiness_reasons: Vec<String>,
@@ -760,6 +1798,9 @@ pub struct TrainingRuntimeProfileMetrics {
     /// Correctness reason when de novo execution deliberately uses per-example forwards.
     #[serde(default)]
     pub de_novo_per_example_reason: Option<String>,
+    /// Effective scaffold/x0 samples evaluated per pocket for this step.
+    #[serde(default = "default_generation_sample_count")]
+    pub generation_sample_count: usize,
     /// Whether sampled rollout diagnostic traces were requested for this step.
     #[serde(default)]
     pub rollout_diagnostics_built: bool,
@@ -793,6 +1834,7 @@ impl Default for TrainingRuntimeProfileMetrics {
             per_example_forward_count: 0,
             forward_execution_mode: "unavailable".to_string(),
             de_novo_per_example_reason: None,
+            generation_sample_count: default_generation_sample_count(),
             rollout_diagnostics_built: false,
             rollout_diagnostic_execution_count: 0,
             rollout_diagnostics_no_grad: false,
@@ -802,6 +1844,10 @@ impl Default for TrainingRuntimeProfileMetrics {
             objective_execution_counts: ObjectiveExecutionCountMetrics::default(),
         }
     }
+}
+
+fn default_generation_sample_count() -> usize {
+    1
 }
 
 /// Gradient-health summary for one trainable module group.
@@ -922,6 +1968,12 @@ pub struct ObjectiveGradientDiagnostics {
     /// Diagnostic mode used to keep runtime bounded.
     #[serde(default)]
     pub sampling_mode: String,
+    /// Configured dominant-family fraction threshold for this step.
+    #[serde(default)]
+    pub dominance_fraction_threshold: f64,
+    /// Number of sampled families marked as dominant.
+    #[serde(default)]
+    pub dominant_family_count: usize,
     /// Per-objective-family records.
     #[serde(default)]
     pub entries: Vec<ObjectiveGradientFamilyMetrics>,

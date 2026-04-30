@@ -793,6 +793,19 @@ step、runtime tracking、metric construction 和 checkpoint
 trigger；runtime metrics 会记录 batched forward count、per-example
 fallback count、forward execution mode，以及 de novo per-example
 fallback reason。</li>
+<li>primary component provenance、flow branch schedule report、branch
+component audit 和 objective-family budget report 的解释逻辑已经集中到
+<code>src/training/metrics/</code>，而不是留在 trainer
+内部用字符串前缀判断。详细边界见
+<code>docs/training_metrics_audit.md</code>。</li>
+<li>branch schedule artifact 中的每个 branch 会带
+<code>component_audit</code>，记录该 branch 观察到的 primary component
+名称、optimizer-facing component 数量、diagnostic-only component
+数量和值汇总。该汇总只用于审计，不重新计算 optimizer total。</li>
+<li>objective-family budget family 固定为
+<code>task</code>、<code>rollout</code>、<code>pocket_interaction</code>、<code>chemistry</code>、<code>redundancy</code>、<code>probe</code>、<code>leakage</code>、<code>gate</code>、<code>slot</code>。warn/clamp
+逻辑在 family 聚合之后执行，方便审计辅助目标是否压过 primary/rollout
+信号。</li>
 </ul>
 <p>主要 artifact：</p>
 <pre class="text"><code>training_summary.json

@@ -142,7 +142,13 @@ impl GatedCrossAttention {
             masked_attention_softmax(&attention_scores, &source_mask) * &target_mask;
         let attended = attention_weights.matmul(&values);
 
-        let learned_gate = self.learned_gate(query_slots, key_slots, &attended);
+        let learned_gate = self.learned_gate(
+            query_slots,
+            key_slots,
+            &attended,
+            &target.active_slot_mask,
+            &source.active_slot_mask,
+        );
         let gate = match self.interaction_mode {
             CrossAttentionMode::DirectFusionNegativeControl => Tensor::ones_like(&learned_gate),
             CrossAttentionMode::Lightweight | CrossAttentionMode::Transformer => learned_gate,
@@ -151,6 +157,11 @@ impl GatedCrossAttention {
             self.interaction_mode,
             CrossAttentionMode::DirectFusionNegativeControl
         );
+        let gate = if forced_open {
+            gate
+        } else {
+            mask_target_slot_gate(gate, &target_mask, &source_available)
+        };
         let gated_update = attended * &gate;
         let projected_update = gated_update.apply(&self.output_proj);
         let attended_tokens = match self.interaction_mode {
@@ -239,7 +250,13 @@ impl GatedCrossAttention {
             masked_attention_softmax(&attention_scores, &source_mask) * &target_mask;
         let attended = attention_weights.bmm(&values);
 
-        let learned_gate = self.learned_gate_batch(query_slots, key_slots, &attended);
+        let learned_gate = self.learned_gate_batch(
+            query_slots,
+            key_slots,
+            &attended,
+            &target.active_slot_mask,
+            &source.active_slot_mask,
+        );
         let gate = match self.interaction_mode {
             CrossAttentionMode::DirectFusionNegativeControl => Tensor::ones_like(&learned_gate),
             CrossAttentionMode::Lightweight | CrossAttentionMode::Transformer => learned_gate,
@@ -248,6 +265,11 @@ impl GatedCrossAttention {
             self.interaction_mode,
             CrossAttentionMode::DirectFusionNegativeControl
         );
+        let gate = if forced_open {
+            gate
+        } else {
+            mask_target_slot_gate(gate, &target_mask, &source_available)
+        };
         let gated_update = match gate.size().len() {
             2 => attended * gate.unsqueeze(-1),
             _ => attended * &gate,
@@ -289,11 +311,18 @@ impl GatedCrossAttention {
         }
     }
 
-    fn learned_gate(&self, query_slots: &Tensor, key_slots: &Tensor, attended: &Tensor) -> Tensor {
+    fn learned_gate(
+        &self,
+        query_slots: &Tensor,
+        key_slots: &Tensor,
+        attended: &Tensor,
+        target_slot_mask: &Tensor,
+        source_slot_mask: &Tensor,
+    ) -> Tensor {
         let logits = match self.interaction_tuning.gate_mode {
             InteractionGateMode::PathScalar => {
-                let query_summary = query_slots.mean_dim([0].as_slice(), false, Kind::Float);
-                let source_summary = key_slots.mean_dim([0].as_slice(), false, Kind::Float);
+                let query_summary = masked_slot_mean(query_slots, target_slot_mask);
+                let source_summary = masked_slot_mean(key_slots, source_slot_mask);
                 Tensor::cat(&[query_summary, source_summary], 0)
                     .unsqueeze(0)
                     .apply(&self.gate_proj)
@@ -312,11 +341,13 @@ impl GatedCrossAttention {
         query_slots: &Tensor,
         key_slots: &Tensor,
         attended: &Tensor,
+        target_slot_mask: &Tensor,
+        source_slot_mask: &Tensor,
     ) -> Tensor {
         let logits = match self.interaction_tuning.gate_mode {
             InteractionGateMode::PathScalar => {
-                let query_summary = query_slots.mean_dim([1].as_slice(), false, Kind::Float);
-                let source_summary = key_slots.mean_dim([1].as_slice(), false, Kind::Float);
+                let query_summary = masked_slot_mean_batch(query_slots, target_slot_mask);
+                let source_summary = masked_slot_mean_batch(key_slots, source_slot_mask);
                 Tensor::cat(&[query_summary, source_summary], -1).apply(&self.gate_proj)
             }
             InteractionGateMode::TargetSlot => {
@@ -330,6 +361,44 @@ impl GatedCrossAttention {
     fn activate_gate(&self, logits: Tensor) -> Tensor {
         ((logits + self.interaction_tuning.gate_bias) / self.interaction_tuning.gate_temperature)
             .sigmoid()
+    }
+}
+
+fn masked_slot_mean(slots: &Tensor, slot_mask: &Tensor) -> Tensor {
+    let mask = slot_mask
+        .to_device(slots.device())
+        .to_kind(Kind::Float)
+        .reshape([slot_mask.size().first().copied().unwrap_or(0).max(0), 1]);
+    let hidden_dim = slots.size().get(1).copied().unwrap_or(0).max(0);
+    if slots.numel() == 0 || mask.numel() == 0 || mask.size()[0] != slots.size()[0] {
+        return Tensor::zeros([hidden_dim], (Kind::Float, slots.device()));
+    }
+    (slots * &mask).sum_dim_intlist([0].as_slice(), false, Kind::Float)
+        / mask.sum(Kind::Float).clamp_min(1.0e-6)
+}
+
+fn masked_slot_mean_batch(slots: &Tensor, slot_mask: &Tensor) -> Tensor {
+    let hidden_dim = slots.size().get(2).copied().unwrap_or(0).max(0);
+    let batch = slots.size().first().copied().unwrap_or(0).max(0);
+    let mask = slot_mask.to_device(slots.device()).to_kind(Kind::Float);
+    if slots.numel() == 0
+        || mask.numel() == 0
+        || mask.size().as_slice() != [batch, slots.size().get(1).copied().unwrap_or(0).max(0)]
+    {
+        return Tensor::zeros([batch, hidden_dim], (Kind::Float, slots.device()));
+    }
+    let mask = mask.unsqueeze(-1);
+    (slots * &mask).sum_dim_intlist([1].as_slice(), false, Kind::Float)
+        / mask
+            .sum_dim_intlist([1].as_slice(), false, Kind::Float)
+            .clamp_min(1.0e-6)
+}
+
+fn mask_target_slot_gate(gate: Tensor, target_mask: &Tensor, source_available: &Tensor) -> Tensor {
+    if gate.size() == target_mask.size() {
+        gate * target_mask * source_available
+    } else {
+        gate
     }
 }
 
@@ -507,7 +576,10 @@ mod tests {
             4,
             CrossAttentionMode::DirectFusionNegativeControl,
             2,
-            InteractionTuningConfig::default(),
+            InteractionTuningConfig {
+                gate_mode: InteractionGateMode::PathScalar,
+                ..InteractionTuningConfig::default()
+            },
         );
         let target = slot_encoding(
             Tensor::ones([2, 4], (Kind::Float, Device::Cpu)),
@@ -562,6 +634,46 @@ mod tests {
     }
 
     #[test]
+    fn target_slot_gate_mode_masks_inactive_target_slots() {
+        let vs = nn::VarStore::new(Device::Cpu);
+        let attention = GatedCrossAttention::new(
+            &vs.root(),
+            4,
+            CrossAttentionMode::Lightweight,
+            2,
+            InteractionTuningConfig {
+                gate_mode: InteractionGateMode::TargetSlot,
+                ..InteractionTuningConfig::default()
+            },
+        );
+        let target = slot_encoding(
+            Tensor::ones([2, 4], (Kind::Float, Device::Cpu)),
+            &[1.0, 0.0],
+        );
+        let source = slot_encoding(
+            Tensor::ones([3, 4], (Kind::Float, Device::Cpu)),
+            &[1.0, 1.0, 1.0],
+        );
+
+        let output = attention.forward(&target, &source);
+
+        assert_eq!(output.gate.size(), vec![2, 1]);
+        assert!(output.gate.double_value(&[0, 0]) > 0.0);
+        assert_eq!(output.gate.double_value(&[1, 0]), 0.0);
+    }
+
+    #[test]
+    fn path_scalar_gate_summary_ignores_inactive_slots() {
+        let slots =
+            Tensor::from_slice(&[2.0_f32, 0.0, 0.0, 0.0, 200.0, 0.0, 0.0, 0.0]).reshape([2, 4]);
+        let mask = Tensor::from_slice(&[1.0_f32, 0.0]);
+
+        let summary = masked_slot_mean(&slots, &mask);
+
+        assert_eq!(summary.double_value(&[0]), 2.0);
+    }
+
+    #[test]
     fn batched_target_slot_gate_mode_emits_gate_tensor_per_target_slot() {
         let vs = nn::VarStore::new(Device::Cpu);
         let attention = GatedCrossAttention::new(
@@ -587,6 +699,35 @@ mod tests {
 
         assert_eq!(output.gate.size(), vec![2, 2, 1]);
         assert_eq!(output.attended_tokens.size(), vec![2, 2, 4]);
+    }
+
+    #[test]
+    fn batched_target_slot_gate_mode_masks_inactive_target_slots() {
+        let vs = nn::VarStore::new(Device::Cpu);
+        let attention = GatedCrossAttention::new(
+            &vs.root(),
+            4,
+            CrossAttentionMode::Transformer,
+            2,
+            InteractionTuningConfig {
+                gate_mode: InteractionGateMode::TargetSlot,
+                ..InteractionTuningConfig::default()
+            },
+        );
+        let target = batched_slot_encoding(
+            Tensor::ones([2, 2, 4], (Kind::Float, Device::Cpu)),
+            Tensor::from_slice(&[1.0_f32, 0.0, 0.0, 1.0]).reshape([2, 2]),
+        );
+        let source = batched_slot_encoding(
+            Tensor::ones([2, 3, 4], (Kind::Float, Device::Cpu)),
+            Tensor::ones([2, 3], (Kind::Float, Device::Cpu)),
+        );
+
+        let output = attention.forward_batch(&target, &source, None);
+
+        assert_eq!(output.gate.size(), vec![2, 2, 1]);
+        assert_eq!(output.gate.double_value(&[0, 1, 0]), 0.0);
+        assert_eq!(output.gate.double_value(&[1, 0, 0]), 0.0);
     }
 
     #[test]

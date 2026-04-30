@@ -96,6 +96,11 @@ paper claims aligned.
     `PrimaryObjectiveComponentMetrics` (`topology`, `geometry`, `pocket_anchor`,
     `rollout`, `flow_velocity`, `flow_endpoint`) as part of
     `PrimaryObjectiveMetrics`.
+  - The current provenance and observability boundary is documented in
+    [`training_metrics_audit.md`](training_metrics_audit.md). Primary component
+    descriptors, flow branch component audits, and objective-family budget
+    grouping are owned by `src/training/metrics/` rather than by the trainer or
+    loss implementations.
 
 ## Objectives
 
@@ -117,6 +122,12 @@ paper claims aligned.
   - Owns staged scheduling, weighted objective aggregation, optimizer steps,
     checkpointing, and metric emission.
   - It does not directly own individual auxiliary objective implementations.
+  - Delegates primary component provenance, flow branch schedule reports, branch
+    component audits, and objective-family budget reports to
+    `src/training/metrics/`.
+  - Emits adaptive stage-promotion decisions and optional objective-gradient
+    diagnostics so auxiliary families cannot silently dominate task or rollout
+    signal.
   - Optional adaptive stage readiness guards and training runtime profiling are
     documented in [`adaptive_staging_design.md`](adaptive_staging_design.md).
 
@@ -124,7 +135,9 @@ paper claims aligned.
 
 The detailed refinement versus true de novo contract is maintained in
 [`generation_objective_boundary.md`](generation_objective_boundary.md).
-The rollout optimizer boundary is maintained in
+The Q15 generation-alignment claim boundary is maintained in
+[`q15_generation_alignment_final_contract.md`](q15_generation_alignment_final_contract.md).
+The historical rollout signal boundary is maintained in
 [`rollout_training_signal_boundary.md`](rollout_training_signal_boundary.md).
 The molecular-flow branch and target-matching contracts are maintained in
 [`q13_molecular_flow_contract.md`](q13_molecular_flow_contract.md),
@@ -164,9 +177,9 @@ The molecular-flow branch and target-matching contracts are maintained in
   - Primary losses and staged auxiliary losses are optimizer-facing only when
     their configured effective weights are active and tensor paths remain
     differentiable.
-  - Rollout recovery metrics currently use serialized rollout diagnostics and
-    are reported as detached `rollout_eval_*` values unless a future
-    tensor-preserving rollout objective is implemented.
+  - `training.rollout_training` is the bounded tensor-preserving short-rollout
+    objective when enabled and active. Detached `rollout_eval_*` values remain
+    evaluation diagnostics and stage-promotion gates.
 
 ## Configuration Switches
 
@@ -180,6 +193,11 @@ The molecular-flow branch and target-matching contracts are maintained in
     valence and bond-length guardrails from stage 2, enable pharmacophore
     role probes and role-leakage controls from stage 3, then add gate/slot
     sparsity through the configurable Stage 4 warmup.
+  - Owns `rollout_training`, `objective_scale_diagnostics`, and
+    `objective_gradient_diagnostics` for Q15 generation-alignment experiments.
+    Objective-family budget fields report `task`, `rollout`,
+    `pocket_interaction`, `chemistry`, `redundancy`, `probe`, `leakage`,
+    `gate`, and `slot` separately.
   - Exposes explicit leakage-probe flags (`enable_explicit_probes` and per-route
     probes) for controlled off-modality supervision experiments.
   - Exposes `adaptive_stage_guard`, which is disabled by default and can either
@@ -190,7 +208,9 @@ The molecular-flow branch and target-matching contracts are maintained in
     as separate evidence roles.
 - `src/config/types/model.rs`
   - Owns interaction ablation/regularization switches including interaction mode
-    and gating hyper-parameters (`gate_temperature`, `gate_bias`).
+    and gating hyper-parameters (`gate_mode`, `gate_temperature`, `gate_bias`).
+    The default gate mode is target-slot granularity; path-scalar gates remain
+    available as a coarse controlled-interaction ablation.
   - `interaction_tuning.gate_regularization_path_weights` optionally scales
     individual directed paths inside `L_gate`; empty config preserves the prior
     six-path average.
@@ -214,6 +234,10 @@ The molecular-flow branch and target-matching contracts are maintained in
     model-native behavior, constrained/repaired/reranked outputs, and repair
     case evidence. Repaired improvements must not be cited as raw generation
     evidence.
+  - `EvaluationMatrixReport` and `raw_native_generation_report.json` put
+    raw-native quality before processed evidence. `AblationMatrixSummary`
+    records raw generation quality, runtime, and objective-family behavior for
+    generation-alignment variants.
 
 - `configs/drug_metric_artifact_manifest.json`
   - Records claim-facing evidence artifact paths.

@@ -1,5 +1,7 @@
 use tch::{Kind, Tensor};
 
+use super::atom_commit::confidence_gated_atom_type_commit;
+use super::pocket_constraints::{constrain_to_pocket_envelope, pocket_radius_from_coords};
 use super::{
     last_refresh_step_for_policy, path_usage_summary, refresh_count_for_policy,
     stale_context_steps_for_policy, ConditionedGenerationState, CrossModalInteractions,
@@ -15,8 +17,8 @@ use crate::{
     data::MolecularExample,
     models::{
         interaction::InteractionExecutionContext, ConditioningState, FlowMatchingHead, FlowState,
-        MolecularFlowInput, NativeGraphExtractionResult, TargetMatchingResult,
-        MOLECULAR_FLOW_CONTRACT_VERSION,
+        MolecularFlowInput, NativeGraphExtractionResult, TargetMatchingFeatures,
+        TargetMatchingResult, MOLECULAR_FLOW_CONTRACT_VERSION,
     },
 };
 
@@ -93,9 +95,17 @@ impl super::Phase1ResearchSystem {
             example,
             &generation_state.partial_ligand.coords,
         );
-        let Some(matched_x1) =
-            matched_target_coords(&x0, &example.decoder_supervision.target_coords, policy)
-        else {
+        let Some(matched_x1) = matched_target_coords(
+            &x0,
+            &example.decoder_supervision.target_coords,
+            policy,
+            TargetMatchingFeatures {
+                generated_atom_types: Some(&generation_state.partial_ligand.atom_types),
+                target_atom_types: Some(&example.decoder_supervision.target_atom_types),
+                generated_adjacency: None,
+                target_adjacency: Some(&example.topology.adjacency),
+            },
+        ) else {
             return None;
         };
         let x1 = fill_unmatched_target_coords(&matched_x1.values, &x0, &matched_x1.matching.mask);
@@ -257,14 +267,18 @@ impl super::Phase1ResearchSystem {
                             conditioning: &conditioning,
                         })
                 {
-                    atom_types_tensor = prediction.atom_type_logits.argmax(-1, false);
+                    atom_types_tensor = confidence_gated_atom_type_commit(
+                        &prediction.atom_type_logits,
+                        &atom_types_tensor,
+                    );
                     atom_types = tensor_to_i64_vec(&atom_types_tensor);
-                    let graph = crate::models::predicted_native_graph_from_flow(
+                    let graph = crate::models::predicted_native_graph_from_flow_with_config(
                         &atom_types_tensor,
                         &coords,
                         &prediction.bond_exists_logits,
                         &prediction.bond_type_logits,
                         &prediction.topology_logits,
+                        self.native_graph_extraction_config,
                     );
                     native_graph_provenance = native_graph_layer_provenance(&graph);
                     native_bonds = graph.raw_bonds;
@@ -304,9 +318,18 @@ impl super::Phase1ResearchSystem {
             });
         }
 
+        let sample = super::generation_sample_report(
+            &initial_state.protein_id,
+            interaction_execution_context,
+        );
         GenerationRolloutRecord {
             example_id: initial_state.example_id.clone(),
             protein_id: initial_state.protein_id.clone(),
+            pocket_id: sample.pocket_id,
+            sample_index: sample.sample_index,
+            sample_count: sample.sample_count,
+            sample_seed: sample.sample_seed,
+            sample_seed_provenance: sample.sample_seed_provenance,
             generation_mode: self.generation_mode.as_str().to_string(),
             decoder_capability: self.decoder_capability_label().to_string(),
             atom_count_source: self.generation_mode.atom_count_source_label().to_string(),
@@ -595,31 +618,6 @@ pub(crate) fn pocket_guidance_delta(
     centroid_offset.unsqueeze(0).expand_as(current_coords) * guidance_scale
 }
 
-pub(crate) fn constrain_to_pocket_envelope(
-    coords: &Tensor,
-    pocket_coords: &Tensor,
-    pocket_guidance_scale: f64,
-) -> Tensor {
-    if coords.numel() == 0 || pocket_coords.numel() == 0 || pocket_guidance_scale <= 0.0 {
-        return coords.shallow_clone();
-    }
-
-    let pocket_centroid = pocket_coords.mean_dim([0].as_slice(), false, Kind::Float);
-    let pocket_radius = pocket_radius_from_coords(pocket_coords, &pocket_centroid).max(1.0);
-    let max_radius = pocket_radius + 1.5;
-    let offsets = coords - pocket_centroid.unsqueeze(0);
-    let radii = offsets
-        .pow_tensor_scalar(2.0)
-        .sum_dim_intlist([1].as_slice(), true, Kind::Float)
-        .sqrt()
-        .clamp_min(1e-6);
-    let scale = radii.clamp_max(max_radius) / &radii;
-    let projected = pocket_centroid.unsqueeze(0) + offsets * scale;
-    let outside = radii.gt(max_radius).to_kind(Kind::Float);
-    let ones = Tensor::ones_like(&outside);
-    &outside * projected + (&ones - &outside) * coords
-}
-
 pub(crate) fn flow_matching_x0_for_state(
     example: &MolecularExample,
     reference_coords: &Tensor,
@@ -699,8 +697,14 @@ fn matched_target_coords(
     generated_coords: &Tensor,
     target: &Tensor,
     policy: FlowTargetAlignmentPolicy,
+    features: TargetMatchingFeatures<'_>,
 ) -> Option<MatchedTargetCoords> {
-    let matching = crate::models::match_molecular_targets(generated_coords, target, policy)?;
+    let matching = crate::models::match_molecular_targets_with_features(
+        generated_coords,
+        target,
+        policy,
+        features,
+    )?;
     let values = matched_float_rows(target, &matching, 3, generated_coords.device());
     Some(MatchedTargetCoords { values, matching })
 }
@@ -971,6 +975,12 @@ fn flow_matching_time_seed(
         if let Some(sample_order_seed) = context.sample_order_seed {
             seed ^= sample_order_seed.wrapping_mul(0x7e0f_4f5f_11ac_89cb);
         }
+        if let Some(generation_sample_index) = context.generation_sample_index {
+            seed ^= (generation_sample_index as u64).wrapping_mul(0x681e_5d8f_7f53_a121);
+        }
+        if let Some(generation_sample_seed) = context.generation_sample_seed {
+            seed ^= generation_sample_seed.wrapping_mul(0x9fb2_1c65_d1f4_2a3d);
+        }
     }
 
     seed
@@ -1036,16 +1046,4 @@ fn deterministic_flow_unit(seed: u64, atom_ix: usize, axis: usize) -> f64 {
     value = value.wrapping_mul(0x94D0_49BB_1331_11EB);
     value ^= value >> 31;
     (value as f64) / (u64::MAX as f64)
-}
-
-fn pocket_radius_from_coords(pocket_coords: &Tensor, pocket_centroid: &Tensor) -> f64 {
-    if pocket_coords.numel() == 0 {
-        return 0.0;
-    }
-    (pocket_coords - pocket_centroid.unsqueeze(0))
-        .pow_tensor_scalar(2.0)
-        .sum_dim_intlist([1].as_slice(), false, Kind::Float)
-        .sqrt()
-        .mean(Kind::Float)
-        .double_value(&[])
 }

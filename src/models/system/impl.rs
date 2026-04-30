@@ -25,6 +25,8 @@ pub struct GeneratorStack {
     pub flow_matching_head: FlowVelocityHead,
     /// Full molecular flow branches for atom type, bond, topology, and context transport.
     pub molecular_flow_head: FullMolecularFlowHead,
+    /// Explicit pocket-conditioned size and composition prior heads.
+    pub pocket_prior_head: PocketConditionedPriorHead,
 }
 
 /// Grouped semantic and leakage probe heads.
@@ -49,6 +51,8 @@ pub struct Phase1ResearchSystem {
     generation_backend_family: GenerationBackendFamilyConfig,
     generation_mode: GenerationModeConfig,
     flow_matching_config: crate::config::FlowMatchingConfig,
+    rollout_training_config: RolloutTrainingConfig,
+    native_graph_extraction_config: NativeGraphExtractionConfig,
     modality_focus: crate::config::ModalityFocusConfig,
     atom_vocab_size: i64,
 }
@@ -131,6 +135,19 @@ impl Phase1ResearchSystem {
                     ),
                 }))
             }
+            FlowVelocityHeadKind::EquivariantGeometry => {
+                FlowVelocityHead::EquivariantGeometry(Box::new(
+                    crate::models::EquivariantGeometryVelocityHead::new(
+                        &(vs / "flow_matching_head"),
+                        crate::models::EquivariantGeometryVelocityConfig {
+                            hidden_dim: config.model.hidden_dim,
+                            pairwise_geometry: pairwise_geometry
+                                .clone()
+                                .unwrap_or_else(crate::models::PairwiseGeometryConfig::default),
+                        },
+                    ),
+                ))
+            }
             FlowVelocityHeadKind::AtomPocketCrossAttention => {
                 FlowVelocityHead::AtomPocketCrossAttention(Box::new(
                     crate::models::AtomPocketCrossAttentionVelocityHead::new(
@@ -151,6 +168,16 @@ impl Phase1ResearchSystem {
             config.model.bond_vocab_size,
             config.model.hidden_dim,
             config.model.decoder_conditioning.kind,
+        );
+        let pocket_prior_head = PocketConditionedPriorHead::new(
+            &(vs / "pocket_prior_head"),
+            config.model.hidden_dim,
+            config
+                .data
+                .generation_target
+                .de_novo_initialization
+                .max_atom_count,
+            config.model.atom_vocab_size,
         );
 
         let generation_backend_family = resolved_generation_backend_family(config);
@@ -173,12 +200,21 @@ impl Phase1ResearchSystem {
                 ligand_decoder,
                 flow_matching_head,
                 molecular_flow_head,
+                pocket_prior_head,
             },
             probe_stack: ProbeStack { probes },
             generation_target: config.data.generation_target.clone(),
             generation_backend_family,
             generation_mode,
             flow_matching_config: config.generation_method.flow_matching.clone(),
+            rollout_training_config: config.training.rollout_training.clone(),
+            native_graph_extraction_config: NativeGraphExtractionConfig {
+                score_threshold: config
+                    .training
+                    .sparse_topology_calibration
+                    .native_score_threshold,
+                ..NativeGraphExtractionConfig::default()
+            },
             modality_focus: config.model.modality_focus,
             atom_vocab_size: config.model.atom_vocab_size,
         }
@@ -187,7 +223,8 @@ impl Phase1ResearchSystem {
     /// Run the three modality encoders for one example.
     pub(crate) fn encode_example(&self, example: &MolecularExample) -> EncodedModalities {
         if self.generation_mode == GenerationModeConfig::DeNovoInitialization {
-            let (topology, geometry, pocket) = self.de_novo_conditioning_modalities(example);
+            let (topology, geometry, pocket) =
+                self.de_novo_conditioning_modalities(example, &InteractionExecutionContext::default());
             return EncodedModalities {
                 topology: self.encoder_stack.topology_branch.encode(&topology),
                 geometry: self.encoder_stack.geometry_branch.encode(&geometry),
@@ -520,8 +557,10 @@ impl Phase1ResearchSystem {
     fn de_novo_conditioning_modalities(
         &self,
         example: &MolecularExample,
+        interaction_execution_context: &InteractionExecutionContext,
     ) -> (TopologyFeatures, GeometryFeatures, PocketFeatures) {
-        let scaffold = self.initial_partial_ligand_state(example);
+        let scaffold =
+            self.initial_partial_ligand_state(example, Some(interaction_execution_context));
         let device = scaffold.coords.device();
         let topology = topology_from_partial_ligand(&scaffold, self.flow_matching_config.noise_scale)
             .to_device(device);

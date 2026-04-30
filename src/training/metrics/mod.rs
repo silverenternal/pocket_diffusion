@@ -14,13 +14,15 @@ use crate::{
 };
 
 /// Version tag for the persisted metric schema.
-pub const METRIC_SCHEMA_VERSION: u32 = 14;
+pub const METRIC_SCHEMA_VERSION: u32 = 16;
 /// Version tag for the shared run artifact bundle schema.
 pub const ARTIFACT_BUNDLE_SCHEMA_VERSION: u32 = 1;
 /// Human-readable resume contract identifier for the current research path.
 pub const RESUME_CONTRACT_VERSION: &str = "weights+history+step";
 
 include!("losses.rs");
+include!("objective_budget.rs");
+include!("branch_schedule.rs");
 include!("split_types.rs");
 include!("artifacts.rs");
 include!("split_impl.rs");

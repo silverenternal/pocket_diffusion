@@ -55,7 +55,10 @@ de novo full molecular flow path.
   atom types, bonds, and coordinates are training supervision only.
 - Optimizer signal: coordinate velocity/endpoint losses plus atom-type
   categorical loss, bond existence/type loss, topology synchronization loss,
-  pocket/context representation loss, and branch synchronization loss.
+  pocket/context representation loss, branch synchronization loss, optional
+  bounded short-rollout losses from `training.rollout_training`, rich
+  pocket-interaction objectives, and chemistry-native guardrails when their
+  staged weights are active.
 - Claim boundary: native de novo molecular flow evidence only when the full
   branch set, non-index matching provenance, raw-native layer metrics, and
   dataset leakage gates are persisted. Compact smoke evidence proves execution
@@ -78,9 +81,17 @@ The executable path now exists, but stronger claims still require persisted
 evidence:
 
 - Full-branch config and loss provenance in every claim-bearing run.
+- Objective-family budget reports covering task, rollout, pocket-interaction,
+  chemistry, redundancy, probe, leakage, gate, and slot families.
+- Active rollout-training metrics when optimizer-facing rollout wording is used.
 - Dataset leakage gates for target-ligand-centered context dependency.
 - Joint evaluation gates for atom type, bond structure, topology validity,
   geometry quality, pocket fit, raw-versus-processed attribution, and efficiency.
+- Raw-native generation reports and evaluation matrix rows that keep raw,
+  constrained, repaired, reranked, and backend-scored evidence separate.
+- Generation-alignment ablations for flow head, rollout training, chemistry
+  constraints, pocket-interaction loss richness, and controlled-interaction
+  negative control.
 - Multi-seed and held-out-pocket evidence showing that native raw flow quality
   does not depend on repaired/reranked postprocessing.
 - Claim summaries with `raw_native_evidence` leading
@@ -103,6 +114,31 @@ The machine-readable generation-mode contract in
 These labels are deliberately conservative. Even refinement modes may consume a
 ligand-like input at inference, but target dataset labels remain
 `target_supervision_only` and cannot be treated as pocket-only inference inputs.
+
+## Q15 Alignment Mechanisms
+
+The Q15 final method contract is maintained in
+[`q15_generation_alignment_final_contract.md`](q15_generation_alignment_final_contract.md).
+The relevant config and report surfaces are:
+
+- `training.rollout_training` for optimizer-facing bounded short-rollout
+  losses.
+- `training.loss_weights.rho_pocket_contact`,
+  `lambda_pocket_pair_distance`, `sigma_pocket_clash`,
+  `omega_pocket_shape_complementarity`, `tau_pocket_envelope`, and
+  `kappa_pocket_prior` for thin versus rich pocket-interaction supervision.
+- `model.flow_velocity_head.kind` and `model.pairwise_geometry` for MLP versus
+  equivariant geometry-flow heads.
+- `training.loss_weights.upsilon_valence_guardrail`,
+  `phi_bond_length_guardrail`, `chi_nonbonded_distance_guardrail`, and
+  `psi_angle_guardrail` for chemistry-native constraints.
+- `training.objective_scale_diagnostics`,
+  `training.objective_gradient_diagnostics`, and
+  `training.adaptive_stage_guard` for staged objective scale and promotion
+  review.
+- `raw_native_generation_report.json`, `evaluation_matrix`, and
+  `ablation_matrix_summary.json` for raw-native evaluation and ablation
+  evidence.
 
 ## Negative Tests And Gates
 

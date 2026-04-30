@@ -311,7 +311,7 @@ pub fn print_automated_search(summary: &AutomatedSearchSummary) {
 /// Print one training step record.
 pub fn print_step_metrics(metrics: &StepMetrics) {
     println!(
-        "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} probe_ligand_pharmacophore={:.4} probe_pocket_pharmacophore={:.4} leak={:.4} leak_core={:.4} leak_similarity_proxy_diagnostic={:.4} leak_explicit_probe_diagnostic={:.4} leak_topology_to_geometry={:.4} leak_geometry_to_topology={:.4} leak_pocket_to_geometry={:.4} leak_topology_to_pocket_role={:.4} leak_geometry_to_pocket_role={:.4} leak_pocket_to_ligand_role={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_clash={:.4} pocket_envelope={:.4} valence_guardrail={:.4} bond_length_guardrail={:.4} interaction_gate={:.4} interaction_sparsity={:.4} interaction_entropy={:.4} grad_norm={:.4} grad_nonfinite={} grad_clipped={} optimizer_step_skipped={} sync_mask_mismatch={} sync_slot_mismatch={} sync_frame_mismatch={} stale_context_steps={} refresh_count={} batch_slice_sync_pass={}",
+        "step {} [{:?}] total={:.4} primary:{}={:.4} decoder_anchor={} intra_red={:.4} probe={:.4} probe_topology_sparse_negative_rate={:.4} probe_ligand_pharmacophore={:.4} probe_pocket_pharmacophore={:.4} leak={:.4} leak_core={:.4} leak_similarity_proxy_diagnostic={:.4} leak_explicit_probe_diagnostic={:.4} leak_topology_to_geometry={:.4} leak_geometry_to_topology={:.4} leak_pocket_to_geometry={:.4} leak_topology_to_pocket_role={:.4} leak_geometry_to_pocket_role={:.4} leak_pocket_to_topology_role={:.4} leak_pocket_to_ligand_role={:.4} gate={:.4} slot={:.4} consistency={:.4} pocket_contact={:.4} pocket_pair_distance={:.4} pocket_clash={:.4} pocket_shape_complementarity={:.4} pocket_envelope={:.4} pocket_prior={:.4} pocket_prior_atom_count={:.4} pocket_prior_composition={:.4} pocket_prior_atom_count_mae={:.4} valence_guardrail={:.4} valence_overage_guardrail={:.4} valence_underage_guardrail={:.4} bond_length_guardrail={:.4} nonbonded_distance_guardrail={:.4} angle_guardrail={:.4} interaction_gate={:.4} interaction_sparsity={:.4} interaction_entropy={:.4} grad_norm={:.4} grad_nonfinite={} grad_clipped={} optimizer_step_skipped={} sync_mask_mismatch={} sync_slot_mismatch={} sync_frame_mismatch={} stale_context_steps={} refresh_count={} batch_slice_sync_pass={}",
         metrics.step,
         metrics.stage,
         metrics.losses.total,
@@ -320,6 +320,10 @@ pub fn print_step_metrics(metrics: &StepMetrics) {
         metrics.losses.primary.decoder_anchored,
         metrics.losses.auxiliaries.intra_red,
         metrics.losses.auxiliaries.probe,
+        metrics
+            .losses
+            .auxiliaries
+            .probe_topology_sparse_negative_rate,
         metrics.losses.auxiliaries.probe_ligand_pharmacophore,
         metrics.losses.auxiliaries.probe_pocket_pharmacophore,
         metrics.losses.auxiliaries.leak,
@@ -340,15 +344,29 @@ pub fn print_step_metrics(metrics: &StepMetrics) {
             .losses
             .auxiliaries
             .leak_geometry_to_pocket_role,
+        metrics
+            .losses
+            .auxiliaries
+            .leak_pocket_to_topology_role,
         metrics.losses.auxiliaries.leak_pocket_to_ligand_role,
         metrics.losses.auxiliaries.gate,
         metrics.losses.auxiliaries.slot,
         metrics.losses.auxiliaries.consistency,
         metrics.losses.auxiliaries.pocket_contact,
+        metrics.losses.auxiliaries.pocket_pair_distance,
         metrics.losses.auxiliaries.pocket_clash,
+        metrics.losses.auxiliaries.pocket_shape_complementarity,
         metrics.losses.auxiliaries.pocket_envelope,
+        metrics.losses.auxiliaries.pocket_prior,
+        metrics.losses.auxiliaries.pocket_prior_atom_count,
+        metrics.losses.auxiliaries.pocket_prior_composition,
+        metrics.losses.auxiliaries.pocket_prior_atom_count_mae,
         metrics.losses.auxiliaries.valence_guardrail,
+        metrics.losses.auxiliaries.valence_overage_guardrail,
+        metrics.losses.auxiliaries.valence_underage_guardrail,
         metrics.losses.auxiliaries.bond_length_guardrail,
+        metrics.losses.auxiliaries.nonbonded_distance_guardrail,
+        metrics.losses.auxiliaries.angle_guardrail,
         metrics.interaction.mean_gate,
         metrics.interaction.mean_gate_sparsity,
         metrics.interaction.mean_attention_entropy,
@@ -365,17 +383,19 @@ pub fn print_step_metrics(metrics: &StepMetrics) {
     );
     for record in &metrics.losses.primary.component_provenance {
         println!(
-            "  primary component {} anchor={} role={} differentiable={} optimizer_facing={}",
+            "  primary component {} anchor={} target_source={} role={} differentiable={} optimizer_facing={}",
             record.component_name,
             record.anchor,
+            record.target_source,
             record.role,
             record.differentiable,
             record.optimizer_facing
         );
     }
     println!(
-        "  stage ramp={:.4} active_objectives={}",
+        "  stage ramp={:.4} promotion_gate={} active_objectives={}",
         metrics.stage_progress.stage_ramp,
+        metrics.stage_progress.promotion_gate_decision,
         metrics.stage_progress.active_objective_families.join(",")
     );
     println!(
@@ -396,6 +416,60 @@ pub fn print_step_metrics(metrics: &StepMetrics) {
         metrics.losses.primary.weighted_value,
         metrics.losses.primary.enabled
     );
+    println!(
+        "  rollout training enabled={} active={} steps={:.2} teacher_forced={:.4} rollout_state={:.4} divergence={:.4} generated_validity={:.4} bond_sparse_negative_rate={:.4}",
+        metrics.losses.rollout_training.enabled,
+        metrics.losses.rollout_training.active,
+        metrics.losses.rollout_training.executed_steps_mean,
+        metrics.losses.rollout_training.teacher_forced_loss,
+        metrics.losses.rollout_training.rollout_state_loss,
+        metrics.losses.rollout_training.teacher_rollout_divergence,
+        metrics.losses.rollout_training.generated_state_validity,
+        metrics.losses.rollout_training.bond_sparse_negative_rate
+    );
+    println!(
+        "  objective gradients enabled={} sampled={} mode={} dominant_count={} threshold={:.4}",
+        metrics.gradient_health.objective_families.enabled,
+        metrics.gradient_health.objective_families.sampled,
+        metrics.gradient_health.objective_families.sampling_mode,
+        metrics
+            .gradient_health
+            .objective_families
+            .dominant_family_count,
+        metrics
+            .gradient_health
+            .objective_families
+            .dominance_fraction_threshold
+    );
+    for entry in &metrics.gradient_health.objective_families.entries {
+        println!(
+            "  objective_gradient_family {} weighted={:.4} grad_l2={:.4} grad_fraction={:.4} status={} provenance={} anomaly={}",
+            entry.family_name,
+            entry.weighted_value,
+            entry.grad_l2_norm,
+            entry.grad_norm_fraction,
+            entry.status,
+            entry.provenance,
+            entry.anomaly.as_deref().unwrap_or("")
+        );
+    }
+    for entry in &metrics.losses.objective_family_budget_report.entries {
+        println!(
+            "  objective_family {} unweighted={:.4} weight={:.4} weighted={:.4} raw_weighted={:.4} pct_total={:.4} enabled={} status={} budget_cap={:?} budget_action={} clamped={} warning={}",
+            entry.family,
+            entry.unweighted_value,
+            entry.effective_weight,
+            entry.weighted_value,
+            entry.raw_weighted_value,
+            entry.percentage_of_total,
+            entry.enabled,
+            entry.status,
+            entry.budget_cap_fraction,
+            entry.budget_action,
+            entry.budget_clamped,
+            entry.warning.as_deref().unwrap_or("")
+        );
+    }
     for entry in &metrics
         .losses
         .auxiliaries
@@ -523,6 +597,26 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
             group.measurement_type, group.count, group.mae, group.rmse
         );
     }
+    for baseline in &metrics.proxy_task_metrics.probe_baselines {
+        println!(
+            "    probe [{}] {}: observed={} trivial={} improves={} status={} count={} target_pos={} pred_pos={} pos_gap={} pos_loss={} neg_loss={} target_mean={} pred_mean={} mean_error={}",
+            baseline.target,
+            baseline.loss_kind,
+            format_optional_f64(baseline.observed_loss),
+            format_optional_f64(baseline.trivial_baseline_loss),
+            format_optional_bool(baseline.improves_over_trivial),
+            baseline.supervision_status,
+            baseline.available_count,
+            format_optional_f64(baseline.target_positive_rate),
+            format_optional_f64(baseline.prediction_positive_rate),
+            format_optional_f64(baseline.positive_rate_gap),
+            format_optional_f64(baseline.positive_observed_loss),
+            format_optional_f64(baseline.negative_observed_loss),
+            format_optional_f64(baseline.scalar_target_mean),
+            format_optional_f64(baseline.scalar_prediction_mean),
+            format_optional_f64(baseline.scalar_mean_error)
+        );
+    }
     println!("  split context:");
     println!("    examples: {}", metrics.split_context.example_count);
     println!(
@@ -595,10 +689,12 @@ pub fn print_eval_metrics(metrics: &EvaluationMetrics) {
         metrics.model_design.processed_clash_fraction
     );
     println!(
-        "    slot={:.4} gate={:.4} gate_saturation={:.4} leakage={:.4}",
+        "    slot={:.4} gate={:.4} gate_saturation={:.4} gate_closed={:.4} gate_grad={:.4} leakage={:.4}",
         metrics.model_design.slot_activation_mean,
         metrics.model_design.gate_activation_mean,
         metrics.model_design.gate_saturation_fraction,
+        metrics.model_design.gate_closed_fraction_mean,
+        metrics.model_design.gate_gradient_proxy_mean,
         metrics.model_design.leakage_proxy_mean
     );
     println!("  real-generation metrics:");
@@ -713,15 +809,25 @@ fn format_chemistry_metric(metric: &ChemistryCollaborationMetric) -> String {
 
 fn print_candidate_layer(label: &str, layer: &crate::experiments::CandidateLayerMetrics) {
     println!(
-        "    {label}: count={} valid={:.4} contact={:.4} centroid_offset={:.4} clash={:.4} displacement={:.4} atom_change={:.4} unique_proxy={:.4}",
+        "    {label}: count={} valid={:.4} contact={:.4} distance_bin={:.4} precision={:.4} recall={:.4} role={:.4} centroid_offset={:.4} clash={:.4} displacement={:.4} atom_change={:.4} unique_proxy={:.4} graph_valid={:.4} repair_delta={:.2} raw_removed={:.2} conn_added={:.2} valence_down={:.2} provenance={}",
         layer.candidate_count,
         layer.valid_fraction,
         layer.pocket_contact_fraction,
+        layer.pocket_distance_bin_accuracy,
+        layer.pocket_contact_precision_proxy,
+        layer.pocket_contact_recall_proxy,
+        layer.pocket_role_compatibility_proxy,
         layer.mean_centroid_offset,
         layer.clash_fraction,
         layer.mean_displacement,
         layer.atom_change_fraction,
         layer.uniqueness_proxy_fraction,
+        layer.native_graph_valid_fraction,
+        layer.native_graph_repair_delta_mean,
+        layer.native_raw_to_constrained_removed_bond_count_mean,
+        layer.native_connectivity_guardrail_added_bond_count_mean,
+        layer.native_valence_guardrail_downgrade_count_mean,
+        layer.pocket_interaction_provenance,
     );
 }
 
@@ -849,6 +955,18 @@ fn print_reserved_backend(label: &str, backend: &crate::experiments::ReservedBac
     if !backend.metrics.is_empty() {
         println!("      metrics: {:?}", backend.metrics);
     }
+}
+
+fn format_optional_f64(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.4}"))
+        .unwrap_or_else(|| "unavailable".to_string())
+}
+
+fn format_optional_bool(value: Option<bool>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "unavailable".to_string())
 }
 
 fn print_split_stats(name: &str, stats: &crate::training::SplitStats) {

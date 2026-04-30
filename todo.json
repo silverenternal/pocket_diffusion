@@ -1,46 +1,46 @@
 {
   "project": "pocket_diffusion",
-  "version": "q14_model_training_design_hardening_plan",
+  "version": "q15_generation_goal_alignment_plan",
   "created_at": "2026-04-29",
-  "goal": "Review and harden the model design and training design end to end, with priority on de novo full molecular flow, shape-safe training objectives, leakage-control semantics, slot specialization, controlled cross-modal interaction, trainer/runtime correctness, and claim-safe evaluation evidence.",
-  "context_summary": "The current Rust stack already exposes separate topology, geometry, and pocket/context encoders; learned slot decomposition; six directed gated cross-modal attention paths; conditioned denoising; geometry flow matching; and a config-gated de_novo_initialization path with molecular flow branches. The main risks are not missing scaffolding but weak or ambiguous training semantics: de novo auxiliary losses still assume target atom count compatibility in some paths, leakage penalties can train probes to fail instead of proving non-leakage, de novo target alignment is index-based rather than permutation-invariant, pocket_context flow reconstruction is not a strong ligand-pocket generation signal, slot semantics are weakly tied to the primary task, and trainer/evaluation metrics can overemphasize health checks or processed layers.",
+  "goal": "Align model design, training objectives, rollout behavior, pocket-conditioning supervision, chemical-validity constraints, and evaluation gates with the final goal: de novo pocket-conditioned molecular generation that is valid, geometrically plausible, pocket-compatible, diverse, efficient, and claim-safe.",
+  "context_summary": "The codebase already has separate topology, geometry, and pocket/context encoders; slot decomposition; gated directed cross-modal interaction; flow matching; molecular branch heads; target matching; semantic and leakage probes; staged auxiliary objectives; and raw-vs-processed evaluation instrumentation. The remaining risk is objective alignment: optimizer-visible training still relies heavily on reference-ligand supervised one-step proxy losses, while final generation quality is mostly observed through no-grad rollout diagnostics and downstream repair/evaluation. This plan focuses on closing that gap without collapsing modality boundaries or replacing controlled interaction with naive fusion.",
+  "current_state_summary": "Q14 hardening completed before this plan. Q15 P0 through P4 are complete: optimizer-visible objective inventory, raw generation quality contracts, bounded rollout training, pocket-ligand interaction supervision, equivariant geometry flow, and chemistry-native generation constraints are implemented/documented. P4 adds generated-logit valence-budget guardrails with over/under logging, bond-length/nonbonded/angle proxies, staged chemistry weights, raw graph repair/conflict metrics, and the contract in docs/q15_chemistry_native_constraints.md. P5 is complete: de novo initialization now supports config-gated bounded multi-sample scaffold/x0 policies with deterministic sample seeds, trainer expansion, evaluation candidate provenance, and rollout reports; explicit pocket-conditioned atom-count and composition prior heads/losses are staged and tested; generation-layer diversity now uses validity-conditioned, permutation-invariant equivalence classes so invalid or atom-order-permuted candidates do not inflate raw uniqueness.",
   "primary_risks": [
-    "De novo auxiliary probe and consistency losses may panic or silently mis-supervise when generated atom count differs from target ligand atom count.",
-    "Explicit leakage training currently mixes probe and encoder roles, so low leakage loss can mean a weak or sabotaged probe rather than low semantic leakage.",
-    "Full molecular flow de novo training aligns generated and target atoms by index, which is not permutation-invariant and can teach unstable atom ordering artifacts.",
-    "The pocket_context flow branch reconstructs conditioning context instead of directly constraining ligand-pocket contacts, interactions, or compatibility.",
-    "Slot decomposition is present but weakly coupled to task-critical atom, bond, geometry, and pocket decisions.",
-    "Cross-modal gates are path-level scalars, which is controllable but too coarse for local pocket-conditioned generation.",
-    "Rollout diagnostics are not consistently isolated from optimizer-facing training graphs in batched paths.",
-    "Default validation and gradient diagnostics can report training health without proving model quality or objective-family gradient behavior.",
-    "Config names such as enabled flow branches, branch schedules, and claim switches can be misunderstood by future experiments."
+    "Rollout generation quality is mostly diagnostic and not directly optimizer-facing.",
+    "De novo full-flow training still imitates a single reference ligand instead of learning a pocket-conditioned generation distribution.",
+    "Pocket-conditioning supervision is too thin if it is limited to per-atom binary contact targets.",
+    "The default coordinate flow heads are MLP-based over centered coordinates rather than SE(3)-equivariant by construction.",
+    "Chemical validity is partially enforced by graph extraction, repair, or downstream filtering instead of native differentiable objectives.",
+    "Auxiliary objectives can dominate or obscure final generation quality without objective-family scale budgets and promotion gates.",
+    "Evaluation can overstate readiness if raw-native generation metrics are not separated from repaired or postprocessed metrics."
   ],
   "non_goals": [
-    "Do not collapse topology, geometry, and pocket/context encoders into a single unrestricted fusion encoder.",
-    "Do not replace directed gated cross-modal interaction with naive fusion except as an explicit negative-control ablation.",
+    "Do not collapse topology, geometry, and pocket/context encoders into one unrestricted fusion encoder.",
+    "Do not replace directed gated cross-modal interaction with naive full fusion except as an explicit negative-control ablation.",
     "Do not rewrite core modeling, training, data loading, or evaluation logic into Python.",
-    "Do not promote smoke-test de novo execution into benchmark-quality molecular-generation claims.",
-    "Do not hide coordinate repair, valence pruning, reranking, or backend scoring inside raw model-native metrics.",
-    "Do not make unstable mutual-information estimators the central redundancy objective."
+    "Do not make unstable mutual-information estimators the central redundancy objective.",
+    "Do not hide coordinate repair, valence repair, docking reranking, or backend scoring inside raw model-native metrics.",
+    "Do not promote smoke-test execution into benchmark-quality molecular-generation claims."
   ],
   "execution_rules": [
     "Complete phases in order unless a later task is required to unblock an earlier one.",
-    "Delete a task object from todo.json only after its acceptance_criteria, verification, and completion_evidence are satisfied.",
+    "Delete a task object from todo.json only after its acceptance_criteria, verification_profile, and completion_evidence are satisfied.",
     "Do not delete a phase until every task in that phase has been completed and removed.",
     "If a task is blocked, keep it in todo.json and add blocker_note with the concrete blocker and proposed next step.",
     "After deleting tasks, update task_count_expected and phase_count so they match remaining tasks and phases.",
     "Keep the crate compiling after each implementation phase.",
-    "Prefer Rust implementation and tests for core model, loss, trainer, data, and evaluation work.",
+    "Prefer Rust implementation and tests for core model, loss, trainer, data, evaluation, and experiment infrastructure.",
     "Preserve separate modality encoders, explicit slot decomposition, directed gated cross-modal interaction, and ablation-friendly config surfaces.",
     "Use targeted tests for touched modules first, then broader verification before removing phase-critical tasks.",
     "Avoid reverting unrelated dirty worktree changes.",
     "When context becomes large, update current_state_summary with completed phase outcomes before continuing."
   ],
   "workflow": {
-    "execution_order": "P0 baseline audit, P1 de novo shape-safe losses, P2 leakage-control redesign, P3 permutation-invariant full-flow matching, P4 pocket-conditioned molecular-flow semantics, P5 slot and interaction strengthening, P6 trainer/runtime cleanup, P7 data and coordinate contracts, P8 evaluation and claim safety, P9 documentation and final validation.",
+    "execution_order": "P0 objective signal audit, P1 optimizer-facing rollout training, P2 pocket-ligand interaction supervision, P3 equivariant geometry flow, P4 chemistry-native constraints, P5 distributional de novo training, P6 objective scale and staging, P7 evaluation ablations and documentation.",
     "task_retention": "Never delete a task until concrete completion evidence exists in the working context.",
     "task_count_policy": "task_count_expected must equal the total number of remaining task objects across all phases.",
-    "phase_count_policy": "phase_count must equal the number of phases that still contain task objects."
+    "phase_count_policy": "phase_count must equal the number of phases that still contain task objects.",
+    "implementation_policy": "Prefer small vertical slices that add config, implementation, metrics, and tests together. Keep every slice runnable and ablation-friendly."
   },
   "verification_profiles": {
     "json_only": [
@@ -51,44 +51,40 @@
       "cargo fmt --check",
       "cargo test --no-run"
     ],
-    "losses": [
+    "rollout_training": [
       "jq empty todo.json",
       "cargo fmt --check",
-      "cargo test losses"
+      "cargo test rollout",
+      "cargo test de_novo",
+      "cargo test models::system"
     ],
-    "de_novo_flow": [
+    "pocket_interaction": [
+      "jq empty todo.json",
+      "cargo fmt --check",
+      "cargo test pocket",
+      "cargo test losses",
+      "cargo test models::flow"
+    ],
+    "equivariant_flow": [
       "jq empty todo.json",
       "cargo fmt --check",
       "cargo test flow_matching",
       "cargo test models::flow",
-      "cargo test de_novo"
+      "cargo test rotation"
     ],
-    "leakage": [
+    "chemistry_constraints": [
       "jq empty todo.json",
       "cargo fmt --check",
-      "cargo test leakage",
-      "cargo test leakage_calibration"
+      "cargo test losses",
+      "cargo test target_matching",
+      "cargo test native_graph"
     ],
-    "slot_interaction": [
-      "jq empty todo.json",
-      "cargo fmt --check",
-      "cargo test slot",
-      "cargo test interaction",
-      "cargo test cross_attention"
-    ],
-    "trainer": [
+    "objective_staging": [
       "jq empty todo.json",
       "cargo fmt --check",
       "cargo test scheduler",
       "cargo test trainer",
       "cargo test training"
-    ],
-    "data": [
-      "jq empty todo.json",
-      "cargo fmt --check",
-      "cargo test data",
-      "cargo test parser",
-      "cargo test features"
     ],
     "evaluation": [
       "jq empty todo.json",
@@ -102,8 +98,7 @@
       "cargo fmt --check",
       "git diff --check",
       "cargo test --no-run",
-      "cargo test --no-fail-fast",
-      "tools/local_ci.sh fast"
+      "cargo test --no-fail-fast"
     ]
   },
   "phases": [],
@@ -112,27 +107,32 @@
   "claim_categories": [
     "model_boundary",
     "generation_boundary",
+    "optimizer_visible_rollout",
+    "scheduled_sampling",
     "de_novo_generation",
-    "shape_safe_training",
-    "permutation_invariant_matching",
+    "distributional_generation",
+    "target_provenance",
+    "raw_native_generation",
+    "repair_layer",
+    "pocket_interaction",
+    "pocket_shape",
+    "pharmacophore_compatibility",
+    "equivariant_geometry",
     "flow_geometry",
     "flow_atom_type",
     "flow_bond",
-    "flow_topology",
-    "flow_pocket_interaction",
-    "flow_synchronization",
+    "chemical_validity",
+    "valence_validity",
     "objective_scale",
     "branch_schedule",
-    "training_signal_integrity",
+    "stage_promotion",
+    "gradient_health",
     "leakage_control",
-    "frozen_probe_audit",
     "slot_semantics",
     "controlled_interaction",
-    "coordinate_frame_contract",
-    "target_context_leakage",
+    "unseen_pocket_generalization",
     "runtime_efficiency",
-    "evaluation_provenance",
-    "raw_vs_processed_layers",
+    "ablation_readiness",
     "claim_safety"
   ],
   "task_metadata_schema": {
@@ -146,6 +146,5 @@
     "acceptance_criteria": "Checks required before deleting the task.",
     "verification_profile": "Key in verification_profiles.",
     "completion_evidence": "Concrete evidence required before removing the task from todo.json."
-  },
-  "current_state_summary": "Q14 hardening plan completed on 2026-04-29. P0-P8 delivered shape-safe de novo losses, frozen leakage audit separation, permutation-invariant target matching, pocket interaction flow semantics, slot-local conditioning, controlled interaction diagnostics, trainer/runtime hardening, data/coordinate contracts, raw-native claim evidence, repair-case audits, and compact conditioned_denoising, geometry_flow, and de_novo_full_flow smokes in checkpoints/q14_final_smoke. Q14 final smoke results: validation/test finite-forward fraction 1.0 for all three surfaces, total nonfinite gradient tensors 0, and de_novo_full_flow records hungarian_distance non-index matching with target_matching_claim_safe=true plus leakage calibration status. P9 updated final documentation in architecture_module_map, q14_active_path_review, generation_objective_boundary, q14_leakage_training_contract, claim_readiness, dataset_training_methods_zh, q14_final_smoke_summary, and q14_final_documentation_summary; generated Chinese HTML/DOCX/ODT formats were refreshed with pandoc. Final verification passed: jq empty todo.json and Q14 JSON artifacts, cargo fmt --check, git diff --check, cargo test --no-run, cargo test --no-fail-fast, tools/local_ci.sh fast, cargo test evaluation, cargo test experiments, cargo test reviewer_tooling, cargo test --test reviewer_tooling, and stale-doc wording rg checks. todo.json is complete with phases=[], task_count_expected=0, and phase_count=0."
+  }
 }

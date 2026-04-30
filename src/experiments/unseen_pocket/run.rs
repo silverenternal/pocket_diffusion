@@ -113,6 +113,8 @@ impl UnseenPocketExperiment {
         );
         let dataset_validation = loaded.validation;
         let coordinate_frame = CoordinateFrameProvenance::from_dataset_validation(&dataset_validation);
+        let evaluation_matrix =
+            build_evaluation_matrix_report(&split_report, &validation, &test);
         let mut summary = UnseenPocketExperimentSummary {
             config,
             dataset_validation,
@@ -122,6 +124,7 @@ impl UnseenPocketExperiment {
             training_history: trainer.history().to_vec(),
             validation,
             test,
+            evaluation_matrix,
             ablation_matrix: None,
             performance_gates: PerformanceGateReport::default(),
         };
@@ -156,6 +159,7 @@ fn persist_experiment_summary(
     let slot_semantic_report_path = artifact_dir.join("slot_semantic_report.json");
     let summary_path = artifact_dir.join("experiment_summary.json");
     let claim_summary_path = artifact_dir.join("claim_summary.json");
+    let raw_native_generation_report_path = artifact_dir.join("raw_native_generation_report.json");
     let bundle_path = artifact_dir.join("run_artifacts.json");
     fs::write(
         &config_snapshot,
@@ -189,6 +193,10 @@ fn persist_experiment_summary(
         &claim_summary_path,
         serde_json::to_string_pretty(&build_claim_report(summary))?,
     )?;
+    fs::write(
+        &raw_native_generation_report_path,
+        serde_json::to_string_pretty(&build_raw_native_generation_report(summary))?,
+    )?;
     let bundle = RunArtifactBundle {
         schema_version: summary.reproducibility.artifact_bundle_schema_version,
         run_kind: RunKind::Experiment,
@@ -212,6 +220,179 @@ fn persist_experiment_summary(
     fs::write(bundle_path, serde_json::to_string_pretty(&bundle)?)?;
     persist_interaction_reviews(summary)?;
     Ok(())
+}
+
+fn build_raw_native_generation_report(
+    summary: &UnseenPocketExperimentSummary,
+) -> RawNativeGenerationReport {
+    let raw_layer = &summary.test.layered_generation_metrics.raw_rollout;
+    let processed_layer = preferred_processed_layer(&summary.test.layered_generation_metrics);
+    let latest = summary.training_history.last();
+    let mut unsupported_reasons = Vec::new();
+    if raw_layer.candidate_count == 0 {
+        unsupported_reasons.push("raw_native_candidate_layer_empty".to_string());
+    }
+    if raw_layer.valid_fraction <= 0.0 {
+        unsupported_reasons.push("raw_native_valid_fraction_zero".to_string());
+    }
+    if raw_layer.pocket_contact_fraction <= 0.0 {
+        unsupported_reasons.push("raw_native_pocket_contact_fraction_zero".to_string());
+    }
+    if raw_layer.clash_fraction >= 1.0 {
+        unsupported_reasons.push("raw_native_clash_fraction_maximal".to_string());
+    }
+    let status = if unsupported_reasons.is_empty() {
+        "supported"
+    } else if raw_layer.candidate_count > 0 && raw_layer.valid_fraction > 0.0 {
+        "weakly_supported"
+    } else {
+        "unsupported"
+    };
+    RawNativeGenerationReport {
+        schema_version: 1,
+        report_role: "raw_native_generation_first_claim_review".to_string(),
+        split_label: "unseen_pocket_test".to_string(),
+        raw_native: raw_native_layer_summary(raw_layer, true, "model_native_raw_first"),
+        processed: raw_native_layer_summary(processed_layer, false, "additive_processed_evidence"),
+        rollout_diagnostics: RawNativeRolloutDiagnostics {
+            generation_mode: summary.test.comparison_summary.generation_mode.clone(),
+            raw_model_mean_displacement: summary.test.model_design.raw_model_mean_displacement,
+            latest_rollout_training_enabled: latest
+                .map(|step| step.losses.rollout_training.enabled)
+                .unwrap_or(false),
+            latest_rollout_training_active: latest
+                .map(|step| step.losses.rollout_training.active)
+                .unwrap_or(false),
+            latest_generated_state_validity: latest
+                .map(|step| step.losses.rollout_training.generated_state_validity),
+        },
+        objective_families: latest
+            .map(|step| {
+                step.losses
+                    .objective_family_budget_report
+                    .entries
+                    .clone()
+            })
+            .unwrap_or_default(),
+        claim_eligibility: RawNativeClaimEligibility {
+            status: status.to_string(),
+            processed_evidence_additive_only: true,
+            unsupported_reasons,
+        },
+    }
+}
+
+fn preferred_processed_layer(layered: &LayeredGenerationMetrics) -> &CandidateLayerMetrics {
+    if layered.reranked_candidates.candidate_count > 0 {
+        &layered.reranked_candidates
+    } else if layered.inferred_bond_candidates.candidate_count > 0 {
+        &layered.inferred_bond_candidates
+    } else {
+        &layered.repaired_candidates
+    }
+}
+
+fn raw_native_layer_summary(
+    layer: &CandidateLayerMetrics,
+    model_native_raw: bool,
+    claim_boundary: &str,
+) -> RawNativeLayerSummary {
+    RawNativeLayerSummary {
+        layer_name: layer.layer_name.clone(),
+        model_native_raw,
+        candidate_count: layer.candidate_count,
+        valid_fraction: layer.valid_fraction,
+        pocket_contact_fraction: layer.pocket_contact_fraction,
+        clash_fraction: layer.clash_fraction,
+        validity_conditioned_unique_fraction: layer.validity_conditioned_unique_fraction,
+        claim_boundary: claim_boundary.to_string(),
+    }
+}
+
+fn build_evaluation_matrix_report(
+    split_report: &SplitReport,
+    validation: &EvaluationMetrics,
+    test: &EvaluationMetrics,
+) -> EvaluationMatrixReport {
+    let pocket_identity_policy =
+        "protein_id_disjoint_unseen_pocket_split_with_pocket_family_proxy_audit".to_string();
+    EvaluationMatrixReport {
+        schema_version: 1,
+        pocket_identity_policy: pocket_identity_policy.clone(),
+        rows: vec![
+            EvaluationMatrixRow {
+                split_label: "seen_pocket_validation".to_string(),
+                split_type: "seen_pocket_validation".to_string(),
+                pocket_identity_handling:
+                    "train-reference pockets; included as a configured calibration surface"
+                        .to_string(),
+                evaluation_status: "configured_not_evaluated".to_string(),
+                example_count: split_report.train.example_count,
+                quality: EvaluationMatrixQualityMetrics::default(),
+                efficiency: EvaluationMatrixEfficiencyMetrics::default(),
+            },
+            evaluated_matrix_row(
+                "unseen_pocket_validation",
+                "unseen_pocket_validation",
+                "protein ids held out from train; pocket-family proxy overlap audited",
+                validation,
+            ),
+            evaluated_matrix_row(
+                "unseen_pocket_test",
+                "unseen_pocket_test",
+                "claim-facing protein ids held out from train; pocket-family proxy overlap audited",
+                test,
+            ),
+            EvaluationMatrixRow {
+                split_label: "stress_pocket".to_string(),
+                split_type: "stress_pocket".to_string(),
+                pocket_identity_handling:
+                    "optional stress-pocket subset; requires explicit stress split configuration"
+                        .to_string(),
+                evaluation_status: "not_configured".to_string(),
+                example_count: 0,
+                quality: EvaluationMatrixQualityMetrics::default(),
+                efficiency: EvaluationMatrixEfficiencyMetrics::default(),
+            },
+        ],
+    }
+}
+
+fn evaluated_matrix_row(
+    split_label: &str,
+    split_type: &str,
+    pocket_identity_handling: &str,
+    metrics: &EvaluationMetrics,
+) -> EvaluationMatrixRow {
+    EvaluationMatrixRow {
+        split_label: split_label.to_string(),
+        split_type: split_type.to_string(),
+        pocket_identity_handling: pocket_identity_handling.to_string(),
+        evaluation_status: "evaluated".to_string(),
+        example_count: metrics.split_context.example_count,
+        quality: EvaluationMatrixQualityMetrics {
+            raw_valid_fraction: Some(metrics.model_design.raw_model_valid_fraction),
+            raw_pocket_contact_fraction: Some(metrics.model_design.raw_model_pocket_contact_fraction),
+            raw_clash_fraction: Some(metrics.model_design.raw_model_clash_fraction),
+            processed_valid_fraction: Some(metrics.model_design.processed_valid_fraction),
+            diversity_unique_fraction: Some(
+                metrics
+                    .layered_generation_metrics
+                    .raw_rollout
+                    .validity_conditioned_unique_fraction,
+            ),
+            slot_activation_mean: Some(metrics.representation_diagnostics.slot_activation_mean),
+            gate_activation_mean: Some(metrics.representation_diagnostics.gate_activation_mean),
+            leakage_proxy_mean: Some(metrics.representation_diagnostics.leakage_proxy_mean),
+        },
+        efficiency: EvaluationMatrixEfficiencyMetrics {
+            evaluation_time_ms: Some(metrics.resource_usage.evaluation_time_ms),
+            examples_per_second: Some(metrics.resource_usage.examples_per_second),
+            evaluation_batch_size: Some(metrics.resource_usage.evaluation_batch_size),
+            forward_batch_count: Some(metrics.resource_usage.forward_batch_count),
+            no_grad: Some(metrics.resource_usage.no_grad),
+        },
+    }
 }
 
 fn build_slot_semantic_report(summary: &UnseenPocketExperimentSummary) -> SlotSemanticReportArtifact {
@@ -601,16 +782,15 @@ fn find_interaction_summary(
             .cloned(),
         CrossAttentionMode::Transformer => {
             if summary.test.comparison_summary.interaction_mode == "transformer" {
-                Some(AblationRunSummary {
-                    variant_label: summary
+                Some(ablation_run_summary_from_experiment(
+                    summary
                         .config
                         .ablation
                         .variant_label
                         .clone()
                         .unwrap_or_else(|| "base_run".to_string()),
-                    validation: summary.validation.comparison_summary.clone(),
-                    test: summary.test.comparison_summary.clone(),
-                })
+                    summary,
+                ))
             } else {
                 matrix
                     .variants
@@ -640,11 +820,11 @@ fn find_interaction_summary_from_artifacts(
             .cloned(),
         CrossAttentionMode::Transformer => {
             if claim.test.interaction_mode == "transformer" {
-                Some(AblationRunSummary {
-                    variant_label: claim.run_label.clone(),
-                    validation: claim.validation.clone(),
-                    test: claim.test.clone(),
-                })
+                Some(ablation_run_summary_from_comparisons(
+                    claim.run_label.clone(),
+                    claim.validation.clone(),
+                    claim.test.clone(),
+                ))
             } else {
                 matrix
                     .variants

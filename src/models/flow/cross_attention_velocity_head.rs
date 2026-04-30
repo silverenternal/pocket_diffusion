@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use tch::{nn, no_grad, Kind, Tensor};
 
 use crate::models::{
-    ConditioningState, FlowMatchingHead, FlowState, GeometryFlowMatchingHead, ModelError,
-    PairwiseGeometryConfig, VelocityField,
+    ConditioningState, EquivariantGeometryVelocityHead, FlowMatchingHead, FlowState,
+    GeometryFlowMatchingHead, ModelError, PairwiseGeometryConfig, VelocityField,
 };
 
 /// Configuration for the gated atom-to-pocket velocity head ablation.
@@ -52,6 +52,8 @@ pub struct AtomPocketCrossAttentionVelocityHead {
 pub enum FlowVelocityHead {
     /// Baseline pooled-conditioning geometry head.
     Geometry(Box<GeometryFlowMatchingHead>),
+    /// EGNN-style equivariant geometry head.
+    EquivariantGeometry(Box<EquivariantGeometryVelocityHead>),
     /// Gated atom-to-pocket cross-attention ablation head.
     AtomPocketCrossAttention(Box<AtomPocketCrossAttentionVelocityHead>),
 }
@@ -64,6 +66,7 @@ impl FlowMatchingHead for FlowVelocityHead {
     ) -> Result<VelocityField, ModelError> {
         match self {
             Self::Geometry(head) => head.predict_velocity(state, conditioning),
+            Self::EquivariantGeometry(head) => head.predict_velocity(state, conditioning),
             Self::AtomPocketCrossAttention(head) => head.predict_velocity(state, conditioning),
         }
     }

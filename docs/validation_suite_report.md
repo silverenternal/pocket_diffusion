@@ -2,81 +2,43 @@
 
 # Validation Suite Report
 
-- status: fail
+- status: pass
 - mode: quick
 - total_checks: 27
-- failed_required: 2
-- failed_optional: 2
+- failed_required: 0
+- failed_optional: 1
 
 | Check | Required | Status | Seconds |
 | --- | --- | --- | ---: |
-| `cargo fmt` | true | pass | 0.221 |
-| `cargo test no-run` | true | pass | 0.084 |
-| `drug metric contract drift check` | true | pass | 1.051 |
-| `python syntax` | true | pass | 0.088 |
-| `json artifacts` | true | pass | 0.017 |
-| `q1 readiness audit` | true | pass | 1.149 |
-| `q1 readiness gate` | false | fail | 1.139 |
-| `validate unseen_pocket_pdbbindpp_real_backends.json` | true | pass | 0.244 |
-| `validate unseen_pocket_lp_pdbbind_refined_real_backends.json` | true | pass | 0.241 |
-| `validate unseen_pocket_tight_geometry_pressure.json` | true | pass | 0.240 |
-| `validate unseen_pocket_multi_seed_pdbbindpp_real_backends.json` | true | pass | 0.243 |
-| `validation manifest` | true | pass | 0.000 |
+| `cargo fmt` | true | pass | 0.249 |
+| `cargo test no-run` | true | pass | 0.085 |
+| `drug metric contract drift check` | true | pass | 1.050 |
+| `python syntax` | true | pass | 0.090 |
+| `json artifacts` | true | pass | 0.019 |
+| `q1 readiness audit` | true | pass | 1.140 |
+| `q1 readiness gate` | false | pass | 1.142 |
+| `validate unseen_pocket_pdbbindpp_real_backends.json` | true | pass | 0.243 |
+| `validate unseen_pocket_lp_pdbbind_refined_real_backends.json` | true | pass | 0.240 |
+| `validate unseen_pocket_tight_geometry_pressure.json` | true | pass | 0.241 |
+| `validate unseen_pocket_multi_seed_pdbbindpp_real_backends.json` | true | pass | 0.241 |
+| `validation manifest` | true | pass | 0.001 |
 | `drug metric contract config` | true | pass | 0.000 |
-| `q2 artifact schema validation` | true | fail | 0.001 |
-| `layer attribution integrity` | true | fail | 0.045 |
+| `q2 artifact schema validation` | true | pass | 0.001 |
+| `layer attribution integrity` | true | pass | 0.047 |
 | `architecture boundary checks` | true | pass | 0.000 |
 | `architecture module map` | true | pass | 0.000 |
 | `artifact retention policy` | true | pass | 0.008 |
 | `backend coverage and score sanity` | true | pass | 0.007 |
-| `coordinate frame consistency` | true | pass | 0.033 |
+| `coordinate frame consistency` | true | pass | 0.032 |
 | `smoke diagnostics presence` | false | fail | 0.837 |
-| `provenance-safe pharmacology claims` | true | pass | 0.035 |
+| `provenance-safe pharmacology claims` | true | pass | 0.034 |
 | `negative claim/artifact fixtures` | true | pass | 0.001 |
-| `method comparison and postprocessing ablation regression` | true | pass | 0.071 |
+| `method comparison and postprocessing ablation regression` | true | pass | 0.074 |
 | `training replay contract` | true | pass | 0.000 |
 | `flow-head status claims` | true | pass | 0.009 |
-| `q3 non-degradation gate` | true | pass | 0.035 |
+| `q3 non-degradation gate` | true | pass | 0.038 |
 
 ## Failed Checks
-### q1 readiness gate
-- required: false
-- command: `/home/hugo/codes/patent_rw/.reviewer-env/bin/python tools/q1_readiness_audit.py --gate`
-- returncode: `1`
-
-```text
-{
-  "schema_version": 1,
-  "gate_failures": [
-    {
-      "reason": "q2_claim_contract_missing_or_incomplete"
-    }
-  ]
-}
-```
-### q2 artifact schema validation
-- required: true
-- command: `internal validate_q2_artifacts`
-- returncode: `1`
-
-```text
-q2 claim contract missing geometry-first or score_only guardrail
-todo phase missing name: P9
-todo phase missing goal: P9
-todo task missing rationale: Q14-P9-02
-todo task missing actions: Q14-P9-02
-todo task missing verification: Q14-P9-02
-todo task Q14-P9-02 actions must be a non-empty list of strings
-todo task Q14-P9-02 verification must be a non-empty list of strings
-```
-### layer attribution integrity
-- required: true
-- command: `internal validate_layer_attribution`
-- returncode: `1`
-
-```text
-README.md missing explicit layer boundary terms: ['deterministic_proxy', 'inferred_bond', 'reranked']
-```
 ### smoke diagnostics presence
 - required: false
 - command: `internal validate_diagnostic_presence_for_smoke_artifacts`

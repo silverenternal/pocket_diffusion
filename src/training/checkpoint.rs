@@ -185,17 +185,32 @@ pub struct SchedulerStateMetadata {
     pub consistency_weight: f64,
     /// Pocket-contact auxiliary weight at save time.
     pub pocket_contact_weight: f64,
+    /// Atom-pocket pair distance-bin auxiliary weight at save time.
+    #[serde(default)]
+    pub pocket_pair_distance_weight: f64,
     /// Pocket-clash auxiliary weight at save time.
     pub pocket_clash_weight: f64,
+    /// Pocket shape-complementarity auxiliary weight at save time.
+    #[serde(default)]
+    pub pocket_shape_complementarity_weight: f64,
     /// Pocket-envelope auxiliary weight at save time.
     #[serde(default)]
     pub pocket_envelope_weight: f64,
+    /// Pocket-conditioned size/composition prior weight at save time.
+    #[serde(default)]
+    pub pocket_prior_weight: f64,
     /// Valence guardrail auxiliary weight at save time.
     #[serde(default)]
     pub valence_guardrail_weight: f64,
     /// Bond-length guardrail auxiliary weight at save time.
     #[serde(default)]
     pub bond_length_guardrail_weight: f64,
+    /// Non-bonded distance guardrail auxiliary weight at save time.
+    #[serde(default)]
+    pub nonbonded_distance_guardrail_weight: f64,
+    /// Local-angle guardrail auxiliary weight at save time.
+    #[serde(default)]
+    pub angle_guardrail_weight: f64,
 }
 
 /// Result of restoring a checkpoint into a var store.
@@ -434,10 +449,15 @@ mod tests {
                     slot_weight: 0.0,
                     consistency_weight: 1.0,
                     pocket_contact_weight: 0.0,
+                    pocket_pair_distance_weight: 0.0,
                     pocket_clash_weight: 0.0,
+                    pocket_shape_complementarity_weight: 0.0,
                     pocket_envelope_weight: 0.0,
+                    pocket_prior_weight: 0.0,
                     valence_guardrail_weight: 0.0,
                     bond_length_guardrail_weight: 0.0,
+                    nonbonded_distance_guardrail_weight: 0.0,
+                    angle_guardrail_weight: 0.0,
                 }),
                 Some(DeterminismControls {
                     split_seed: 1,
@@ -532,10 +552,15 @@ mod tests {
                 slot_weight: 0.0,
                 consistency_weight: 1.0,
                 pocket_contact_weight: 0.0,
+                pocket_pair_distance_weight: 0.0,
                 pocket_clash_weight: 0.0,
+                pocket_shape_complementarity_weight: 0.0,
                 pocket_envelope_weight: 0.0,
+                pocket_prior_weight: 0.0,
                 valence_guardrail_weight: 0.0,
                 bond_length_guardrail_weight: 0.0,
+                nonbonded_distance_guardrail_weight: 0.0,
+                angle_guardrail_weight: 0.0,
             })
         );
         assert_eq!(

@@ -13,6 +13,7 @@
 //! Legacy dataset/demo/comparison APIs remain available for compatibility, and
 //! are grouped more explicitly under `legacy`.
 
+pub(crate) mod chemistry;
 pub mod config;
 pub mod data;
 #[doc(hidden)]
